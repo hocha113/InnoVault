@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Terraria;
 using Terraria.ModLoader;
 
 namespace InnoVault
@@ -20,19 +21,24 @@ namespace InnoVault
         public override void Load() {
             Loaders = VaultUtils.GetSubInterface<IVaultLoader>();
             foreach (var loader in Loaders) {
-                loader.Load();
+                loader.LoadData();
             }
         }
 
         public override void PostSetupContent() {
             foreach (var loader in Loaders) {
-                loader.Setup();
+                loader.SetupData();
+            }
+            if (!Main.dedServ) {
+                foreach (var loader in Loaders) {
+                    loader.LoadAsset();
+                }
             }
         }
 
         public override void Unload() {
             foreach (var loader in Loaders) {
-                loader.UnLoad();
+                loader.UnLoadData();
             }
             Loaders.Clear();
         }

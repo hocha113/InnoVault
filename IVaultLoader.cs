@@ -12,18 +12,18 @@
         /// <summary>
         /// 该方法在Load中的最后调用
         /// </summary>
-        public void Setup() { }
+        public void SetupData() { }
         /// <summary>
         /// 添加配方
         /// </summary>
-        public void AddRecipes() { }
+        public void AddRecipesData() { }
         /// <summary>
         /// 该方法在Load前行调用
         /// </summary>
-        public void Load() { }
+        public void LoadData() { }
         /// <summary>
         /// 该方法在UnLoad最后调用
         /// </summary>
-        public void UnLoad() { }
+        public void UnLoadData() { }
     }
 }

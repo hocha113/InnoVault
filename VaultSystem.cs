@@ -6,7 +6,7 @@ namespace InnoVault
     {
         public override void PostAddRecipes() {
             foreach (var loader in VaultMod.Loaders) {
-                loader.AddRecipes();
+                loader.AddRecipesData();
             }
         }
     }
