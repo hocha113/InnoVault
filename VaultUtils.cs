@@ -1,20 +1,20 @@
 ﻿using Microsoft.Xna.Framework;
 using Steamworks;
-using System.Collections.Generic;
-using System.Reflection;
-using System.Runtime.CompilerServices;
 using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Runtime.CompilerServices;
 using Terraria;
 using Terraria.Chat;
+using Terraria.DataStructures;
+using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
-using Terraria.Social;
 using Terraria.ModLoader.Core;
-using System.Linq;
-using Terraria.DataStructures;
 using Terraria.ObjectData;
-using System.IO;
+using Terraria.Social;
 
 namespace InnoVault
 {
@@ -33,19 +33,45 @@ namespace InnoVault
 
         #region System
 
+        /// <summary>
+        /// 检查指定玩家是否按下了鼠标键
+        /// </summary>
+        /// <param name="player">要检查的玩家</param>
+        /// <param name="leftCed">是否检查左鼠标键，否则检测右鼠标键</param>
+        /// <param name="netCed">是否进行网络同步检查</param>
+        /// <returns>如果按下了指定的鼠标键，则返回true，否则返回false</returns>
+        public static bool PressKey(this Player player, bool leftCed = true, bool netCed = true) {
+            return (!netCed || Main.myPlayer == player.whoAmI) && (leftCed ? PlayerInput.Triggers.Current.MouseLeft : PlayerInput.Triggers.Current.MouseRight);
+        }
+
+        /// <summary>
+        /// 根据当前环境实现网页重定向如果是在Steam环境中，则会通过Steam的内置浏览器打开网页，
+        /// 否则使用默认浏览器打开指定的URL
+        /// </summary>
+        /// <param name="str">要重定向的网页URL</param>
+        /// <param name="inSteam">是否在Steam环境下打开（默认为true）</param>
         public static void WebRedirection(this string str, bool inSteam = true) {
             if (SocialAPI.Mode == SocialMode.Steam && inSteam) {
+                // 如果当前运行环境为Steam，并且指定在Steam中打开，则使用Steam内置浏览器
                 SteamFriends.ActivateGameOverlayToWebPage(str);
             }
             else {
+                // 否则使用系统默认浏览器打开网页
                 Utils.OpenToURL(str);
             }
         }
 
+        /// <summary>
+        /// 获取所有已加载Mod的代码中的所有类型返回一个包含所有类型的数组，
+        /// 可以用于反射操作或动态类型检测
+        /// </summary>
+        /// <returns>所有Mod代码中的可加载类型数组</returns>
         public static Type[] GetAnyModCodeType() {
+            // 创建一个存储所有类型的列表
             List<Type> types = new List<Type>();
             Mod[] mods = ModLoader.Mods;
-            // 使用 LINQ 将所有类型平铺到一个集合中
+
+            // 使用 LINQ 将每个Mod的代码程序集中的所有可加载类型平铺到一个集合中
             types.AddRange(mods.SelectMany(mod => AssemblyManager.GetLoadableTypes(mod.Code)));
             return types.ToArray();
         }
@@ -162,7 +188,12 @@ namespace InnoVault
 
             return text;
         }
-
+        /// <summary>
+        /// 按比例混合输出颜色
+        /// </summary>
+        /// <param name="percent"></param>
+        /// <param name="colors"></param>
+        /// <returns></returns>
         public static Color MultiStepColorLerp(float percent, params Color[] colors) {
             if (colors == null) {
                 Text("MultiLerpColor: 空的颜色数组!");
