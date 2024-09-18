@@ -1,1 +1,10 @@
+Configs: {
+	VaultClientConfig: {
+		DisplayName: Vault Client Config
 
+		TileOperatorBoxSizeDraw: {
+			Label: Tile Operator Box Size Draw
+			Tooltip: ""
+		}
+	}
+}

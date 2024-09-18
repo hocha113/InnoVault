@@ -12,6 +12,9 @@ using Terraria.ModLoader;
 using Terraria.Social;
 using Terraria.ModLoader.Core;
 using System.Linq;
+using Terraria.DataStructures;
+using Terraria.ObjectData;
+using System.IO;
 
 namespace InnoVault
 {
@@ -20,6 +23,14 @@ namespace InnoVault
     /// </summary>
     public static class VaultUtils
     {
+        /// <summary>
+        /// 求一个点到另一个点的向量
+        /// </summary>
+        /// <param name="vr1"></param>
+        /// <param name="vr2"></param>
+        /// <returns></returns>
+        public static Vector2 To(this Vector2 vr1, Vector2 vr2) => vr2 - vr1;
+
         #region System
 
         public static void WebRedirection(this string str, bool inSteam = true) {
@@ -169,7 +180,7 @@ namespace InnoVault
 
         #endregion
 
-        #region NetUtils
+        #region Net
 
         /// <summary>
         /// 判断是否处于客户端状态，如果是在单人或者服务端下将返回false
@@ -188,6 +199,127 @@ namespace InnoVault
         /// 检查一个 Projectile 对象是否属于当前客户端玩家拥有的，如果是，返回true
         /// </summary>
         public static bool IsOwnedByLocalPlayer(this Projectile projectile) => projectile.owner == Main.myPlayer;
+
+        internal static void WritePoint16(this BinaryWriter writer, Point16 point16) {
+            writer.Write(point16.X);
+            writer.Write(point16.Y);
+        }
+
+        internal static Point16 ReadPoint16(this BinaryReader reader) => new Point16(reader.ReadInt16(), reader.ReadInt16());
+        #endregion
+
+        #region Tile
+        /// <summary>
+        /// 获取给定坐标的物块左上角位置，并判断该位置是否为多结构物块的左上角
+        /// </summary>
+        /// <param name="i">物块的x坐标</param>
+        /// <param name="j">物块的y坐标</param>
+        /// <returns>
+        /// 如果物块存在并且位于一个多结构物块的左上角，返回其左上角坐标，否则返回null
+        /// </returns>
+        public static Point16? GetTopLeftOrNull(int i, int j) {
+            // 获取给定坐标的物块
+            Tile tile = Framing.GetTileSafely(i, j);
+
+            // 如果没有物块，返回null
+            if (!tile.HasTile)
+                return null;
+
+            // 获取物块的数据结构，如果为null则认为是单个物块
+            TileObjectData data = TileObjectData.GetTileData(tile);
+
+            // 如果是单个物块，直接返回当前坐标
+            if (data == null)
+                return new Point16(i, j);
+
+            // 计算物块的帧位置偏移量
+            int frameX = tile.TileFrameX % (data.Width * 18);
+            int frameY = tile.TileFrameY % (data.Height * 18);
+
+            // 计算左上角的位置
+            int topLeftX = i - (frameX / 18);
+            int topLeftY = j - (frameY / 18);
+
+            // 返回左上角位置
+            return new Point16(topLeftX, topLeftY);
+        }
+
+        /// <summary>
+        /// 判断给定坐标是否为多结构物块的左上角位置，并输出左上角的坐标。
+        /// </summary>
+        /// <param name="i">物块的x坐标</param>
+        /// <param name="j">物块的y坐标</param>
+        /// <param name="point">输出的左上角坐标，如果不是左上角则为(0,0)</param>
+        /// <returns>如果是左上角，返回true，否则返回false。</returns>
+        public static bool IsTopLeft(int i, int j, out Point16 point) {
+            // 使用合并后的函数获取左上角位置
+            Point16? topLeft = GetTopLeftOrNull(i, j);
+
+            // 如果没有有效的左上角坐标，返回false，并将输出参数设为(0, 0)
+            if (!topLeft.HasValue) {
+                point = new Point16(0, 0);
+                return false;
+            }
+
+            // 获取左上角的实际坐标
+            point = topLeft.Value;
+
+            // 如果左上角位置与当前坐标相同，说明是左上角
+            return point.X == i && point.Y == j;
+        }
+
+        /// <summary>
+        /// 安全的获取多结构物块左上角的位置
+        /// </summary>
+        /// <param name="i"></param>
+        /// <param name="j"></param>
+        /// <param name="point"></param>
+        /// <returns></returns>
+        public static bool SafeGetTopLeft(int i, int j, out Point16 point) {
+            Point16? topLeft = GetTopLeftOrNull(i, j);
+            if (topLeft.HasValue) {
+                point = topLeft.Value;
+                return true;
+            }
+            else {
+                point = new Point16(0, 0);
+                return false;
+            }
+        }
+
+        /// <summary>
+        /// 获取一个物块目标，输入世界物块坐标，自动考虑收界情况
+        /// </summary>
+        public static Tile GetTile(int i, int j) {
+            return GetTile(new Vector2(i, j));
+        }
+
+        /// <summary>
+        /// 获取一个物块目标，输入世界物块坐标，自动考虑收界情况
+        /// </summary>
+        public static Tile GetTile(Vector2 pos) {
+            pos = PTransgressionTile(pos);
+            return Main.tile[(int)pos.X, (int)pos.Y];
+        }
+
+        /// <summary>
+        /// 将可能越界的方块坐标收值为非越界坐标
+        /// </summary>
+        public static Vector2 PTransgressionTile(Vector2 TileVr, int L = 0, int R = 0, int D = 0, int S = 0) {
+            if (TileVr.X > Main.maxTilesX - R) {
+                TileVr.X = Main.maxTilesX - R;
+            }
+            if (TileVr.X < 0 + L) {
+                TileVr.X = 0 + L;
+            }
+            if (TileVr.Y > Main.maxTilesY - S) {
+                TileVr.Y = Main.maxTilesY - S;
+            }
+            if (TileVr.Y < 0 + D) {
+                TileVr.Y = 0 + D;
+            }
+            return new Vector2(TileVr.X, TileVr.Y);
+        }
         #endregion
     }
 }

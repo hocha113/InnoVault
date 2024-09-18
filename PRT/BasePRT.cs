@@ -85,7 +85,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 仅仅在生成粒子的时候被执行一次，用于简单的内部初始化数据
         /// </summary>
-        public virtual void SetPRT() { }
+        public virtual void SetProperty() { }
         /// <summary>
         /// 每次更新粒子处理程序时调用。粒子的速度会自动添加到它的位置，它的时间也会自动增加
         /// </summary>
