@@ -11,6 +11,7 @@ namespace InnoVault.TileProcessors
     /// </summary>
     public class TileProcessorSystem : ModSystem
     {
+        /// <inheritdoc/>
         public override void OnWorldUnload() {
             foreach (TileProcessor module in TileProcessorLoader.TP_InWorld) {
                 if (!module.Active) {
@@ -19,7 +20,7 @@ namespace InnoVault.TileProcessors
                 module.UnLoadInWorld();
             }
         }
-
+        /// <inheritdoc/>
         public override void PostUpdateEverything() {
             if (TileProcessorLoader.TP_InWorld.Count <= 0) {
                 return;
@@ -50,7 +51,7 @@ namespace InnoVault.TileProcessors
                 }
             }
         }
-
+        /// <inheritdoc/>
         public override void PostDrawTiles() {
             if (TileProcessorLoader.TP_InWorld.Count <= 0) {
                 return;

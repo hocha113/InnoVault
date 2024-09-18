@@ -156,7 +156,7 @@ namespace InnoVault.TileProcessors
         /// </summary>
         /// <param name="spriteBatch"></param>
         public virtual void Draw(SpriteBatch spriteBatch) { }
-
+        /// <inheritdoc/>
         public override string ToString() => $"Name:{GetType().Name} \nID:{ID} \nwhoAmi:{WhoAmI}";
     }
 }

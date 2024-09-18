@@ -17,14 +17,14 @@ namespace InnoVault
         /// 所有继承了<see cref="IVaultLoader"/>接口的类的实例
         /// </summary>
         public static List<IVaultLoader> Loaders { get; private set; } = new List<IVaultLoader>();
-
+        /// <inheritdoc/>
         public override void Load() {
             Loaders = VaultUtils.GetSubInterface<IVaultLoader>();
             foreach (var loader in Loaders) {
                 loader.LoadData();
             }
         }
-
+        /// <inheritdoc/>
         public override void PostSetupContent() {
             foreach (var loader in Loaders) {
                 loader.SetupData();
@@ -35,7 +35,7 @@ namespace InnoVault
                 }
             }
         }
-
+        /// <inheritdoc/>
         public override void Unload() {
             foreach (var loader in Loaders) {
                 loader.UnLoadData();
