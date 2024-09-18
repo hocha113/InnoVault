@@ -15,7 +15,8 @@ namespace InnoVault.PRT
         /// </summary>
         public virtual string Texture => "";
         /// <summary>
-        /// 这种粒子在世界的最大存在数量是多少，默认2000
+        /// 这种粒子在世界的最大存在数量是多少，默认2000，不要将其设置为大于10000的值
+        /// 因为存在<see cref="PRTLoader.InGame_World_MaxPRTCount"/>的全局上限
         /// </summary>
         public virtual int InGame_World_MaxCount => 2000;
         /// <summary>

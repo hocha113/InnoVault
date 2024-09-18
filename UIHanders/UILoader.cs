@@ -99,6 +99,10 @@ namespace InnoVault.UIHanders
         /// 与模组菜单加载相关的 UI 处理器列表，负责处理菜单加载时的界面和交互逻辑
         /// </summary>
         public static List<UIHander> UIHanders_Mod_MenuLoad { get; private set; } = [];
+        /// <summary>
+        /// UI关于Type到所属模组的映射
+        /// </summary>
+        public static Dictionary<Type, Mod> UIHander_Type_To_Mod { get; private set; } = [];
         internal void Initialize() {
             UIHanders = [];
             UIHanders_Vanilla_Mouse_Text = [];
@@ -109,6 +113,7 @@ namespace InnoVault.UIHanders
             UIHanders_Vanilla_Ingame_Options = [];
             UIHanders_Vanilla_Diagnose_Net = [];
             UIHanders_Mod_MenuLoad = [];
+            UIHander_Type_To_Mod = [];
         }
         /// <inheritdoc/>
         public override void Load() {
@@ -117,7 +122,8 @@ namespace InnoVault.UIHanders
             UIHanders.RemoveAll(ui => !ui.CanLoad());
             foreach (var hander in UIHanders) {
                 hander.Load();
-                LayersModeGetInstanceList(hander.LayersMode).Add(hander);
+                VaultUtils.AddTypeModAssociation(UIHander_Type_To_Mod, hander.GetType(), ModLoader.Mods);
+                GetLayerModeHandlers(hander.LayersMode).Add(hander);
             }
 
             IL_Main.DrawMenu += IL_MenuLoadDraw_Hook;
@@ -204,67 +210,41 @@ namespace InnoVault.UIHanders
             }
         }
 
-        /// <inheritdoc/>
-        public string LayersModeGetCodeName(LayersModeEnum layersMode) {
-            string reset = "None";
-            switch (layersMode) {
-                case LayersModeEnum.Vanilla_Mouse_Text:
-                    reset = "Vanilla: Mouse Text";
-                    break;
-                case LayersModeEnum.Vanilla_Interface_Logic_1:
-                    reset = "Vanilla: Interface Logic 1";
-                    break;
-                case LayersModeEnum.Vanilla_MP_Player_Names:
-                    reset = "Vanilla: MP Player Names";
-                    break;
-                case LayersModeEnum.Vanilla_Hide_UI_Toggle:
-                    reset = "Vanilla: Hide UI Toggle";
-                    break;
-                case LayersModeEnum.Vanilla_Resource_Bars:
-                    reset = "Vanilla: Resource Bars";
-                    break;
-                case LayersModeEnum.Vanilla_Ingame_Options:
-                    reset = "Vanilla: Ingame Options";
-                    break;
-                case LayersModeEnum.Vanilla_Diagnose_Net:
-                    reset = "Vanilla: Diagnose Net";
-                    break;
-                case LayersModeEnum.Mod_MenuLoad:
-                    reset = "Mod_MenuLoad";
-                    break;
-            }
-            return reset;
+        /// <summary>
+        /// 根据指定的 <see cref="LayersModeEnum"/>，返回相应的图层模式的代码名称字符串
+        /// </summary>
+        /// <param name="layersMode">图层模式枚举 <see cref="LayersModeEnum"/></param>
+        /// <returns>图层模式的代码名称字符串</returns>
+        public static string GetLayerModeCodeName(LayersModeEnum layersMode) {
+            return layersMode switch {
+                LayersModeEnum.Vanilla_Mouse_Text => "Vanilla: Mouse Text",
+                LayersModeEnum.Vanilla_Interface_Logic_1 => "Vanilla: Interface Logic 1",
+                LayersModeEnum.Vanilla_MP_Player_Names => "Vanilla: MP Player Names",
+                LayersModeEnum.Vanilla_Hide_UI_Toggle => "Vanilla: Hide UI Toggle",
+                LayersModeEnum.Vanilla_Resource_Bars => "Vanilla: Resource Bars",
+                LayersModeEnum.Vanilla_Ingame_Options => "Vanilla: Ingame Options",
+                LayersModeEnum.Vanilla_Diagnose_Net => "Vanilla: Diagnose Net",
+                LayersModeEnum.Mod_MenuLoad => "Mod_MenuLoad",
+                _ => "None"
+            };
         }
-        /// <inheritdoc/>
-        public List<UIHander> LayersModeGetInstanceList(LayersModeEnum layersMode) {
-            List<UIHander> uiHanders = [];
-            switch (layersMode) {
-                case LayersModeEnum.Vanilla_Mouse_Text:
-                    uiHanders = UIHanders_Vanilla_Mouse_Text;
-                    break;
-                case LayersModeEnum.Vanilla_Interface_Logic_1:
-                    uiHanders = UIHanders_Vanilla_Interface_Logic_1;
-                    break;
-                case LayersModeEnum.Vanilla_MP_Player_Names:
-                    uiHanders = UIHanders_Vanilla_MP_Player_Names;
-                    break;
-                case LayersModeEnum.Vanilla_Hide_UI_Toggle:
-                    uiHanders = UIHanders_Vanilla_Hide_UI_Toggle;
-                    break;
-                case LayersModeEnum.Vanilla_Resource_Bars:
-                    uiHanders = UIHanders_Vanilla_Resource_Bars;
-                    break;
-                case LayersModeEnum.Vanilla_Ingame_Options:
-                    uiHanders = UIHanders_Vanilla_Ingame_Options;
-                    break;
-                case LayersModeEnum.Vanilla_Diagnose_Net:
-                    uiHanders = UIHanders_Vanilla_Diagnose_Net;
-                    break;
-                case LayersModeEnum.Mod_MenuLoad:
-                    uiHanders = UIHanders_Mod_MenuLoad;
-                    break;
-            }
-            return uiHanders;
+        /// <summary>
+        /// 根据指定的 <see cref="LayersModeEnum"/>，返回与之关联的 <see cref="UIHander"/> 实例列表
+        /// </summary>
+        /// <param name="layersMode">图层模式枚举 <see cref="LayersModeEnum"/></param>
+        /// <returns>与指定图层模式相关联的 <see cref="UIHander"/> 实例列表</returns>
+        public static List<UIHander> GetLayerModeHandlers(LayersModeEnum layersMode) {
+            return layersMode switch {
+                LayersModeEnum.Vanilla_Mouse_Text => UIHanders_Vanilla_Mouse_Text,
+                LayersModeEnum.Vanilla_Interface_Logic_1 => UIHanders_Vanilla_Interface_Logic_1,
+                LayersModeEnum.Vanilla_MP_Player_Names => UIHanders_Vanilla_MP_Player_Names,
+                LayersModeEnum.Vanilla_Hide_UI_Toggle => UIHanders_Vanilla_Hide_UI_Toggle,
+                LayersModeEnum.Vanilla_Resource_Bars => UIHanders_Vanilla_Resource_Bars,
+                LayersModeEnum.Vanilla_Ingame_Options => UIHanders_Vanilla_Ingame_Options,
+                LayersModeEnum.Vanilla_Diagnose_Net => UIHanders_Vanilla_Diagnose_Net,
+                LayersModeEnum.Mod_MenuLoad => UIHanders_Mod_MenuLoad,
+                _ => null
+            };
         }
         /// <inheritdoc/>
         public static void UIHanderElementUpdate(UIHander hander) {
@@ -280,13 +260,13 @@ namespace InnoVault.UIHanders
             UpdateKeyState();
             for (int i = 0; i < 7; i++) {
                 LayersModeEnum layersMode = (LayersModeEnum)i;
-                List<UIHander> Handers = LayersModeGetInstanceList(layersMode);
+                List<UIHander> Handers = GetLayerModeHandlers(layersMode);
 
                 if (Handers.Count <= 0) {
                     continue;
                 }
 
-                string layerName = LayersModeGetCodeName(layersMode);
+                string layerName = GetLayerModeCodeName(layersMode);
                 int index = layers.FindIndex((layer) => layer.Name == layerName);
 
                 if (index == -1) {

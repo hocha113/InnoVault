@@ -32,7 +32,6 @@ namespace InnoVault
         public static Vector2 To(this Vector2 vr1, Vector2 vr2) => vr2 - vr1;
 
         #region System
-
         /// <summary>
         /// 检查指定玩家是否按下了鼠标键
         /// </summary>
@@ -58,6 +57,42 @@ namespace InnoVault
             else {
                 // 否则使用系统默认浏览器打开网页
                 Utils.OpenToURL(str);
+            }
+        }
+
+        /// <summary>
+        /// 在给定的 Mod 数组中查找包含指定类型的 Mod 实例
+        /// </summary>
+        /// <param name="type">要查找的类型</param>
+        /// <param name="mods">Mod 实例的数组，用于搜索包含该类型的 Mod</param>
+        /// <returns>如果找到包含该类型的 Mod，返回对应的 Mod 实例；否则返回 null</returns>
+        public static Mod FindModByType(Type type, Mod[] mods) {
+            foreach (var mod in mods) {
+                Type[] fromModCodeTypes = AssemblyManager.GetLoadableTypes(mod.Code);
+                if (fromModCodeTypes.Contains(type)) {
+                    return mod;
+                }
+            }
+            return null;
+        }
+
+        /// <summary>
+        /// 尝试将指定类型与其所属的 Mod 映射关系添加到字典中
+        /// 如果无法找到与该类型对应的 Mod，会抛出异常
+        /// </summary>
+        /// <param name="typeByModHas">存储类型到 Mod 映射关系的字典</param>
+        /// <param name="type">需要映射的类型</param>
+        /// <param name="mods">当前已加载的所有 Mod 列表</param>
+        /// <exception cref="ArgumentNullException">当无法找到与类型对应的 Mod 时，抛出异常</exception>
+        public static void AddTypeModAssociation(Dictionary<Type, Mod> typeByModHas, Type type, Mod[] mods) {
+            Mod mod = FindModByType(type, mods);
+            if (mod != null) {
+                typeByModHas.Add(type, mod);
+            }
+            else {
+                string errorText = "试图添加其所属模组映射时，所属模组为Null";
+                string errorText2 = "Attempted to add its associated mod mapping, but the associated mod is null";
+                throw new ArgumentNullException(nameof(type), Translation(errorText, errorText2));
             }
         }
 

@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria.ModLoader;
+using InnoVault.PRT;
 
 namespace InnoVault.TileProcessors
 {
@@ -18,6 +19,10 @@ namespace InnoVault.TileProcessors
         /// 目标物块ID，一般标记<see cref="Tile.TileType"/>的值
         /// </summary>
         public virtual int TargetTileID => -1;
+        /// <summary>
+        /// 这个物块处理器来自什么模组
+        /// </summary>
+        public Mod Mod => TileProcessorLoader.TP_Type_To_Mod[GetType()];
         /// <summary>
         /// 这个模块所要跟随的物块结构，如果对象是一个多结构物块，那么这个块一般代表左上角。
         /// 如果这个模块还活跃，那么这个物块的值会每帧更新

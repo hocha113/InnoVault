@@ -27,27 +27,27 @@ namespace InnoVault.PRT
         /// <summary>
         /// 一个字典，用于将粒子类型（Type）映射到粒子ID每个粒子类型都会有一个唯一的ID，方便在系统中进行管理
         /// </summary>
-        public static Dictionary<Type, int> PRT_TypeToID;
+        public static Dictionary<Type, int> PRT_TypeToID { get; private set; } = [];
         /// <summary>
         /// 一个字典，用于将粒子类型（Type）映射到其所属的Mod用于追踪哪些Mod添加了特定类型的粒子
         /// </summary>
-        public static Dictionary<Type, Mod> PRT_TypeToMod;
+        public static Dictionary<Type, Mod> PRT_TypeToMod { get; private set; } = [];
         /// <summary>
         /// 一个字典，将粒子ID映射到其对应的纹理（Texture2D）每个粒子都有一个与其ID对应的纹理，用于渲染粒子的外观
         /// </summary>
-        public static Dictionary<int, Texture2D> PRT_IDToTexture;
+        public static Dictionary<int, Texture2D> PRT_IDToTexture { get; private set; } = [];
         /// <summary>
         /// 一个字典，将粒子ID映射到当前游戏世界中的实例数量用于记录每种粒子在当前世界中存在的数量，确保不超过最大限制
         /// </summary>
-        public static Dictionary<int, int> PRT_IDToInGame_World_Count;
+        public static Dictionary<int, int> PRT_IDToInGame_World_Count { get; private set; } = [];
         /// <summary>
         /// 一个字典，将粒子ID映射到其对应的粒子实例（BasePRT）用于管理每个粒子的实例对象，以便进行粒子的更新和渲染
         /// </summary>
-        public static Dictionary<int, BasePRT> PRT_IDToInstances;
+        public static Dictionary<int, BasePRT> PRT_IDToInstances { get; private set; } = [];
         /// <summary>
         /// 一个列表，存储所有活跃的粒子实例（BasePRT）用于批量管理和更新粒子实体
         /// </summary>
-        public static List<BasePRT> PRTInstances;
+        public static List<BasePRT> PRTInstances { get; private set; } = [];
 
         private static List<BasePRT> PRT_InGame_World_Inds;
         private static List<BasePRT> PRT_InGame_ToKill_Inds;
@@ -73,8 +73,6 @@ namespace InnoVault.PRT
 
             PRTInstances = VaultUtils.HanderSubclass<BasePRT>(false);
 
-            Mod[] mods = ModLoader.Mods;
-
             foreach (var particle in PRTInstances) {
                 Type type = particle.GetType();
                 int ID = PRT_TypeToID.Count;
@@ -82,13 +80,7 @@ namespace InnoVault.PRT
                 particle.ID = ID;
                 PRT_IDToInstances.Add(ID, particle);
                 PRT_IDToInGame_World_Count.Add(ID, 0);
-                foreach (var mod in mods) {
-                    Type[] fromModCodeTypes = AssemblyManager.GetLoadableTypes(mod.Code);
-                    if (fromModCodeTypes.Contains(type)) {
-                        PRT_TypeToMod.Add(type, mod);
-                        break;
-                    }
-                }
+                VaultUtils.AddTypeModAssociation(PRT_TypeToMod, type, ModLoader.Mods);
             }
 
             On_Main.DrawInfernoRings += DrawHook;
@@ -123,6 +115,21 @@ namespace InnoVault.PRT
         }
 
         /// <summary>
+        /// 根据指定的粒子绘制模式，返回对应的粒子实例列表
+        /// </summary>
+        /// <param name="drawMode">指定的粒子绘制模式 <see cref="PRTDrawModeEnum"/></param>
+        /// <returns>与指定绘制模式对应的粒子实例列表，如果模式未定义则返回 null</returns>
+        /// <exception cref="ArgumentOutOfRangeException">如果传入的绘制模式不在已定义的范围内</exception>
+        public static List<BasePRT> GetPRTInstancesByDrawMode(PRTDrawModeEnum drawMode) {
+            return drawMode switch {
+                PRTDrawModeEnum.AlphaBlend => PRT_AlphaBlend_Draw,
+                PRTDrawModeEnum.AdditiveBlend => PRT_AdditiveBlend_Draw,
+                PRTDrawModeEnum.NonPremultiplied => PRT_NonPremultiplied_Draw,
+                _ => null
+            };
+        }
+
+        /// <summary>
         /// 生成提供给世界的粒子实例。如果达到颗粒限值，但该颗粒被标记为重要，它将尝试替换不重要的颗粒
         /// </summary>
         public static void AddParticle(BasePRT particle) {
@@ -132,7 +139,8 @@ namespace InnoVault.PRT
 
             int id = GetParticleID(particle.GetType());
 
-            if (PRT_IDToInGame_World_Count[particle.ID] >= particle.InGame_World_MaxCount) {
+            if (PRT_IDToInGame_World_Count[particle.ID] >= particle.InGame_World_MaxCount
+                || PRT_InGame_World_Inds.Count >= InGame_World_MaxPRTCount) {
                 return;
             }
 
@@ -260,18 +268,7 @@ namespace InnoVault.PRT
                 if (particle == null) {
                     continue;
                 }
-
-                switch (particle.PRTDrawMode) {
-                    case PRTDrawModeEnum.AlphaBlend:
-                        PRT_AlphaBlend_Draw.Add(particle);
-                        break;
-                    case PRTDrawModeEnum.AdditiveBlend:
-                        PRT_AdditiveBlend_Draw.Add(particle);
-                        break;
-                    case PRTDrawModeEnum.NonPremultiplied:
-                        PRT_NonPremultiplied_Draw.Add(particle);
-                        break;
-                }
+                GetPRTInstancesByDrawMode(particle.PRTDrawMode).Add(particle);
             }
         }
 

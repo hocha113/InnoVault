@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -43,9 +44,13 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static Dictionary<int, TileProcessor> TP_ID_To_Instance { get; private set; } = [];
         /// <summary>
+        /// 将对应的Type映射到所属模组
+        /// </summary>
+        public static Dictionary<Type, Mod> TP_Type_To_Mod { get; private set; } = [];
+        /// <summary>
         /// 将目标Tile的ID映射到模块实例的字典
         /// </summary>
-        public static Dictionary<int, TileProcessor> TargetTile_To_TPInstance { get; private set; } = [];
+        public static Dictionary<int, List<TileProcessor>> TargetTile_To_TPInstance { get; private set; } = [];
 
         private static Type tileLoaderType;
         private static MethodBase onTile_KillMultiTile_Method;
@@ -55,6 +60,7 @@ namespace InnoVault.TileProcessors
             TP_Instances = VaultUtils.HanderSubclass<TileProcessor>();
             foreach (var module in TP_Instances) {
                 module.Load();
+                VaultUtils.AddTypeModAssociation(TP_Type_To_Mod, module.GetType(), ModLoader.Mods);
             }
 
             tileLoaderType = typeof(TileLoader);
@@ -68,12 +74,27 @@ namespace InnoVault.TileProcessors
         void IVaultLoader.SetupData() {
             for (int i = 0; i < TP_Instances.Count; i++) {
                 TileProcessor module = TP_Instances[i];
-                module.SetStaticProperty();
+                try {
+                    module.SetStaticProperty();
+                } catch {
+                    string errorText = nameof(module) + ": 在进行 SetStaticProperty 时发生了错误，但被跳过";
+                    string errorText2 = nameof(module) + ": An error occurred while performing SetStaticProperty, but it was skipped";
+                    VaultMod.Instance.Logger.Info(VaultUtils.Translation(errorText, errorText2));
+                }
+
                 TP_Type_To_ID.Add(module.GetType(), i);
                 TP_Type_To_Instance.Add(module.GetType(), module);
                 TP_ID_To_Instance.Add(module.ID, module);
                 TP_ID_To_InWorld_Count.Add(module.ID, 0);
-                TargetTile_To_TPInstance.Add(module.TargetTileID, module);
+
+                //这里的添加会稍微复杂些
+                //如果没有获取到值，说明键刚被创建，这里就执行值序列的创建与初始化，并添加进第一个值
+                if (!TargetTile_To_TPInstance.TryGetValue(module.TargetTileID, out List<TileProcessor> tps)) {
+                    tps = new List<TileProcessor>();
+                    TargetTile_To_TPInstance[module.TargetTileID] = tps;
+                }
+                //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
+                tps.Add(module);
             }
         }
 
@@ -87,6 +108,7 @@ namespace InnoVault.TileProcessors
             TP_Type_To_Instance.Clear();
             TP_ID_To_Instance.Clear();
             TP_ID_To_InWorld_Count.Clear();
+            TP_Type_To_Mod.Clear();
             TargetTile_To_TPInstance.Clear();
             tileLoaderType = null;
             onTile_KillMultiTile_Method = null;
@@ -115,26 +137,28 @@ namespace InnoVault.TileProcessors
         /// 如果有空闲的模块槽位，会将新模块放入该槽位，否则会添加到列表的末尾
         /// </remarks>
         public static void AddInWorld(int tileID, Point16 position, Item item) {
-            if (TargetTile_To_TPInstance.TryGetValue(tileID, out TileProcessor module)) {
-                TileProcessor newModule = module.Clone();
-                newModule.Position = position;
-                newModule.TrackItem = item;
-                newModule.Active = true;
-                newModule.SetProperty();
+            if (TargetTile_To_TPInstance.TryGetValue(tileID, out List<TileProcessor> processorList)) {
+                foreach (var processor in processorList) {
+                    TileProcessor newProcessor = processor.Clone();
+                    newProcessor.Position = position;
+                    newProcessor.TrackItem = item;
+                    newProcessor.Active = true;
+                    newProcessor.SetProperty();
 
-                bool add = true;
-                for (int i = 0; i < TP_InWorld.Count; i++) {
-                    if (!TP_InWorld[i].Active) {
-                        newModule.WhoAmI = TP_InWorld[i].WhoAmI;
-                        TP_InWorld[i] = newModule;
-                        add = false;
-                        break;
+                    bool add = true;
+                    for (int i = 0; i < TP_InWorld.Count; i++) {
+                        if (!TP_InWorld[i].Active) {
+                            newProcessor.WhoAmI = TP_InWorld[i].WhoAmI;
+                            TP_InWorld[i] = newProcessor;
+                            add = false;
+                            break;
+                        }
                     }
-                }
 
-                if (add && TP_InWorld.Count < MaxTileModuleInWorldCount) {
-                    newModule.WhoAmI = TP_InWorld.Count;
-                    TP_InWorld.Add(newModule);
+                    if (add && TP_InWorld.Count < MaxTileModuleInWorldCount) {
+                        newProcessor.WhoAmI = TP_InWorld.Count;
+                        TP_InWorld.Add(newProcessor);
+                    }
                 }
             }
         }

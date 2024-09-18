@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.ModLoader;
 
 namespace InnoVault.UIHanders
 {
@@ -24,6 +25,10 @@ namespace InnoVault.UIHanders
             get => false;
             set { }
         }
+        /// <summary>
+        /// 这个UI集成来自于什么模组
+        /// </summary>
+        public Mod Mod => UILoader.UIHander_Type_To_Mod[GetType()];
         /// <summary>
         /// 获取用户的鼠标在屏幕上的位置，这个属性一般在绘制函数以外的地方使用，
         /// 因为绘制函数中不需要屏幕因子的坐标矫正，直接使用 Main.MouseScreen 即可
