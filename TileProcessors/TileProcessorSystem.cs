@@ -9,7 +9,7 @@ namespace InnoVault.TileProcessors
     /// <summary>
     /// TP系统的全局逻辑挂载处，管理世界加载、卸载、逻辑更新、绘制更新等行为
     /// </summary>
-    public class TileProcessorSystem : ModSystem
+    public sealed class TileProcessorSystem : ModSystem
     {
         /// <inheritdoc/>
         public override void OnWorldUnload() {

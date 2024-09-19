@@ -8,7 +8,7 @@ namespace InnoVault.PRT
     /// <summary>
     /// 粒子基类，继承它用于实现各种高度自定义的粒子效果
     /// </summary>
-    public class BasePRT
+    public abstract class BasePRT
     {
         /// <summary>
         /// 这个粒子使用什么纹理

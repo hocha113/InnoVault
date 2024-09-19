@@ -8,7 +8,7 @@ namespace InnoVault.UIHanders
     /// <summary>
     /// UI处理器，一个简易的UI基类，继承它用于自定义各种UI实现
     /// </summary>
-    public class UIHander
+    public abstract class UIHander
     {
         /// <summary>
         /// 一个纹理的占位，可以重写它用于获取UI的主要纹理

@@ -1,13 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
-using Terraria.ID;
 using Terraria.ModLoader;
 using static InnoVault.VaultNetWork;
 
@@ -16,7 +13,7 @@ namespace InnoVault.TileProcessors
     /// <summary>
     /// 关于TP系统的大部分逻辑与钩子挂载与此处
     /// </summary>
-    public class TileProcessorLoader : GlobalTile, IVaultLoader
+    public sealed class TileProcessorLoader : GlobalTile, IVaultLoader
     {
         #region Data
         /// <summary>

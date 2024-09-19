@@ -13,7 +13,7 @@ namespace InnoVault.UIHanders
     /// <summary>
     /// 关于UI系统的大部分逻辑与钩子挂载与此处
     /// </summary>
-    public class UILoader : ModSystem
+    public sealed class UILoader : ModSystem
     {
         #region Data
         /// <summary>
