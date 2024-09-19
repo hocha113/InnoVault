@@ -208,18 +208,18 @@ namespace InnoVault.TileProcessors
         public static void NetSend(Mod mod, int type, Point16 point) {
             // 客户端发送同步请求到服务器
             ModPacket packet = mod.GetPacket();
-            packet.Write((byte)VaultNetWork.MessageType.PlaceInWorldSync);
+            packet.Write((byte)MessageType.PlaceInWorldSync);
             packet.Write(type);
             packet.WritePoint16(point);
             packet.Send(); //发送到服务器
         }
         /// <inheritdoc/>
-        public static void NetReceive(Mod mod, BinaryReader reader, int whoAmI) {
+        internal static void NetReceive(Mod mod, BinaryReader reader, int whoAmI) {
             // 读取放置方块的数据
             int tileType = reader.ReadInt32();
             Point16 point = reader.ReadPoint16();
             AddInWorld(tileType, point, null);
-            if (Main.netMode == NetmodeID.Server) {
+            if (VaultUtils.isServer) {
                 ModPacket packet = mod.GetPacket();
                 packet.Write((byte)MessageType.PlaceInWorldSync);
                 packet.Write(tileType);
