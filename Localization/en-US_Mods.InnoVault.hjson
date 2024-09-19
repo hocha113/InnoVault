@@ -8,3 +8,5 @@ Configs: {
 		}
 	}
 }
+
+Projectiles.Manipulator.DisplayName: Manipulator

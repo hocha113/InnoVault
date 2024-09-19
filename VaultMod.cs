@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.IO;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -42,5 +43,7 @@ namespace InnoVault
             }
             Loaders.Clear();
         }
+        /// <inheritdoc/>
+        public override void HandlePacket(BinaryReader reader, int whoAmI) => VaultNetWork.HandlePacket(this, reader, whoAmI);
     }
 }

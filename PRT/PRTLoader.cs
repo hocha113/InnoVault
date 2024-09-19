@@ -20,6 +20,7 @@ namespace InnoVault.PRT
     /// </remarks>
     public class PRTLoader : ModSystem, IVaultLoader
     {
+        #region Data
         /// <summary>
         /// 游戏中每个世界最多允许存在的粒子数量用于限制游戏中的粒子实体数量，防止性能问题
         /// </summary>
@@ -54,7 +55,8 @@ namespace InnoVault.PRT
         private static List<BasePRT> PRT_AlphaBlend_Draw;
         private static List<BasePRT> PRT_AdditiveBlend_Draw;
         private static List<BasePRT> PRT_NonPremultiplied_Draw;
-
+        private static readonly PRTDrawModeEnum[] allDrawModes = (PRTDrawModeEnum[])Enum.GetValues(typeof(PRTDrawModeEnum));
+        #endregion
         /// <summary>
         /// 加载和初始化数据
         /// </summary>
@@ -282,6 +284,32 @@ namespace InnoVault.PRT
             spriteBatch.Draw(PRT_IDToTexture[particle.ID], particle.Position - Main.screenPosition, frame, particle.Color
                 , particle.Rotation, frame.Size() * 0.5f, particle.Scale, SpriteEffects.None, 0f);
         }
+        /// <summary>
+        /// 根据指定的绘制模式 <see cref="PRTDrawModeEnum"/>，为 <see cref="SpriteBatch"/> 设置适当的渲染状态并开始绘制
+        /// </summary>
+        /// <param name="drawMode">绘制模式枚举 <see cref="PRTDrawModeEnum"/></param>
+        /// <param name="spriteBatch">用于进行绘制操作的 <see cref="SpriteBatch"/></param>
+        public static void BeginDrawingWithMode(PRTDrawModeEnum drawMode, SpriteBatch spriteBatch) {
+            var rasterizer = Main.Rasterizer;
+            rasterizer.ScissorTestEnable = true;
+            Main.instance.GraphicsDevice.RasterizerState.ScissorTestEnable = true;
+            Main.instance.GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
+            
+            switch (drawMode) {
+                case PRTDrawModeEnum.AlphaBlend:
+                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                    , DepthStencilState.None, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+                    break;
+                case PRTDrawModeEnum.AdditiveBlend:
+                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.PointClamp
+                    , DepthStencilState.Default, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+                    break;
+                case PRTDrawModeEnum.NonPremultiplied:
+                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.PointClamp
+                    , DepthStencilState.Default, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+                    break;
+            }
+        }
 
         /// <summary>
         /// 所有PRT的绘制更新都在这里
@@ -293,52 +321,16 @@ namespace InnoVault.PRT
             }
 
             spriteBatch.End();
-            var rasterizer = Main.Rasterizer;
-            rasterizer.ScissorTestEnable = true;
-            Main.instance.GraphicsDevice.RasterizerState.ScissorTestEnable = true;
-            Main.instance.GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
-
             AddDrawHander();
 
-            if (PRT_AlphaBlend_Draw.Count > 0) {
-                spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
-                    , DepthStencilState.None, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-
-                foreach (BasePRT particle in PRT_AlphaBlend_Draw) {
-                    if (particle.PreDraw(spriteBatch)) {
-                        defaultDraw(spriteBatch, particle);
-                    }
-                    particle.PostDraw(spriteBatch);
+            foreach (PRTDrawModeEnum drawMode in allDrawModes) {
+                List<BasePRT> targetPRTs = GetPRTInstancesByDrawMode(drawMode);
+                if (targetPRTs.Count <= 0) {
+                    continue;
                 }
-                spriteBatch.End();
-            }
 
-            if (PRT_AdditiveBlend_Draw.Count > 0) {
-                rasterizer = Main.Rasterizer;
-                rasterizer.ScissorTestEnable = true;
-                Main.instance.GraphicsDevice.RasterizerState.ScissorTestEnable = true;
-                Main.instance.GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
-                spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.PointClamp
-                    , DepthStencilState.Default, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-
-                foreach (BasePRT particle in PRT_AdditiveBlend_Draw) {
-                    if (particle.PreDraw(spriteBatch)) {
-                        defaultDraw(spriteBatch, particle);
-                    }
-                    particle.PostDraw(spriteBatch);
-                }
-                spriteBatch.End();
-            }
-
-            if (PRT_NonPremultiplied_Draw.Count > 0) {
-                rasterizer = Main.Rasterizer;
-                rasterizer.ScissorTestEnable = true;
-                Main.instance.GraphicsDevice.RasterizerState.ScissorTestEnable = true;
-                Main.instance.GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
-                spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.PointClamp
-                    , DepthStencilState.Default, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-
-                foreach (BasePRT particle in PRT_NonPremultiplied_Draw) {
+                BeginDrawingWithMode(drawMode, spriteBatch);
+                foreach (BasePRT particle in targetPRTs) {
                     if (particle.PreDraw(spriteBatch)) {
                         defaultDraw(spriteBatch, particle);
                     }

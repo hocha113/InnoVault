@@ -2,11 +2,14 @@
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.ID;
 using Terraria.ModLoader;
+using static InnoVault.VaultNetWork;
 
 namespace InnoVault.TileProcessors
 {
@@ -15,6 +18,7 @@ namespace InnoVault.TileProcessors
     /// </summary>
     public class TileProcessorLoader : GlobalTile, IVaultLoader
     {
+        #region Data
         /// <summary>
         /// 在世界中的Tile模块的最大存在数量
         /// </summary>
@@ -55,7 +59,7 @@ namespace InnoVault.TileProcessors
         private static Type tileLoaderType;
         private static MethodBase onTile_KillMultiTile_Method;
         private delegate void On_Tile_KillMultiTile_Dalegate(int i, int j, int frameX, int frameY, int type);
-
+        #endregion
         void IVaultLoader.LoadData() {
             TP_Instances = VaultUtils.HanderSubclass<TileProcessor>();
             foreach (var module in TP_Instances) {
@@ -68,7 +72,7 @@ namespace InnoVault.TileProcessors
 
             VaultHook.Add(onTile_KillMultiTile_Method, OnKillMultiTileHook);
 
-            WorldGen.Hooks.OnWorldLoad += LoadWorldTileModule;
+            WorldGen.Hooks.OnWorldLoad += LoadWorldTileProcessor;
         }
 
         void IVaultLoader.SetupData() {
@@ -113,7 +117,7 @@ namespace InnoVault.TileProcessors
             tileLoaderType = null;
             onTile_KillMultiTile_Method = null;
 
-            WorldGen.Hooks.OnWorldLoad -= LoadWorldTileModule;
+            WorldGen.Hooks.OnWorldLoad -= LoadWorldTileProcessor;
         }
 
         private static void OnKillMultiTileHook(On_Tile_KillMultiTile_Dalegate orig, int i, int j, int frameX, int frameY, int type) {
@@ -171,7 +175,7 @@ namespace InnoVault.TileProcessors
         /// 识别出多结构物块的左上角 Tile，并将其添加到世界中的模块列表中
         /// 最后，加载所有处于激活状态的模块
         /// </remarks>
-        public static void LoadWorldTileModule() {
+        public static void LoadWorldTileProcessor() {
             TP_InWorld = [];
 
             for (int x = 0; x < Main.tile.Width; x++) {
@@ -189,89 +193,38 @@ namespace InnoVault.TileProcessors
                 }
                 module.LoadInWorld();
             }
-
-            if (VaultUtils.isServer) {
-                //TMEInWorldNetWork.NetInstance.NetSend();
-            }
         }
 
-        /// <summary>
-        /// 广播关于放置方块的信息，以在各个段上同步TP状态
-        /// </summary>
-        internal static void NetSend(ModPacket netMessage, params object[] args) {
-            netMessage.Write((int)args[0]);
-            netMessage.Write((int)args[1]);
-            netMessage.WritePoint16((Point16)args[2]);
-
-            bool isSvr = false;
-            if (args.Length >= 4) {
-                isSvr = (bool)args[3];
-            }
-            netMessage.Write(isSvr);
-
-            if (VaultUtils.isClient && !isSvr) {
-                netMessage.Send();
-            }
-            else if (VaultUtils.isServer) {
-                netMessage.Send(-1, (int)args[0]);
-            }
-        }
-        /// <summary>
-        /// 接收关于放置方块的信息，以在各个段上同步TP状态
-        /// </summary>
-        internal static void NetReceive(Mod mod, BinaryReader reader, int whoAmI) {
-            int playerIndex = reader.ReadInt32();
-            int type = reader.ReadInt32();
-            Point16 point16 = reader.ReadPoint16();
-            AddInWorld(type, point16, null);
-            if (VaultUtils.isServer) {
-                NetSend(mod.GetPacket(), playerIndex, type, point16, true);
-            }
-        }
-        /// <summary>
-        /// 广播所有TP实体的信息，进行全局重置
-        /// </summary>
-        /// <param name="netMessage"></param>
-        /// <param name="args"></param>
-        internal static void NetSend_InWorldTO(ModPacket netMessage, params object[] args) {
-            if (VaultUtils.isSinglePlayer) {
-                return;
-            }
-
-            netMessage.Write((byte)VaultNetWork.MessageType.TO_InWorld_NetWork);
-            netMessage.Write(TP_InWorld.Count);
-            for (int i = 0; i < TP_InWorld.Count; i++) {
-                TileProcessor value = TP_InWorld[i];
-                netMessage.Write(value.ID);
-                value.NetCloneSend(ref netMessage);
-            }
-            netMessage.Send();
-        }
-        /// <summary>
-        /// 接收所有TP实体的信息，进行全局重置
-        /// </summary>
-        /// <param name="mod"></param>
-        /// <param name="reader"></param>
-        /// <param name="whoAmI"></param>
-        internal static void NetReceive_InWorldTO(Mod mod, BinaryReader reader, int whoAmI) {
-            TP_InWorld = [];
-            int count = reader.ReadInt32();
-
-            for (int i = 0; i < count; i++) {
-                TileProcessor value = TP_ID_To_Instance[reader.ReadInt32()].Clone();
-                value.NetCloneRead(reader);
-                TP_InWorld.Add(value);
-            }
-        }
         /// <inheritdoc/>
         public override void PlaceInWorld(int i, int j, int type, Item item) {
             if (VaultUtils.SafeGetTopLeft(i, j, out Point16 point)) {
                 AddInWorld(type, point, item);
-                //$"即将开始同步 TileModuleInWorld最大值为{TileModuleInWorld.Count}".Domp();
                 if (VaultUtils.isClient) {
-                    NetSend(Mod.GetPacket(), Main.myPlayer, type, point);
-                    NetSend_InWorldTO(Mod.GetPacket());
+                    NetSend(Mod, type, point);
                 }
+            }
+        }
+        /// <inheritdoc/>
+        public static void NetSend(Mod mod, int type, Point16 point) {
+            // 客户端发送同步请求到服务器
+            ModPacket packet = mod.GetPacket();
+            packet.Write((byte)VaultNetWork.MessageType.PlaceInWorldSync);
+            packet.Write(type);
+            packet.WritePoint16(point);
+            packet.Send(); //发送到服务器
+        }
+        /// <inheritdoc/>
+        public static void NetReceive(Mod mod, BinaryReader reader, int whoAmI) {
+            // 读取放置方块的数据
+            int tileType = reader.ReadInt32();
+            Point16 point = reader.ReadPoint16();
+            AddInWorld(tileType, point, null);
+            if (Main.netMode == NetmodeID.Server) {
+                ModPacket packet = mod.GetPacket();
+                packet.Write((byte)MessageType.PlaceInWorldSync);
+                packet.Write(tileType);
+                packet.WritePoint16(point);
+                packet.Send(-1, whoAmI); //广播给所有其他客户端
             }
         }
 

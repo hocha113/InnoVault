@@ -15,6 +15,7 @@ namespace InnoVault.UIHanders
     /// </summary>
     public class UILoader : ModSystem
     {
+        #region Data
         /// <summary>
         /// 旧的左键按下状态
         /// </summary>
@@ -103,6 +104,9 @@ namespace InnoVault.UIHanders
         /// UI关于Type到所属模组的映射
         /// </summary>
         public static Dictionary<Type, Mod> UIHander_Type_To_Mod { get; private set; } = [];
+
+        private static readonly LayersModeEnum[] allLayersModes = (LayersModeEnum[])Enum.GetValues(typeof(LayersModeEnum));
+        #endregion
         internal void Initialize() {
             UIHanders = [];
             UIHanders_Vanilla_Mouse_Text = [];
@@ -211,6 +215,18 @@ namespace InnoVault.UIHanders
         }
 
         /// <summary>
+        /// 根据指定的 <see cref="LayersModeEnum"/>，判断该模式是否包含在需要修改接口层的钩子中
+        /// </summary>
+        /// <param name="layersMode">图层模式枚举 <see cref="LayersModeEnum"/></param>
+        /// <returns>如果该模式需要修改接口层，则返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
+        public static bool ShouldModifyInterfaceLayers(LayersModeEnum layersMode) {
+            if (layersMode == LayersModeEnum.Mod_MenuLoad) {
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// 根据指定的 <see cref="LayersModeEnum"/>，返回相应的图层模式的代码名称字符串
         /// </summary>
         /// <param name="layersMode">图层模式枚举 <see cref="LayersModeEnum"/></param>
@@ -256,19 +272,20 @@ namespace InnoVault.UIHanders
         }
         /// <inheritdoc/>
         public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
-            //为什么是6？因为关于香草的钩子所代表的枚举值是从0到6的，后续可能扩展，但所有香草的枚举都会排在前列
             UpdateKeyState();
-            for (int i = 0; i < 7; i++) {
-                LayersModeEnum layersMode = (LayersModeEnum)i;
-                List<UIHander> Handers = GetLayerModeHandlers(layersMode);
 
+            foreach (var layersMode in allLayersModes) {
+                if (!ShouldModifyInterfaceLayers(layersMode)) {
+                    continue;
+                }
+
+                List<UIHander> Handers = GetLayerModeHandlers(layersMode);
                 if (Handers.Count <= 0) {
                     continue;
                 }
 
                 string layerName = GetLayerModeCodeName(layersMode);
                 int index = layers.FindIndex((layer) => layer.Name == layerName);
-
                 if (index == -1) {
                     continue;
                 }
@@ -281,8 +298,8 @@ namespace InnoVault.UIHanders
                 }, InterfaceScaleType.UI));
             }
         }
-        /// <inheritdoc/>
-        public static void IL_MenuLoadDraw_Hook(ILContext il) {
+
+        private static void IL_MenuLoadDraw_Hook(ILContext il) {
             ILCursor potlevel = new(il);
 
             if (!potlevel.TryGotoNext(
@@ -304,8 +321,8 @@ namespace InnoVault.UIHanders
 
             _ = potlevel.EmitDelegate(() => MenuLoadDraw(Main.spriteBatch));
         }
-        /// <inheritdoc/>
-        public static void MenuLoadDraw(SpriteBatch spriteBatch) {
+
+        private static void MenuLoadDraw(SpriteBatch spriteBatch) {
             if (Main.gameMenu && UIHanders_Mod_MenuLoad != null && UIHanders_Mod_MenuLoad.Count > 0) {
                 spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp
                     , DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);

@@ -1,7 +1,6 @@
-﻿using System.IO;
+﻿using InnoVault.TileProcessors;
+using System.IO;
 using Terraria.ModLoader;
-using Terraria;
-using InnoVault.TileProcessors;
 
 namespace InnoVault
 {
@@ -9,18 +8,14 @@ namespace InnoVault
     {
         public enum MessageType : byte
         {
-            TileOperatorLoader,
-            TO_InWorld_NetWork,
+            PlaceInWorldSync, // 新增消息类型，用于同步放置操作
         }
 
         public static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
             MessageType type = (MessageType)reader.ReadByte();
 
-            if (type == MessageType.TileOperatorLoader) {
+            if (type == MessageType.PlaceInWorldSync) {
                 TileProcessorLoader.NetReceive(mod, reader, whoAmI);
-            }
-            else if (type == MessageType.TO_InWorld_NetWork) {
-                TileProcessorLoader.NetReceive_InWorldTO(mod, reader, whoAmI);
             }
         }
     }
