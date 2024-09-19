@@ -66,8 +66,8 @@ namespace InnoVault.TileProcessors
 
             tileLoaderType = typeof(TileLoader);
             onTile_KillMultiTile_Method = tileLoaderType.GetMethod("KillMultiTile", BindingFlags.Public | BindingFlags.Static);
-
-            VaultHook.Add(onTile_KillMultiTile_Method, OnKillMultiTileHook);
+            //实际上我并不信任MonoModHook, 但考虑到稳定性和代码必要性，外加OnKillMultiTileHook这个钩子如果突然失效并不致命，我选择再次使用MonoModHook，祈祷它不会再让钩子被回收
+            MonoModHooks.Add(onTile_KillMultiTile_Method, OnKillMultiTileHook);
 
             WorldGen.Hooks.OnWorldLoad += LoadWorldTileProcessor;
         }
