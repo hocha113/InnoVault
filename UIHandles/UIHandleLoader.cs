@@ -1,5 +1,4 @@
-﻿using Microsoft.Xna.Framework;
-using Microsoft.Xna.Framework.Graphics;
+﻿using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
@@ -8,12 +7,12 @@ using Terraria;
 using Terraria.ModLoader;
 using Terraria.UI;
 
-namespace InnoVault.UIHanders
+namespace InnoVault.UIHandles
 {
     /// <summary>
     /// 关于UI系统的大部分逻辑与钩子挂载与此处
     /// </summary>
-    public sealed class UILoader : ModSystem
+    public sealed class UIHandleLoader : ModSystem
     {
         #region Data
         /// <summary>
@@ -67,39 +66,43 @@ namespace InnoVault.UIHanders
         /// <summary>
         /// 全局的 UI 处理器列表包含所有 UI 元素的处理器实例
         /// </summary>
-        public static List<UIHander> UIHanders { get; private set; } = [];
+        public static List<UIHandle> UIHanders { get; private set; } = [];
+        /// <summary>
+        /// 选择None模式的实例，这个列表不会被自动更新或者管理
+        /// </summary>
+        public static List<UIHandle> UIHanders_NoneMode_DontSimdUpdate { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“鼠标文本”相关的 UI 处理器列表，负责显示和处理鼠标文本的逻辑
         /// </summary>
-        public static List<UIHander> UIHanders_Vanilla_Mouse_Text { get; private set; } = [];
+        public static List<UIHandle> UIHanders_Vanilla_Mouse_Text { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“接口逻辑 1”相关的 UI 处理器列表，负责处理与鼠标输入相关的逻辑
         /// </summary>
-        public static List<UIHander> UIHanders_Vanilla_Interface_Logic_1 { get; private set; } = [];
+        public static List<UIHandle> UIHanders_Vanilla_Interface_Logic_1 { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“MP 玩家名字”相关的 UI 处理器列表，负责绘制其他玩家的名字、距离、健康状态等
         /// </summary>
-        public static List<UIHander> UIHanders_Vanilla_MP_Player_Names { get; private set; } = [];
+        public static List<UIHandle> UIHanders_Vanilla_MP_Player_Names { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“隐藏 UI 切换”相关的 UI 处理器列表，负责处理隐藏用户界面的切换逻辑
         /// </summary>
-        public static List<UIHander> UIHanders_Vanilla_Hide_UI_Toggle { get; private set; } = [];
+        public static List<UIHandle> UIHanders_Vanilla_Hide_UI_Toggle { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“资源条”相关的 UI 处理器列表，负责绘制和处理生命值、法力值和其他资源条的逻辑
         /// </summary>
-        public static List<UIHander> UIHanders_Vanilla_Resource_Bars { get; private set; } = [];
+        public static List<UIHandle> UIHanders_Vanilla_Resource_Bars { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“游戏内选项”相关的 UI 处理器列表，负责处理游戏内选项菜单的显示和交互
         /// </summary>
-        public static List<UIHander> UIHanders_Vanilla_Ingame_Options { get; private set; } = [];
+        public static List<UIHandle> UIHanders_Vanilla_Ingame_Options { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“网络诊断”相关的 UI 处理器列表，负责绘制网络诊断相关的 UI 元素
         /// </summary>
-        public static List<UIHander> UIHanders_Vanilla_Diagnose_Net { get; private set; } = [];
+        public static List<UIHandle> UIHanders_Vanilla_Diagnose_Net { get; private set; } = [];
         /// <summary>
         /// 与模组菜单加载相关的 UI 处理器列表，负责处理菜单加载时的界面和交互逻辑
         /// </summary>
-        public static List<UIHander> UIHanders_Mod_MenuLoad { get; private set; } = [];
+        public static List<UIHandle> UIHanders_Mod_MenuLoad { get; private set; } = [];
         /// <summary>
         /// UI关于Type到所属模组的映射
         /// </summary>
@@ -122,14 +125,16 @@ namespace InnoVault.UIHanders
         /// <inheritdoc/>
         public override void Load() {
             Initialize();
-            UIHanders = VaultUtils.HanderSubclass<UIHander>();
+            UIHanders = VaultUtils.HanderSubclass<UIHandle>();
             UIHanders.RemoveAll(ui => !ui.CanLoad());
             foreach (var hander in UIHanders) {
                 hander.Load();
                 VaultUtils.AddTypeModAssociation(UIHander_Type_To_Mod, hander.GetType(), ModLoader.Mods);
                 GetLayerModeHandlers(hander.LayersMode).Add(hander);
             }
-
+            foreach (var layersMode in allLayersModes) {
+                GetLayerModeHandlers(layersMode).Sort((x, y) => x.RenderPriority.CompareTo(y.RenderPriority));//按照升序排列
+            }
             IL_Main.DrawMenu += IL_MenuLoadDraw_Hook;
         }
         /// <inheritdoc/>
@@ -220,6 +225,9 @@ namespace InnoVault.UIHanders
         /// <param name="layersMode">图层模式枚举 <see cref="LayersModeEnum"/></param>
         /// <returns>如果该模式需要修改接口层，则返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
         public static bool ShouldModifyInterfaceLayers(LayersModeEnum layersMode) {
+            if (layersMode == LayersModeEnum.None) {
+                return false;
+            }
             if (layersMode == LayersModeEnum.Mod_MenuLoad) {
                 return false;
             }
@@ -233,6 +241,7 @@ namespace InnoVault.UIHanders
         /// <returns>图层模式的代码名称字符串</returns>
         public static string GetLayerModeCodeName(LayersModeEnum layersMode) {
             return layersMode switch {
+                LayersModeEnum.None => "Mod_None",
                 LayersModeEnum.Vanilla_Mouse_Text => "Vanilla: Mouse Text",
                 LayersModeEnum.Vanilla_Interface_Logic_1 => "Vanilla: Interface Logic 1",
                 LayersModeEnum.Vanilla_MP_Player_Names => "Vanilla: MP Player Names",
@@ -241,16 +250,17 @@ namespace InnoVault.UIHanders
                 LayersModeEnum.Vanilla_Ingame_Options => "Vanilla: Ingame Options",
                 LayersModeEnum.Vanilla_Diagnose_Net => "Vanilla: Diagnose Net",
                 LayersModeEnum.Mod_MenuLoad => "Mod_MenuLoad",
-                _ => "None"
+                _ => "Null"
             };
         }
         /// <summary>
-        /// 根据指定的 <see cref="LayersModeEnum"/>，返回与之关联的 <see cref="UIHander"/> 实例列表
+        /// 根据指定的 <see cref="LayersModeEnum"/>，返回与之关联的 <see cref="UIHandle"/> 实例列表
         /// </summary>
         /// <param name="layersMode">图层模式枚举 <see cref="LayersModeEnum"/></param>
-        /// <returns>与指定图层模式相关联的 <see cref="UIHander"/> 实例列表</returns>
-        public static List<UIHander> GetLayerModeHandlers(LayersModeEnum layersMode) {
+        /// <returns>与指定图层模式相关联的 <see cref="UIHandle"/> 实例列表</returns>
+        public static List<UIHandle> GetLayerModeHandlers(LayersModeEnum layersMode) {
             return layersMode switch {
+                LayersModeEnum.None => UIHanders_NoneMode_DontSimdUpdate,
                 LayersModeEnum.Vanilla_Mouse_Text => UIHanders_Vanilla_Mouse_Text,
                 LayersModeEnum.Vanilla_Interface_Logic_1 => UIHanders_Vanilla_Interface_Logic_1,
                 LayersModeEnum.Vanilla_MP_Player_Names => UIHanders_Vanilla_MP_Player_Names,
@@ -263,7 +273,7 @@ namespace InnoVault.UIHanders
             };
         }
         /// <inheritdoc/>
-        public static void UIHanderElementUpdate(UIHander hander) {
+        public static void UIHanderElementUpdate(UIHandle hander) {
             if (!hander.Active) {
                 return;
             }
@@ -279,7 +289,7 @@ namespace InnoVault.UIHanders
                     continue;
                 }
 
-                List<UIHander> Handers = GetLayerModeHandlers(layersMode);
+                List<UIHandle> Handers = GetLayerModeHandlers(layersMode);
                 if (Handers.Count <= 0) {
                     continue;
                 }
@@ -314,7 +324,7 @@ namespace InnoVault.UIHanders
             )) {
                 string conxt2 = VaultUtils.Translation("IL 挂载失败，是否是目标流已经更改或者移除框架?"
                     , "IL mount failed. Has the target stream changed or the frame has been removed?");
-                string errortext = $"{nameof(UILoader)}: {conxt2} ";
+                string errortext = $"{nameof(UIHandleLoader)}: {conxt2} ";
                 VaultMod.Instance.Logger.Info(errortext);
                 throw new Exception(errortext);
             }

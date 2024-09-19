@@ -1,10 +1,14 @@
-﻿namespace InnoVault.UIHanders
+﻿namespace InnoVault.UIHandles
 {
     /// <summary>
     /// LayersModeEnum 枚举表示不同的界面层，用于控制游戏中的各类界面元素绘制和逻辑处理
     /// </summary>
     public enum LayersModeEnum
     {
+        /// <summary>
+        /// 不参与自动更新，仅仅是装载进实例列表，这个模式很少使用，一般用于特殊的UI更新位置，以供开发者手动调用
+        /// </summary>
+        None,
         /// <summary>
         /// 绘制鼠标的文本信息，负责处理鼠标提示文本的设置和显示
         /// </summary>

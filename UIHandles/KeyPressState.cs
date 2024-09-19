@@ -1,4 +1,4 @@
-﻿namespace InnoVault.UIHanders
+﻿namespace InnoVault.UIHandles
 {
     /// <summary>
     /// 表示按键的状态
