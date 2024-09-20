@@ -39,9 +39,9 @@ namespace InnoVault.UIHandles
         /// </summary>
         public virtual LayersModeEnum LayersMode => LayersModeEnum.Vanilla_Mouse_Text;
         /// <summary>
-        /// 默认值为1。
+        /// 默认值为1
         /// UI处理器的渲染优先级，在同一层级列表中，值越大，它的更新周期越靠后，进而绘制的效果越接近上层
-        /// 这个属性对于排序效果仅在UI加载阶段执行一次，而非实时更改。
+        /// 这个属性对于排序效果仅在UI加载阶段执行一次，而非实时更改
         /// </summary>
         public virtual float RenderPriority => 1;
         /// <summary>
