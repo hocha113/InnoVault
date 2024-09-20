@@ -13,6 +13,6 @@ namespace InnoVault
 
         [BackgroundColor(45, 175, 225, 255)]
         [DefaultValue(false)]
-        public bool TileOperatorBoxSizeDraw { get; set; }
+        public bool TileProcessorBoxSizeDraw { get; set; }
     }
 }

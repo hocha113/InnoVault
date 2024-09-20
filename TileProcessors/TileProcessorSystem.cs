@@ -3,6 +3,7 @@ using Terraria.GameContent;
 using Terraria;
 using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
+using Mono.Cecil.Cil;
 
 namespace InnoVault.TileProcessors
 {
@@ -13,44 +14,103 @@ namespace InnoVault.TileProcessors
     {
         /// <inheritdoc/>
         public override void OnWorldUnload() {
-            foreach (TileProcessor module in TileProcessorLoader.TP_InWorld) {
-                if (!module.Active) {
+            foreach (TileProcessor tpInds in TileProcessorLoader.TP_InWorld) {
+                if (!tpInds.Active) {
                     continue;
                 }
-                module.UnLoadInWorld();
+                tpInds.UnLoadInWorld();
             }
         }
+
+        internal static bool TileProcessorIsDead(TileProcessor tileProcessor) {
+            if (tileProcessor.IsDaed()) {
+
+                tileProcessor.Kill();
+
+                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                    tpGlobal.OnKill(tileProcessor);
+                }
+
+                return true;
+            }
+            return false;
+        }
+
+        internal static void TileProcessorUpdate(TileProcessor tileProcessor) {
+            bool reset = true;
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                reset = tpGlobal.PreUpdate(tileProcessor);
+            }
+
+            if (reset) {
+                tileProcessor.Update();
+            }
+
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                tpGlobal.PostUpdate(tileProcessor);
+            }
+        }
+
+        internal static void TileProcessorDraw(TileProcessor tileProcessor) {
+            bool reset = true;
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                reset = tpGlobal.PreDraw(tileProcessor, Main.spriteBatch);
+            }
+
+            if (reset) {
+                tileProcessor.Draw(Main.spriteBatch);
+            }
+
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                tpGlobal.PostDraw(tileProcessor, Main.spriteBatch);
+            }
+
+            TileProcessorBoxSizeDraw(tileProcessor);
+        }
+
+        private static void TileProcessorBoxSizeDraw(TileProcessor tileProcessor) {
+            if (VaultClientConfig.Instance.TileProcessorBoxSizeDraw) {
+                Vector2 drawPos = tileProcessor.PosInWorld - Main.screenPosition;
+                Main.EntitySpriteDraw(VaultAsset.placeholder2.Value, drawPos
+                , new Rectangle(0, 0, 16, 16), Color.Red * 0.6f, 0, Vector2.Zero, 1, SpriteEffects.None, 0);
+                Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, tileProcessor.ToString()
+                    , drawPos.X + 0, drawPos.Y - 70, Color.AliceBlue, Color.Black, Vector2.Zero, 1f);
+            }
+        }
+
         /// <inheritdoc/>
         public override void PostUpdateEverything() {
             if (TileProcessorLoader.TP_InWorld.Count <= 0) {
                 return;
             }
 
-            foreach (TileProcessor module in TileProcessorLoader.TP_Instances) {
-                TileProcessorLoader.TP_ID_To_InWorld_Count[module.ID] = 0;
+            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_Instances) {
+                TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID] = 0;
             }
 
-            foreach (TileProcessor module in TileProcessorLoader.TP_InWorld) {
-                if (!module.Active) {
+            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+                if (!tileProcessor.Active) {
                     continue;
                 }
 
-                TileProcessorLoader.TP_ID_To_InWorld_Count[module.ID]++;
+                TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID]++;
 
-                module.Tile = VaultUtils.GetTile(module.Position.X, module.Position.Y);
-                if (module.IsDaed()) {
-                    module.Kill();
+                tileProcessor.Tile = VaultUtils.GetTile(tileProcessor.Position.X, tileProcessor.Position.Y);
+
+                if (TileProcessorIsDead(tileProcessor)) {
                     continue;
                 }
-                module.Update();
+
+                TileProcessorUpdate(tileProcessor);
             }
 
-            foreach (TileProcessor module in TileProcessorLoader.TP_Instances) {
-                if (module.GetInWorldHasNum() > 0) {
-                    module.SingleInstanceUpdate();
+            foreach (TileProcessor tpInds in TileProcessorLoader.TP_Instances) {
+                if (tpInds.GetInWorldHasNum() > 0) {
+                    tpInds.SingleInstanceUpdate();
                 }
             }
         }
+
         /// <inheritdoc/>
         public override void PostDrawTiles() {
             if (TileProcessorLoader.TP_InWorld.Count <= 0) {
@@ -60,20 +120,12 @@ namespace InnoVault.TileProcessors
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
                 , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
 
-            foreach (TileProcessor module in TileProcessorLoader.TP_InWorld) {
-                if (!module.Active) {
+            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+                if (!tileProcessor.Active) {
                     continue;
                 }
 
-                module.Draw(Main.spriteBatch);
-
-                if (VaultClientConfig.Instance.TileOperatorBoxSizeDraw) {
-                    Vector2 drawPos = module.PosInWorld - Main.screenPosition;
-                    Main.EntitySpriteDraw(VaultAsset.placeholder2.Value, drawPos
-                    , new Rectangle(0, 0, 16, 16), Color.Red * 0.6f, 0, Vector2.Zero, 1, SpriteEffects.None, 0);
-                    Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, module.ToString()
-                        , drawPos.X + 0, drawPos.Y - 70, Color.AliceBlue, Color.Black, Vector2.Zero, 1f);
-                }
+                TileProcessorDraw(tileProcessor);
             }
 
             Main.spriteBatch.End();

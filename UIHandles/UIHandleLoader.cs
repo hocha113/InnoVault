@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
+using rail;
 using System;
 using System.Collections.Generic;
 using Terraria;
@@ -66,80 +67,155 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 全局的 UI 处理器列表包含所有 UI 元素的处理器实例
         /// </summary>
-        public static List<UIHandle> UIHanders { get; private set; } = [];
+        public static List<UIHandle> UIHandles { get; private set; } = [];
+        /// <summary>
+        /// 全局的 UI 处理器列表包含所有 UI 元素的处理器实例
+        /// </summary>
+        public static List<UIHandleGlobal> UIHandleGlobalHooks { get; private set; } = [];
         /// <summary>
         /// 选择None模式的实例，这个列表不会被自动更新或者管理
         /// </summary>
-        public static List<UIHandle> UIHanders_NoneMode_DontSimdUpdate { get; private set; } = [];
+        public static List<UIHandle> UIHandles_NoneMode_DontSimdUpdate { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“鼠标文本”相关的 UI 处理器列表，负责显示和处理鼠标文本的逻辑
         /// </summary>
-        public static List<UIHandle> UIHanders_Vanilla_Mouse_Text { get; private set; } = [];
+        public static List<UIHandle> UIHandles_Vanilla_Mouse_Text { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“接口逻辑 1”相关的 UI 处理器列表，负责处理与鼠标输入相关的逻辑
         /// </summary>
-        public static List<UIHandle> UIHanders_Vanilla_Interface_Logic_1 { get; private set; } = [];
+        public static List<UIHandle> UIHandles_Vanilla_Interface_Logic_1 { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“MP 玩家名字”相关的 UI 处理器列表，负责绘制其他玩家的名字、距离、健康状态等
         /// </summary>
-        public static List<UIHandle> UIHanders_Vanilla_MP_Player_Names { get; private set; } = [];
+        public static List<UIHandle> UIHandles_Vanilla_MP_Player_Names { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“隐藏 UI 切换”相关的 UI 处理器列表，负责处理隐藏用户界面的切换逻辑
         /// </summary>
-        public static List<UIHandle> UIHanders_Vanilla_Hide_UI_Toggle { get; private set; } = [];
+        public static List<UIHandle> UIHandles_Vanilla_Hide_UI_Toggle { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“资源条”相关的 UI 处理器列表，负责绘制和处理生命值、法力值和其他资源条的逻辑
         /// </summary>
-        public static List<UIHandle> UIHanders_Vanilla_Resource_Bars { get; private set; } = [];
+        public static List<UIHandle> UIHandles_Vanilla_Resource_Bars { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“游戏内选项”相关的 UI 处理器列表，负责处理游戏内选项菜单的显示和交互
         /// </summary>
-        public static List<UIHandle> UIHanders_Vanilla_Ingame_Options { get; private set; } = [];
+        public static List<UIHandle> UIHandles_Vanilla_Ingame_Options { get; private set; } = [];
         /// <summary>
         /// 与 Vanilla 的“网络诊断”相关的 UI 处理器列表，负责绘制网络诊断相关的 UI 元素
         /// </summary>
-        public static List<UIHandle> UIHanders_Vanilla_Diagnose_Net { get; private set; } = [];
+        public static List<UIHandle> UIHandles_Vanilla_Diagnose_Net { get; private set; } = [];
         /// <summary>
         /// 与模组菜单加载相关的 UI 处理器列表，负责处理菜单加载时的界面和交互逻辑
         /// </summary>
-        public static List<UIHandle> UIHanders_Mod_MenuLoad { get; private set; } = [];
+        public static List<UIHandle> UIHandles_Mod_MenuLoad { get; private set; } = [];
         /// <summary>
         /// UI关于Type到所属模组的映射
         /// </summary>
-        public static Dictionary<Type, Mod> UIHander_Type_To_Mod { get; private set; } = [];
+        internal static Dictionary<Type, Mod> UIHandle_Type_To_Mod { get; private set; } = [];
+        /// <summary>
+        /// <see cref="UIHandleGlobal"/>关于Type到所属模组的映射
+        /// </summary>
+        internal static Dictionary<Type, Mod> UIHandleGlobal_Type_To_Mod { get; private set; } = [];
+        /// <summary>
+        /// 从内部名到ID的映射
+        /// </summary>
+        internal static Dictionary<string, int> UIHandle_Name_To_ID { get; private set; } = [];
+        /// <summary>
+        /// 从Type到ID的映射
+        /// </summary>
+        internal static Dictionary<Type, int> UIHandle_Type_To_ID { get; private set; } = [];
+        /// <summary>
+        /// 从ID到实例的映射
+        /// </summary>
+        internal static Dictionary<int, UIHandle> UIHandle_ID_To_Instance { get; private set; } = [];
 
         private static readonly LayersModeEnum[] allLayersModes = (LayersModeEnum[])Enum.GetValues(typeof(LayersModeEnum));
         #endregion
         internal void Initialize() {
-            UIHanders = [];
-            UIHanders_Vanilla_Mouse_Text = [];
-            UIHanders_Vanilla_Interface_Logic_1 = [];
-            UIHanders_Vanilla_MP_Player_Names = [];
-            UIHanders_Vanilla_Hide_UI_Toggle = [];
-            UIHanders_Vanilla_Resource_Bars = [];
-            UIHanders_Vanilla_Ingame_Options = [];
-            UIHanders_Vanilla_Diagnose_Net = [];
-            UIHanders_Mod_MenuLoad = [];
-            UIHander_Type_To_Mod = [];
+            UIHandles = [];
+            UIHandleGlobalHooks = [];
+            UIHandles_Vanilla_Mouse_Text = [];
+            UIHandles_Vanilla_Interface_Logic_1 = [];
+            UIHandles_Vanilla_MP_Player_Names = [];
+            UIHandles_Vanilla_Hide_UI_Toggle = [];
+            UIHandles_Vanilla_Resource_Bars = [];
+            UIHandles_Vanilla_Ingame_Options = [];
+            UIHandles_Vanilla_Diagnose_Net = [];
+            UIHandles_Mod_MenuLoad = [];
+            UIHandle_Type_To_Mod = [];
+            UIHandleGlobal_Type_To_Mod = [];
+            UIHandle_Name_To_ID = [];
+            UIHandle_Type_To_ID = [];
+            UIHandle_ID_To_Instance = [];
         }
-        /// <inheritdoc/>
-        public override void Load() {
-            Initialize();
-            UIHanders = VaultUtils.HanderSubclass<UIHandle>();
-            UIHanders.RemoveAll(ui => !ui.CanLoad());
-            foreach (var hander in UIHanders) {
+
+        /// <summary>
+        /// 获取目标UI元素的ID
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static int GetUIHandleID<T>() where T : UIHandle {
+            if (!UIHandle_Type_To_ID.TryGetValue(typeof(T), out int id)) {
+                throw new Exception($"{nameof(T)} That doesn't exist.");
+            }
+            return id;
+        }
+        /// <summary>
+        /// 获取目标UI元素的ID
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static int GetUIhandleID(string name) {
+            if (!UIHandle_Name_To_ID.TryGetValue(name, out int id)) {
+                throw new Exception($"{name} That doesn't exist.");
+            }
+            return id;
+        }
+
+        //加载UIHandle
+        private static void UIHandlesLoad() {
+            UIHandles = VaultUtils.HanderSubclass<UIHandle>();
+            //我们需要在第一时间去寻找Mod,这样后续的UnLoad和Load才可以正常访问这些实例的Mod属性
+            for (int i = 0; i < UIHandles.Count; i++) {
+                var hander = UIHandles[i];
+                VaultUtils.AddTypeModAssociation(UIHandle_Type_To_Mod, hander.GetType(), ModLoader.Mods);
+                UIHandle_Type_To_ID.Add(hander.GetType(), i);
+                UIHandle_ID_To_Instance.Add(i, hander);
+            }
+
+            UIHandles.RemoveAll(ui => !ui.CanLoad());
+            foreach (var hander in UIHandles) {
                 hander.Load();
-                VaultUtils.AddTypeModAssociation(UIHander_Type_To_Mod, hander.GetType(), ModLoader.Mods);
                 GetLayerModeHandlers(hander.LayersMode).Add(hander);
             }
+
             foreach (var layersMode in allLayersModes) {
                 GetLayerModeHandlers(layersMode).Sort((x, y) => x.RenderPriority.CompareTo(y.RenderPriority));//按照升序排列
             }
+        }
+
+        //加载Global实例
+        private static void UIHandleGlobalLoad() {
+            UIHandleGlobalHooks = VaultUtils.HanderSubclass<UIHandleGlobal>();
+            //我们需要在第一时间去寻找Mod,这样后续的UnLoad和Load才可以正常访问这些实例的Mod属性
+            foreach (var global in UIHandleGlobalHooks) {
+                VaultUtils.AddTypeModAssociation(UIHandleGlobal_Type_To_Mod, global.GetType(), ModLoader.Mods);
+                global.Load();
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void Load() {
+            Initialize();
+            UIHandlesLoad();
+            UIHandleGlobalLoad();
+
             IL_Main.DrawMenu += IL_MenuLoadDraw_Hook;
         }
+
         /// <inheritdoc/>
         public override void Unload() {
-            foreach (var hander in UIHanders) {
+            foreach (var hander in UIHandles) {
                 hander.UnLoad();
             }
             Initialize();
@@ -197,6 +273,7 @@ namespace InnoVault.UIHandles
                         break;
                 }
             }
+
             keyRightPressState = CheckRightKeyState();
             if (keyRightPressState != KeyPressState.None) {
                 switch (keyRightPressState) {
@@ -216,6 +293,10 @@ namespace InnoVault.UIHandles
                         }
                         break;
                 }
+            }
+
+            foreach (var global in UIHandleGlobalHooks) {
+                global.UpdateKeyState();
             }
         }
 
@@ -260,15 +341,15 @@ namespace InnoVault.UIHandles
         /// <returns>与指定图层模式相关联的 <see cref="UIHandle"/> 实例列表</returns>
         public static List<UIHandle> GetLayerModeHandlers(LayersModeEnum layersMode) {
             return layersMode switch {
-                LayersModeEnum.None => UIHanders_NoneMode_DontSimdUpdate,
-                LayersModeEnum.Vanilla_Mouse_Text => UIHanders_Vanilla_Mouse_Text,
-                LayersModeEnum.Vanilla_Interface_Logic_1 => UIHanders_Vanilla_Interface_Logic_1,
-                LayersModeEnum.Vanilla_MP_Player_Names => UIHanders_Vanilla_MP_Player_Names,
-                LayersModeEnum.Vanilla_Hide_UI_Toggle => UIHanders_Vanilla_Hide_UI_Toggle,
-                LayersModeEnum.Vanilla_Resource_Bars => UIHanders_Vanilla_Resource_Bars,
-                LayersModeEnum.Vanilla_Ingame_Options => UIHanders_Vanilla_Ingame_Options,
-                LayersModeEnum.Vanilla_Diagnose_Net => UIHanders_Vanilla_Diagnose_Net,
-                LayersModeEnum.Mod_MenuLoad => UIHanders_Mod_MenuLoad,
+                LayersModeEnum.None => UIHandles_NoneMode_DontSimdUpdate,
+                LayersModeEnum.Vanilla_Mouse_Text => UIHandles_Vanilla_Mouse_Text,
+                LayersModeEnum.Vanilla_Interface_Logic_1 => UIHandles_Vanilla_Interface_Logic_1,
+                LayersModeEnum.Vanilla_MP_Player_Names => UIHandles_Vanilla_MP_Player_Names,
+                LayersModeEnum.Vanilla_Hide_UI_Toggle => UIHandles_Vanilla_Hide_UI_Toggle,
+                LayersModeEnum.Vanilla_Resource_Bars => UIHandles_Vanilla_Resource_Bars,
+                LayersModeEnum.Vanilla_Ingame_Options => UIHandles_Vanilla_Ingame_Options,
+                LayersModeEnum.Vanilla_Diagnose_Net => UIHandles_Vanilla_Diagnose_Net,
+                LayersModeEnum.Mod_MenuLoad => UIHandles_Mod_MenuLoad,
                 _ => null
             };
         }
@@ -277,8 +358,13 @@ namespace InnoVault.UIHandles
             if (!hander.Active) {
                 return;
             }
+
             hander.Update();
             hander.Draw(Main.spriteBatch);
+
+            foreach (var global in UIHandleGlobalHooks) {
+                global.UIHanderElementUpdate(hander);
+            }
         }
         /// <inheritdoc/>
         public override void ModifyInterfaceLayers(List<GameInterfaceLayer> layers) {
@@ -333,11 +419,11 @@ namespace InnoVault.UIHandles
         }
 
         private static void MenuLoadDraw(SpriteBatch spriteBatch) {
-            if (Main.gameMenu && UIHanders_Mod_MenuLoad != null && UIHanders_Mod_MenuLoad.Count > 0) {
+            if (Main.gameMenu && UIHandles_Mod_MenuLoad != null && UIHandles_Mod_MenuLoad.Count > 0) {
                 spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp
                     , DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
                 UpdateKeyState();
-                foreach (var hander in UIHanders_Mod_MenuLoad) {
+                foreach (var hander in UIHandles_Mod_MenuLoad) {
                     UIHanderElementUpdate(hander);
                 }
                 spriteBatch.End();
