@@ -1,12 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using ReLogic.Content;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
-using Terraria.Graphics.Renderers;
 using Terraria.ModLoader;
-using Terraria.ModLoader.Core;
 
 namespace InnoVault.PRT
 {
@@ -112,7 +111,7 @@ namespace InnoVault.PRT
                 if (prt.Texture != "") {
                     texturePath = prt.Texture;
                 }
-                PRT_IDToTexture[PRT_TypeToID[type]] = ModContent.Request<Texture2D>(texturePath).Value;
+                PRT_IDToTexture[PRT_TypeToID[type]] = ModContent.Request<Texture2D>(texturePath, AssetRequestMode.ImmediateLoad).Value;
             }
         }
 
@@ -155,7 +154,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 使用指定的属性初始化并添加一个新粒子到粒子系统中
         /// </summary>
-        /// <param name="particle">要初始化和添加的粒子实例</param>
+        /// <param name="prtEntity">要初始化和添加的粒子实例</param>
         /// <param name="position">粒子在二维空间中的初始位置</param>
         /// <param name="velocity">粒子的初始速度向量</param>
         /// <param name="color">粒子的颜色，默认为默认颜色</param>
@@ -163,16 +162,19 @@ namespace InnoVault.PRT
         /// <param name="ai0">粒子的自定义属性 ai0，默认为0</param>
         /// <param name="ai1">粒子的自定义属性 ai1，默认为0</param>
         /// <param name="ai2">粒子的自定义属性 ai2，默认为0</param>
-        public static void NewParticle(BasePRT particle, Vector2 position, Vector2 velocity
+        public static BasePRT NewParticle(BasePRT prtEntity, Vector2 position, Vector2 velocity
             , Color color = default, float scale = 1f, int ai0 = 0, int ai1 = 0, int ai2 = 0) {
-            particle.Position = position;
-            particle.Velocity = velocity;
-            particle.Scale = scale;
-            particle.Color = color;
-            particle.ai[0] = ai0;
-            particle.ai[1] = ai1;
-            particle.ai[2] = ai2;
-            AddParticle(particle);
+            prtEntity.Position = position;
+            prtEntity.Velocity = velocity;
+            prtEntity.Scale = scale;
+            prtEntity.Color = color;
+            prtEntity.ai[0] = ai0;
+            prtEntity.ai[1] = ai1;
+            prtEntity.ai[2] = ai2;
+            prtEntity.ID = GetParticleID(prtEntity.GetType());
+            prtEntity.SetProperty();
+            AddParticle(prtEntity);
+            return prtEntity;
         }
 
         /// <summary>
@@ -186,17 +188,20 @@ namespace InnoVault.PRT
         /// <param name="ai0">粒子的自定义属性 ai0，默认为0</param>
         /// <param name="ai1">粒子的自定义属性 ai1，默认为0</param>
         /// <param name="ai2">粒子的自定义属性 ai2，默认为0</param>
-        public static void NewParticle(int prtID, Vector2 position, Vector2 velocity
+        public static BasePRT NewParticle(int prtID, Vector2 position, Vector2 velocity
             , Color color = default, float scale = 1f, int ai0 = 0, int ai1 = 0, int ai2 = 0) {
-            BasePRT particle = PRT_IDToInstances[prtID].Clone();
-            particle.Position = position;
-            particle.Velocity = velocity;
-            particle.Scale = scale;
-            particle.Color = color;
-            particle.ai[0] = ai0;
-            particle.ai[1] = ai1;
-            particle.ai[2] = ai2;
-            AddParticle(particle);
+            BasePRT prtEntity = PRT_IDToInstances[prtID].Clone();
+            prtEntity.Position = position;
+            prtEntity.Velocity = velocity;
+            prtEntity.Scale = scale;
+            prtEntity.Color = color;
+            prtEntity.ai[0] = ai0;
+            prtEntity.ai[1] = ai1;
+            prtEntity.ai[2] = ai2;
+            prtEntity.ID = GetParticleID(prtEntity.GetType());
+            prtEntity.SetProperty();
+            AddParticle(prtEntity);
+            return prtEntity;
         }
 
         /// <summary>
@@ -280,7 +285,11 @@ namespace InnoVault.PRT
         }
 
         private static void defaultDraw(SpriteBatch spriteBatch, BasePRT particle) {
-            Rectangle frame = PRT_IDToTexture[particle.ID].Frame(1, particle.Frame, 0, particle.Variant);
+            int frameIndex = particle.Frame;
+            if (frameIndex == 0) {//无论如何，要避免0的出现
+                frameIndex = 1;
+            }
+            Rectangle frame = PRT_IDToTexture[particle.ID].Frame(1, frameIndex, 0, particle.Variant);
             spriteBatch.Draw(PRT_IDToTexture[particle.ID], particle.Position - Main.screenPosition, frame, particle.Color
                 , particle.Rotation, frame.Size() * 0.5f, particle.Scale, SpriteEffects.None, 0f);
         }

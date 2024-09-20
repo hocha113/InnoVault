@@ -26,7 +26,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 一个通用的全局帧索引
         /// </summary>
-        public int Frame = 0;
+        public int Frame = 1;
         /// <summary>
         /// 一个特征值
         /// </summary>
