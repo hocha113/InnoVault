@@ -7,6 +7,9 @@
 	<PropertyGroup>
 	  <GenerateDocumentationFile>True</GenerateDocumentationFile>
 	</PropertyGroup>
+	<ItemGroup>
+	  <None Remove="localization\zh-Hans_Mods.InnoVault.hjson" />
+	</ItemGroup>
 
 	<!-- References -->
 

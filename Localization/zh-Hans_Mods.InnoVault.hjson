@@ -1,0 +1,15 @@
+Configs: {
+	VaultClientConfig: {
+		DisplayName: InnoVault Client Config
+
+		TileProcessorBoxSizeDraw: {
+			Label: 物块处理器箱体绘制[c/06e33f:(开发者选项)]
+			Tooltip:
+				'''
+				[c/c20909:非开发人员不建议开启]
+				用于调试和观察TileProcessor的碰撞结构，
+				开启后，TileProcessor会在世界中绘制出自身的碰撞箱体、类型名等数据
+				'''
+		}
+	}
+}

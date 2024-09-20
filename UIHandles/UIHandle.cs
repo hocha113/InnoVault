@@ -19,6 +19,10 @@ namespace InnoVault.UIHandles
         /// </summary>
         public static Player player => Main.LocalPlayer;
         /// <summary>
+        /// 这个UI元素的内部ID
+        /// </summary>
+        public int ID => UIHandleLoader.UIHandle_Type_To_ID[GetType()];
+        /// <summary>
         /// 这个UI是否活跃
         /// </summary>
         public virtual bool Active {
@@ -28,7 +32,7 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 这个UI集成来自于什么模组
         /// </summary>
-        public Mod Mod => UIHandleLoader.UIHander_Type_To_Mod[GetType()];
+        public Mod Mod => UIHandleLoader.UIHandle_Type_To_Mod[GetType()];
         /// <summary>
         /// 获取用户的鼠标在屏幕上的位置，这个属性一般在绘制函数以外的地方使用，
         /// 因为绘制函数中不需要屏幕因子的坐标矫正，直接使用 Main.MouseScreen 即可

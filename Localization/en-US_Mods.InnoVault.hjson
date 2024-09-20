@@ -1,12 +1,15 @@
 Configs: {
 	VaultClientConfig: {
-		DisplayName: Vault Client Config
+		DisplayName: InnoVault Client Config
 
-		TileOperatorBoxSizeDraw: {
-			Label: Tile Operator Box Size Draw
-			Tooltip: ""
+		TileProcessorBoxSizeDraw: {
+			Label: Tile Processor Bounding Box Draw [c/06e33f:(Developer Option)]
+			Tooltip:
+				'''
+				[c/c20909:Not recommended for non-developers]
+				Used for debugging and observing the collision structure of TileProcessor.
+				When enabled, TileProcessor will draw its bounding boxes, type names, and other data in the world.
+				'''
 		}
 	}
 }
-
-Projectiles.Manipulator.DisplayName: Manipulator
