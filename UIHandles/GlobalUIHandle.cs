@@ -1,12 +1,11 @@
-﻿using InnoVault.TileProcessors;
-using Terraria.ModLoader;
+﻿using Terraria.ModLoader;
 
 namespace InnoVault.UIHandles
 {
     /// <summary>
     /// 对于UI的一个全局类，你可以使用它来进行一些统一的操作
     /// </summary>
-    public class UIHandleGlobal
+    public class GlobalUIHandle
     {
         /// <summary>
         /// 所属的Mod

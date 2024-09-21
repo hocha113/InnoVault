@@ -71,7 +71,7 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 全局的 UI 处理器列表包含所有 UI 元素的处理器实例
         /// </summary>
-        public static List<UIHandleGlobal> UIHandleGlobalHooks { get; private set; } = [];
+        public static List<GlobalUIHandle> UIHandleGlobalHooks { get; private set; } = [];
         /// <summary>
         /// 选择None模式的实例，这个列表不会被自动更新或者管理
         /// </summary>
@@ -113,7 +113,7 @@ namespace InnoVault.UIHandles
         /// </summary>
         internal static Dictionary<Type, Mod> UIHandle_Type_To_Mod { get; private set; } = [];
         /// <summary>
-        /// <see cref="UIHandleGlobal"/>关于Type到所属模组的映射
+        /// <see cref="GlobalUIHandle"/>关于Type到所属模组的映射
         /// </summary>
         internal static Dictionary<Type, Mod> UIHandleGlobal_Type_To_Mod { get; private set; } = [];
         /// <summary>
@@ -196,7 +196,7 @@ namespace InnoVault.UIHandles
 
         //加载Global实例
         private static void UIHandleGlobalLoad() {
-            UIHandleGlobalHooks = VaultUtils.HanderSubclass<UIHandleGlobal>();
+            UIHandleGlobalHooks = VaultUtils.HanderSubclass<GlobalUIHandle>();
             //我们需要在第一时间去寻找Mod,这样后续的UnLoad和Load才可以正常访问这些实例的Mod属性
             foreach (var global in UIHandleGlobalHooks) {
                 VaultUtils.AddTypeModAssociation(UIHandleGlobal_Type_To_Mod, global.GetType(), ModLoader.Mods);

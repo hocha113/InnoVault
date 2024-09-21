@@ -49,7 +49,7 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static Dictionary<Type, Mod> TP_Type_To_Mod { get; private set; } = [];
         /// <summary>
-        /// 将<see cref="TPGlobal"/>对应的Type映射到所属模组
+        /// 将<see cref="GlobalTileProcessor"/>对应的Type映射到所属模组
         /// </summary>
         public static Dictionary<Type, Mod> TPGlobal_Type_To_Mod { get; private set; } = [];
         /// <summary>
@@ -57,9 +57,9 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static Dictionary<int, List<TileProcessor>> TargetTile_To_TPInstance { get; private set; } = [];
         /// <summary>
-        /// 所有的<see cref="TPGlobal"/>实例在此处储存
+        /// 所有的<see cref="GlobalTileProcessor"/>实例在此处储存
         /// </summary>
-        internal static List<TPGlobal> TPGlobalHooks { get; private set; } = [];
+        internal static List<GlobalTileProcessor> TPGlobalHooks { get; private set; } = [];
 
         private static Type tileLoaderType;
         private static MethodBase onTile_KillMultiTile_Method;
@@ -72,7 +72,7 @@ namespace InnoVault.TileProcessors
                 tpInds.Load();
             }
 
-            TPGlobalHooks = VaultUtils.HanderSubclass<TPGlobal>();
+            TPGlobalHooks = VaultUtils.HanderSubclass<GlobalTileProcessor>();
             foreach (var tpGlobal in TPGlobalHooks) {
                 VaultUtils.AddTypeModAssociation(TPGlobal_Type_To_Mod, tpGlobal.GetType(), ModLoader.Mods);
                 tpGlobal.Load();

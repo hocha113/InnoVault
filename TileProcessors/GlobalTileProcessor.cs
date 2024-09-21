@@ -6,7 +6,7 @@ namespace InnoVault.TileProcessors
     /// <summary>
     /// 对于TP实体的一个全局类，你可以使用它来进行一些统一的操作
     /// </summary>
-    public class TPGlobal
+    public class GlobalTileProcessor
     {
         /// <summary>
         /// 所属的模组
