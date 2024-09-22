@@ -150,6 +150,32 @@ namespace InnoVault.UIHandles
         }
 
         /// <summary>
+        /// 获取目标UI实例
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public static UIHandle GetUIHandleInstance<T>() where T : UIHandle {
+            if (!UIHandle_ID_To_Instance.TryGetValue(GetUIHandleID<T>(), out UIHandle ui)) {
+                throw new Exception($"{nameof(T)} That doesn't exist.");
+            }
+            return ui;
+        }
+
+        /// <summary>
+        /// 获取目标UI实例
+        /// </summary>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public static UIHandle GetUIHandleInstance(string name) {
+            if (!UIHandle_ID_To_Instance.TryGetValue(GetUIHandleID(name), out UIHandle ui)) {
+                throw new Exception($"{name} That doesn't exist.");
+            }
+            return ui;
+        }
+
+        /// <summary>
         /// 获取目标UI元素的ID
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -165,7 +191,7 @@ namespace InnoVault.UIHandles
         /// </summary>
         /// <param name="name"></param>
         /// <returns></returns>
-        public static int GetUIhandleID(string name) {
+        public static int GetUIHandleID(string name) {
             if (!UIHandle_Name_To_ID.TryGetValue(name, out int id)) {
                 throw new Exception($"{name} That doesn't exist.");
             }
