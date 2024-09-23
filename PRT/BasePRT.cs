@@ -92,10 +92,6 @@ namespace InnoVault.PRT
         /// </summary>
         public virtual void AI() { }
         /// <summary>
-        /// 这个粒子被移除时会发生什么具体的事情？
-        /// </summary>
-        public virtual void OnKill() { }
-        /// <summary>
         /// 从处理程序中移除粒子
         /// </summary>
         public void Kill() => PRTLoader.RemoveParticle(this);

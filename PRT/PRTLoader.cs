@@ -240,17 +240,13 @@ namespace InnoVault.PRT
                 PRT_IDToInGame_World_Count[particle.ID] = 0;
             }
 
-            ParticleGarbageCollection(ref PRT_InGame_World_Inds);
-            PRT_InGame_World_Inds.RemoveAll(particle => particle.Time >= particle.Lifetime && particle.SetLifetime || PRT_InGame_ToKill_Inds.Contains(particle));
+            PRT_InGame_World_Inds.RemoveAll(p => (p.Time >= p.Lifetime && p.SetLifetime) || PRT_InGame_ToKill_Inds.Contains(p));
             PRT_InGame_ToKill_Inds.Clear();
         }
 
-        private static void ParticleGarbageCollection(ref List<BasePRT> particles) {
-            bool isGC(BasePRT p) => p.Time >= p.Lifetime && p.SetLifetime || PRT_InGame_ToKill_Inds.Contains(p);
-            particles.RemoveAll(isGC);
-        }
         private static void UpdateParticleVelocity(BasePRT particle) => particle.Position += particle.Velocity;
         private static void UpdateParticleTime(BasePRT particle) => particle.Time++;
+
         /// <summary>
         /// 移除对应的粒子实例
         /// </summary>
