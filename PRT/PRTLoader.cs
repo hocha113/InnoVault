@@ -131,7 +131,7 @@ namespace InnoVault.PRT
         }
 
         /// <summary>
-        /// 生成提供给世界的粒子实例。如果达到颗粒限值，但该颗粒被标记为重要，它将尝试替换不重要的颗粒
+        /// 生成提供给世界的粒子实例
         /// </summary>
         public static void AddParticle(BasePRT particle) {
             if (Main.gamePaused || Main.dedServ || PRT_InGame_World_Inds == null) {
@@ -140,7 +140,7 @@ namespace InnoVault.PRT
 
             int id = GetParticleID(particle.GetType());
 
-            if (PRT_IDToInGame_World_Count[particle.ID] >= particle.InGame_World_MaxCount
+            if (PRT_IDToInGame_World_Count[id] >= particle.InGame_World_MaxCount
                 || PRT_InGame_World_Inds.Count >= InGame_World_MaxPRTCount) {
                 return;
             }
