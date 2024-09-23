@@ -45,6 +45,16 @@ namespace InnoVault.TileProcessors
 
         }
         /// <summary>
+        /// 这个TP实体是否应该死亡
+        /// 在<see cref="TileProcessor.IsDaed"/>之后运行，返回的值将会覆盖原有的判定
+        /// 返回<see langword="null"/>则不会影响原有判定
+        /// </summary>
+        /// <param name="tileProcessor"></param>
+        /// <returns></returns>
+        public virtual bool? IsDaed(TileProcessor tileProcessor) {
+            return null;
+        }
+        /// <summary>
         /// 在<see cref="TileProcessor.OnKill"/>后调用，此时<see cref="TileProcessor.Active"/>已经是<see langword="false"/>
         /// </summary>
         public virtual void OnKill(TileProcessor tileProcessor) {

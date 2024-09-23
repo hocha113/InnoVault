@@ -24,9 +24,15 @@ namespace InnoVault.UIHandles
 
         }
         /// <summary>
-        /// UI元素更新时运行
+        /// UI元素更新前运行
         /// </summary>
-        public virtual void UIHanderElementUpdate(UIHandle handle) {
+        public virtual bool PreUIHanderElementUpdate(UIHandle handle) {
+            return true;
+        }
+        /// <summary>
+        /// UI元素更新后运行
+        /// </summary>
+        public virtual void PostUIHanderElementUpdate(UIHandle handle) {
 
         }
     }

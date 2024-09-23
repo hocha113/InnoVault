@@ -23,7 +23,16 @@ namespace InnoVault.TileProcessors
         }
 
         internal static bool TileProcessorIsDead(TileProcessor tileProcessor) {
-            if (tileProcessor.IsDaed()) {
+            bool isDead = tileProcessor.IsDaed();
+
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                bool? reset = tpGlobal.IsDaed(tileProcessor);
+                if (reset.HasValue) {
+                    isDead = reset.Value;
+                }
+            }
+
+            if (isDead) {
 
                 tileProcessor.Kill();
 

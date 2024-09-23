@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
-using rail;
 using System;
 using System.Collections.Generic;
 using Terraria;
@@ -385,11 +384,18 @@ namespace InnoVault.UIHandles
                 return;
             }
 
-            hander.Update();
-            hander.Draw(Main.spriteBatch);
+            bool reset = true;
+            foreach (var global in UIHandleGlobalHooks) {
+                reset = global.PreUIHanderElementUpdate(hander);
+            }
+
+            if (reset) {
+                hander.Update();
+                hander.Draw(Main.spriteBatch);
+            }
 
             foreach (var global in UIHandleGlobalHooks) {
-                global.UIHanderElementUpdate(hander);
+                global.PostUIHanderElementUpdate(hander);
             }
         }
         /// <inheritdoc/>
