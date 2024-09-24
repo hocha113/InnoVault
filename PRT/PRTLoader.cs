@@ -23,7 +23,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 游戏中每个世界最多允许存在的粒子数量用于限制游戏中的粒子实体数量，防止性能问题
         /// </summary>
-        public const int InGame_World_MaxPRTCount = 10000;
+        public const int InGame_World_MaxPRTCount = 20000;
         /// <summary>
         /// 一个字典，用于将粒子类型（Type）映射到粒子ID每个粒子类型都会有一个唯一的ID，方便在系统中进行管理
         /// </summary>
@@ -281,13 +281,12 @@ namespace InnoVault.PRT
         }
 
         private static void defaultDraw(SpriteBatch spriteBatch, BasePRT particle) {
-            int frameIndex = particle.Frame;
-            if (frameIndex == 0) {//无论如何，要避免0的出现
-                frameIndex = 1;
+            Texture2D value = PRT_IDToTexture[particle.ID];
+            if (particle.Frame == default) {
+                particle.Frame = new Rectangle(0, 0, value.Width, value.Height);
             }
-            Rectangle frame = PRT_IDToTexture[particle.ID].Frame(1, frameIndex, 0, particle.Variant);
-            spriteBatch.Draw(PRT_IDToTexture[particle.ID], particle.Position - Main.screenPosition, frame, particle.Color
-                , particle.Rotation, frame.Size() * 0.5f, particle.Scale, SpriteEffects.None, 0f);
+            spriteBatch.Draw(value, particle.Position - Main.screenPosition, particle.Frame, particle.Color
+                , particle.Rotation, particle.Frame.Size() * 0.5f, particle.Scale, SpriteEffects.None, 0f);
         }
         /// <summary>
         /// 根据指定的绘制模式 <see cref="PRTDrawModeEnum"/>，为 <see cref="SpriteBatch"/> 设置适当的渲染状态并开始绘制

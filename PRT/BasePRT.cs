@@ -15,10 +15,10 @@ namespace InnoVault.PRT
         /// </summary>
         public virtual string Texture => "";
         /// <summary>
-        /// 这种粒子在世界的最大存在数量是多少，默认2000，不要将其设置为大于10000的值
+        /// 这种粒子在世界的最大存在数量是多少，默认4000，不要将其设置为大于20000的值
         /// 因为存在<see cref="PRTLoader.InGame_World_MaxPRTCount"/>的全局上限
         /// </summary>
-        public virtual int InGame_World_MaxCount => 2000;
+        public virtual int InGame_World_MaxCount => 4000;
         /// <summary>
         /// 这个粒子来自什么模组
         /// </summary>
@@ -26,11 +26,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 一个通用的全局帧索引
         /// </summary>
-        public int Frame = 1;
-        /// <summary>
-        /// 一个特征值
-        /// </summary>
-        public int Variant = 0;
+        public Rectangle Frame = default;
         /// <summary>
         /// 由一般粒子处理程序注册的粒子类型的ID,这是在粒子处理器loadsl时自动设置的
         /// </summary>
