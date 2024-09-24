@@ -17,6 +17,7 @@ namespace InnoVault.TileProcessors
         #region Data
         /// <summary>
         /// 目标物块ID，一般标记<see cref="Tile.TileType"/>的值
+        /// 如果返回0，那么这个实体就不会被系统放置，这意味着你不应该尝试给所有泥土提供一个实体，因为泥土的图格ID是0，但是<see cref="ModContent.TileType{T}"/>的失败返回也是0
         /// </summary>
         public virtual int TargetTileID => -1;
         /// <summary>

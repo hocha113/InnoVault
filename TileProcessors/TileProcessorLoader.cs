@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.ID;
 using Terraria.ModLoader;
 using static InnoVault.VaultNetWork;
 
@@ -152,6 +153,9 @@ namespace InnoVault.TileProcessors
         /// 如果有空闲的模块槽位，会将新模块放入该槽位，否则会添加到列表的末尾
         /// </remarks>
         public static void AddInWorld(int tileID, Point16 position, Item item) {
+            if (tileID == 0) {//是的，我们拒绝泥土
+                return;
+            }
             if (TargetTile_To_TPInstance.TryGetValue(tileID, out List<TileProcessor> processorList)) {
                 foreach (var processor in processorList) {
                     TileProcessor newProcessor = processor.Clone();
