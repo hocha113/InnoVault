@@ -14,7 +14,7 @@ Older versions are not supported and users are encouraged to always use the late
 
 If you discover a vulnerability in InnoVault, please report it by contacting the project maintainers via [InnoVault GitHub Issues](https://github.com/hocha113/InnoVault/issues). Provide as much detail as possible, including steps to reproduce the vulnerability if applicable.
 
-You can expect an initial response within 72 hours of reporting the issue. Security updates addressing critical vulnerabilities will be released as soon as possible, while minor issues may be resolved in future updates. We will keep you informed about the status of your report, whether it is accepted or declined, and any subsequent actions.
+You can expect an initial response within 72 hours of reporting the issue. Security updates addressing critical vulnerabilities will be released as soon as possible, while minor issues may be resolved in future updates. You will be informed about the status of your report, whether it is accepted or declined, and any subsequent actions.
 
 ## Additional Information
 
