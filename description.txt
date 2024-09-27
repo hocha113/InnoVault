@@ -1,1 +1,9 @@
-Modify this file with a description of your mod.
+InnoVault is an API module that provides developers with essential code support, including basic APIs for UI, Tile Processor, Particle, and more.
+
+For more information, visit the [url=https://github.com/hocha113/InnoVault] InnoVault GitHub repository [/url], where you can download the source code for InnoVault.
+
+If you'd like to learn how to use the APIs provided by InnoVault, check out the [url=https://github.com/hocha113/InnoVault/wiki] InnoVault Wiki [/url], which contains an introduction to the APIs and usage examples.
+
+The InnoVault Example Mod demonstrates how to use InnoVault's APIs, serving as a practical reference for developers. You can extract the full project code for InnoVault Example Mod in-game, or download the source code from the repository: [url=https://github.com/hocha113/InnoVaultExample] InnoVault Example GitHub repository [/url]. An English-annotated version is also available for developers who prefer English: [url=https://github.com/hocha113/InnoVaultExample/tree/en_annotation] InnoVault Example English Annotated Version [/url].
+
+You can also subscribe to the InnoVault Example Mod on the [url=TODO] InnoVault Example Steam Workshop page [/url].

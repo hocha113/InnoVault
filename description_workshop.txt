@@ -1,0 +1,13 @@
+InnoVault 是一个API模组，它为开发者提供一些代码支持，如UI、Tile Processor、Particle等基本API支持
+
+如果您想了解更多，请访问 [url=https://github.com/hocha113/InnoVault] InnoVault 开源库 [/url]，在此您可以下载InnoVault的源代码
+
+如果您想学习使用InnoVault提供的API，请浏览 [url=https://github.com/hocha113/InnoVault/wiki] InnoVault Wiki [/url]，这里有对API的基本介绍和使用演示
+
+InnoVault Example Mod 演示了InnoVault提供的API的使用方法，开发者可以以InnoVault Example Mod的源代码为实际参考
+
+您可以在游戏内直接提取到InnoVault Example Mod的完整项目代码，也可以前往开源库下载源代码: [url=https://github.com/hocha113/InnoVaultExample] InnoVault Example 开源库 [/url]
+
+为偏向于使用英语的开发者准备的英文注释版本: [url=https://github.com/hocha113/InnoVaultExample/tree/en_annotation] InnoVault Example English Annotated Version [/url]
+
+您也可以选择订阅InnoVault Example Mod [url=TODO] InnoVault Example 创意工坊主页 [/url]
