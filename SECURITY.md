@@ -24,6 +24,6 @@ InnoVault is an API mod providing foundational support for developers, such as U
 - **[InnoVault Wiki](https://github.com/hocha113/InnoVault/wiki)** for basic API introductions and usage demonstrations.
 - **[InnoVault Example Mod Repository](https://github.com/hocha113/InnoVaultExample)** for practical examples of how to use InnoVault’s APIs, including the English annotated version: **[InnoVault Example English Annotated Version](https://github.com/hocha113/InnoVaultExample/tree/en_annotation)**.
 
-Please note:
+## Please note:
 - Developers are free to use and modify InnoVault’s source code but **must not embed the source code directly** into their mods, as it violates the open-source policy.
 - While embedding the compiled InnoVault DLL is allowed, it is not recommended. If you choose this route, please credit InnoVault in your mod's description.
