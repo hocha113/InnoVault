@@ -6,4 +6,4 @@ To learn how to work with InnoVault's APIs, check out the [InnoVault Wiki](https
 
 Additionally, the **InnoVault Example Mod** demonstrates practical applications of InnoVault’s APIs. You can either extract the full project in-game or download it from the [InnoVault Example GitHub repository](https://github.com/hocha113/InnoVaultExample). For English-speaking developers, an [English-annotated version](https://github.com/hocha113/InnoVaultExample/tree/en_annotation) is available.
 
-You can also subscribe to the InnoVault Example Mod on the [Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3338555897).
+You can also subscribe to the [InnoVault Example Mod Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3338555897).
