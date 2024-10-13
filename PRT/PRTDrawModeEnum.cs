@@ -10,12 +10,12 @@ public enum PRTDrawModeEnum
     /// </summary>
     AlphaBlend,
     /// <summary>
+    /// 非预乘混合模式，使用独立的alpha值和颜色值进行混合，适用于没有预乘alpha的纹理或图像
+    /// </summary>
+    NonPremultiplied,
+    /// <summary>
     /// 加法混合模式，将前景和背景的颜色值相加，通常用于发光或光效
     /// 产生明亮、强烈的视觉效果
     /// </summary>
     AdditiveBlend,
-    /// <summary>
-    /// 非预乘混合模式，使用独立的alpha值和颜色值进行混合，适用于没有预乘alpha的纹理或图像
-    /// </summary>
-    NonPremultiplied,
 }
