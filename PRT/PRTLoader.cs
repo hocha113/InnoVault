@@ -171,8 +171,6 @@ namespace InnoVault.PRT
             prtEntity.ai[0] = ai0;
             prtEntity.ai[1] = ai1;
             prtEntity.ai[2] = ai2;
-            prtEntity.ID = GetParticleID(prtEntity.GetType());
-            prtEntity.SetProperty();
             AddParticle(prtEntity);
             return prtEntity;
         }
@@ -198,8 +196,6 @@ namespace InnoVault.PRT
             prtEntity.ai[0] = ai0;
             prtEntity.ai[1] = ai1;
             prtEntity.ai[2] = ai2;
-            prtEntity.ID = GetParticleID(prtEntity.GetType());
-            prtEntity.SetProperty();
             AddParticle(prtEntity);
             return prtEntity;
         }
