@@ -28,6 +28,10 @@ namespace InnoVault.PRT
         /// </summary>
         public Rectangle Frame = default;
         /// <summary>
+        /// 该粒子是否活跃，如果为<see langword="false"/>，那么将在下一次更新中被删除
+        /// </summary>
+        public bool active = false;
+        /// <summary>
         /// 由一般粒子处理程序注册的粒子类型的ID,这是在粒子处理器loadsl时自动设置的
         /// </summary>
         public int ID;
@@ -90,7 +94,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 从处理程序中移除粒子
         /// </summary>
-        public void Kill() => PRTLoader.RemoveParticle(this);
+        public void Kill() => active = false;
         /// <summary>
         /// 运行在默认绘制之前
         /// </summary>

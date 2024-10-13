@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
+using Terraria.Graphics.Renderers;
 using Terraria.ModLoader;
 
 namespace InnoVault.PRT
@@ -50,7 +51,6 @@ namespace InnoVault.PRT
         public static List<BasePRT> PRTInstances { get; private set; } = [];
 
         private static List<BasePRT> PRT_InGame_World_Inds;
-        private static List<BasePRT> PRT_InGame_ToKill_Inds;
         private static List<BasePRT> PRT_AlphaBlend_Draw;
         private static List<BasePRT> PRT_AdditiveBlend_Draw;
         private static List<BasePRT> PRT_NonPremultiplied_Draw;
@@ -67,7 +67,6 @@ namespace InnoVault.PRT
             PRT_IDToInstances = [];
             PRTInstances = [];
             PRT_InGame_World_Inds = [];
-            PRT_InGame_ToKill_Inds = [];
             PRT_AlphaBlend_Draw = [];
             PRT_AdditiveBlend_Draw = [];
             PRT_NonPremultiplied_Draw = [];
@@ -97,7 +96,6 @@ namespace InnoVault.PRT
             PRT_IDToInstances = null;
             PRTInstances = null;
             PRT_InGame_World_Inds = null;
-            PRT_InGame_ToKill_Inds = null;
             PRT_AlphaBlend_Draw = null;
             PRT_AdditiveBlend_Draw = null;
             PRT_NonPremultiplied_Draw = null;
@@ -145,6 +143,7 @@ namespace InnoVault.PRT
                 return;
             }
 
+            particle.active = true;
             particle.ID = id;
             particle.SetProperty();
 
@@ -209,12 +208,14 @@ namespace InnoVault.PRT
             }
 
             foreach (BasePRT particle in PRT_InGame_World_Inds) {
-                if (particle == null) {
+                if (particle == null || !particle.active) {
                     continue;
                 }
+
                 PRT_IDToInGame_World_Count[particle.ID]++;
             }
         }
+
         /// <summary>
         /// 在最后调用更新逻辑，进行CG机制，并重置粒子计数
         /// </summary>
@@ -224,30 +225,28 @@ namespace InnoVault.PRT
             }
 
             foreach (BasePRT particle in PRT_InGame_World_Inds) {
-                if (particle == null) {
+                if (particle == null || !particle.active) {
                     continue;
                 }
+
                 UpdateParticleVelocity(particle);
                 UpdateParticleTime(particle);
                 particle.AI();
+
+                if (particle.Time >= particle.Lifetime && particle.SetLifetime) {
+                    particle.active = false;
+                }
             }
 
             foreach (var particle in PRTInstances) {
                 PRT_IDToInGame_World_Count[particle.ID] = 0;
             }
 
-            PRT_InGame_World_Inds.RemoveAll(p => (p.Time >= p.Lifetime && p.SetLifetime) || PRT_InGame_ToKill_Inds.Contains(p));
-            PRT_InGame_ToKill_Inds.Clear();
+            PRT_InGame_World_Inds.RemoveAll(p => !p.active);
         }
 
         private static void UpdateParticleVelocity(BasePRT particle) => particle.Position += particle.Velocity;
         private static void UpdateParticleTime(BasePRT particle) => particle.Time++;
-
-        /// <summary>
-        /// 移除对应的粒子实例
-        /// </summary>
-        /// <param name="particle"></param>
-        public static void RemoveParticle(BasePRT particle) => PRT_InGame_ToKill_Inds.Add(particle);
 
         /// <summary>
         /// 获取这个<see cref="BasePRT"/>类型的ID，每一个PRT类型都拥有一个独一无二的ID
@@ -264,9 +263,10 @@ namespace InnoVault.PRT
 
         private static void AddDrawHander() {
             foreach (BasePRT particle in PRT_InGame_World_Inds) {
-                if (particle == null) {
+                if (particle == null || !particle.active) {
                     continue;
                 }
+
                 GetPRTInstancesByDrawMode(particle.PRTDrawMode).Add(particle);
             }
         }
@@ -284,6 +284,7 @@ namespace InnoVault.PRT
             spriteBatch.Draw(value, particle.Position - Main.screenPosition, particle.Frame, particle.Color
                 , particle.Rotation, particle.Frame.Size() * 0.5f, particle.Scale, SpriteEffects.None, 0f);
         }
+
         /// <summary>
         /// 根据指定的绘制模式 <see cref="PRTDrawModeEnum"/>，为 <see cref="SpriteBatch"/> 设置适当的渲染状态并开始绘制
         /// </summary>
