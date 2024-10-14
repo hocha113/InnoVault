@@ -67,13 +67,13 @@ namespace InnoVault.TileProcessors
         private delegate void On_Tile_KillMultiTile_Dalegate(int i, int j, int frameX, int frameY, int type);
         #endregion
         void IVaultLoader.LoadData() {
-            TP_Instances = VaultUtils.HanderSubclass<TileProcessor>();
+            TP_Instances = VaultUtils.GetSubclassInstances<TileProcessor>();
             foreach (var tpInds in TP_Instances) {
                 VaultUtils.AddTypeModAssociation(TP_Type_To_Mod, tpInds.GetType(), ModLoader.Mods);
                 tpInds.Load();
             }
 
-            TPGlobalHooks = VaultUtils.HanderSubclass<GlobalTileProcessor>();
+            TPGlobalHooks = VaultUtils.GetSubclassInstances<GlobalTileProcessor>();
             foreach (var tpGlobal in TPGlobalHooks) {
                 VaultUtils.AddTypeModAssociation(TPGlobal_Type_To_Mod, tpGlobal.GetType(), ModLoader.Mods);
                 tpGlobal.Load();

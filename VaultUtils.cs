@@ -116,7 +116,7 @@ namespace InnoVault
         /// </summary>
         /// <param name="baseType">基类的类型</param>
         /// <returns>子类列表</returns>
-        public static List<Type> GetSubclasses(Type baseType) {
+        public static List<Type> GetSubclassTypeList(Type baseType) {
             List<Type> subclasses = [];
             Type[] allTypes = GetAnyModCodeType();
 
@@ -132,8 +132,8 @@ namespace InnoVault
         /// <summary>
         /// 根据给定的类型列表，创建符合条件的类型实例，并将实例添加到输出列表中，该方法默认要求类型拥有无参构造
         /// </summary>
-        public static List<T> HanderSubclass<T>(bool parameterless = true) {
-            List<Type> inTypes = GetSubclasses(typeof(T));
+        public static List<T> GetSubclassInstances<T>(bool parameterless = true) {
+            List<Type> inTypes = GetSubclassTypeList(typeof(T));
             List<T> outInds = [];
             foreach (Type type in inTypes) {
                 if (type != typeof(T)) {
@@ -147,19 +147,12 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 获取当前程序集（Assembly）中实现了接口 `T` 的所有类的实例列表
-        /// </summary>
-        /// <typeparam name="T">要查找实现类的接口类型</typeparam>
-        /// <returns>一个包含所有实现了指定接口 `T` 的类实例的列表</returns>
-        public static List<T> GetSubInterface<T>() => GetSubInterface<T>(typeof(T).Name);
-
-        /// <summary>
         /// 获取当前程序集（Assembly）中实现了指定接口（通过接口名称 `lname` 指定）的所有类的实例列表
         /// </summary>
         /// <typeparam name="T">接口类型，用于检查类是否实现该接口</typeparam>
-        /// <param name="lname">接口的名称，用于匹配实现类</param>
         /// <returns>一个包含所有实现了指定接口的类实例的列表</returns>
-        public static List<T> GetSubInterface<T>(string lname) {
+        public static List<T> GetSubInterface<T>() {
+            string lname = typeof(T).Name;
             List<T> subInterface = new List<T>();
             Type[] allTypes = GetAnyModCodeType();
 
@@ -242,6 +235,27 @@ namespace InnoVault
                 currentID++;
             }
             return Color.Lerp(colors[currentID], colors[currentID + 1], (percent - (per * currentID)) / per);
+        }
+
+        /// <summary>
+        /// 销毁关于傀儡的物块结构
+        /// </summary>
+        /// <param name="point16">输入这个傀儡所占图格的任意一点</param>
+        public static void KillPuppet(Point16 point16) {
+            if (SafeGetTopLeft(point16.X, point16.Y, out Point16 tilePos)) {
+                TileObjectData data = TileObjectData.GetTileData(Main.tile[point16]);
+                for (int i = 0; i < data.Width; i++) {
+                    for (int j = 0; j < data.Height; j++) {
+                        Point16 newPoint = point16 + new Point16(i, j);
+                        Tile newTile = Main.tile[newPoint];
+                        if (newTile.TileType == 378) {
+                            newTile.TileType = 0;
+                            newTile.HasTile = false;
+                            WorldGen.SquareTileFrame(newPoint.X, newPoint.Y);
+                        }
+                    }
+                }
+            }
         }
 
         #endregion

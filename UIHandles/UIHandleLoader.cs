@@ -199,7 +199,7 @@ namespace InnoVault.UIHandles
 
         //加载UIHandle
         private static void UIHandlesLoad() {
-            UIHandles = VaultUtils.HanderSubclass<UIHandle>();
+            UIHandles = VaultUtils.GetSubclassInstances<UIHandle>();
             //我们需要在第一时间去寻找Mod,这样后续的UnLoad和Load才可以正常访问这些实例的Mod属性
             for (int i = 0; i < UIHandles.Count; i++) {
                 var hander = UIHandles[i];
@@ -221,7 +221,7 @@ namespace InnoVault.UIHandles
 
         //加载Global实例
         private static void UIHandleGlobalLoad() {
-            UIHandleGlobalHooks = VaultUtils.HanderSubclass<GlobalUIHandle>();
+            UIHandleGlobalHooks = VaultUtils.GetSubclassInstances<GlobalUIHandle>();
             //我们需要在第一时间去寻找Mod,这样后续的UnLoad和Load才可以正常访问这些实例的Mod属性
             foreach (var global in UIHandleGlobalHooks) {
                 VaultUtils.AddTypeModAssociation(UIHandleGlobal_Type_To_Mod, global.GetType(), ModLoader.Mods);

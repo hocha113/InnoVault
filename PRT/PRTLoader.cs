@@ -71,7 +71,7 @@ namespace InnoVault.PRT
             PRT_AdditiveBlend_Draw = [];
             PRT_NonPremultiplied_Draw = [];
 
-            PRTInstances = VaultUtils.HanderSubclass<BasePRT>(false);
+            PRTInstances = VaultUtils.GetSubclassInstances<BasePRT>(false);
 
             foreach (var particle in PRTInstances) {
                 Type type = particle.GetType();
