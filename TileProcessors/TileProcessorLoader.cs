@@ -307,7 +307,7 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
                 // 计算当前模块与指定坐标之间的距离
-                float value = inds.PosInWorld.To(new Vector2(x, y) * 16).Length();
+                float value = (new Vector2(x, y) * 16 - inds.PosInWorld).Length();
                 if (value > findValue) {
                     continue;
                 }
