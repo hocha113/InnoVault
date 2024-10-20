@@ -26,120 +26,94 @@ namespace InnoVault
         #region Math
 
         /// <summary>
-        /// 表示缓动曲线的封装
-        /// </summary>
-        public class CurveEase
-        {
-            private Func<float, float> _function;
-
-            /// <summary>
-            /// 构造函数，初始化一个缓动曲线对象
-            /// </summary>
-            /// <param name="func">用于定义缓动曲线的函数</param>
-            public CurveEase(Func<float, float> func) => _function = func;
-
-            /// <summary>
-            /// 根据传入的时间参数计算缓动曲线的值
-            /// </summary>
-            /// <param name="time">时间参数，通常在0到1之间</param>
-            /// <returns>根据缓动函数计算出的结果值</returns>
-            public float Ease(float time) => _function(time);
-        }
-
-        /// <summary>
         /// 二次缓动的入场效果
         /// </summary>
         /// <remarks>该曲线呈加速状态</remarks>
-        public static readonly CurveEase EaseQuadIn = new CurveEase((float x) => { return x * x; });
+        public static float EaseQuadIn(float x) => x * x;
 
         /// <summary>
         /// 二次缓动的出场效果
         /// </summary>
         /// <remarks>该曲线呈减速状态</remarks>
-        public static readonly CurveEase EaseQuadOut = new CurveEase((float x) => { return 1f - EaseQuadIn.Ease(1f - x); });
+        public static float EaseQuadOut(float x) => 1f - EaseQuadIn(1f - x);
 
         /// <summary>
         /// 二次缓动的入场和出场效果
         /// </summary>
         /// <remarks>前半段为加速，后半段为减速</remarks>
-        public static readonly CurveEase EaseQuadInOut = new CurveEase((float x)
-            => { return (x < 0.5f) ? 2f * x * x : -2f * x * x + 4f * x - 1f; });
+        public static float EaseQuadInOut(float x) => (x < 0.5f) ? 2f * x * x : -2f * x * x + 4f * x - 1f;
 
         /// <summary>
         /// 三次缓动的入场效果
         /// </summary>
         /// <remarks>该曲线呈加速状态</remarks>
-        public static readonly CurveEase EaseCubicIn = new CurveEase((float x) => { return x * x * x; });
+        public static float EaseCubicIn(float x) => x * x * x;
 
         /// <summary>
         /// 三次缓动的出场效果
         /// </summary>
         /// <remarks>该曲线呈减速状态</remarks>
-        public static readonly CurveEase EaseCubicOut = new CurveEase((float x) => { return 1f - EaseCubicIn.Ease(1f - x); });
+        public static float EaseCubicOut(float x) => 1f - EaseCubicIn(1f - x);
 
         /// <summary>
         /// 三次缓动的入场和出场效果
         /// </summary>
         /// <remarks>前半段为加速，后半段为减速</remarks>
-        public static readonly CurveEase EaseCubicInOut = new CurveEase((float x)
-            => { return (x < 0.5f) ? 4f * x * x * x : 4f * x * x * x - 12f * x * x + 12f * x - 3f; });
+        public static float EaseCubicInOut(float x) => (x < 0.5f) ? 4f * x * x * x : 4f * x * x * x - 12f * x * x + 12f * x - 3f;
 
         /// <summary>
         /// 四次缓动的入场效果
         /// </summary>
         /// <remarks>该曲线呈加速状态</remarks>
-        public static readonly CurveEase EaseQuarticIn = new CurveEase((float x) => { return x * x * x * x; });
+        public static float EaseQuarticIn(float x) => x * x * x * x;
 
         /// <summary>
         /// 四次缓动的出场效果
         /// </summary>
         /// <remarks>该曲线呈减速状态</remarks>
-        public static readonly CurveEase EaseQuarticOut = new CurveEase((float x) => { return 1f - EaseQuarticIn.Ease(1f - x); });
+        public static float EaseQuarticOut(float x) => 1f - EaseQuarticIn(1f - x);
 
         /// <summary>
         /// 四次缓动的入场和出场效果
         /// </summary>
         /// <remarks>前半段为加速，后半段为减速</remarks>
-        public static readonly CurveEase EaseQuarticInOut = new CurveEase((float x)
-            => { return (x < 0.5f) ? 8f * x * x * x * x : -8f * x * x * x * x + 32f * x * x * x - 48f * x * x + 32f * x - 7f; });
+        public static float EaseQuarticInOut(float x) => (x < 0.5f) ? 8f * x * x * x * x : -8f * x * x * x * x + 32f * x * x * x - 48f * x * x + 32f * x - 7f;
 
         /// <summary>
         /// 五次缓动的入场效果
         /// </summary>
         /// <remarks>该曲线呈加速状态</remarks>
-        public static readonly CurveEase EaseQuinticIn = new CurveEase((float x) => { return x * x * x * x * x; });
+        public static float EaseQuinticIn(float x) => x * x * x * x * x;
 
         /// <summary>
         /// 五次缓动的出场效果
         /// </summary>
         /// <remarks>该曲线呈减速状态</remarks>
-        public static readonly CurveEase EaseQuinticOut = new CurveEase((float x) => { return 1f - EaseQuinticIn.Ease(1f - x); });
+        public static float EaseQuinticOut(float x) => 1f - EaseQuinticIn(1f - x);
 
         /// <summary>
         /// 五次缓动的入场和出场效果
         /// </summary>
         /// <remarks>前半段为加速，后半段为减速</remarks>
-        public static readonly CurveEase EaseQuinticInOut = new CurveEase((float x)
-            => { return (x < 0.5f) ? 16f * x * x * x * x * x : 16f * x * x * x * x * x - 80f * x * x * x * x + 160f * x * x * x - 160f * x * x + 80f * x - 15f; });
+        public static float EaseQuinticInOut(float x) => (x < 0.5f) ? 16f * x * x * x * x * x : 16f * x * x * x * x * x - 80f * x * x * x * x + 160f * x * x * x - 160f * x * x + 80f * x - 15f;
 
         /// <summary>
         /// 圆形缓动的入场效果
         /// </summary>
         /// <remarks>该曲线模拟圆形运动，呈加速状态</remarks>
-        public static readonly CurveEase EaseCircularIn = new CurveEase((float x) => { return 1f - (float)Math.Sqrt(1.0 - Math.Pow(x, 2)); });
+        public static float EaseCircularIn(float x) => 1f - (float)Math.Sqrt(1.0 - Math.Pow(x, 2));
 
         /// <summary>
         /// 圆形缓动的出场效果
         /// </summary>
         /// <remarks>该曲线模拟圆形运动，呈减速状态</remarks>
-        public static readonly CurveEase EaseCircularOut = new CurveEase((float x) => { return (float)Math.Sqrt(1.0 - Math.Pow(x - 1.0, 2)); });
+        public static float EaseCircularOut(float x) => (float)Math.Sqrt(1.0 - Math.Pow(x - 1.0, 2));
 
         /// <summary>
         /// 圆形缓动的入场和出场效果
         /// </summary>
         /// <remarks>前半段为加速，后半段为减速，模拟圆形运动</remarks>
-        public static readonly CurveEase EaseCircularInOut = new CurveEase((float x)
-            => { return (x < 0.5f) ? (1f - (float)Math.Sqrt(1.0 - Math.Pow(x * 2, 2))) * 0.5f : (float)((Math.Sqrt(1.0 - Math.Pow(-2 * x + 2, 2)) + 1) * 0.5); });
+        public static float EaseCircularInOut(float x) => (x < 0.5f) ? (1f - (float)Math.Sqrt(1.0 - Math.Pow(x * 2, 2))) * 0.5f : (float)((Math.Sqrt(1.0 - Math.Pow(-2 * x + 2, 2)) + 1) * 0.5);
 
         #endregion
 
