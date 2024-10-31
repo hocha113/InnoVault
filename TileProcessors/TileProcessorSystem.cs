@@ -4,6 +4,7 @@ using Terraria;
 using Terraria.ModLoader;
 using Microsoft.Xna.Framework;
 using Mono.Cecil.Cil;
+using Terraria.ModLoader.IO;
 
 namespace InnoVault.TileProcessors
 {
@@ -12,6 +13,26 @@ namespace InnoVault.TileProcessors
     /// </summary>
     public sealed class TileProcessorSystem : ModSystem
     {
+        /// <inheritdoc/>
+        public override void SaveWorldData(TagCompound tag) {
+            foreach (TileProcessor tpInds in TileProcessorLoader.TP_InWorld) {
+                if (!tpInds.Active) {
+                    continue;
+                }
+                tpInds.SaveData(tag);
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void LoadWorldData(TagCompound tag) {
+            foreach (TileProcessor tpInds in TileProcessorLoader.TP_InWorld) {
+                if (!tpInds.Active) {
+                    continue;
+                }
+                tpInds.LoadData(tag);
+            }
+        }
+
         /// <inheritdoc/>
         public override void OnWorldUnload() {
             foreach (TileProcessor tpInds in TileProcessorLoader.TP_InWorld) {

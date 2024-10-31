@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System.IO;
 using Terraria.ModLoader;
 using InnoVault.PRT;
+using Terraria.ModLoader.IO;
 
 namespace InnoVault.TileProcessors
 {
@@ -156,6 +157,18 @@ namespace InnoVault.TileProcessors
             }
 
             return false;
+        }
+        /// <summary>
+        /// 保存这个实体的数据
+        /// </summary>
+        public virtual void SaveData(TagCompound tag) {
+
+        }
+        // <summary>
+        /// 加载这个实体的数据
+        /// </summary>
+        public virtual void LoadData(TagCompound tag) {
+
         }
         /// <summary>
         /// 一个独立的绘制函数，在<see cref="TileProcessorSystem.PostDrawTiles"/>中统一运行

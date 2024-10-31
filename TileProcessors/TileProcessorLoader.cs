@@ -250,6 +250,25 @@ namespace InnoVault.TileProcessors
         /// <returns>返回该类型对应的模块ID</returns>
         public static int GetModuleID(Type type) => TP_Type_To_ID[type];
         /// <summary>
+        /// 根据点来寻找对于的TP实体实例
+        /// </summary>
+        /// <param name="position"></param>
+        /// <param name="tileProcessor"></param>
+        /// <returns></returns>
+        public static bool ByPositionGetTP(Point16 position, out TileProcessor tileProcessor) {
+            tileProcessor = null;
+            if (VaultUtils.IsTopLeft(position.X, position.Y, out var point)) {
+                // 遍历世界中的所有模块，查找与指定ID和坐标匹配的模块
+                foreach (var inds in TP_InWorld) {
+                    if (inds.Position.X == point.X && inds.Position.Y == point.Y) {
+                        tileProcessor = inds;
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+        /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
         /// </summary>
         /// <typeparam name="T">要返回的模块的类型，必须继承自 <see cref="TileProcessor"/></typeparam>
