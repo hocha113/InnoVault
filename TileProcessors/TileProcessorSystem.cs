@@ -1,9 +1,8 @@
-﻿using Microsoft.Xna.Framework.Graphics;
-using Terraria.GameContent;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ModLoader;
-using Microsoft.Xna.Framework;
-using Mono.Cecil.Cil;
 using Terraria.ModLoader.IO;
 
 namespace InnoVault.TileProcessors
@@ -14,24 +13,9 @@ namespace InnoVault.TileProcessors
     public sealed class TileProcessorSystem : ModSystem
     {
         /// <inheritdoc/>
-        public override void SaveWorldData(TagCompound tag) {
-            foreach (TileProcessor tpInds in TileProcessorLoader.TP_InWorld) {
-                if (!tpInds.Active) {
-                    continue;
-                }
-                tpInds.SaveData(tag);
-            }
-        }
-
+        public override void SaveWorldData(TagCompound tag) => TileProcessorLoader.SaveWorldData(tag);
         /// <inheritdoc/>
-        public override void LoadWorldData(TagCompound tag) {
-            foreach (TileProcessor tpInds in TileProcessorLoader.TP_InWorld) {
-                if (!tpInds.Active) {
-                    continue;
-                }
-                tpInds.LoadData(tag);
-            }
-        }
+        public override void LoadWorldData(TagCompound tag) { }
 
         /// <inheritdoc/>
         public override void OnWorldUnload() {

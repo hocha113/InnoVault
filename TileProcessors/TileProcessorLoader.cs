@@ -7,6 +7,9 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
+using Terraria.Social;
+using Terraria.Utilities;
 using static InnoVault.VaultNetWork;
 
 namespace InnoVault.TileProcessors
@@ -17,6 +20,7 @@ namespace InnoVault.TileProcessors
     public sealed class TileProcessorLoader : GlobalTile, IVaultLoader
     {
         #region Data
+        private static readonly string key_TPData_TagList = "TPData_TagList";
         /// <summary>
         /// 在世界中的Tile模块的最大存在数量
         /// </summary>
@@ -202,11 +206,81 @@ namespace InnoVault.TileProcessors
                 }
             }
 
+            TagCompound tag = LoadTileProcessorIO();
+            if (tag != null) {
+                LoadWorldData(tag);
+            }
+
             foreach (TileProcessor module in TP_InWorld) {
                 if (!module.Active) {
                     continue;
                 }
                 module.LoadInWorld();
+            }
+        }
+
+        internal static TagCompound LoadTileProcessorIO() {
+            bool isCloudSave = Main.ActiveWorldFileData.IsCloudSave && SocialAPI.Cloud != null;
+            string path = Main.worldPathName;
+            path = Path.ChangeExtension(path, ".twld");
+            byte[] buf = FileUtilities.ReadAllBytes(path, isCloudSave);
+            if (buf[0] != 31 || buf[1] != 139) {
+                throw new IOException(Path.GetFileName(path) + ":: File Corrupted during Last Save Step. Aborting... ERROR: Missing NBT Header");
+            }
+            IList<TagCompound> list = TagIO.FromStream(buf.ToMemoryStream()).GetList<TagCompound>("modData");
+            foreach (TagCompound tag in list) {
+                if (tag.GetString("mod") == "InnoVault" && tag.GetString("name") == "TileProcessorSystem") {
+                    return tag.GetCompound("data");
+                }
+            }
+            return null;
+        }
+
+        /// <inheritdoc/>
+        internal static void SaveWorldData(TagCompound tag) {
+            List<TagCompound> list = new List<TagCompound>();
+            TagCompound saveData = new TagCompound();
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (tp == null) {
+                    continue;
+                }
+                tp.SaveData(saveData);
+                TagCompound thisTag = new TagCompound {
+                    ["mod"] = tp?.Mod.Name,
+                    ["name"] = tp?.GetType().Name,
+                    ["X"] = tp.Position.X,
+                    ["Y"] = tp.Position.Y
+                };
+                if (saveData.Count != 0) {
+                    thisTag["data"] = saveData;
+                    saveData = new TagCompound();
+                }
+                list.Add(thisTag);
+            }
+            tag[key_TPData_TagList] = list;
+        }
+
+        /// <inheritdoc/>
+        internal static void LoadWorldData(TagCompound tag) {
+            if (!tag.ContainsKey(key_TPData_TagList)) {
+                return;
+            }
+            IList<TagCompound> list = tag.GetList<TagCompound>(key_TPData_TagList);
+            foreach (TagCompound thisTag in list) {
+                string modName = thisTag.GetString("mod");
+                string name = thisTag.GetString("name");
+                Point16 point = new Point16(thisTag.GetShort("X"), thisTag.GetShort("Y"));
+                foreach (TileProcessor tp in TP_InWorld) {
+                    if (tp == null || tp.Mod.Name != modName || tp.GetType().Name != name) {
+                        continue;
+                    }
+                    if (tp.Position != point) {
+                        continue;
+                    }
+                    if (thisTag.ContainsKey("data")) {
+                        tp.LoadData(thisTag.GetCompound("data"));
+                    }
+                }
             }
         }
 
