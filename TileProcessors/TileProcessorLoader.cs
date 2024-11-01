@@ -221,8 +221,7 @@ namespace InnoVault.TileProcessors
 
         internal static TagCompound LoadTileProcessorIO() {
             bool isCloudSave = Main.ActiveWorldFileData.IsCloudSave && SocialAPI.Cloud != null;
-            string path = Main.worldPathName;
-            path = Path.ChangeExtension(path, ".twld");
+            string path = Path.ChangeExtension(Main.worldPathName, ".twld");
             byte[] buf = FileUtilities.ReadAllBytes(path, isCloudSave);
             if (buf[0] != 31 || buf[1] != 139) {
                 throw new IOException(Path.GetFileName(path) + ":: File Corrupted during Last Save Step. Aborting... ERROR: Missing NBT Header");
@@ -241,7 +240,7 @@ namespace InnoVault.TileProcessors
             List<TagCompound> list = new List<TagCompound>();
             TagCompound saveData = new TagCompound();
             foreach (TileProcessor tp in TP_InWorld) {
-                if (tp == null) {
+                if (tp == null || !tp.Active) {
                     continue;
                 }
                 tp.SaveData(saveData);
@@ -266,20 +265,24 @@ namespace InnoVault.TileProcessors
                 return;
             }
             IList<TagCompound> list = tag.GetList<TagCompound>(key_TPData_TagList);
+            // 将 TP_InWorld 转化为一个字典，以便快速查找
+            Dictionary<(string, string, Point16), TileProcessor> tpDictionary = new Dictionary<(string, string, Point16), TileProcessor>();
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (tp != null) {
+                    tpDictionary[(tp.Mod.Name, tp.GetType().Name, tp.Position)] = tp;
+                }
+            }
+            // 遍历标签列表并在字典中查找匹配的 TileProcessor
             foreach (TagCompound thisTag in list) {
+                if (!thisTag.ContainsKey("data")) {
+                    continue;
+                }
                 string modName = thisTag.GetString("mod");
                 string name = thisTag.GetString("name");
                 Point16 point = new Point16(thisTag.GetShort("X"), thisTag.GetShort("Y"));
-                foreach (TileProcessor tp in TP_InWorld) {
-                    if (tp == null || tp.Mod.Name != modName || tp.GetType().Name != name) {
-                        continue;
-                    }
-                    if (tp.Position != point) {
-                        continue;
-                    }
-                    if (thisTag.ContainsKey("data")) {
-                        tp.LoadData(thisTag.GetCompound("data"));
-                    }
+                // 从字典中查找匹配项
+                if (tpDictionary.TryGetValue((modName, name, point), out TileProcessor tp)) {
+                    tp.LoadData(thisTag.GetCompound("data"));
                 }
             }
         }

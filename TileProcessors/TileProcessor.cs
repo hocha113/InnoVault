@@ -1,11 +1,10 @@
-﻿using System;
-using Terraria.DataStructures;
-using Terraria;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.IO;
+using Terraria;
+using Terraria.DataStructures;
 using Terraria.ModLoader;
-using InnoVault.PRT;
 using Terraria.ModLoader.IO;
 
 namespace InnoVault.TileProcessors
