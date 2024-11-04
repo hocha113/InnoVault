@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
+using Terraria.DataStructures;
 using Terraria.ModLoader;
 
 namespace InnoVault.TileProcessors
@@ -30,6 +31,16 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public virtual void PostUpdate(TileProcessor tileProcessor) {
 
+        }
+        /// <summary>
+        /// 获取多结构物块的放置原点坐标。如果希望系统使用原生判定，返回<see langword="null"/>，
+        /// 若需要自定义放置原点，则返回一个有效的坐标值
+        /// </summary>
+        /// <param name="x">物块的横坐标</param>
+        /// <param name="y">物块的纵坐标</param>
+        /// <returns>返回放置原点坐标或<see langword="null"/></returns>
+        public virtual Point16? PlaceInWorldGetTopLeftPoint(int x, int y) {
+            return null;
         }
         /// <summary>
         /// 更新在<see cref="TileProcessor.Draw(SpriteBatch)"/>之前，返回<see langword="false"/>可以阻止其运行

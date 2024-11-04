@@ -411,7 +411,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 判断给定坐标是否为多结构物块的左上角位置，并输出左上角的坐标。
+        /// 判断给定坐标是否为多结构物块的左上角位置，并输出左上角的坐标
         /// </summary>
         /// <param name="i">物块的x坐标</param>
         /// <param name="j">物块的y坐标</param>

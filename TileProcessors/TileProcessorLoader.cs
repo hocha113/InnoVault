@@ -1,8 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
+using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
@@ -21,10 +23,15 @@ namespace InnoVault.TileProcessors
     {
         #region Data
         private static readonly string key_TPData_TagList = "TPData_TagList";
+        
         /// <summary>
         /// 在世界中的Tile模块的最大存在数量
         /// </summary>
         public const int MaxTileModuleInWorldCount = 1000;
+        /// <summary>
+        /// 当前世界的数据
+        /// </summary>
+        public static TagCompound ActiveWorldTagData;
         /// <summary>
         /// 所有Tile模块的列表该列表在加载时初始化，并包含所有Tile模块的实例
         /// </summary>
@@ -132,6 +139,7 @@ namespace InnoVault.TileProcessors
             TargetTile_To_TPInstance.Clear();
             tileLoaderType = null;
             onTile_KillMultiTile_Method = null;
+            ActiveWorldTagData = null;
 
             WorldGen.Hooks.OnWorldLoad -= LoadWorldTileProcessor;
         }
@@ -157,9 +165,10 @@ namespace InnoVault.TileProcessors
         /// 如果有空闲的模块槽位，会将新模块放入该槽位，否则会添加到列表的末尾
         /// </remarks>
         public static void AddInWorld(int tileID, Point16 position, Item item) {
-            if (tileID == 0) {//是的，我们拒绝泥土
+            if (tileID == 0 || TP_InWorld.Count >= MaxTileModuleInWorldCount) {//是的，我们拒绝泥土
                 return;
             }
+
             if (TargetTile_To_TPInstance.TryGetValue(tileID, out List<TileProcessor> processorList)) {
                 foreach (var processor in processorList) {
                     TileProcessor newProcessor = processor.Clone();
@@ -178,7 +187,7 @@ namespace InnoVault.TileProcessors
                         }
                     }
 
-                    if (add && TP_InWorld.Count < MaxTileModuleInWorldCount) {
+                    if (add) {
                         newProcessor.WhoAmI = TP_InWorld.Count;
                         TP_InWorld.Add(newProcessor);
                     }
@@ -200,15 +209,17 @@ namespace InnoVault.TileProcessors
             for (int x = 0; x < Main.tile.Width; x++) {
                 for (int y = 0; y < Main.tile.Height; y++) {
                     Tile tile = Main.tile[x, y];
-                    if (tile != null && tile.HasTile && VaultUtils.IsTopLeft(x, y, out Point16 point)) {
+                    if (tile == null || !tile.HasTile) {
+                        continue;
+                    }
+                    if (VaultUtils.IsTopLeft(x, y, out Point16 point)) {
                         AddInWorld(tile.TileType, point, null);
                     }
                 }
             }
 
-            TagCompound tag = LoadTileProcessorIO();
-            if (tag != null) {
-                LoadWorldData(tag);
+            if (ActiveWorldTagData != null) {
+                LoadWorldData(ActiveWorldTagData);
             }
 
             foreach (TileProcessor module in TP_InWorld) {
@@ -288,8 +299,23 @@ namespace InnoVault.TileProcessors
         }
 
         /// <inheritdoc/>
+        internal static Point16? TileProcessorPlaceInWorldGetTopLeftPoint(int i, int j) {
+            Point16? point16 = null;
+            foreach (var tpGlobal in TPGlobalHooks) {
+                point16 = tpGlobal.PlaceInWorldGetTopLeftPoint(i, j);
+            }
+            return point16;
+        }
+
+        /// <inheritdoc/>
         public override void PlaceInWorld(int i, int j, int type, Item item) {
-            if (VaultUtils.SafeGetTopLeft(i, j, out Point16 point)) {
+            bool flag = VaultUtils.SafeGetTopLeft(i, j, out Point16 point);
+            Point16? gpoint = TileProcessorPlaceInWorldGetTopLeftPoint(i, j);
+            if (gpoint.HasValue) {
+                point = gpoint.Value;
+                flag = true;
+            }
+            if (flag) {
                 AddInWorld(type, point, item);
                 if (VaultUtils.isClient) {
                     NetSend(Mod, type, point);

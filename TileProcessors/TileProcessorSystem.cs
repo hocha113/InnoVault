@@ -19,6 +19,7 @@ namespace InnoVault.TileProcessors
 
         /// <inheritdoc/>
         public override void OnWorldUnload() {
+            TileProcessorLoader.ActiveWorldTagData = TileProcessorLoader.LoadTileProcessorIO();
             foreach (TileProcessor tpInds in TileProcessorLoader.TP_InWorld) {
                 if (!tpInds.Active) {
                     continue;
