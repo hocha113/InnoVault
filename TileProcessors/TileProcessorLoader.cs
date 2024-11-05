@@ -3,6 +3,7 @@ using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Terraria;
@@ -210,6 +211,10 @@ namespace InnoVault.TileProcessors
                 for (int y = 0; y < Main.tile.Height; y++) {
                     Tile tile = Main.tile[x, y];
                     if (tile == null || !tile.HasTile) {
+                        continue;
+                    }
+
+                    if (!TargetTile_To_TPInstance.Keys.Contains(tile.TileType)) {
                         continue;
                     }
 
