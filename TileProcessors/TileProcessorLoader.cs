@@ -212,7 +212,15 @@ namespace InnoVault.TileProcessors
                     if (tile == null || !tile.HasTile) {
                         continue;
                     }
-                    if (VaultUtils.IsTopLeft(x, y, out Point16 point)) {
+
+                    bool flag = VaultUtils.IsTopLeft(x, y, out Point16 point);
+                    Point16? gpoint = TileProcessorPlaceInWorldGetTopLeftPoint(x, y);
+                    if (gpoint.HasValue) {
+                        point = gpoint.Value;
+                        flag = true;
+                    }
+
+                    if (flag) {
                         AddInWorld(tile.TileType, point, null);
                     }
                 }
