@@ -70,6 +70,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static Dictionary<int, List<TileProcessor>> TargetTile_To_TPInstance { get; private set; } = [];
         /// <summary>
+        /// 关于目标物块键的哈希列表
+        /// </summary>
+        public static HashSet<int> targetTileTypes { get; private set; } = [];
+        /// <summary>
         /// 所有的<see cref="GlobalTileProcessor"/>实例在此处储存
         /// </summary>
         internal static List<GlobalTileProcessor> TPGlobalHooks { get; private set; } = [];
@@ -124,6 +128,7 @@ namespace InnoVault.TileProcessors
                 //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
                 tps.Add(module);
             }
+            targetTileTypes = new HashSet<int>(TargetTile_To_TPInstance.Keys);
         }
 
         void IVaultLoader.UnLoadData() {
@@ -214,7 +219,7 @@ namespace InnoVault.TileProcessors
                         continue;
                     }
 
-                    if (!TargetTile_To_TPInstance.Keys.Contains(tile.TileType)) {
+                    if (!targetTileTypes.Contains(tile.TileType)) {
                         continue;
                     }
 
