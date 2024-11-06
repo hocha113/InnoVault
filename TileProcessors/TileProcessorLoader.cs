@@ -223,14 +223,7 @@ namespace InnoVault.TileProcessors
                         continue;
                     }
 
-                    bool flag = VaultUtils.IsTopLeft(x, y, out Point16 point);
-                    Point16? gpoint = TileProcessorPlaceInWorldGetTopLeftPoint(x, y);
-                    if (gpoint.HasValue) {
-                        point = gpoint.Value;
-                        flag = true;
-                    }
-
-                    if (flag) {
+                    if (TileProcessorIsTopLeft(x, y, out Point16 point)) {
                         AddInWorld(tile.TileType, point, null);
                     }
                 }
@@ -326,15 +319,47 @@ namespace InnoVault.TileProcessors
             return point16;
         }
 
-        /// <inheritdoc/>
-        public override void PlaceInWorld(int i, int j, int type, Item item) {
-            bool flag = VaultUtils.SafeGetTopLeft(i, j, out Point16 point);
+        /// <summary>
+        /// 判断给定坐标是否为多结构物块的左上角位置，并输出左上角的坐标
+        /// 会考虑到<see cref="TileProcessorPlaceInWorldGetTopLeftPoint"/>的修改
+        /// </summary>
+        /// <param name="i">物块的x坐标</param>
+        /// <param name="j">物块的y坐标</param>
+        /// <param name="point">输出的左上角坐标，如果不是左上角则为(0,0)</param>
+        /// <returns>如果是左上角，返回true，否则返回<see langword="false"/></returns>
+        public static bool TileProcessorIsTopLeft(int i, int j, out Point16 point) {
+            bool flag = VaultUtils.IsTopLeft(i, j, out point);
             Point16? gpoint = TileProcessorPlaceInWorldGetTopLeftPoint(i, j);
             if (gpoint.HasValue) {
                 point = gpoint.Value;
                 flag = true;
             }
-            if (flag) {
+
+            return flag;
+        }
+
+        /// <summary>
+        /// 安全的获取多结构物块左上角的位置，给定一个物块坐标，自动寻找到该坐标对应的左上原点位置输出
+        /// 会考虑到<see cref="TileProcessorPlaceInWorldGetTopLeftPoint"/>的修改
+        /// </summary>
+        /// <param name="i"></param>
+        /// <param name="j"></param>
+        /// <param name="point"></param>
+        /// <returns>如果没能找到，则输出(0,0)，并返回<see langword="false"/></returns>
+        public static bool TileProcessorSafeGetTopLeft(int i, int j, out Point16 point) {
+            bool flag = VaultUtils.SafeGetTopLeft(i, j, out point);
+            Point16? gpoint = TileProcessorPlaceInWorldGetTopLeftPoint(i, j);
+            if (gpoint.HasValue) {
+                point = gpoint.Value;
+                flag = true;
+            }
+
+            return flag;
+        }
+
+        /// <inheritdoc/>
+        public override void PlaceInWorld(int i, int j, int type, Item item) {
+            if (TileProcessorSafeGetTopLeft(i, j, out Point16 point)) {
                 AddInWorld(type, point, item);
                 if (VaultUtils.isClient) {
                     NetSend(Mod, type, point);
@@ -380,14 +405,7 @@ namespace InnoVault.TileProcessors
         public static bool ByPositionGetTP(Point16 position, out TileProcessor tileProcessor) {
             tileProcessor = null;
 
-            bool flag = VaultUtils.IsTopLeft(position.X, position.Y, out Point16 point);
-            Point16? gpoint = TileProcessorPlaceInWorldGetTopLeftPoint(position.X, position.Y);
-            if (gpoint.HasValue) {
-                point = gpoint.Value;
-                flag = true;
-            }
-
-            if (flag) {// 遍历世界中的所有模块，查找与指定ID和坐标匹配的模块
+            if (TileProcessorIsTopLeft(position.X, position.Y, out Point16 point)) {// 遍历世界中的所有模块，查找与指定ID和坐标匹配的模块
                 foreach (var inds in TP_InWorld) {
                     if (inds.Position.X == point.X && inds.Position.Y == point.Y) {
                         tileProcessor = inds;
@@ -416,15 +434,8 @@ namespace InnoVault.TileProcessors
         public static TileProcessor FindModulePreciseSearch(int ID, int x, int y) {
             TileProcessor module = null;
 
-            bool flag = VaultUtils.IsTopLeft(x, y, out Point16 point);
-            Point16? gpoint = TileProcessorPlaceInWorldGetTopLeftPoint(x, y);
-            if (gpoint.HasValue) {
-                point = gpoint.Value;
-                flag = true;
-            }
-
             // 判断坐标是否为多结构物块的左上角，并获取其左上角位置
-            if (flag) {
+            if (TileProcessorIsTopLeft(x, y, out Point16 point)) {
                 // 遍历世界中的所有模块，查找与指定ID和坐标匹配的模块
                 foreach (var inds in TP_InWorld) {
                     if (inds.Position.X == point.X && inds.Position.Y == point.Y && inds.ID == ID) {

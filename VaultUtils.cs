@@ -416,7 +416,7 @@ namespace InnoVault
         /// <param name="i">物块的x坐标</param>
         /// <param name="j">物块的y坐标</param>
         /// <param name="point">输出的左上角坐标，如果不是左上角则为(0,0)</param>
-        /// <returns>如果是左上角，返回true，否则返回false。</returns>
+        /// <returns>如果是左上角，返回true，否则返回false </returns>
         public static bool IsTopLeft(int i, int j, out Point16 point) {
             // 使用合并后的函数获取左上角位置
             Point16? topLeft = GetTopLeftOrNull(i, j);
@@ -435,12 +435,12 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 安全的获取多结构物块左上角的位置
+        /// 安全的获取多结构物块左上角的位置，给定一个物块坐标，自动寻找到该坐标对应的左上原点位置输出
         /// </summary>
         /// <param name="i"></param>
         /// <param name="j"></param>
         /// <param name="point"></param>
-        /// <returns></returns>
+        /// <returns>如果没能找到，则输出(0,0)，并返回<see langword="false"/></returns>
         public static bool SafeGetTopLeft(int i, int j, out Point16 point) {
             Point16? topLeft = GetTopLeftOrNull(i, j);
             if (topLeft.HasValue) {
