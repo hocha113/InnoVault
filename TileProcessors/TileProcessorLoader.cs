@@ -342,9 +342,9 @@ namespace InnoVault.TileProcessors
         /// 安全的获取多结构物块左上角的位置，给定一个物块坐标，自动寻找到该坐标对应的左上原点位置输出
         /// 会考虑到<see cref="TileProcessorPlaceInWorldGetTopLeftPoint"/>的修改
         /// </summary>
-        /// <param name="i"></param>
-        /// <param name="j"></param>
-        /// <param name="point"></param>
+        /// <param name="i">物块的x坐标</param>
+        /// <param name="j">物块的y坐标</param>
+        /// <param name="point">输出的左上角坐标</param>
         /// <returns>如果没能找到，则输出(0,0)，并返回<see langword="false"/></returns>
         public static bool TileProcessorSafeGetTopLeft(int i, int j, out Point16 point) {
             bool flag = VaultUtils.SafeGetTopLeft(i, j, out point);
