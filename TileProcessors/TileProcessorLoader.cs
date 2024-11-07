@@ -238,6 +238,35 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
                 module.LoadInWorld();
+                if (Main.dedServ) {
+                    module.SendData();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 接收数据
+        /// </summary>
+        public static void ReceiveData(BinaryReader reader, int whoAmI) {
+            Dictionary<string, object> data = [];
+            string mod = reader.ReadString();
+            string name = reader.ReadString();
+            Point16 point = reader.ReadPoint16();
+            TileProcessor tileProcessor = null;
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (tp.Mod.Name == mod && tp.GetType().Name == name && tp.Position == point) {
+                    tileProcessor = tp;
+                    tileProcessor.ReceiveData(reader, whoAmI);
+                }
+            }
+            if (Main.dedServ && tileProcessor != null) {
+                ModPacket modPacket = VaultMod.Instance.GetPacket();
+                modPacket.Write((byte)MessageType.TPNetWork);
+                modPacket.Write(mod);
+                modPacket.Write(name);
+                modPacket.WritePoint16(point);
+                tileProcessor.SendData();
+                modPacket.Send(-1, whoAmI);
             }
         }
 
@@ -265,6 +294,12 @@ namespace InnoVault.TileProcessors
             }
             tag[key_TPData_TagList] = list;
             ActiveWorldTagData = tag;
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (!tp.Active) {
+                    continue;
+                }
+                tp.SendData();
+            }
         }
 
         /// <inheritdoc/>
@@ -348,12 +383,12 @@ namespace InnoVault.TileProcessors
             if (TileProcessorSafeGetTopLeft(i, j, out Point16 point)) {
                 AddInWorld(type, point, item);
                 if (VaultUtils.isClient) {
-                    NetSend(Mod, type, point);
+                    PlaceInWorldNetSend(Mod, type, point);
                 }
             }
         }
         /// <inheritdoc/>
-        public static void NetSend(Mod mod, int type, Point16 point) {
+        public static void PlaceInWorldNetSend(Mod mod, int type, Point16 point) {
             // 客户端发送同步请求到服务器
             ModPacket packet = mod.GetPacket();
             packet.Write((byte)MessageType.PlaceInWorldSync);
@@ -362,7 +397,7 @@ namespace InnoVault.TileProcessors
             packet.Send(); //发送到服务器
         }
         /// <inheritdoc/>
-        internal static void NetReceive(Mod mod, BinaryReader reader, int whoAmI) {
+        internal static void PlaceInWorldNetReceive(Mod mod, BinaryReader reader, int whoAmI) {
             // 读取放置方块的数据
             int tileType = reader.ReadInt32();
             Point16 point = reader.ReadPoint16();

@@ -1,11 +1,13 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using static InnoVault.VaultNetWork;
 
 namespace InnoVault.TileProcessors
 {
@@ -157,6 +159,37 @@ namespace InnoVault.TileProcessors
 
             return false;
         }
+
+        /// <summary>
+        /// 发送数据
+        /// </summary>
+        public void SendData() {
+            if (VaultUtils.isSinglePlayer) {
+                return;
+            }
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.TPNetWork);
+            modPacket.Write(Mod.Name);
+            modPacket.Write(GetType().Name);
+            modPacket.WritePoint16(Position);
+            SendData(modPacket);
+            modPacket.Send();
+        }
+
+        /// <summary>
+        /// 发送数据
+        /// </summary>
+        public virtual void SendData(ModPacket data) {
+
+        }
+
+        /// <summary>
+        /// 接收数据
+        /// </summary>
+        public virtual void ReceiveData(BinaryReader reader, int whoAmI) {
+
+        }
+
         /// <summary>
         /// 保存这个实体的数据
         /// </summary>

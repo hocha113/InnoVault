@@ -12,6 +12,8 @@ namespace InnoVault.TileProcessors
     /// </summary>
     public sealed class TileProcessorSystem : ModSystem
     {
+        //首先我们要明白一点，在多人模式的情况下，只有服务器会加载这两个钩子，其他客户端并不会正常运行
+        //所以，如果像数据正常加载，就需要发一个巨大的数据包来让其他的端同步，Save的时候要保证世界数据同步，而Load的时候要保证其他端也被加载
         /// <inheritdoc/>
         public override void SaveWorldData(TagCompound tag) => TileProcessorLoader.SaveWorldData(tag);
         /// <inheritdoc/>
