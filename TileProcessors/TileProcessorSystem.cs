@@ -15,7 +15,7 @@ namespace InnoVault.TileProcessors
         /// <inheritdoc/>
         public override void SaveWorldData(TagCompound tag) => TileProcessorLoader.SaveWorldData(tag);
         /// <inheritdoc/>
-        public override void LoadWorldData(TagCompound tag) => TileProcessorLoader.ActiveWorldTagData = TileProcessorLoader.LoadTileProcessorIO();
+        public override void LoadWorldData(TagCompound tag) => TileProcessorLoader.ActiveWorldTagData = tag;
 
         /// <inheritdoc/>
         public override void OnWorldUnload() {
