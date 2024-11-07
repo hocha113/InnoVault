@@ -242,26 +242,10 @@ namespace InnoVault.TileProcessors
         }
 
         /// <inheritdoc/>
-        internal static TagCompound LoadTileProcessorIO() {
-            bool isCloudSave = Main.ActiveWorldFileData.IsCloudSave && SocialAPI.Cloud != null;
-            string path = Path.ChangeExtension(Main.worldPathName, ".twld");
-            byte[] buf = FileUtilities.ReadAllBytes(path, isCloudSave);
-            if (buf[0] != 31 || buf[1] != 139) {
-                throw new IOException(Path.GetFileName(path) + ":: File Corrupted during Last Save Step. Aborting... ERROR: Missing NBT Header");
-            }
-            IList<TagCompound> list = TagIO.FromStream(buf.ToMemoryStream()).GetList<TagCompound>("modData");
-            foreach (TagCompound tag in list) {
-                if (tag.GetString("mod") == "InnoVault" && tag.GetString("name") == "TileProcessorSystem") {
-                    return tag.GetCompound("data");
-                }
-            }
-            return null;
-        }
-
-        /// <inheritdoc/>
         internal static void SaveWorldData(TagCompound tag) {
             List<TagCompound> list = new List<TagCompound>();
             TagCompound saveData = new TagCompound();
+            VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Save Count: " + TP_InWorld.Count);
             foreach (TileProcessor tp in TP_InWorld) {
                 if (tp == null || !tp.Active) {
                     continue;
@@ -280,6 +264,7 @@ namespace InnoVault.TileProcessors
                 list.Add(thisTag);
             }
             tag[key_TPData_TagList] = list;
+            ActiveWorldTagData = tag;
         }
 
         /// <inheritdoc/>
@@ -290,6 +275,7 @@ namespace InnoVault.TileProcessors
             IList<TagCompound> list = tag.GetList<TagCompound>(key_TPData_TagList);
             // 将 TP_InWorld 转化为一个字典，以便快速查找
             Dictionary<(string, string, Point16), TileProcessor> tpDictionary = new Dictionary<(string, string, Point16), TileProcessor>();
+            VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Load Count: " + TP_InWorld.Count);
             foreach (TileProcessor tp in TP_InWorld) {
                 if (tp != null) {
                     tpDictionary[(tp.Mod.Name, tp.GetType().Name, tp.Position)] = tp;
