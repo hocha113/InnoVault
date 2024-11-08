@@ -273,6 +273,22 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 发送游戏文本并记录日志内容
+        /// </summary>
+        /// <param name="obj"></param>
+        public static void LoggerDomp(this object obj) {
+            string text;
+            if (obj == null) {
+                text = "ERROR is Null";
+            }
+            else {
+                text = obj.ToString();
+            }
+            Text(text);
+            VaultMod.Instance.Logger.Info(text);
+        }
+
+        /// <summary>
         /// 一个根据语言选项返回字符的方法
         /// </summary>
         public static string Translation(string Chinese = null, string English = null, string Spanish = null, string Russian = null) {

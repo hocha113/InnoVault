@@ -1,18 +1,13 @@
 ﻿using Microsoft.Xna.Framework;
-using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
-using Terraria.Social;
-using Terraria.Utilities;
 using static InnoVault.VaultNetWork;
 
 namespace InnoVault.TileProcessors
@@ -233,72 +228,18 @@ namespace InnoVault.TileProcessors
                 LoadWorldData(ActiveWorldTagData);
             }
 
+            if (Main.dedServ) {
+                "TileProcessorLoader-LoadWorldTileProcessor:服务器数据接收化发送启动".LoggerDomp();
+            }
+                
             foreach (TileProcessor module in TP_InWorld) {
                 if (!module.Active) {
                     continue;
                 }
                 module.LoadInWorld();
                 if (Main.dedServ) {
-                    module.SendData();
+                    TPNetWorkEvent.Add(30, module);
                 }
-            }
-        }
-
-        /// <summary>
-        /// 接收数据
-        /// </summary>
-        public static void ReceiveData(BinaryReader reader, int whoAmI) {
-            Dictionary<string, object> data = [];
-            string mod = reader.ReadString();
-            string name = reader.ReadString();
-            Point16 point = reader.ReadPoint16();
-            TileProcessor tileProcessor = null;
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (tp.Mod.Name == mod && tp.GetType().Name == name && tp.Position == point) {
-                    tileProcessor = tp;
-                    tileProcessor.ReceiveData(reader, whoAmI);
-                }
-            }
-            if (Main.dedServ && tileProcessor != null) {
-                ModPacket modPacket = VaultMod.Instance.GetPacket();
-                modPacket.Write((byte)MessageType.TPNetWork);
-                modPacket.Write(mod);
-                modPacket.Write(name);
-                modPacket.WritePoint16(point);
-                tileProcessor.SendData();
-                modPacket.Send(-1, whoAmI);
-            }
-        }
-
-        /// <inheritdoc/>
-        internal static void SaveWorldData(TagCompound tag) {
-            List<TagCompound> list = new List<TagCompound>();
-            TagCompound saveData = new TagCompound();
-            VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Save Count: " + TP_InWorld.Count);
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (tp == null || !tp.Active) {
-                    continue;
-                }
-                tp.SaveData(saveData);
-                TagCompound thisTag = new TagCompound {
-                    ["mod"] = tp?.Mod.Name,
-                    ["name"] = tp?.GetType().Name,
-                    ["X"] = tp.Position.X,
-                    ["Y"] = tp.Position.Y
-                };
-                if (saveData.Count != 0) {
-                    thisTag["data"] = saveData;
-                    saveData = new TagCompound();
-                }
-                list.Add(thisTag);
-            }
-            tag[key_TPData_TagList] = list;
-            ActiveWorldTagData = tag;
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (!tp.Active) {
-                    continue;
-                }
-                tp.SendData();
             }
         }
 
@@ -328,6 +269,73 @@ namespace InnoVault.TileProcessors
                 if (tpDictionary.TryGetValue((modName, name, point), out TileProcessor tp)) {
                     tp.LoadData(thisTag.GetCompound("data"));
                 }
+            }
+        }
+
+        /// <inheritdoc/>
+        internal static void SaveWorldData(TagCompound tag) {
+            List<TagCompound> list = new List<TagCompound>();
+            TagCompound saveData = new TagCompound();
+            VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Save Count: " + TP_InWorld.Count);
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (tp == null || !tp.Active) {
+                    continue;
+                }
+                tp.SaveData(saveData);
+                TagCompound thisTag = new TagCompound {
+                    ["mod"] = tp?.Mod.Name,
+                    ["name"] = tp?.GetType().Name,
+                    ["X"] = tp.Position.X,
+                    ["Y"] = tp.Position.Y
+                };
+                if (saveData.Count != 0) {
+                    thisTag["data"] = saveData;
+                    saveData = new TagCompound();
+                }
+                list.Add(thisTag);
+            }
+            tag[key_TPData_TagList] = list;
+            ActiveWorldTagData = tag;
+            if (Main.dedServ) {
+                "TileProcessorLoader-SaveWorldData:服务器数据初始化发送启动".LoggerDomp();
+                foreach (TileProcessor tp in TP_InWorld) {
+                    if (!tp.Active) {
+                        continue;
+                    }
+                    tp.SendData();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 接收数据
+        /// </summary>
+        public static void ReceiveData(BinaryReader reader, int whoAmI) {
+            "TileProcessorLoader-ReceiveData:正在接收数据".LoggerDomp();
+            Dictionary<string, object> data = [];
+            string mod = reader.ReadString();
+            string name = reader.ReadString();
+            Point16 point = reader.ReadPoint16();
+            TileProcessor tileProcessor = null;
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (tp.Mod.Name == mod && tp.GetType().Name == name && tp.Position == point) {
+                    tileProcessor = tp;
+                    tileProcessor.ReceiveData(reader, whoAmI);
+                }
+            }
+            if (tileProcessor != null) {
+                if (Main.dedServ) {
+                    ModPacket modPacket = VaultMod.Instance.GetPacket();
+                    modPacket.Write((byte)MessageType.TPNetWork);
+                    modPacket.Write(mod);
+                    modPacket.Write(name);
+                    modPacket.WritePoint16(point);
+                    tileProcessor.SendData();
+                    modPacket.Send(-1, whoAmI);
+                }
+            }
+            else {
+                throw new Exception("TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found");
             }
         }
 

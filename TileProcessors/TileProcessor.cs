@@ -27,6 +27,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public Mod Mod => TileProcessorLoader.TP_Type_To_Mod[GetType()];
         /// <summary>
+        /// 显示这个实例的填装名，如InnoVault:TileProcessor
+        /// </summary>
+        public string LoadenName => Mod.Name + ":" + GetType().Name;
+        /// <summary>
         /// 这个模块所要跟随的物块结构，如果对象是一个多结构物块，那么这个块一般代表左上角。
         /// 如果这个模块还活跃，那么这个物块的值会每帧更新
         /// </summary>
@@ -167,6 +171,7 @@ namespace InnoVault.TileProcessors
             if (VaultUtils.isSinglePlayer) {
                 return;
             }
+            $"{LoadenName}-SendData: 正在发送数据".LoggerDomp();
             ModPacket modPacket = VaultMod.Instance.GetPacket();
             modPacket.Write((byte)MessageType.TPNetWork);
             modPacket.Write(Mod.Name);
@@ -196,7 +201,7 @@ namespace InnoVault.TileProcessors
         public virtual void SaveData(TagCompound tag) {
 
         }
-        // <summary>
+        /// <summary>
         /// 加载这个实体的数据
         /// </summary>
         public virtual void LoadData(TagCompound tag) {
