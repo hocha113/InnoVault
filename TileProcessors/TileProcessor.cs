@@ -46,6 +46,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public bool Active;
         /// <summary>
+        /// 关于多人模式下，玩家进入世界时是否要请求这个TP实例进行网络响应，默认为<see langword="true"/>
+        /// </summary>
+        public bool LoadenWorldSendData = true;
+        /// <summary>
         /// 这个模块在世界中的唯一标签，如果模块不再活跃，它将随时被新加入的模块顶替，顶替的模块将继续使用相同WhoAmI值
         /// </summary>
         public int WhoAmI;

@@ -337,7 +337,7 @@ namespace InnoVault.TileProcessors
                 }
             }
             else {
-                throw new Exception("TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found");
+                throw new Exception($"TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found : {name}-position[{position}]");
             }
         }
 
@@ -361,6 +361,44 @@ namespace InnoVault.TileProcessors
             modPacket.Send();
         }
         /// <summary>
+        /// 向指定客户端发送一个完整的TP数据链
+        /// </summary>
+        public static void ServerRecovery_TPData(int whoAmI) {
+            if (!Main.dedServ) {
+                return;
+            }
+            //"TileProcessorLoader-ServerRecovery_TPData:服务器数据正在响应请求".LoggerDomp();
+            ModPacket modPacket = VaultMod.Instance.GetPacket();// 创建一个数据包，用于批量发送多个TP数据
+            modPacket.Write((byte)MessageType.Handle_TPData_Receive); // 包类型
+            int sendTPCount = 0;
+
+            // 统计活跃的TP数量
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (!tp.Active || !tp.LoadenWorldSendData) {
+                    continue;
+                }
+                sendTPCount++;
+            }
+            modPacket.Write(sendTPCount); // 写入活跃的TP数量
+
+            // 发送每个活跃的TP数据
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (!tp.Active || !tp.LoadenWorldSendData) {
+                    continue;
+                }
+
+                // 标记节点开始
+                modPacket.Write("TP_START"); // 添加分隔标签
+                modPacket.Write(tp.LoadenName);
+                modPacket.WritePoint16(tp.Position);
+
+                // 发送TileProcessor数据
+                tp.SendData(modPacket);
+            }
+
+            modPacket.Send(whoAmI); // 将数据包发送给客户端
+        }
+        /// <summary>
         /// 服务端响应TP数据链的请求后，接收数据
         /// </summary>
         public static void Handle_TPData_Receive(BinaryReader reader) {
@@ -372,6 +410,14 @@ namespace InnoVault.TileProcessors
             Dictionary<(string, Point16), TileProcessor> tpDictionary = GetTileProcessorDictionaryByNameAndPosition();
 
             for (int i = 0; i < tpCount; i++) {
+                string marker = reader.ReadString();
+
+                // 确认是否为有效的起始标记
+                if (marker != "TP_START") {
+                    $"TileProcessorLoader-ClientRequest_TPData_Receive: 无效的标记 {marker}，跳过至下一个节点".LoggerDomp();
+                    continue;
+                }
+
                 string name = reader.ReadString();
                 Point16 position = reader.ReadPoint16();
 
@@ -379,38 +425,25 @@ namespace InnoVault.TileProcessors
                     tp.ReceiveData(reader, -1);
                 }
                 else {
-                    throw new Exception("TileProcessorLoader-ClientRequest_TPData_Receive: No Corresponding TileProcessor Instance Found");
+                    // 跳过该TileProcessor的数据
+                    $"TileProcessorLoader-ClientRequest_TPData_Receive: 未找到对应的TileProcessor实例: {name}-位置[{position}]，跳过".LoggerDomp();
+                    SkipToNextMarker(reader);
                 }
             }
         }
+
         /// <summary>
-        /// 向指定客户端发送一个完整的TP数据链
+        /// 跳到下一个标记节点
         /// </summary>
-        public static void ServerRecovery_TPData(int whoAmI) {
-            if (!Main.dedServ) {
-                return;
-            }
-            //"TileProcessorLoader-ServerRecovery_TPData:服务器数据正在响应请求".LoggerDomp();
-            ModPacket modPacket = VaultMod.Instance.GetPacket();// 创建一个数据包，用于批量发送多个TP数据
-            modPacket.Write((byte)MessageType.Handle_TPData_Receive); // 包类型
-            int activeTPCount = 0;
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (!tp.Active) {
-                    continue;
+        private static void SkipToNextMarker(BinaryReader reader) {
+            while (reader.BaseStream.Position < reader.BaseStream.Length) {
+                string marker = reader.ReadString();
+                if (marker == "TP_START") {
+                    // 回退以便下一个处理块能够正确读取标记
+                    reader.BaseStream.Position -= marker.Length;
+                    break;
                 }
-                activeTPCount++;
             }
-            modPacket.Write(activeTPCount); // 活跃的TP数量
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (!tp.Active) {
-                    continue;
-                }
-                //$"TileProcessorLoader-ServerRecovery_TPData-{tp.LoadenName}:正在将实例数据由服务端发送到请求的客户端{whoAmI}".LoggerDomp();
-                modPacket.Write(tp.LoadenName);
-                modPacket.WritePoint16(tp.Position);
-                tp.SendData(modPacket);
-            }
-            modPacket.Send(whoAmI);
         }
 
         #endregion
