@@ -12,7 +12,7 @@ namespace InnoVault
             PlaceInWorldSync,
             TPNetWork,
             ClientRequest_TPData_Send,
-            ClientRequest_TPData_Receive,
+            Handle_TPData_Receive,
         }
 
         internal static List<NetWorkEvent> NetWorkEvents = new List<NetWorkEvent>();
@@ -29,8 +29,8 @@ namespace InnoVault
             else if (type == MessageType.ClientRequest_TPData_Send) {
                 TileProcessorLoader.ServerRecovery_TPData(whoAmI);
             }
-            else if (type == MessageType.ClientRequest_TPData_Receive) {
-                TileProcessorLoader.ClientRequest_TPData_Receive(reader);
+            else if (type == MessageType.Handle_TPData_Receive) {
+                TileProcessorLoader.Handle_TPData_Receive(reader);
             }
         }
 

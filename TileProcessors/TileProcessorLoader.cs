@@ -367,7 +367,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 服务端响应TP数据链的请求后，接收数据
         /// </summary>
-        public static void ClientRequest_TPData_Receive(BinaryReader reader) {
+        public static void Handle_TPData_Receive(BinaryReader reader) {
             if (!VaultUtils.isClient) {
                 return;
             }
@@ -396,7 +396,7 @@ namespace InnoVault.TileProcessors
             }
             //"TileProcessorLoader-ServerRecovery_TPData:服务器数据正在响应请求".LoggerDomp();
             ModPacket modPacket = VaultMod.Instance.GetPacket();// 创建一个数据包，用于批量发送多个TP数据
-            modPacket.Write((byte)MessageType.ClientRequest_TPData_Receive); // 包类型
+            modPacket.Write((byte)MessageType.Handle_TPData_Receive); // 包类型
             int activeTPCount = 0;
             foreach (TileProcessor tp in TP_InWorld) {
                 if (!tp.Active) {
