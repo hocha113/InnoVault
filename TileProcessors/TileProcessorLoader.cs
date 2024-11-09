@@ -609,6 +609,16 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
+        /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
+        /// </summary>
+        /// <param name="id">目标id</param>
+        /// <param name="x">要查找的模块的x坐标</param>
+        /// <param name="y">要查找的模块的y坐标</param>
+        /// <returns>返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></returns>
+        [Obsolete]
+        public static T FindModulePreciseSearch<T>(int id, int x, int y) where T : TileProcessor => FindModulePreciseSearch(id, x, y) as T;
+
+        /// <summary>
         /// 在指定范围内查找与指定ID和坐标最接近的模块，并将其转换为指定类型的模块
         /// </summary>
         /// <typeparam name="T">要返回的模块的类型，必须继承自 <see cref="TileProcessor"/></typeparam>
