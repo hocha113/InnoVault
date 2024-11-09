@@ -167,19 +167,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 发送数据
         /// </summary>
-        public void SendData() {
-            if (VaultUtils.isSinglePlayer) {
-                return;
-            }
-            $"{LoadenName}-SendData: 正在发送数据".LoggerDomp();
-            ModPacket modPacket = VaultMod.Instance.GetPacket();
-            modPacket.Write((byte)MessageType.TPNetWork);
-            modPacket.Write(Mod.Name);
-            modPacket.Write(GetType().Name);
-            modPacket.WritePoint16(Position);
-            SendData(modPacket);
-            modPacket.Send();
-        }
+        public void SendData() => TileProcessorLoader.TileProcessorSendData(this);
 
         /// <summary>
         /// 发送数据

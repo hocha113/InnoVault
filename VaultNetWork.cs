@@ -11,6 +11,8 @@ namespace InnoVault
         {
             PlaceInWorldSync,
             TPNetWork,
+            ClientRequest_TPData_Send,
+            ClientRequest_TPData_Receive,
         }
 
         internal static List<NetWorkEvent> NetWorkEvents = new List<NetWorkEvent>();
@@ -22,7 +24,13 @@ namespace InnoVault
                 TileProcessorLoader.PlaceInWorldNetReceive(mod, reader, whoAmI);
             }
             else if (type == MessageType.TPNetWork) {
-                TileProcessorLoader.ReceiveData(reader, whoAmI);
+                TileProcessorLoader.TileProcessorReceiveData(reader, whoAmI);
+            }
+            else if (type == MessageType.ClientRequest_TPData_Send) {
+                TileProcessorLoader.ServerRecovery_TPData(whoAmI);
+            }
+            else if (type == MessageType.ClientRequest_TPData_Receive) {
+                TileProcessorLoader.ClientRequest_TPData_Receive(reader);
             }
         }
 
@@ -41,9 +49,7 @@ namespace InnoVault
     internal class NetWorkEvent
     {
         public int sendTime;
-        public virtual void SendEvent() {
-
-        }
+        public virtual void SendEvent() { }
         public void Update() {
             if (--sendTime <= 0) {
                 SendEvent();
@@ -58,7 +64,7 @@ namespace InnoVault
             this.sendTime = sendTime;
             this.tpEntity = tpEntity;
         }
-        public override void SendEvent() => tpEntity.SendData();
+        public override void SendEvent() => TileProcessorLoader.TileProcessorSendData(tpEntity);
         public static void Add(int sendTime, TileProcessor tpEntity) 
             => VaultNetWork.NetWorkEvents.Add(new TPNetWorkEvent(sendTime, tpEntity));
     }

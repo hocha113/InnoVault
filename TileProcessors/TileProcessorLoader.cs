@@ -1,7 +1,9 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
@@ -77,6 +79,7 @@ namespace InnoVault.TileProcessors
         private static MethodBase onTile_KillMultiTile_Method;
         private delegate void On_Tile_KillMultiTile_Dalegate(int i, int j, int frameX, int frameY, int type);
         #endregion
+
         void IVaultLoader.LoadData() {
             TP_Instances = VaultUtils.GetSubclassInstances<TileProcessor>();
             foreach (var tpInds in TP_Instances) {
@@ -228,24 +231,11 @@ namespace InnoVault.TileProcessors
                 LoadWorldData(ActiveWorldTagData);
             }
 
-            if (Main.dedServ) {
-                "TileProcessorLoader-LoadWorldTileProcessor:服务器数据接收化发送启动".LoggerDomp();
-            }
-                
             foreach (TileProcessor module in TP_InWorld) {
                 if (!module.Active) {
                     continue;
                 }
                 module.LoadInWorld();
-                if (Main.dedServ) {
-                    //服务端是唯一的，即使是主机本质上也只是在本机上托管运行了一个服务端
-                    //这意味者，如果进入多人模式，这个玩家的客户端是加载于服务端之后的，这里的延时发包将不能解决所有情景下的问题，只能让作为主机的玩家接收到来自服务器的发包信息
-                    //其他更晚加入的客户端依旧接收不到发包
-                    //之所以将延时加长到30后主机能接收到发包信息，是因为主机的客户端的加载完成时间于其所托管的服务端是接近的
-                    //可能只有2~5帧的延迟，所以这个sendTime设置在绝大多数情况下可以让主机客户端吃到发包，但其他客户端则大概率不行
-                    //对此我给出的解决方案是，让每个客户端在加入后手动向服务器请求一次TP信息，由客户端发送一个代表数据索取的包，服务器收到后向该客户端发送正确的数据并让其接收
-                    TPNetWorkEvent.Add(30, module);
-                }
             }
         }
 
@@ -257,7 +247,7 @@ namespace InnoVault.TileProcessors
             IList<TagCompound> list = tag.GetList<TagCompound>(key_TPData_TagList);
             // 将 TP_InWorld 转化为一个字典，以便快速查找
             Dictionary<(string, string, Point16), TileProcessor> tpDictionary = new Dictionary<(string, string, Point16), TileProcessor>();
-            VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Load Count: " + TP_InWorld.Count);
+            //VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Load Count: " + TP_InWorld.Count);
             foreach (TileProcessor tp in TP_InWorld) {
                 if (tp != null) {
                     tpDictionary[(tp.Mod.Name, tp.GetType().Name, tp.Position)] = tp;
@@ -282,7 +272,7 @@ namespace InnoVault.TileProcessors
         internal static void SaveWorldData(TagCompound tag) {
             List<TagCompound> list = new List<TagCompound>();
             TagCompound saveData = new TagCompound();
-            VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Save Count: " + TP_InWorld.Count);
+            //VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Save Count: " + TP_InWorld.Count);
             foreach (TileProcessor tp in TP_InWorld) {
                 if (tp == null || !tp.Active) {
                     continue;
@@ -303,28 +293,39 @@ namespace InnoVault.TileProcessors
             tag[key_TPData_TagList] = list;
             ActiveWorldTagData = tag;
             if (Main.dedServ) {
-                "TileProcessorLoader-SaveWorldData:服务器数据初始化发送启动".LoggerDomp();
-                foreach (TileProcessor tp in TP_InWorld) {
-                    if (!tp.Active) {
-                        continue;
-                    }
-                    tp.SendData();
-                }
+                ServerRecovery_TPData(-1);
             }
+        }
+
+        #region NetWork
+
+        /// <summary>
+        /// 发送数据
+        /// </summary>
+        public static void TileProcessorSendData(TileProcessor tp) {
+            if (VaultUtils.isSinglePlayer) {
+                return;
+            }
+            //$"{LoadenName}-SendData: 正在发送数据".LoggerDomp();
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.TPNetWork);
+            modPacket.Write(tp.LoadenName);
+            modPacket.WritePoint16(tp.Position);
+            tp.SendData(modPacket);
+            modPacket.Send();
         }
 
         /// <summary>
         /// 接收数据
         /// </summary>
-        public static void ReceiveData(BinaryReader reader, int whoAmI) {
-            "TileProcessorLoader-ReceiveData:正在接收数据".LoggerDomp();
+        public static void TileProcessorReceiveData(BinaryReader reader, int whoAmI) {
+            //"TileProcessorLoader-ReceiveData:正在接收数据".LoggerDomp();
             Dictionary<string, object> data = [];
-            string mod = reader.ReadString();
             string name = reader.ReadString();
-            Point16 point = reader.ReadPoint16();
+            Point16 position = reader.ReadPoint16();
             TileProcessor tileProcessor = null;
             foreach (TileProcessor tp in TP_InWorld) {
-                if (tp.Mod.Name == mod && tp.GetType().Name == name && tp.Position == point) {
+                if (tp.LoadenName == name && tp.Position == position) {
                     tileProcessor = tp;
                     tileProcessor.ReceiveData(reader, whoAmI);
                 }
@@ -333,10 +334,9 @@ namespace InnoVault.TileProcessors
                 if (Main.dedServ) {
                     ModPacket modPacket = VaultMod.Instance.GetPacket();
                     modPacket.Write((byte)MessageType.TPNetWork);
-                    modPacket.Write(mod);
                     modPacket.Write(name);
-                    modPacket.WritePoint16(point);
-                    tileProcessor.SendData();
+                    modPacket.WritePoint16(position);
+                    tileProcessor.SendData(modPacket);
                     modPacket.Send(-1, whoAmI);
                 }
             }
@@ -344,6 +344,82 @@ namespace InnoVault.TileProcessors
                 throw new Exception("TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found");
             }
         }
+
+        //服务端是唯一的，即使是主机本质上也只是在本机上托管运行了一个服务端
+        //这意味者，如果进入多人模式，这个玩家的客户端是加载于服务端之后的，这里的延时发包将不能解决所有情景下的问题，只能让作为主机的玩家接收到来自服务器的发包信息
+        //其他更晚加入的客户端依旧接收不到发包
+        //之所以将延时加长到30后主机能接收到发包信息，是因为主机的客户端的加载完成时间于其所托管的服务端是接近的
+        //可能只有2~5帧的延迟，所以这个sendTime设置在绝大多数情况下可以让主机客户端吃到发包，但其他客户端则大概率不行
+        //对此我给出的解决方案是，让每个客户端在加入后手动向服务器请求一次TP信息，由客户端发送一个代表数据索取的包，服务器收到后向该客户端发送正确的数据并让其接收
+
+        /// <summary>
+        /// 让客户端向服务器发出数据请求，请求一个完整的TP数据链
+        /// </summary>
+        public static void ClientRequest_TPData_Send() {
+            if (!VaultUtils.isClient) {
+                return;
+            }
+            //$"TileProcessorLoader-ClientRequest_TPData:玩家{Main.LocalPlayer.name}/客户端id{Main.myPlayer}正在请求服务端TP数据链".LoggerDomp();
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.ClientRequest_TPData_Send);
+            modPacket.Send();
+        }
+        /// <summary>
+        /// 服务端响应TP数据链的请求后，接收数据
+        /// </summary>
+        public static void ClientRequest_TPData_Receive(BinaryReader reader) {
+            if (!VaultUtils.isClient) {
+                return;
+            }
+
+            int tpCount = reader.ReadInt32(); // 读取TP数量
+            Dictionary<(string, Point16), TileProcessor> tpDictionary = GetTileProcessorDictionaryByNameAndPosition();
+
+            for (int i = 0; i < tpCount; i++) {
+                string name = reader.ReadString();
+                Point16 position = reader.ReadPoint16();
+
+                if (tpDictionary.TryGetValue((name, position), out TileProcessor tp)) {
+                    tp.ReceiveData(reader, -1);
+                }
+                else {
+                    throw new Exception("TileProcessorLoader-ClientRequest_TPData_Receive: No Corresponding TileProcessor Instance Found");
+                }
+            }
+        }
+        /// <summary>
+        /// 向指定客户端发送一个完整的TP数据链
+        /// </summary>
+        public static void ServerRecovery_TPData(int whoAmI) {
+            if (!Main.dedServ) {
+                return;
+            }
+            //"TileProcessorLoader-ServerRecovery_TPData:服务器数据正在响应请求".LoggerDomp();
+            ModPacket modPacket = VaultMod.Instance.GetPacket();// 创建一个数据包，用于批量发送多个TP数据
+            modPacket.Write((byte)MessageType.ClientRequest_TPData_Receive); // 包类型
+            int activeTPCount = 0;
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (!tp.Active) {
+                    continue;
+                }
+                activeTPCount++;
+            }
+            modPacket.Write(activeTPCount); // 活跃的TP数量
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (!tp.Active) {
+                    continue;
+                }
+                //$"TileProcessorLoader-ServerRecovery_TPData-{tp.LoadenName}:正在将实例数据由服务端发送到请求的客户端{whoAmI}".LoggerDomp();
+                modPacket.Write(tp.LoadenName);
+                modPacket.WritePoint16(tp.Position);
+                tp.SendData(modPacket);
+            }
+            modPacket.Send(whoAmI);
+        }
+
+        #endregion
+
+        #region Utils
 
         /// <inheritdoc/>
         internal static Point16? TileProcessorPlaceInWorldGetTopLeftPoint(int i, int j) {
@@ -425,6 +501,19 @@ namespace InnoVault.TileProcessors
             }
         }
 
+        /// <summary>
+        /// 将当前世界的<see cref="TP_InWorld"/>转化为一个字典列表
+        /// </summary>
+        /// <returns></returns>
+        public static Dictionary<(string, Point16), TileProcessor> GetTileProcessorDictionaryByNameAndPosition() {
+            Dictionary<(string, Point16), TileProcessor> tpDictionary = new Dictionary<(string, Point16), TileProcessor>();
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (tp != null) {
+                    tpDictionary[(tp.LoadenName, tp.Position)] = tp;
+                }
+            }
+            return tpDictionary;
+        }
         /// <summary>
         /// 根据指定类型获取对应的模块ID
         /// </summary>
@@ -519,5 +608,7 @@ namespace InnoVault.TileProcessors
             }
             return module;
         }
+
+        #endregion
     }
 }
