@@ -218,7 +218,6 @@ namespace InnoVault.TileProcessors
                         continue;
                     }
                     if (TileProcessorIsTopLeft(x, y, out Point16 point)) {
-                        $"正在对物块{tile.TileType}:{point}进行实体挂载".LoggerDomp();
                         AddInWorld(tile.TileType, point, null);
                     }
                 }
