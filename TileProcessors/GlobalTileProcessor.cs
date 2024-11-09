@@ -39,7 +39,18 @@ namespace InnoVault.TileProcessors
         /// <param name="x">物块的横坐标</param>
         /// <param name="y">物块的纵坐标</param>
         /// <returns>返回放置原点坐标或<see langword="null"/></returns>
-        public virtual Point16? PlaceInWorldGetTopLeftPoint(int x, int y) {
+        public virtual Point16? GetTopLeftPoint(int x, int y) {
+            return null;
+        }
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="position"></param>
+        /// <returns></returns>
+        public virtual bool? TryIsTopLeftPoint(int x, int y, out Point16 position) {
+            position = default;
             return null;
         }
         /// <summary>

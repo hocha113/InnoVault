@@ -1,13 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
-using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
-using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using static InnoVault.VaultNetWork;
@@ -220,8 +217,8 @@ namespace InnoVault.TileProcessors
                     if (!targetTileTypes.Contains(tile.TileType)) {
                         continue;
                     }
-
                     if (TileProcessorIsTopLeft(x, y, out Point16 point)) {
+                        $"正在对物块{tile.TileType}:{point}进行实体挂载".LoggerDomp();
                         AddInWorld(tile.TileType, point, null);
                     }
                 }
@@ -422,17 +419,18 @@ namespace InnoVault.TileProcessors
         #region Utils
 
         /// <inheritdoc/>
-        internal static Point16? TileProcessorPlaceInWorldGetTopLeftPoint(int i, int j) {
-            Point16? point16 = null;
+        internal static bool? TileProcessorPlaceInWorldTryIsTopLeftPoint(int i, int j, out Point16 position) {
+            bool? reset = null;
+            position = default;
             foreach (var tpGlobal in TPGlobalHooks) {
-                point16 = tpGlobal.PlaceInWorldGetTopLeftPoint(i, j);
+                reset = tpGlobal.TryIsTopLeftPoint(i, j, out position);
             }
-            return point16;
+            return reset;
         }
 
         /// <summary>
         /// 判断给定坐标是否为多结构物块的左上角位置，并输出左上角的坐标
-        /// 会考虑到<see cref="TileProcessorPlaceInWorldGetTopLeftPoint"/>的修改
+        /// 会考虑到<see cref="TileProcessorPlaceInWorldTryIsTopLeftPoint"/>的修改
         /// </summary>
         /// <param name="i">物块的x坐标</param>
         /// <param name="j">物块的y坐标</param>
@@ -440,13 +438,22 @@ namespace InnoVault.TileProcessors
         /// <returns>如果是左上角，返回true，否则返回<see langword="false"/></returns>
         public static bool TileProcessorIsTopLeft(int i, int j, out Point16 point) {
             bool flag = VaultUtils.IsTopLeft(i, j, out point);
-            Point16? gpoint = TileProcessorPlaceInWorldGetTopLeftPoint(i, j);
-            if (gpoint.HasValue) {
-                point = gpoint.Value;
-                flag = true;
+            bool? gflag = TileProcessorPlaceInWorldTryIsTopLeftPoint(i, j, out Point16 gpoint);
+            if (gflag.HasValue) {
+                point = gpoint;
+                flag = gflag.Value;
             }
 
             return flag;
+        }
+
+        /// <inheritdoc/>
+        internal static Point16? TileProcessorPlaceInWorldGetTopLeftPoint(int i, int j) {
+            Point16? point16 = null;
+            foreach (var tpGlobal in TPGlobalHooks) {
+                point16 = tpGlobal.GetTopLeftPoint(i, j);
+            }
+            return point16;
         }
 
         /// <summary>
@@ -514,40 +521,38 @@ namespace InnoVault.TileProcessors
             }
             return tpDictionary;
         }
+
+        /// <summary>
+        /// 根据指定类型获取对应的模块ID
+        /// </summary>
+        /// <returns>返回该类型对应的模块ID</returns>
+        public static int GetModuleID<T>() where T : TileProcessor => TP_Type_To_ID[typeof(T)];
         /// <summary>
         /// 根据指定类型获取对应的模块ID
         /// </summary>
         /// <param name="type">模块的类型</param>
         /// <returns>返回该类型对应的模块ID</returns>
         public static int GetModuleID(Type type) => TP_Type_To_ID[type];
+
         /// <summary>
         /// 根据点来寻找对于的TP实体实例
         /// </summary>
         /// <param name="position"></param>
         /// <param name="tileProcessor"></param>
         /// <returns></returns>
-        public static bool ByPositionGetTP(Point16 position, out TileProcessor tileProcessor) {
-            tileProcessor = null;
-
-            if (TileProcessorIsTopLeft(position.X, position.Y, out Point16 point)) {// 遍历世界中的所有模块，查找与指定ID和坐标匹配的模块
-                foreach (var inds in TP_InWorld) {
-                    if (inds.Position.X == point.X && inds.Position.Y == point.Y) {
-                        tileProcessor = inds;
-                        return true;
-                    }
-                }
-            }
-            return false;
+        public static bool ByPositionGetTP<T>(Point16 position, out T tileProcessor) where T : TileProcessor {
+            tileProcessor = FindModulePreciseSearch<T>(position.X, position.Y);
+            return tileProcessor != null;
         }
+
         /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
         /// </summary>
         /// <typeparam name="T">要返回的模块的类型，必须继承自 <see cref="TileProcessor"/></typeparam>
-        /// <param name="ID">要查找的模块的ID</param>
         /// <param name="x">要查找的模块的x坐标</param>
         /// <param name="y">要查找的模块的y坐标</param>
         /// <returns>返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></returns>
-        public static T FindModulePreciseSearch<T>(int ID, int x, int y) where T : TileProcessor => FindModulePreciseSearch(ID, x, y) as T;
+        public static T FindModulePreciseSearch<T>(int x, int y) where T : TileProcessor => FindModulePreciseSearch(GetModuleID<T>(), x, y) as T;
         /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块
         /// </summary>
@@ -570,17 +575,16 @@ namespace InnoVault.TileProcessors
             }
             return module;
         }
+
         /// <summary>
         /// 在指定范围内查找与指定ID和坐标最接近的模块，并将其转换为指定类型的模块
         /// </summary>
         /// <typeparam name="T">要返回的模块的类型，必须继承自 <see cref="TileProcessor"/></typeparam>
-        /// <param name="ID">要查找的模块的ID</param>
         /// <param name="x">要查找的模块的x坐标</param>
         /// <param name="y">要查找的模块的y坐标</param>
         /// <param name="maxFindLeng">搜索范围的最大距离</param>
         /// <returns>返回与指定ID及坐标最接近的模块，如果未找到则返回<see langword="null"/></returns>
-        public static T FindModuleRangeSearch<T>(int ID, int x, int y, int maxFindLeng)
-            where T : TileProcessor => FindModuleRangeSearch(ID, x, y, maxFindLeng) as T;
+        public static T FindModuleRangeSearch<T>(int x, int y, int maxFindLeng) where T : TileProcessor => FindModuleRangeSearch(GetModuleID<T>(), x, y, maxFindLeng) as T;
         /// <summary>
         /// 在指定范围内查找与指定ID和坐标最接近的模块
         /// </summary>
