@@ -14,6 +14,11 @@ namespace InnoVault.TileProcessors
     /// </summary>
     public class TileProcessorNetWork
     {
+        /// <summary>
+        /// 属于TP实体网络工作的独特GUID标签
+        /// </summary>
+        public const string TP_START_GUID = "{VaultMod_TP_START_GUID_94AE-XYZ-AB34-BY27}";
+
         /// <inheritdoc/>
         public static void PlaceInWorldNetSend(Mod mod, int type, Point16 point) {
             // 客户端发送同步请求到服务器
@@ -131,7 +136,7 @@ namespace InnoVault.TileProcessors
                 }
 
                 // 标记节点开始
-                modPacket.Write("TP_START"); // 添加分隔标签
+                modPacket.Write(TP_START_GUID); // 添加分隔标签
                 modPacket.Write(tp.LoadenName);
                 modPacket.WritePoint16(tp.Position);
 
@@ -162,7 +167,7 @@ namespace InnoVault.TileProcessors
                 string marker = reader.ReadString();
 
                 // 确认是否为有效的起始标记
-                if (marker != "TP_START") {
+                if (marker != TP_START_GUID) {
                     $"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid mark {marker}，Skip to the next node".LoggerDomp();
                     continue;
                 }
@@ -187,7 +192,7 @@ namespace InnoVault.TileProcessors
         private static void SkipToNextMarker(BinaryReader reader) {
             while (reader.BaseStream.Position < reader.BaseStream.Length) {
                 string marker = reader.ReadString();
-                if (marker == "TP_START") {
+                if (marker == TP_START_GUID) {
                     // 回退以便下一个处理块能够正确读取标记
                     reader.BaseStream.Position -= marker.Length;
                     break;
