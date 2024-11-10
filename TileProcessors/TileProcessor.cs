@@ -171,7 +171,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 发送数据
         /// </summary>
-        public void SendData() => TileProcessorLoader.TileProcessorSendData(this);
+        public void SendData() => TileProcessorNetWork.TileProcessorSendData(this);
 
         /// <summary>
         /// 发送数据

@@ -21,16 +21,16 @@ namespace InnoVault
             MessageType type = (MessageType)reader.ReadByte();
 
             if (type == MessageType.PlaceInWorldSync) {
-                TileProcessorLoader.PlaceInWorldNetReceive(mod, reader, whoAmI);
+                TileProcessorNetWork.PlaceInWorldNetReceive(mod, reader, whoAmI);
             }
             else if (type == MessageType.TPNetWork) {
-                TileProcessorLoader.TileProcessorReceiveData(reader, whoAmI);
+                TileProcessorNetWork.TileProcessorReceiveData(reader, whoAmI);
             }
             else if (type == MessageType.ClientRequest_TPData_Send) {
-                TileProcessorLoader.ServerRecovery_TPData(whoAmI);
+                TileProcessorNetWork.ServerRecovery_TPData(whoAmI);
             }
             else if (type == MessageType.Handle_TPData_Receive) {
-                TileProcessorLoader.Handle_TPData_Receive(reader);
+                TileProcessorNetWork.Handle_TPData_Receive(reader);
             }
         }
 
@@ -64,7 +64,7 @@ namespace InnoVault
             this.sendTime = sendTime;
             this.tpEntity = tpEntity;
         }
-        public override void SendEvent() => TileProcessorLoader.TileProcessorSendData(tpEntity);
+        public override void SendEvent() => TileProcessorNetWork.TileProcessorSendData(tpEntity);
         public static void Add(int sendTime, TileProcessor tpEntity) 
             => VaultNetWork.NetWorkEvents.Add(new TPNetWorkEvent(sendTime, tpEntity));
     }

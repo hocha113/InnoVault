@@ -6,7 +6,7 @@ namespace InnoVault
     internal class VaultPlayer : ModPlayer
     {
         public override void OnEnterWorld() {
-            TileProcessorLoader.ClientRequest_TPData_Send();
+            TileProcessorNetWork.ClientRequest_TPData_Send();
         }
     }
 }
