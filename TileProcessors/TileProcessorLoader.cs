@@ -289,9 +289,6 @@ namespace InnoVault.TileProcessors
             }
             tag[key_TPData_TagList] = list;
             ActiveWorldTagData = tag;
-            if (Main.dedServ) {
-                ServerRecovery_TPData(-1);
-            }
         }
 
         #region Utils
