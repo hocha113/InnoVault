@@ -10,4 +10,4 @@ InnoVault Example Mod 演示了InnoVault提供的API的使用方法，开发者�
 
 为偏向于使用英语的开发者准备的英文注释版本: [url=https://github.com/hocha113/InnoVaultExample/tree/en_annotation] InnoVault Example English Annotated Version [/url]
 
-您也可以选择订阅InnoVault Example Mod [url=TODO] InnoVault Example 创意工坊主页 [/url]
+您也可以选择订阅InnoVault Example Mod [url=https://steamcommunity.com/sharedfiles/filedetails/?id=3338555897] InnoVault Example 创意工坊主页 [/url]
