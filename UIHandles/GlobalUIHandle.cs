@@ -35,5 +35,11 @@ namespace InnoVault.UIHandles
         public virtual void PostUIHanderElementUpdate(UIHandle handle) {
 
         }
+        /// <summary>
+        /// 在所有UI元素更新后执行
+        /// </summary>
+        public virtual void PostUpdataInUIEverything() {
+
+        }
     }
 }
