@@ -425,6 +425,10 @@ namespace InnoVault.UIHandles
                     return true;
                 }, InterfaceScaleType.UI));
             }
+
+            foreach (var global in UIHandleGlobalHooks) {
+                global.PostUpdataInUIEverything();
+            }
         }
 
         private static void IL_MenuLoadDraw_Hook(ILContext il) {
@@ -457,6 +461,9 @@ namespace InnoVault.UIHandles
                 UpdateKeyState();
                 foreach (var hander in UIHandles_Mod_MenuLoad) {
                     UIHanderElementUpdate(hander);
+                }
+                foreach (var global in UIHandleGlobalHooks) {
+                    global.PostUpdataInUIEverything();
                 }
                 spriteBatch.End();
             }
