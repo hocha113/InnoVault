@@ -18,6 +18,10 @@ namespace InnoVault.TileProcessors
         /// 属于TP实体网络工作的独特GUID标签
         /// </summary>
         public const string TP_START_GUID = "{VaultMod_TP_START_GUID_94AE-XYZ-AB34-BY27}";
+        /// <summary>
+        /// 当前是否正在进行初始化世界的网络工作
+        /// </summary>
+        public static bool InitializeWorld { get; private set; }
 
         /// <inheritdoc/>
         public static void PlaceInWorldNetSend(Mod mod, int type, Point16 point) {
@@ -99,13 +103,14 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 让客户端向服务器发出数据请求，请求一个完整的TP数据链
         /// </summary>
-        public static void ClientRequest_TPData_Send() {
+        public static void ClientRequest_TPData_Send(bool initializeWorld = false) {
             if (!VaultUtils.isClient) {
                 return;
             }
             //$"TileProcessorLoader-ClientRequest_TPData:玩家{Main.LocalPlayer.name}/客户端id{Main.myPlayer}正在请求服务端TP数据链".LoggerDomp();
             ModPacket modPacket = VaultMod.Instance.GetPacket();
             modPacket.Write((byte)MessageType.ClientRequest_TPData_Send);
+            modPacket.Write(initializeWorld);
             modPacket.Send();
         }
 
@@ -116,10 +121,13 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 向指定客户端发送一个完整的TP数据链
         /// </summary>
-        public static void ServerRecovery_TPData(int whoAmI) {
+        public static void ServerRecovery_TPData(BinaryReader reader, int whoAmI) {
             if (!Main.dedServ) {
                 return;
             }
+
+            InitializeWorld = reader.ReadBoolean();
+
             //"TileProcessorLoader-ServerRecovery_TPData:服务器数据正在响应请求".LoggerDomp();
             ModPacket modPacket = VaultMod.Instance.GetPacket();// 创建一个数据包，用于批量发送多个TP数据
             modPacket.Write((byte)MessageType.Handle_TPData_Receive); // 包类型
@@ -150,6 +158,8 @@ namespace InnoVault.TileProcessors
             }
 
             modPacket.Send(whoAmI); // 将数据包发送给客户端
+
+            InitializeWorld = false;
         }
         /// <summary>
         /// 服务端响应TP数据链的请求后，接收数据

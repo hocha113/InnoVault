@@ -27,7 +27,7 @@ namespace InnoVault
                 TileProcessorNetWork.TileProcessorReceiveData(reader, whoAmI);
             }
             else if (type == MessageType.ClientRequest_TPData_Send) {
-                TileProcessorNetWork.ServerRecovery_TPData(whoAmI);
+                TileProcessorNetWork.ServerRecovery_TPData(reader, whoAmI);
             }
             else if (type == MessageType.Handle_TPData_Receive) {
                 TileProcessorNetWork.Handle_TPData_Receive(reader);
