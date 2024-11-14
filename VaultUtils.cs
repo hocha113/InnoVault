@@ -382,12 +382,32 @@ namespace InnoVault
         /// </summary>
         public static bool IsOwnedByLocalPlayer(this Projectile projectile) => projectile.owner == Main.myPlayer;
 
-        internal static void WritePoint16(this BinaryWriter writer, Point16 point16) {
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="modPacket"></param>
+        /// <param name="point16"></param>
+        public static void WritePoint16(this ModPacket modPacket, Point16 point16) {
+            modPacket.Write(point16.X);
+            modPacket.Write(point16.Y);
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="writer"></param>
+        /// <param name="point16"></param>
+        public static void WritePoint16(this BinaryWriter writer, Point16 point16) {
             writer.Write(point16.X);
             writer.Write(point16.Y);
         }
 
-        internal static Point16 ReadPoint16(this BinaryReader reader) => new Point16(reader.ReadInt16(), reader.ReadInt16());
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <returns></returns>
+        public static Point16 ReadPoint16(this BinaryReader reader) => new Point16(reader.ReadInt16(), reader.ReadInt16());
         #endregion
 
         #region Tile

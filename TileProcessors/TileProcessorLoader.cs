@@ -1,14 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
-using System.IO;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
-using static InnoVault.VaultNetWork;
-using static InnoVault.TileProcessors.TileProcessorNetWork;
 
 namespace InnoVault.TileProcessors
 {
