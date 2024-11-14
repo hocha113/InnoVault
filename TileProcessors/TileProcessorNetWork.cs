@@ -131,6 +131,7 @@ namespace InnoVault.TileProcessors
             //"TileProcessorLoader-ServerRecovery_TPData:服务器数据正在响应请求".LoggerDomp();
             ModPacket modPacket = VaultMod.Instance.GetPacket();// 创建一个数据包，用于批量发送多个TP数据
             modPacket.Write((byte)MessageType.Handle_TPData_Receive); // 包类型
+            modPacket.Write(InitializeWorld);
             int sendTPCount = 0;
 
             // 统计活跃的TP数量
@@ -169,6 +170,8 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
+            InitializeWorld = reader.ReadBoolean();
+
             int tpCount = reader.ReadInt32(); // 读取TP数量
 
             if (tpCount < 0 || tpCount > MaxTileModuleInWorldCount) {
@@ -199,6 +202,8 @@ namespace InnoVault.TileProcessors
                     SkipToNextMarker(reader);
                 }
             }
+
+            InitializeWorld = false;
         }
 
         /// <summary>
