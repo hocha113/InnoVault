@@ -1,4 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using ReLogic.Content;
 using Steamworks;
 using System;
 using System.Collections.Generic;
@@ -8,6 +10,8 @@ using System.Runtime.CompilerServices;
 using Terraria;
 using Terraria.Chat;
 using Terraria.DataStructures;
+using Terraria.GameContent;
+using Terraria.GameContent.ItemDropRules;
 using Terraria.GameInput;
 using Terraria.ID;
 using Terraria.Localization;
@@ -259,6 +263,22 @@ namespace InnoVault
         #region Game
 
         /// <summary>
+        /// 让一个NPC可以正常的掉落物品而不触发其他死亡事件，只应该在非服务端上调用该方法
+        /// </summary>
+        /// <param name="npc"></param>
+        public static void DropItem(this NPC npc) {
+            DropAttemptInfo dropAttemptInfo = default;
+            dropAttemptInfo.player = Main.LocalPlayer;
+            dropAttemptInfo.npc = npc;
+            dropAttemptInfo.IsExpertMode = Main.expertMode;
+            dropAttemptInfo.IsMasterMode = Main.masterMode;
+            dropAttemptInfo.IsInSimulation = false;
+            dropAttemptInfo.rng = Main.rand;
+            DropAttemptInfo info = dropAttemptInfo;
+            Main.ItemDropSolver.TryDropping(info);
+        }
+
+        /// <summary>
         /// 在游戏中发送文本消息
         /// </summary>
         /// <param name="message">要发送的消息文本</param>
@@ -359,6 +379,454 @@ namespace InnoVault
                 }
             }
         }
+
+        /// <summary>
+        /// 计算并获取物品的前缀附加属性
+        /// 根据物品的前缀ID，确定前缀所提供的各种属性加成，包括伤害倍率、击退倍率、使用时间倍率、尺寸倍率、射速倍率、法力消耗倍率以及暴击加成，
+        /// 并根据这些加成计算出前缀的总体强度。对于模组的前缀，使用自定义的逻辑处理属性加成
+        /// </summary>
+        /// <param name="item">带有前缀的物品实例。</param>
+        /// <returns>
+        /// 返回包含前缀附加属性的结构体<see cref="PrefixState"/>，
+        /// 该结构体中包括前缀ID以及计算得到的属性加成与前缀强度
+        /// </returns>
+        public static PrefixState GetPrefixState(this Item item) {
+            int prefixID = item.prefix;
+
+            PrefixState additionStruct = new PrefixState();
+
+            float strength;
+            float damageMult = 1f;
+            float knockbackMult = 1f;
+            float useTimeMult = 1f;
+            float scaleMult = 1f;
+            float shootSpeedMult = 1f;
+            float manaMult = 1f;
+            int critBonus = 0;
+
+            if (prefixID >= PrefixID.Count && prefixID < PrefixLoader.PrefixCount) {
+                additionStruct.isModPreFix = true;
+                PrefixLoader.GetPrefix(prefixID).SetStats(ref damageMult, ref knockbackMult
+                    , ref useTimeMult, ref scaleMult, ref shootSpeedMult, ref manaMult, ref critBonus);
+            }
+            else {
+                additionStruct.isModPreFix = false;
+                switch (prefixID) {
+                    case 1:
+                        scaleMult = 1.12f;
+                        break;
+                    case 2:
+                        scaleMult = 1.18f;
+                        break;
+                    case 3:
+                        damageMult = 1.05f;
+                        critBonus = 2;
+                        scaleMult = 1.05f;
+                        break;
+                    case 4:
+                        damageMult = 1.1f;
+                        scaleMult = 1.1f;
+                        knockbackMult = 1.1f;
+                        break;
+                    case 5:
+                        damageMult = 1.15f;
+                        break;
+                    case 6:
+                        damageMult = 1.1f;
+                        break;
+                    case 81:
+                        knockbackMult = 1.15f;
+                        damageMult = 1.15f;
+                        critBonus = 5;
+                        useTimeMult = 0.9f;
+                        scaleMult = 1.1f;
+                        break;
+                    case 7:
+                        scaleMult = 0.82f;
+                        break;
+                    case 8:
+                        knockbackMult = 0.85f;
+                        damageMult = 0.85f;
+                        scaleMult = 0.87f;
+                        break;
+                    case 9:
+                        scaleMult = 0.9f;
+                        break;
+                    case 10:
+                        damageMult = 0.85f;
+                        break;
+                    case 11:
+                        useTimeMult = 1.1f;
+                        knockbackMult = 0.9f;
+                        scaleMult = 0.9f;
+                        break;
+                    case 12:
+                        knockbackMult = 1.1f;
+                        damageMult = 1.05f;
+                        scaleMult = 1.1f;
+                        useTimeMult = 1.15f;
+                        break;
+                    case 13:
+                        knockbackMult = 0.8f;
+                        damageMult = 0.9f;
+                        scaleMult = 1.1f;
+                        break;
+                    case 14:
+                        knockbackMult = 1.15f;
+                        useTimeMult = 1.1f;
+                        break;
+                    case 15:
+                        knockbackMult = 0.9f;
+                        useTimeMult = 0.85f;
+                        break;
+                    case 16:
+                        damageMult = 1.1f;
+                        critBonus = 3;
+                        break;
+                    case 17:
+                        useTimeMult = 0.85f;
+                        shootSpeedMult = 1.1f;
+                        break;
+                    case 18:
+                        useTimeMult = 0.9f;
+                        shootSpeedMult = 1.15f;
+                        break;
+                    case 19:
+                        knockbackMult = 1.15f;
+                        shootSpeedMult = 1.05f;
+                        break;
+                    case 20:
+                        knockbackMult = 1.05f;
+                        shootSpeedMult = 1.05f;
+                        damageMult = 1.1f;
+                        useTimeMult = 0.95f;
+                        critBonus = 2;
+                        break;
+                    case 21:
+                        knockbackMult = 1.15f;
+                        damageMult = 1.1f;
+                        break;
+                    case 82:
+                        knockbackMult = 1.15f;
+                        damageMult = 1.15f;
+                        critBonus = 5;
+                        useTimeMult = 0.9f;
+                        shootSpeedMult = 1.1f;
+                        break;
+                    case 22:
+                        knockbackMult = 0.9f;
+                        shootSpeedMult = 0.9f;
+                        damageMult = 0.85f;
+                        break;
+                    case 23:
+                        useTimeMult = 1.15f;
+                        shootSpeedMult = 0.9f;
+                        break;
+                    case 24:
+                        useTimeMult = 1.1f;
+                        knockbackMult = 0.8f;
+                        break;
+                    case 25:
+                        useTimeMult = 1.1f;
+                        damageMult = 1.15f;
+                        critBonus = 1;
+                        break;
+                    case 58:
+                        useTimeMult = 0.85f;
+                        damageMult = 0.85f;
+                        break;
+                    case 26:
+                        manaMult = 0.85f;
+                        damageMult = 1.1f;
+                        break;
+                    case 27:
+                        manaMult = 0.85f;
+                        break;
+                    case 28:
+                        manaMult = 0.85f;
+                        damageMult = 1.15f;
+                        knockbackMult = 1.05f;
+                        break;
+                    case 83:
+                        knockbackMult = 1.15f;
+                        damageMult = 1.15f;
+                        critBonus = 5;
+                        useTimeMult = 0.9f;
+                        manaMult = 0.9f;
+                        break;
+                    case 29:
+                        manaMult = 1.1f;
+                        break;
+                    case 30:
+                        manaMult = 1.2f;
+                        damageMult = 0.9f;
+                        break;
+                    case 31:
+                        knockbackMult = 0.9f;
+                        damageMult = 0.9f;
+                        break;
+                    case 32:
+                        manaMult = 1.15f;
+                        damageMult = 1.1f;
+                        break;
+                    case 33:
+                        manaMult = 1.1f;
+                        knockbackMult = 1.1f;
+                        useTimeMult = 0.9f;
+                        break;
+                    case 34:
+                        manaMult = 0.9f;
+                        knockbackMult = 1.1f;
+                        useTimeMult = 1.1f;
+                        damageMult = 1.1f;
+                        break;
+                    case 35:
+                        manaMult = 1.2f;
+                        damageMult = 1.15f;
+                        knockbackMult = 1.15f;
+                        break;
+                    case 52:
+                        manaMult = 0.9f;
+                        damageMult = 0.9f;
+                        useTimeMult = 0.9f;
+                        break;
+                    case 84:
+                        knockbackMult = 1.17f;
+                        damageMult = 1.17f;
+                        critBonus = 8;
+                        break;
+                    case 36:
+                        critBonus = 3;
+                        break;
+                    case 37:
+                        damageMult = 1.1f;
+                        critBonus = 3;
+                        knockbackMult = 1.1f;
+                        break;
+                    case 38:
+                        knockbackMult = 1.15f;
+                        break;
+                    case 53:
+                        damageMult = 1.1f;
+                        break;
+                    case 54:
+                        knockbackMult = 1.15f;
+                        break;
+                    case 55:
+                        knockbackMult = 1.15f;
+                        damageMult = 1.05f;
+                        break;
+                    case 59:
+                        knockbackMult = 1.15f;
+                        damageMult = 1.15f;
+                        critBonus = 5;
+                        break;
+                    case 60:
+                        damageMult = 1.15f;
+                        critBonus = 5;
+                        break;
+                    case 61:
+                        critBonus = 5;
+                        break;
+                    case 39:
+                        damageMult = 0.7f;
+                        knockbackMult = 0.8f;
+                        break;
+                    case 40:
+                        damageMult = 0.85f;
+                        break;
+                    case 56:
+                        knockbackMult = 0.8f;
+                        break;
+                    case 41:
+                        knockbackMult = 0.85f;
+                        damageMult = 0.9f;
+                        break;
+                    case 57:
+                        knockbackMult = 0.9f;
+                        damageMult = 1.18f;
+                        break;
+                    case 42:
+                        useTimeMult = 0.9f;
+                        break;
+                    case 43:
+                        damageMult = 1.1f;
+                        useTimeMult = 0.9f;
+                        break;
+                    case 44:
+                        useTimeMult = 0.9f;
+                        critBonus = 3;
+                        break;
+                    case 45:
+                        useTimeMult = 0.95f;
+                        break;
+                    case 46:
+                        critBonus = 3;
+                        useTimeMult = 0.94f;
+                        damageMult = 1.07f;
+                        break;
+                    case 47:
+                        useTimeMult = 1.15f;
+                        break;
+                    case 48:
+                        useTimeMult = 1.2f;
+                        break;
+                    case 49:
+                        useTimeMult = 1.08f;
+                        break;
+                    case 50:
+                        damageMult = 0.8f;
+                        useTimeMult = 1.15f;
+                        break;
+                    case 51:
+                        knockbackMult = 0.9f;
+                        useTimeMult = 0.9f;
+                        damageMult = 1.05f;
+                        critBonus = 2;
+                        break;
+                }
+            }
+
+            strength = 1f * damageMult * (2f - useTimeMult) * (2f - manaMult) * scaleMult
+                * knockbackMult * shootSpeedMult * (1f + critBonus * 0.02f);
+            if (prefixID == 62 || prefixID == 69 || prefixID == 73 || prefixID == 77)
+                strength *= 1.05f;
+
+            if (prefixID == 63 || prefixID == 70 || prefixID == 74 || prefixID == 78 || prefixID == 67)
+                strength *= 1.1f;
+
+            if (prefixID == 64 || prefixID == 71 || prefixID == 75 || prefixID == 79 || prefixID == 66)
+                strength *= 1.15f;
+
+            if (prefixID == 65 || prefixID == 72 || prefixID == 76 || prefixID == 80 || prefixID == 68)
+                strength *= 1.2f;
+
+            additionStruct.prefixID = prefixID;
+            additionStruct.damageMult = damageMult;
+            additionStruct.knockbackMult = knockbackMult;
+            additionStruct.useTimeMult = useTimeMult;
+            additionStruct.scaleMult = scaleMult;
+            additionStruct.shootSpeedMult = shootSpeedMult;
+            additionStruct.manaMult = manaMult;
+            additionStruct.critBonus = critBonus;
+            additionStruct.strength = strength;
+
+            return additionStruct;
+        }
+
+        /// <summary>
+        /// 获取玩家当前射击状态，包括武器的伤害、击退、弹药类型等信息
+        /// 该方法根据玩家当前装备的武器以及所用的弹药类型来计算并返回完整的射击状态
+        /// </summary>
+        /// <param name="player">玩家实例，代表调用该方法的玩家对象</param>
+        /// <param name="shootKey">一个可选的标识符，用于区分不同的射击事件，默认为 "Null" 表示不使用特定键值</param>
+        /// <returns>返回一个包含射击相关信息的 <see cref="ShootState"/> 结构体</returns>
+        public static ShootState GetShootState(this Player player, string shootKey = "Null") {
+            ShootState shootState = new();
+            Item item = player.GetItem();
+            if (item.useAmmo == AmmoID.None) {
+                shootState.WeaponDamage = player.GetWeaponDamage(item);
+                shootState.WeaponKnockback = item.knockBack;
+                shootState.AmmoTypes = item.shoot;
+                shootState.ShootSpeed = item.shootSpeed;
+                shootState.UseAmmoItemType = ItemID.None;
+                shootState.HasAmmo = false;
+                if (shootState.AmmoTypes == 0 || shootState.AmmoTypes == 10) {
+                    shootState.AmmoTypes = ProjectileID.Bullet;
+                }
+                return shootState;
+            }
+            shootState.HasAmmo = player.PickAmmo(item, out shootState.AmmoTypes, out shootState.ShootSpeed
+                , out shootState.WeaponDamage, out shootState.WeaponKnockback, out shootState.UseAmmoItemType, true);
+            if (shootKey == "Null") {
+                shootKey = null;
+            }
+            shootState.Source = new EntitySource_ItemUse_WithAmmo(player, item, shootState.UseAmmoItemType, shootKey);
+            return shootState;
+        }
+
+        /// <summary>
+        /// 获取玩家当前的弹药状态，包括所有有效的弹药类型、对应的物品、以及物品的数量等信息
+        /// </summary>
+        /// <param name="player">玩家实例，代表调用该方法的玩家对象</param>
+        /// <param name="assignAmmoType">指定的弹药类型，默认为 0，表示不限制弹药类型。如果指定某个类型，则只返回该类型的弹药</param>
+        /// <param name="numSort">是否对弹药物品进行排序，默认为 false。如果为 true，则按照物品堆叠数量降序排序</param>
+        /// <returns>返回一个包含当前弹药状态信息的 <see cref="AmmoState"/> 结构体</returns>
+        public static AmmoState GetAmmoState(this Player player, int assignAmmoType = 0, bool numSort = false) {
+            AmmoState ammoState = new();
+            int num = 0;  // 当前弹药总数量
+            List<Item> itemInds = new();  // 存储有效的弹药物品
+            List<int> itemTypes = new();  // 存储弹药物品的类型
+            List<int> itemShootTypes = new();  // 存储弹药发射类型（即射击类型）
+
+            // 遍历玩家背包中的所有物品
+            foreach (Item item in player.inventory) {
+                // 跳过没有弹药的物品
+                if (item.ammo == AmmoID.None) {
+                    continue;
+                }
+
+                // 如果指定了弹药类型并且物品的弹药类型不匹配，跳过该物品
+                if (assignAmmoType != 0 && item.ammo != assignAmmoType) {
+                    continue;
+                }
+
+                // 添加物品类型、射击类型及堆叠数量
+                itemTypes.Add(item.type);
+                itemShootTypes.Add(item.shoot);
+                num += item.stack;  // 累加物品的堆叠数量
+            }
+
+            // 遍历玩家快捷栏中的物品（位置从54到57）
+            for (int i = 54; i < 58; i++) {
+                Item item = player.inventory[i];
+                // 如果指定了弹药类型并且物品的弹药类型不匹配，或者物品没有弹药，跳过
+                if ((assignAmmoType != 0 && item.ammo != assignAmmoType) || item.ammo == AmmoID.None) {
+                    continue;
+                }
+                itemInds.Add(player.inventory[i]);
+            }
+
+            // 遍历玩家背包的前54个物品
+            for (int i = 0; i < 54; i++) {
+                Item item = player.inventory[i];
+                // 如果指定了弹药类型并且物品的弹药类型不匹配，或者物品没有弹药，跳过
+                if ((assignAmmoType != 0 && item.ammo != assignAmmoType) || item.ammo == AmmoID.None) {
+                    continue;
+                }
+                itemInds.Add(player.inventory[i]);
+            }
+
+            // 如果需要排序，则按堆叠数量降序排序
+            if (numSort) {
+                itemInds = itemInds.OrderByDescending(item => item.stack).ToList();
+            }
+
+            // 设置返回的弹药状态信息
+            ammoState.ValidProjectileIDs = itemShootTypes.ToArray();  // 有效的弹药发射类型
+            ammoState.CurrentItems = itemInds.ToArray();  // 当前有效的弹药物品
+            ammoState.ValidItemIDs = itemTypes.ToArray();  // 有效的弹药物品类型
+            ammoState.CurrentAmount = num;  // 当前弹药总数量
+
+            // 设置最大和最小数量的物品
+            if (itemInds.Count > 0) {
+                ammoState.MaxAmountItem = itemInds[0];  // 最大数量的物品
+                ammoState.MinAmountItem = itemInds[itemInds.Count - 1];  // 最小数量的物品
+            }
+            else {
+                ammoState.MaxAmountItem = new Item();  // 若无有效物品，返回空物品
+                ammoState.MinAmountItem = new Item();  // 若无有效物品，返回空物品
+            }
+
+            return ammoState;
+        }
+
+        /// <summary>
+        /// 获取玩家选中的物品实例
+        /// </summary>
+        /// <param name="player"></param>
+        /// <returns></returns>
+        public static Item GetItem(this Player player) => Main.mouseItem.IsAir ? player.inventory[player.selectedItem] : Main.mouseItem;
 
         #endregion
 
@@ -522,6 +990,166 @@ namespace InnoVault
             }
             return new Vector2(TileVr.X, TileVr.Y);
         }
+        #endregion
+
+        #region UI
+
+        /// <summary>
+        /// 生成一个二维网格的坐标数组 用于按行列排列元素
+        /// </summary>
+        /// <param name="elementCount">元素总数 必须是正整数</param>
+        /// <param name="withNum">每行元素数量 必须是正整数</param>
+        /// <returns>
+        /// 返回一个 <see cref="Point"/> 数组 每个点表示元素在网格中的坐标 (x, y)
+        /// x 表示列索引 y 表示行索引
+        /// </returns>
+        /// <exception cref="ArgumentException"></exception>
+        public static Point[] GenerateGridCoordinates(int elementCount, int withNum) {
+            if (elementCount <= 0 || withNum <= 0) {
+                throw new ArgumentException("elementCount and withNum must be positive integers.");
+            }
+            Point[] result = new Point[elementCount];
+            for (int i = 0; i < elementCount; i++) {
+                result[i] = new Point(i % withNum, i / withNum);
+            }
+
+            return result;
+        }
+
+        /// <summary>
+        /// 计算一个基于输入矩形的剪裁区域 用于确保绘制区域在当前屏幕视口内
+        /// </summary>
+        /// <param name="spriteBatch">当前的 <see cref="SpriteBatch"/> 实例 用于获取视口信息</param>
+        /// <param name="r">输入的原始矩形区域</param>
+        /// <returns>一个被剪裁后的矩形区域 保证其在视口内</returns>
+        /// <remarks>
+        /// 输入矩形首先通过 UIScaleMatrix 转换为屏幕坐标
+        /// 然后对矩形区域的坐标及大小进行裁剪 使其不会超出屏幕的有效范围
+        /// 适用于 UI 绘制时需要限制在屏幕显示区域内的场景
+        /// </remarks>
+        public static Rectangle GetClippingRectangle(SpriteBatch spriteBatch, Rectangle r) {
+            // 转换矩形的左上角和右下角到屏幕坐标系
+            Vector2 topLeft = Vector2.Transform(new Vector2(r.X, r.Y), Main.UIScaleMatrix);
+            Vector2 bottomRight = Vector2.Transform(new Vector2(r.Right, r.Bottom), Main.UIScaleMatrix);
+
+            // 计算转换后的矩形
+            Rectangle result = new(
+                x: (int)topLeft.X,
+                y: (int)topLeft.Y,
+                width: (int)(bottomRight.X - topLeft.X),
+                height: (int)(bottomRight.Y - topLeft.Y)
+            );
+
+            // 获取当前屏幕视口尺寸
+            int viewportWidth = spriteBatch.GraphicsDevice.Viewport.Width;
+            int viewportHeight = spriteBatch.GraphicsDevice.Viewport.Height;
+
+            // 裁剪矩形到屏幕范围内
+            result.X = Utils.Clamp(result.X, 0, viewportWidth);
+            result.Y = Utils.Clamp(result.Y, 0, viewportHeight);
+            result.Width = Utils.Clamp(result.Width, 0, viewportWidth - result.X);
+            result.Height = Utils.Clamp(result.Height, 0, viewportHeight - result.Y);
+
+            return result;
+        }
+
+        /// <summary>
+        /// 绘制一个简单的物品图像
+        /// </summary>
+        /// <param name="spriteBatch">用于绘制的 <see cref="SpriteBatch"/> 实例</param>
+        /// <param name="itemType">物品类型 ID</param>
+        /// <param name="position">物品绘制的屏幕坐标</param>
+        /// <param name="size">绘制缩放比例</param>
+        /// <param name="rotation">物品旋转角度（弧度）</param>
+        /// <param name="color">绘制颜色</param>
+        /// <param name="orig">纹理原点（默认为纹理的中心点）</param>
+        public static void SimpleDrawItem(SpriteBatch spriteBatch, int itemType, Vector2 position, float size, float rotation, Color color, Vector2 orig = default(Vector2)) {
+            // 获取物品的纹理资源
+            Texture2D texture = TextureAssets.Item[itemType].Value;
+
+            // 获取物品的动画帧区域（如无动画则使用完整纹理）
+            Rectangle? frame = Main.itemAnimations[itemType]?.GetFrame(texture) ?? texture.Frame(1, 1, 0, 0);
+
+            // 如果未指定原点，则使用纹理帧的中心点作为默认原点
+            if (orig == Vector2.Zero) orig = frame.HasValue ? frame.Value.Size() / 2 : texture.Size() / 2;
+
+            // 绘制物品
+            spriteBatch.Draw(texture, position, frame, color, rotation, orig, size, SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// 绘制事件进度条
+        /// </summary>
+        /// <param name="spriteBatch">绘制使用的 <see cref="SpriteBatch"/> 实例</param>
+        /// <param name="pixel">进度条材质</param>
+        /// <param name="drawPos">进度条中心位置</param>
+        /// <param name="iconAsset">事件图标的纹理资源</param>
+        /// <param name="eventKillRatio">事件完成度（0~1）</param>
+        /// <param name="size">整体缩放比例</param>
+        /// <param name="barWidth">进度条宽度</param>
+        /// <param name="barHeight">进度条高度</param>
+        /// <param name="eventMainName">事件名称</param>
+        /// <param name="eventMainColor">事件背景颜色</param>
+        public static void DrawEventProgressBar(SpriteBatch spriteBatch, Texture2D pixel, Vector2 drawPos, Asset<Texture2D> iconAsset
+            , float eventKillRatio, float size, int barWidth, int barHeight, string eventMainName, Color eventMainColor) {
+            // 参数校验
+            if (size < 0.1f || eventKillRatio < 0 || eventKillRatio > 1) {
+                return;
+            }
+
+            // 事件标题绘制
+            Vector2 eventNameSize = FontAssets.MouseText.Value.MeasureString(eventMainName);
+            float titleBackgroundWidth = 120f + Math.Max(0, eventNameSize.X - 200f);
+            Vector2 titlePosition = new(Main.screenWidth - titleBackgroundWidth, Main.screenHeight - 80);
+
+            Rectangle titleBackgroundRect = Utils.CenteredRectangle(titlePosition, eventNameSize + new Vector2(iconAsset.Value.Width + 12, 6f));
+            Utils.DrawInvBG(spriteBatch, titleBackgroundRect, eventMainColor * 0.5f * size);
+
+            // 绘制事件图标
+            spriteBatch.Draw(iconAsset.Value, titleBackgroundRect.Left() + Vector2.UnitX * 8f, null, Color.White * size
+                , 0f, Vector2.UnitY * iconAsset.Value.Height / 2, 0.8f * size, SpriteEffects.None, 0f);
+
+            // 绘制事件名称
+            Utils.DrawBorderString(spriteBatch, eventMainName, titleBackgroundRect.Right() - Vector2.UnitX * 16f, Color.White * size, 0.9f * size, 1f, 0.4f, -1);
+
+            // 绘制进度条背景
+            drawPos += new Vector2(-100, 20);
+            Rectangle progressBarRect = new((int)drawPos.X - barWidth / 2, (int)drawPos.Y - barHeight / 2, barWidth, barHeight);
+            Utils.DrawInvBG(spriteBatch, progressBarRect, new Color(6, 80, 84, 255) * 0.785f * size);
+
+            // 绘制进度条主体
+            DrawProgressBar(spriteBatch, pixel, drawPos, eventKillRatio, size, barWidth);
+
+            // 绘制完成百分比文本
+            string progressText = Language.GetTextValue("Game.WaveCleared", $"{eventKillRatio * 100:N1}%");
+            Vector2 progressTextSize = FontAssets.MouseText.Value.MeasureString(progressText);
+            float textScale = progressTextSize.Y > 22f ? 22f / progressTextSize.Y : 1f;
+            Utils.DrawBorderString(spriteBatch, progressText, drawPos + Vector2.UnitY * 6f, Color.White * size, textScale, 0.5f, 1f, -1);
+        }
+
+        /// <summary>
+        /// 绘制进度条主体部分
+        /// </summary>
+        /// <param name="spriteBatch">绘制使用的 <see cref="SpriteBatch"/> 实例</param>
+        /// <param name="pixel">进度条材质</param>
+        /// <param name="drawPos">进度条中心位置</param>
+        /// <param name="progress">完成度（0~1）</param>
+        /// <param name="size">缩放比例</param>
+        /// <param name="barWidth">进度条宽度</param>
+        private static void DrawProgressBar(SpriteBatch spriteBatch, Texture2D pixel, Vector2 drawPos, float progress, float size, float barWidth) {
+            // 已完成部分
+            Vector2 completedBarPos = drawPos + Vector2.UnitX * (progress - 0.5f) * barWidth;
+            spriteBatch.Draw(pixel, completedBarPos, new Rectangle(0, 0, 1, 1), new Color(255, 241, 51) * size
+                , 0f, new Vector2(1f, 0.5f), new Vector2(barWidth * progress, 8) * size, SpriteEffects.None, 0f);
+            // 边缘光效
+            spriteBatch.Draw(pixel, completedBarPos, new Rectangle(0, 0, 1, 1), new Color(255, 165, 0, 127) * size
+                , 0f, new Vector2(1f, 0.5f), new Vector2(2f, 8) * size, SpriteEffects.None, 0f);
+            // 未完成部分
+            Vector2 remainingBarPos = drawPos + Vector2.UnitX * (progress - 0.5f) * barWidth;
+            spriteBatch.Draw(pixel, remainingBarPos, new Rectangle(0, 0, 1, 1), Color.Black * size
+                , 0f, Vector2.UnitY * 0.5f, new Vector2(barWidth * (1f - progress), 8) * size, SpriteEffects.None, 0f);
+        }
+
         #endregion
     }
 }
