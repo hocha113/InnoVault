@@ -166,14 +166,19 @@ namespace InnoVault
 
         #region System
         /// <summary>
-        /// 检查指定玩家是否按下了鼠标键
+        /// 生成乱码字符串
         /// </summary>
-        /// <param name="player">要检查的玩家</param>
-        /// <param name="leftCed">是否检查左鼠标键，否则检测右鼠标键</param>
-        /// <param name="netCed">是否进行网络同步检查</param>
-        /// <returns>如果按下了指定的鼠标键，则返回true，否则返回false</returns>
-        public static bool PressKey(this Player player, bool leftCed = true, bool netCed = true) {
-            return (!netCed || Main.myPlayer == player.whoAmI) && (leftCed ? PlayerInput.Triggers.Current.MouseLeft : PlayerInput.Triggers.Current.MouseRight);
+        /// <param name="length"></param>
+        /// <returns></returns>
+        public static string GenerateRandomString(int length) {
+            const string characters = "!@#$%^&*()-_=+[]{}|;:'\",.<>/?`~0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+            char[] result = new char[length];
+
+            for (int i = 0; i < length; i++) {
+                result[i] = characters[Main.rand.Next(characters.Length)];
+            }
+
+            return new string(result);
         }
 
         /// <summary>
@@ -304,6 +309,43 @@ namespace InnoVault
         #endregion
 
         #region Game
+
+        /// <summary>
+        /// 让一个射弹安全的对应到弹药物品
+        /// </summary>
+        public static Dictionary<int, int> ProjectileToSafeAmmoMap { get; private set; } = new Dictionary<int, int>() {
+                { ProjectileID.BoneArrow, ItemID.BoneArrow},
+                { ProjectileID.MoonlordArrow, ItemID.MoonlordArrow},
+                { ProjectileID.ChlorophyteArrow, ItemID.ChlorophyteArrow},
+                { ProjectileID.CursedArrow, ItemID.CursedArrow},
+                { ProjectileID.FlamingArrow, ItemID.FlamingArrow},
+                { ProjectileID.FrostburnArrow, ItemID.FrostburnArrow},
+                { ProjectileID.HellfireArrow, ItemID.HellfireArrow},
+                { ProjectileID.HolyArrow, ItemID.HolyArrow},
+                { ProjectileID.IchorArrow, ItemID.IchorArrow},
+                { ProjectileID.JestersArrow, ItemID.JestersArrow},
+                { ProjectileID.ShimmerArrow, ItemID.ShimmerArrow},
+                { ProjectileID.UnholyArrow, ItemID.UnholyArrow},
+                { ProjectileID.VenomArrow, ItemID.VenomArrow},
+                { ProjectileID.WoodenArrowFriendly, ItemID.WoodenArrow},
+                { ProjectileID.ChumBucket, ItemID.ChumBucket},
+                { ProjectileID.ChlorophyteBullet, ItemID.ChlorophyteBullet},
+                { ProjectileID.CrystalBullet, ItemID.CrystalBullet},
+                { ProjectileID.CursedBullet, ItemID.CursedBullet},
+                { ProjectileID.ExplosiveBullet, ItemID.ExplodingBullet},
+                { ProjectileID.GoldenBullet, ItemID.GoldenBullet},
+                { ProjectileID.BulletHighVelocity, ItemID.HighVelocityBullet},
+                { ProjectileID.IchorBullet, ItemID.IchorBullet},
+                { ProjectileID.MoonlordBullet, ItemID.MoonlordBullet},
+                { ProjectileID.MeteorShot, ItemID.MeteorShot},
+                { ProjectileID.Bullet, ItemID.MusketBall},
+                { ProjectileID.NanoBullet, ItemID.NanoBullet},
+                { ProjectileID.PartyBullet, ItemID.PartyBullet},
+                { ProjectileID.SilverBullet, ItemID.SilverBullet},
+                { ProjectileID.VenomBullet, ItemID.VenomBullet},
+                { ProjectileID.SnowBallFriendly, ItemID.Snowball},
+            };
+
         /// <summary>
         /// 检测玩家是否有效且正常存活
         /// </summary>
@@ -321,6 +363,17 @@ namespace InnoVault
         /// </summary>
         /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
         public static bool Alives(this NPC npc) => npc != null && npc.active && npc.timeLeft > 0;
+
+        /// <summary>
+        /// 检查指定玩家是否按下了鼠标键
+        /// </summary>
+        /// <param name="player">要检查的玩家</param>
+        /// <param name="leftCed">是否检查左鼠标键，否则检测右鼠标键</param>
+        /// <param name="netCed">是否进行网络同步检查</param>
+        /// <returns>如果按下了指定的鼠标键，则返回true，否则返回false</returns>
+        public static bool PressKey(this Player player, bool leftCed = true, bool netCed = true) {
+            return (!netCed || Main.myPlayer == player.whoAmI) && (leftCed ? PlayerInput.Triggers.Current.MouseLeft : PlayerInput.Triggers.Current.MouseRight);
+        }
 
         /// <summary>
         /// 让一个NPC可以正常的掉落物品而不触发其他死亡事件，只应该在非服务端上调用该方法
