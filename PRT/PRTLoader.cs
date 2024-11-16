@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Terraria;
 using Terraria.Graphics.Renderers;
+using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
 
 namespace InnoVault.PRT
@@ -54,6 +55,7 @@ namespace InnoVault.PRT
         private static List<BasePRT> PRT_AlphaBlend_Draw;
         private static List<BasePRT> PRT_AdditiveBlend_Draw;
         private static List<BasePRT> PRT_NonPremultiplied_Draw;
+        private static List<BasePRT> PRT_HasShader_Draw;
         private static readonly PRTDrawModeEnum[] allDrawModes = (PRTDrawModeEnum[])Enum.GetValues(typeof(PRTDrawModeEnum));
         #endregion
         /// <summary>
@@ -267,6 +269,11 @@ namespace InnoVault.PRT
                     continue;
                 }
 
+                if (particle.shader != null) {
+                    PRT_HasShader_Draw.Add(particle);
+                    continue;
+                }
+
                 GetPRTInstancesByDrawMode(particle.PRTDrawMode).Add(particle);
             }
         }
@@ -312,6 +319,28 @@ namespace InnoVault.PRT
             }
         }
 
+        internal static void PRTInstanceDraw(SpriteBatch spriteBatch, BasePRT particle) {
+            if (particle.PreDraw(spriteBatch)) {
+                defaultDraw(spriteBatch, particle);
+            }
+            particle.PostDraw(spriteBatch);
+        }
+
+        internal static void HanderHasShaderPRTDraw(SpriteBatch spriteBatch) {
+            if (PRT_HasShader_Draw.Count > 0) {
+                IEnumerable<IGrouping<ArmorShaderData, BasePRT>> groupedParticles = PRT_HasShader_Draw.GroupBy(p => p.shader);
+                foreach (IGrouping<ArmorShaderData, BasePRT> group in groupedParticles) {
+                    spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.PointClamp
+                        , DepthStencilState.None, RasterizerState.CullNone, null, Main.Transform);
+                    group.Key?.Apply(null);
+                    foreach (BasePRT particle in group) {
+                        PRTInstanceDraw(spriteBatch, particle);
+                    }
+                    spriteBatch.End();
+                }
+            }
+        }
+
         /// <summary>
         /// 所有PRT的绘制更新都在这里
         /// </summary>
@@ -332,17 +361,17 @@ namespace InnoVault.PRT
 
                 BeginDrawingWithMode(drawMode, spriteBatch);
                 foreach (BasePRT particle in targetPRTs) {
-                    if (particle.PreDraw(spriteBatch)) {
-                        defaultDraw(spriteBatch, particle);
-                    }
-                    particle.PostDraw(spriteBatch);
+                    PRTInstanceDraw(spriteBatch, particle);
                 }
                 spriteBatch.End();
             }
 
+            HanderHasShaderPRTDraw(spriteBatch);
+
             PRT_AlphaBlend_Draw.Clear();
             PRT_NonPremultiplied_Draw.Clear();
             PRT_AdditiveBlend_Draw.Clear();
+            PRT_HasShader_Draw.Clear();
 
             spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, Main.Rasterizer, null, Main.Transform);
         }

@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
 
 namespace InnoVault.PRT
@@ -23,6 +24,10 @@ namespace InnoVault.PRT
         /// 这个粒子来自什么模组
         /// </summary>
         public virtual Mod Mod => PRTLoader.PRT_TypeToMod[GetType()];
+        /// <summary>
+        /// 获取加载的粒子纹理资源
+        /// </summary>
+        public Texture2D TexValue => PRTLoader.PRT_IDToTexture[ID];
         /// <summary>
         /// 一个通用的全局帧索引
         /// </summary>
@@ -80,9 +85,21 @@ namespace InnoVault.PRT
         /// </summary>
         public float[] ai = new float[3];
         /// <summary>
+        /// 历史位置
+        /// </summary>
+        public Vector2[] oldPositions;
+        /// <summary>
+        /// 历史旋转点
+        /// </summary>
+        public float[] oldRotations;
+        /// <summary>
         /// 绘制模式，默认为<see cref="PRTDrawModeEnum.AlphaBlend"/>
         /// </summary>
         public PRTDrawModeEnum PRTDrawMode = PRTDrawModeEnum.AlphaBlend;
+        /// <summary>
+        /// 这个粒子将使用的着色器数据，默认为<see langword="null"/>
+        /// </summary>
+        public ArmorShaderData shader;
         /// <summary>
         /// 仅仅在生成粒子的时候被执行一次，用于简单的内部初始化数据
         /// </summary>
@@ -110,5 +127,68 @@ namespace InnoVault.PRT
         /// </summary>
         /// <returns></returns>
         public BasePRT Clone() => (BasePRT)Activator.CreateInstance(GetType());
+
+        /// <summary>
+        /// 初始化位置缓存数组，将所有元素初始化为当前的位置
+        /// </summary>
+        /// <param name="length">缓存数组的长度</param>
+        public void InitializePositionCache(int length) {
+            oldPositions = new Vector2[length];
+            for (int i = 0; i < length; i++) {
+                oldPositions[i] = Position;
+            }
+        }
+        /// <summary>
+        /// 初始化旋转角缓存数组，将所有元素初始化为当前的旋转角度
+        /// </summary>
+        /// <param name="length">缓存数组的长度</param>
+        public void InitializeRotationCache(int length) {
+            oldRotations = new float[length];
+            for (int i = 0; i < length; i++) {
+                oldRotations[i] = Rotation;
+            }
+        }
+        /// <summary>
+        /// 初始化位置和旋转角缓存数组，将所有位置元素初始化为当前位置，旋转角度元素初始化为当前旋转角度
+        /// </summary>
+        /// <param name="length">缓存数组的长度</param>
+        public void InitializeCaches(int length) {
+            oldPositions = new Vector2[length];
+            oldRotations = new float[length];
+            for (int i = 0; i < length; i++) {
+                oldPositions[i] = Position;
+                oldRotations[i] = Rotation;
+            }
+        }
+        /// <summary>
+        /// 更新位置缓存数组，将缓存中的数据向前移一位，并在末尾记录当前位置
+        /// </summary>
+        /// <param name="length">缓存数组中有效记录的长度</param>
+        public void UpdatePositionCache(int length) {
+            if (oldPositions is null || length > oldPositions.Length) {
+                return;
+            }
+
+            for (int i = 0; i < length - 1; i++) {
+                oldPositions[i] = oldPositions[i + 1];
+            }
+
+            oldPositions[length - 1] = Position;
+        }
+        /// <summary>
+        /// 更新旋转角缓存数组，将缓存中的数据向前移一位，并在末尾记录当前的旋转角度
+        /// </summary>
+        /// <param name="length">缓存数组中有效记录的长度</param>
+        public void UpdateRotationCache(int length) {
+            if (oldRotations is null || length > oldRotations.Length) {
+                return;
+            }
+
+            for (int i = 0; i < length - 1; i++) {
+                oldRotations[i] = oldRotations[i + 1];
+            }
+
+            oldRotations[length - 1] = Rotation;
+        }
     }
 }
