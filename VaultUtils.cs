@@ -304,6 +304,23 @@ namespace InnoVault
         #endregion
 
         #region Game
+        /// <summary>
+        /// 检测玩家是否有效且正常存活
+        /// </summary>
+        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
+        public static bool Alives(this Player player) => player != null && player.active && !player.dead;
+
+        /// <summary>
+        /// 检测弹幕是否有效且正常存活
+        /// </summary>
+        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
+        public static bool Alives(this Projectile projectile) => projectile != null && projectile.active && projectile.timeLeft > 0;
+
+        /// <summary>
+        /// 检测NPC是否有效且正常存活
+        /// </summary>
+        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
+        public static bool Alives(this NPC npc) => npc != null && npc.active && npc.timeLeft > 0;
 
         /// <summary>
         /// 让一个NPC可以正常的掉落物品而不触发其他死亡事件，只应该在非服务端上调用该方法
