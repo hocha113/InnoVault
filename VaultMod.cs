@@ -9,7 +9,7 @@ namespace InnoVault
     /// 模组的主类
     /// </summary>
     public class VaultMod : Mod
-	{
+    {
         /// <summary>
         /// 实时获取整个模组的实例
         /// </summary>

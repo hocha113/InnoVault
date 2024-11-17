@@ -8,7 +8,7 @@ namespace InnoVault
         public static VaultClientConfig Instance { get; private set; }
 
         public override ConfigScope Mode => ConfigScope.ClientSide;
-        
+
         public override void OnLoaded() => Instance = this;
 
         [BackgroundColor(45, 175, 225, 255)]

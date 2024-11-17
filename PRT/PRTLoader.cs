@@ -5,7 +5,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
-using Terraria.Graphics.Renderers;
 using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
 
@@ -242,7 +241,7 @@ namespace InnoVault.PRT
         /// <returns></returns>
         public static T NewParticle<T>(Vector2 center, Vector2 velocity, Color newColor = default, float Scale = 1f) where T : BasePRT {
             T prtEntity = GetPRTInstance<T>();
-            prtEntity.Position = center; 
+            prtEntity.Position = center;
             prtEntity.Velocity = velocity;
             prtEntity.Color = newColor;
             prtEntity.Scale = Scale;
@@ -401,7 +400,7 @@ namespace InnoVault.PRT
             rasterizer.ScissorTestEnable = true;
             Main.instance.GraphicsDevice.RasterizerState.ScissorTestEnable = true;
             Main.instance.GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
-            
+
             switch (drawMode) {
                 case PRTDrawModeEnum.AlphaBlend:
                     spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState

@@ -1,5 +1,5 @@
-﻿using Terraria.DataStructures;
-using Terraria;
+﻿using Terraria;
+using Terraria.DataStructures;
 using Terraria.ModLoader;
 
 namespace InnoVault.TileProcessors

@@ -59,13 +59,13 @@ namespace InnoVault
 
     internal class TPNetWorkEvent : NetWorkEvent
     {
-        TileProcessor tpEntity;
+        private TileProcessor tpEntity;
         public TPNetWorkEvent(int sendTime, TileProcessor tpEntity) {
             this.sendTime = sendTime;
             this.tpEntity = tpEntity;
         }
         public override void SendEvent() => TileProcessorNetWork.TileProcessorSendData(tpEntity);
-        public static void Add(int sendTime, TileProcessor tpEntity) 
+        public static void Add(int sendTime, TileProcessor tpEntity)
             => VaultNetWork.NetWorkEvents.Add(new TPNetWorkEvent(sendTime, tpEntity));
     }
 
