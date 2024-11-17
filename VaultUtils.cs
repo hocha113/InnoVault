@@ -1128,6 +1128,31 @@ namespace InnoVault
         #region UI
 
         /// <summary>
+        /// 判断给定的二维点是否在屏幕内（考虑一个小范围的边界扩展）
+        /// </summary>
+        /// <param name="pos">要判断的点的坐标</param>
+        /// <returns>如果点在屏幕范围内（包括扩展边界），返回 true；否则返回 false</returns>
+        public static bool IsPointOnScreen(Vector2 pos)
+            => pos.X > -16 && pos.X < Main.screenWidth + 16 && pos.Y > -16 && pos.Y < Main.screenHeight + 16;
+
+        /// <summary>
+        /// 判断给定的矩形是否与屏幕范围有交集
+        /// </summary>
+        /// <param name="rect">要判断的矩形</param>
+        /// <returns>如果矩形与屏幕范围有交集，返回 true；否则返回 false</returns>
+        public static bool IsRectangleOnScreen(Rectangle rect)
+            => rect.Intersects(new Rectangle(0, 0, Main.screenWidth, Main.screenHeight));
+
+        /// <summary>
+        /// 判断以指定位置和尺寸定义的矩形是否在屏幕范围内（使用辅助方法实现矩形判断）
+        /// </summary>
+        /// <param name="pos">矩形的左上角位置</param>
+        /// <param name="size">矩形的尺寸</param>
+        /// <returns>如果矩形在屏幕范围内，返回 true；否则返回 false</returns>
+        public static bool IsAreaOnScreen(Vector2 pos, Vector2 size)
+            => IsRectangleOnScreen(new Rectangle((int)pos.X, (int)pos.Y, (int)size.X, (int)size.Y));
+
+        /// <summary>
         /// 生成一个二维网格的坐标数组 用于按行列排列元素
         /// </summary>
         /// <param name="elementCount">元素总数 必须是正整数</param>

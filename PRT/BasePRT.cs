@@ -11,6 +11,7 @@ namespace InnoVault.PRT
     /// </summary>
     public abstract class BasePRT
     {
+        #region Data
         /// <summary>
         /// 这个粒子使用什么纹理
         /// </summary>
@@ -25,6 +26,10 @@ namespace InnoVault.PRT
         /// </summary>
         public virtual Mod Mod => PRTLoader.PRT_TypeToMod[GetType()];
         /// <summary>
+        /// 该实例的内部名
+        /// </summary>
+        public virtual string Name => GetType().Name;
+        /// <summary>
         /// 获取加载的粒子纹理资源
         /// </summary>
         public Texture2D TexValue => PRTLoader.PRT_IDToTexture[ID];
@@ -36,6 +41,10 @@ namespace InnoVault.PRT
         /// 该粒子是否活跃，如果为<see langword="false"/>，那么将在下一次更新中被删除
         /// </summary>
         public bool active = false;
+        /// <summary>
+        /// 粒子离开屏幕后是否自动销毁，默认为<see langword="true"/>
+        /// </summary>
+        public bool ShouldKillWhenOffScreen = true;
         /// <summary>
         /// 由一般粒子处理程序注册的粒子类型的ID,这是在粒子处理器loadsl时自动设置的
         /// </summary>
@@ -56,6 +65,10 @@ namespace InnoVault.PRT
         /// 存活时间比例
         /// </summary>
         public float LifetimeCompletion => Lifetime != 0 ? Time / (float)Lifetime : 0;
+        /// <summary>
+        /// 渐变值
+        /// </summary>
+        public float fadeIn;
         /// <summary>
         /// 一个粒子在世界中的位置，这不是在粒子集的上下文中使用的，因为所有的粒子都是根据它们相对于集合原点的位置来计算的
         /// </summary>
@@ -97,9 +110,16 @@ namespace InnoVault.PRT
         /// </summary>
         public PRTDrawModeEnum PRTDrawMode = PRTDrawModeEnum.AlphaBlend;
         /// <summary>
+        /// 更新模式，默认为<see cref="PRTLayersModeEnum.InWorld"/>
+        /// </summary>
+        public PRTLayersModeEnum PRTLayersMode = PRTLayersModeEnum.InWorld;
+        /// <summary>
         /// 这个粒子将使用的着色器数据，默认为<see langword="null"/>
         /// </summary>
         public ArmorShaderData shader;
+
+        #endregion
+
         /// <summary>
         /// 仅仅在生成粒子的时候被执行一次，用于简单的内部初始化数据
         /// </summary>
@@ -123,10 +143,21 @@ namespace InnoVault.PRT
         /// <param name="spriteBatch"></param>
         public virtual void PostDraw(SpriteBatch spriteBatch) { }
         /// <summary>
+        /// 不会自动调用，用于在某些情景下手动调用以处理UI效果的渲染
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        public virtual void DrawInUI(SpriteBatch spriteBatch) { }
+        /// <summary>
         /// 克隆这个实例，注意，克隆出的新对象与原实例将不再具有任何引用关系
         /// </summary>
         /// <returns></returns>
         public BasePRT Clone() => (BasePRT)Activator.CreateInstance(GetType());
+
+        /// <summary>
+        /// 粒子是否应该在逻辑更新中自动更新位置数据，默认为<see langword="true"/>
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool ShouldUpdatePosition() => true;
 
         /// <summary>
         /// 初始化位置缓存数组，将所有元素初始化为当前的位置

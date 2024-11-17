@@ -50,12 +50,17 @@ namespace InnoVault.PRT
         /// 一个列表，存储所有活跃的粒子实例（BasePRT）用于批量管理和更新粒子实体
         /// </summary>
         public static List<BasePRT> PRTInstances { get; private set; } = [];
+        /// <inheritdoc/>
+        public static List<BasePRT> PRT_InGame_World_Inds;
+        /// <inheritdoc/>
+        public static List<BasePRT> PRT_AlphaBlend_Draw;
+        /// <inheritdoc/>
+        public static List<BasePRT> PRT_AdditiveBlend_Draw;
+        /// <inheritdoc/>
+        public static List<BasePRT> PRT_NonPremultiplied_Draw;
+        /// <inheritdoc/>
+        public static List<BasePRT> PRT_HasShader_Draw;
 
-        private static List<BasePRT> PRT_InGame_World_Inds;
-        private static List<BasePRT> PRT_AlphaBlend_Draw;
-        private static List<BasePRT> PRT_AdditiveBlend_Draw;
-        private static List<BasePRT> PRT_NonPremultiplied_Draw;
-        private static List<BasePRT> PRT_HasShader_Draw;
         private static readonly PRTDrawModeEnum[] allDrawModes = (PRTDrawModeEnum[])Enum.GetValues(typeof(PRTDrawModeEnum));
         #endregion
         /// <summary>
@@ -72,6 +77,7 @@ namespace InnoVault.PRT
             PRT_AlphaBlend_Draw = [];
             PRT_AdditiveBlend_Draw = [];
             PRT_NonPremultiplied_Draw = [];
+            PRT_HasShader_Draw = [];
 
             PRTInstances = VaultUtils.GetSubclassInstances<BasePRT>(false);
 
@@ -101,6 +107,7 @@ namespace InnoVault.PRT
             PRT_AlphaBlend_Draw = null;
             PRT_AdditiveBlend_Draw = null;
             PRT_NonPremultiplied_Draw = null;
+            PRT_HasShader_Draw = null;
             On_Main.DrawInfernoRings -= DrawHook;
         }
 
@@ -135,6 +142,10 @@ namespace InnoVault.PRT
         /// </summary>
         public static void AddParticle(BasePRT particle) {
             if (Main.gamePaused || Main.dedServ || PRT_InGame_World_Inds == null) {
+                return;
+            }
+
+            if (particle.PRTLayersMode == PRTLayersModeEnum.None) {
                 return;
             }
 
@@ -202,6 +213,74 @@ namespace InnoVault.PRT
         }
 
         /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="center"></param>
+        /// <param name="velocity"></param>
+        /// <param name="type"></param>
+        /// <param name="newColor"></param>
+        /// <param name="Scale"></param>
+        /// <returns></returns>
+        public static BasePRT NewParticle(Vector2 center, Vector2 velocity, int type, Color newColor = default, float Scale = 1f) {
+            BasePRT prtEntity = PRT_IDToInstances[type].Clone();
+            prtEntity.Position = center;
+            prtEntity.Velocity = velocity;
+            prtEntity.Color = newColor;
+            prtEntity.Scale = Scale;
+            AddParticle(prtEntity);
+            return prtEntity;
+        }
+
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="center"></param>
+        /// <param name="velocity"></param>
+        /// <param name="newColor"></param>
+        /// <param name="Scale"></param>
+        /// <returns></returns>
+        public static T NewParticle<T>(Vector2 center, Vector2 velocity, Color newColor = default, float Scale = 1f) where T : BasePRT {
+            T prtEntity = GetPRTInstance<T>();
+            prtEntity.Position = center; 
+            prtEntity.Velocity = velocity;
+            prtEntity.Color = newColor;
+            prtEntity.Scale = Scale;
+            AddParticle(prtEntity);
+            return prtEntity;
+        }
+
+        /// <summary>
+        /// 获得目标粒子的实例克隆
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static T GetPRTInstance<T>() where T : BasePRT => PRT_IDToInstances[GetParticleID<T>()].Clone() as T;
+        /// <summary>
+        /// 获得目标粒子的实例克隆
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public static BasePRT GetPRTInstance(int id) => PRT_IDToInstances[id].Clone();
+        /// <summary>
+        /// 获得目标粒子的实例克隆
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="position"></param>
+        /// <param name="velocity"></param>
+        /// <param name="color"></param>
+        /// <param name="scale"></param>
+        /// <returns></returns>
+        public static T GetPRTInstance<T>(Vector2 position, Vector2 velocity, Color color, float scale) where T : BasePRT {
+            T prt = PRT_IDToInstances[GetParticleID<T>()].Clone() as T;
+            prt.Position = position;
+            prt.Velocity = Vector2.Zero;
+            prt.Color = Color.White;
+            prt.Scale = Main.rand.NextFloat(0.6f, 1);
+            return prt;
+        }
+
+        /// <summary>
         /// 更新在所有实体之前，这个进行独立的PRT粒子数量计数，在更新进行加法计数，这样才能保证弹幕、玩家、等程序可以获取正确的粒子数量
         /// </summary>
         public override void PreUpdateEntities() {
@@ -231,11 +310,22 @@ namespace InnoVault.PRT
                     continue;
                 }
 
-                UpdateParticleVelocity(particle);
-                UpdateParticleTime(particle);
-                particle.AI();
+                try {
+                    UpdateParticleVelocity(particle);
+                    UpdateParticleTime(particle);
+                    particle.AI();
+                } catch (Exception) {
+                    VaultMod.Instance.Logger.Info($"ERROR:{particle} IS UPDATA");
+                    particle.active = false;
+                    continue;
+                }
 
                 if (particle.Time >= particle.Lifetime && particle.SetLifetime) {
+                    particle.active = false;
+                    continue;
+                }
+
+                if (particle.ShouldKillWhenOffScreen && !VaultUtils.IsPointOnScreen(particle.Position - Main.screenPosition)) {
                     particle.active = false;
                 }
             }
@@ -244,10 +334,15 @@ namespace InnoVault.PRT
                 PRT_IDToInGame_World_Count[particle.ID] = 0;
             }
 
-            PRT_InGame_World_Inds.RemoveAll(p => !p.active);
+            PRT_InGame_World_Inds.RemoveAll(p => p == null || !p.active);
         }
 
-        private static void UpdateParticleVelocity(BasePRT particle) => particle.Position += particle.Velocity;
+        private static void UpdateParticleVelocity(BasePRT particle) {
+            if (particle.ShouldUpdatePosition()) {
+                particle.Position += particle.Velocity;
+            }
+        }
+
         private static void UpdateParticleTime(BasePRT particle) => particle.Time++;
 
         /// <summary>
@@ -266,6 +361,10 @@ namespace InnoVault.PRT
         private static void AddDrawHander() {
             foreach (BasePRT particle in PRT_InGame_World_Inds) {
                 if (particle == null || !particle.active) {
+                    continue;
+                }
+
+                if (particle.PRTLayersMode == PRTLayersModeEnum.NoDraw) {
                     continue;
                 }
 
@@ -319,25 +418,33 @@ namespace InnoVault.PRT
             }
         }
 
-        internal static void PRTInstanceDraw(SpriteBatch spriteBatch, BasePRT particle) {
+        /// <summary>
+        /// 完整的处理一个粒子的绘制操作
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        /// <param name="particle"></param>
+        public static void PRTInstanceDraw(SpriteBatch spriteBatch, BasePRT particle) {
             if (particle.PreDraw(spriteBatch)) {
                 defaultDraw(spriteBatch, particle);
             }
             particle.PostDraw(spriteBatch);
         }
 
-        internal static void HanderHasShaderPRTDraw(SpriteBatch spriteBatch) {
-            if (PRT_HasShader_Draw.Count > 0) {
-                IEnumerable<IGrouping<ArmorShaderData, BasePRT>> groupedParticles = PRT_HasShader_Draw.GroupBy(p => p.shader);
-                foreach (IGrouping<ArmorShaderData, BasePRT> group in groupedParticles) {
-                    spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.PointClamp
-                        , DepthStencilState.None, RasterizerState.CullNone, null, Main.Transform);
-                    group.Key?.Apply(null);
-                    foreach (BasePRT particle in group) {
-                        PRTInstanceDraw(spriteBatch, particle);
-                    }
-                    spriteBatch.End();
+        /// <summary>
+        /// 用于绘制使用Shader效果的粒子集合
+        /// </summary>
+        /// <param name="spriteBatch">画布实例</param>
+        /// <param name="particles">传入的粒子集合，其中所有的粒子要求<see cref="BasePRT.shader"/>不为<see langword="null"/></param>
+        public static void HanderHasShaderPRTDrawList(SpriteBatch spriteBatch, List<BasePRT> particles) {
+            IEnumerable<IGrouping<ArmorShaderData, BasePRT>> groupedParticles = particles.GroupBy(p => p.shader);
+            foreach (IGrouping<ArmorShaderData, BasePRT> group in groupedParticles) {
+                spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.PointClamp
+                    , DepthStencilState.None, RasterizerState.CullNone, null, Main.Transform);
+                group.Key?.Apply(null);
+                foreach (BasePRT particle in group) {
+                    PRTInstanceDraw(spriteBatch, particle);
                 }
+                spriteBatch.End();
             }
         }
 
@@ -366,7 +473,9 @@ namespace InnoVault.PRT
                 spriteBatch.End();
             }
 
-            HanderHasShaderPRTDraw(spriteBatch);
+            if (PRT_HasShader_Draw.Count > 0) {
+                HanderHasShaderPRTDrawList(spriteBatch, PRT_HasShader_Draw);
+            }
 
             PRT_AlphaBlend_Draw.Clear();
             PRT_NonPremultiplied_Draw.Clear();
