@@ -180,6 +180,10 @@ namespace InnoVault.PRT
                 }
             }
 
+            if (noShaders.Count > 0 || hasShaders.Count > 0) {
+                spriteBatch.End();
+            }
+
             if (noShaders.Count > 0) {
                 Dictionary<PRTDrawModeEnum, List<BasePRT>> prtGroups = new Dictionary<PRTDrawModeEnum, List<BasePRT>>();
                 foreach (PRTDrawModeEnum mode in PRTLoader.allDrawModes) {
