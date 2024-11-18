@@ -467,8 +467,8 @@ namespace InnoVault.PRT
                 }
 
                 BeginDrawingWithMode(drawMode, spriteBatch);
-                foreach (BasePRT particle in targetPRTs) {
-                    PRTInstanceDraw(spriteBatch, particle);
+                for (int i = 0; i < targetPRTs.Count; i++) {
+                    PRTInstanceDraw(spriteBatch, targetPRTs[i]);
                 }
                 spriteBatch.End();
             }

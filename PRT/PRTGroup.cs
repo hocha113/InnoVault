@@ -5,6 +5,7 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
+using Terraria.Graphics.Renderers;
 using Terraria.Graphics.Shaders;
 
 namespace InnoVault.PRT
@@ -131,8 +132,8 @@ namespace InnoVault.PRT
             }
 
             if (drawPRTs.Count > 0) {
-                foreach (BasePRT particle in drawPRTs) {
-                    draw.Invoke(spriteBatch, particle);
+                for (int i = 0; i < drawPRTs.Count; i++) {
+                    draw.Invoke(spriteBatch, drawPRTs[i]);
                 }
             }
         }
