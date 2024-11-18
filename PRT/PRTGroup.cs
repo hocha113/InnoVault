@@ -37,6 +37,7 @@ namespace InnoVault.PRT
             }
             T p = PRTLoader.GetPRTInstance<T>();
             p.active = true;
+            p.ID = PRTLoader.GetParticleID(p.GetType());
             p.Color = newColor;
             p.Position = center;
             p.Velocity = velocity;
@@ -52,6 +53,7 @@ namespace InnoVault.PRT
             }
             BasePRT p = PRTLoader.GetPRTInstance(type);
             p.active = true;
+            p.ID = PRTLoader.GetParticleID(p.GetType());
             p.Color = newColor;
             p.Position = center;
             p.Velocity = velocity;
@@ -63,7 +65,11 @@ namespace InnoVault.PRT
         /// <inheritdoc/>
         public void Clear() => _particles.Clear();
         /// <inheritdoc/>
-        public void Add(BasePRT particle) => _particles.Add(particle);
+        public void Add(BasePRT particle) {
+            particle.active = true;
+            particle.ID = PRTLoader.GetParticleID(particle.GetType());
+            _particles.Add(particle);
+        }
         /// <inheritdoc/>
         public bool Any(int id) {
             int num = 0;
