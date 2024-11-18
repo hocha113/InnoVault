@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
+using Terraria.Graphics.Renderers;
 using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
 
@@ -304,7 +305,9 @@ namespace InnoVault.PRT
                 return;
             }
 
-            foreach (BasePRT particle in PRT_InGame_World_Inds) {
+            for (int i = 0; i < PRT_InGame_World_Inds.Count; i++) {
+                BasePRT particle = PRT_InGame_World_Inds[i];
+
                 if (particle == null || !particle.active) {
                     continue;
                 }
@@ -318,12 +321,10 @@ namespace InnoVault.PRT
                     particle.active = false;
                     continue;
                 }
-
                 if (particle.Time >= particle.Lifetime && particle.SetLifetime) {
                     particle.active = false;
                     continue;
                 }
-
                 if (particle.ShouldKillWhenOffScreen && !VaultUtils.IsPointOnScreen(particle.Position - Main.screenPosition)) {
                     particle.active = false;
                 }

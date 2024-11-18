@@ -83,7 +83,9 @@ namespace InnoVault.PRT
                 return;
             }
 
-            foreach (var particle in _particles) {
+            for (int i = 0; i < _particles.Count; i++) {
+                BasePRT particle = _particles[i];
+
                 if (particle == null || !particle.active) {
                     continue;
                 }
@@ -115,6 +117,7 @@ namespace InnoVault.PRT
             if (matrix == Main.UIScaleMatrix) {
                 screenPosition = Vector2.Zero;
             }
+
             foreach (BasePRT particle in _particles) {
                 if (particle == null || !particle.active) {
                     continue;
