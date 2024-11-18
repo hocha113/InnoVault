@@ -180,10 +180,6 @@ namespace InnoVault.PRT
                 }
             }
 
-            if (noShaders.Count > 0 || hasShaders.Count > 0) {
-                spriteBatch.End();
-            }
-
             if (noShaders.Count > 0) {
                 Dictionary<PRTDrawModeEnum, List<BasePRT>> prtGroups = new Dictionary<PRTDrawModeEnum, List<BasePRT>>();
                 foreach (PRTDrawModeEnum mode in PRTLoader.allDrawModes) {
@@ -210,7 +206,7 @@ namespace InnoVault.PRT
             }
 
             if (hasShaders.Count > 0) {
-                if (noShaders.Count == 0) {
+                if (noShaders.Count <= 0) {
                     spriteBatch.End();
                 }
                 HanderHasShaderPRTDrawList(spriteBatch, hasShaders, draw, matrix);
