@@ -108,57 +108,9 @@ namespace InnoVault.PRT
             _particles.RemoveAll(p => p is null || !p.active);
         }
 
-        /// <summary>
-        /// 根据指定的绘制模式 <see cref="PRTDrawModeEnum"/>，为 <see cref="SpriteBatch"/> 设置适当的渲染状态并开始绘制
-        /// </summary>
-        /// <param name="drawMode">绘制模式枚举 <see cref="PRTDrawModeEnum"/></param>
-        /// <param name="spriteBatch">用于进行绘制操作的 <see cref="SpriteBatch"/></param>
-        /// <param name="matrix">画布模式</param>
-        public static void BeginDrawingWithMode(PRTDrawModeEnum drawMode, SpriteBatch spriteBatch, Matrix matrix) {
-            var rasterizer = Main.Rasterizer;
-            rasterizer.ScissorTestEnable = true;
-            Main.instance.GraphicsDevice.RasterizerState.ScissorTestEnable = true;
-            Main.instance.GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
-
-            switch (drawMode) {
-                case PRTDrawModeEnum.AlphaBlend:
-                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
-                    , DepthStencilState.None, rasterizer, null, matrix);
-                    break;
-                case PRTDrawModeEnum.AdditiveBlend:
-                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.PointClamp
-                    , DepthStencilState.Default, rasterizer, null, matrix);
-                    break;
-                case PRTDrawModeEnum.NonPremultiplied:
-                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.PointClamp
-                    , DepthStencilState.Default, rasterizer, null, matrix);
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// 用于绘制使用Shader效果的粒子集合
-        /// </summary>
-        /// <param name="spriteBatch">画布实例</param>
-        /// <param name="particles">传入的粒子集合，其中所有的粒子要求<see cref="BasePRT.shader"/>不为<see langword="null"/></param>
-        /// <param name="draw">绘制模式</param>
-        /// <param name="matrix">画布模式</param>
-        public static void HanderHasShaderPRTDrawList(SpriteBatch spriteBatch, List<BasePRT> particles, drawDelegate draw, Matrix matrix) {
-            IEnumerable<IGrouping<ArmorShaderData, BasePRT>> groupedParticles = particles.GroupBy(p => p.shader);
-            foreach (IGrouping<ArmorShaderData, BasePRT> group in groupedParticles) {
-                spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.PointClamp
-                    , DepthStencilState.None, RasterizerState.CullNone, null, matrix);
-                group.Key?.Apply(null);
-                foreach (BasePRT particle in group) {
-                    draw.Invoke(spriteBatch, particle);
-                }
-                spriteBatch.End();
-            }
-        }
         /// <inheritdoc/>
         public void DoDraw(SpriteBatch spriteBatch, drawDelegate draw, Matrix matrix) {
-            List<BasePRT> hasShaders = [];
-            List<BasePRT> noShaders = [];
+            List<BasePRT> drawPRTs = [];
             Vector2 screenPosition = Main.screenPosition;
             if (matrix == Main.UIScaleMatrix) {
                 screenPosition = Vector2.Zero;
@@ -172,45 +124,13 @@ namespace InnoVault.PRT
                     continue;
                 }
 
-                if (particle.shader != null) {
-                    hasShaders.Add(particle);
-                }
-                else {
-                    noShaders.Add(particle);
-                }
+                drawPRTs.Add(particle);
             }
 
-            if (noShaders.Count > 0 || hasShaders.Count > 0) {
-                spriteBatch.End();
-            }
-
-            if (noShaders.Count > 0) {
-                Dictionary<PRTDrawModeEnum, List<BasePRT>> prtGroups = new Dictionary<PRTDrawModeEnum, List<BasePRT>>();
-                foreach (PRTDrawModeEnum mode in PRTLoader.allDrawModes) {
-                    prtGroups[mode] = new List<BasePRT>();
+            if (drawPRTs.Count > 0) {
+                foreach (BasePRT particle in drawPRTs) {
+                    draw.Invoke(spriteBatch, particle);
                 }
-
-                foreach (BasePRT particle in noShaders) {
-                    if (prtGroups.ContainsKey(particle.PRTDrawMode)) {
-                        prtGroups[particle.PRTDrawMode].Add(particle);
-                    }
-                }
-
-                foreach (KeyValuePair<PRTDrawModeEnum, List<BasePRT>> group in prtGroups) {
-                    if (group.Value.Count <= 0) {
-                        continue;
-                    }
-
-                    BeginDrawingWithMode(group.Key, spriteBatch, matrix);
-                    foreach (BasePRT particle in group.Value) {
-                        draw.Invoke(spriteBatch, particle);
-                    }
-                    spriteBatch.End();
-                }
-            }
-
-            if (hasShaders.Count > 0) {
-                HanderHasShaderPRTDrawList(spriteBatch, hasShaders, draw, matrix);
             }
         }
 
