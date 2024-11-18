@@ -60,7 +60,7 @@ namespace InnoVault.PRT
         /// <inheritdoc/>
         public static List<BasePRT> PRT_HasShader_Draw;
 
-        private static readonly PRTDrawModeEnum[] allDrawModes = (PRTDrawModeEnum[])Enum.GetValues(typeof(PRTDrawModeEnum));
+        internal static readonly PRTDrawModeEnum[] allDrawModes = (PRTDrawModeEnum[])Enum.GetValues(typeof(PRTDrawModeEnum));
         #endregion
         /// <summary>
         /// 加载和初始化数据
