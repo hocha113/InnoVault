@@ -26,7 +26,7 @@ public struct ShootState
     /// </summary>
     public int UseAmmoItemType;
     /// <summary>
-    /// 是否有足够的弹药来执行射击，若为 `false` 则表示弹药不足，无法进行射击
+    /// 是否有足够的弹药来执行射击，若为<see langword="false"/>则表示弹药不足，无法进行射击
     /// </summary>
     public bool HasAmmo;
     /// <summary>

@@ -66,9 +66,9 @@ namespace InnoVault.PRT
         /// </summary>
         public float LifetimeCompletion => Lifetime != 0 ? Time / (float)Lifetime : 0;
         /// <summary>
-        /// 渐变值
+        /// 渐变值，在多数情况下用于插值计算，意义上等同于"sengs"
         /// </summary>
-        public float fadeIn;
+        public float Opacity;
         /// <summary>
         /// 一个粒子在世界中的位置，这不是在粒子集的上下文中使用的，因为所有的粒子都是根据它们相对于集合原点的位置来计算的
         /// </summary>
