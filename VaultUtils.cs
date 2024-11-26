@@ -347,6 +347,25 @@ namespace InnoVault
             };
 
         /// <summary>
+        /// 获取生成源
+        /// </summary>
+        public static IEntitySource FromObjectGetParent(this object obj) {
+            if (obj is Projectile projectile) {
+                return projectile.GetSource_FromAI();
+            }
+            if (obj is NPC nPC) {
+                return nPC.GetSource_FromAI();
+            }
+            if (obj is Player player) {
+                return player.GetSource_FromAI();
+            }
+            if (obj is Item item) {
+                return item.GetSource_FromAI();
+            }
+            return new EntitySource_Parent(Main.LocalPlayer, "NullSource");
+        }
+
+        /// <summary>
         /// 检测玩家是否有效且正常存活
         /// </summary>
         /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
