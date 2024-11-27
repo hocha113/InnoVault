@@ -11,7 +11,7 @@ using Terraria.ModLoader;
 namespace InnoVault.PRT
 {
     /// <summary>
-    /// 粒子或者说尘埃实体的基类，简称为PRT实体继承它用于实现一些高自定义化的特殊粒子效果
+    /// 粒子或者说尘埃实体的基类，简称为PRT实体，继承它用于实现一些高自定义化的特殊粒子效果
     /// PRTLoader 负责管理游戏中粒子的加载、初始化以及纹理管理，支持通过Mod扩展粒子系统
     /// </summary>
     /// <remarks>
@@ -212,7 +212,7 @@ namespace InnoVault.PRT
         }
 
         /// <summary>
-        /// 
+        /// 使用指定的属性初始化并添加一个新粒子到粒子系统中
         /// </summary>
         /// <param name="center"></param>
         /// <param name="velocity"></param>
@@ -231,7 +231,7 @@ namespace InnoVault.PRT
         }
 
         /// <summary>
-        /// 
+        /// 使用指定的属性初始化并添加一个新粒子到粒子系统中
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="center"></param>
@@ -261,21 +261,30 @@ namespace InnoVault.PRT
         /// <param name="id"></param>
         /// <returns></returns>
         public static BasePRT GetPRTInstance(int id) => PRT_IDToInstances[id].Clone();
+
         /// <summary>
-        /// 获得目标粒子的实例克隆
+        /// 初始化目标粒子实例并设置其属性
         /// </summary>
-        /// <typeparam name="T"></typeparam>
-        /// <param name="position"></param>
-        /// <param name="velocity"></param>
-        /// <param name="color"></param>
-        /// <param name="scale"></param>
-        /// <returns></returns>
-        public static T GetPRTInstance<T>(Vector2 position, Vector2 velocity, Color color, float scale) where T : BasePRT {
-            T prt = PRT_IDToInstances[GetParticleID<T>()].Clone() as T;
+        /// <typeparam name="T">粒子类型，必须继承自 BasePRT</typeparam>
+        /// <param name="position">粒子的位置</param>
+        /// <param name="velocity">粒子的速度</param>
+        /// <param name="color">粒子的颜色</param>
+        /// <param name="scale">粒子的缩放比例</param>
+        /// <returns>带有指定属性的粒子实例</returns>
+        /// <remarks>
+        /// 此方法不仅会克隆一个目标粒子的实例，还会对其进行初始化，
+        /// 包括设置位置、速度、颜色和缩放比例等属性
+        /// 使用此方法可以快速创建和设置粒子对象，适用于需要动态生成粒子效果的场景
+        /// </remarks>
+        public static T CreateAndInitializePRT<T>(Vector2 position, Vector2 velocity, Color color, float scale) where T : BasePRT {
+            T prt = GetPRTInstance<T>();
+            prt.active = true;
+            prt.ID = GetParticleID<T>();
+            prt.SetProperty();
             prt.Position = position;
-            prt.Velocity = Vector2.Zero;
-            prt.Color = Color.White;
-            prt.Scale = Main.rand.NextFloat(0.6f, 1);
+            prt.Velocity = velocity;
+            prt.Color = color;
+            prt.Scale = scale;
             return prt;
         }
 
