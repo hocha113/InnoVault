@@ -23,9 +23,9 @@ namespace InnoVault.InnoGens
         }
         public override void ModifyWorldGenTasks(List<GenPass> tasks, ref double totalWeight) {
             foreach (var gen in GlobalAutoGens) {
-                int index = tasks.FindIndex((GenPass genpass) => genpass.Name.Equals(gen.indexName));
+                int index = tasks.FindIndex((GenPass genpass) => genpass.Name.Equals(gen.IndexName));
                 if (index > -1) {
-                    tasks.Insert(index + 1, new PassLegacy(gen.genName, gen.Pass));
+                    tasks.Insert(index + 1, new PassLegacy(gen.GenName, gen.Pass));
                 }
             }
         }

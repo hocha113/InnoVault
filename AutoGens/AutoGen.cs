@@ -13,11 +13,11 @@ namespace InnoVault.AutoGens
         /// <summary>
         /// 任务名，默认为该类型的类型名
         /// </summary>
-        public string genName => GetType().Name;
+        public string GenName => GetType().Name;
         /// <summary>
         /// 插入的目标步骤名，默认为"Final Cleanup"
         /// </summary>
-        public string indexName => "Final Cleanup";
+        public string IndexName => "Final Cleanup";
         /// <summary>
         /// 这个Gen来自于什么模组
         /// </summary>
