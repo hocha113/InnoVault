@@ -428,6 +428,7 @@ namespace InnoVault
         /// 发送游戏文本并记录日志内容
         /// </summary>
         /// <param name="obj"></param>
+        /// <param name="mod"></param>
         public static void LoggerDomp(this object obj, Mod mod = null) {
             string text;
             if (obj == null) {
