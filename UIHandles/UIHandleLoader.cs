@@ -154,12 +154,20 @@ namespace InnoVault.UIHandles
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
         /// <exception cref="Exception"></exception>
-        public static T GetUIHandleInstance<T>() where T : UIHandle {
+        public static UIHandle GetUIHandleInstance<T>() where T : UIHandle {
             if (!UIHandle_ID_To_Instance.TryGetValue(GetUIHandleID<T>(), out UIHandle ui)) {
                 throw new Exception($"{nameof(T)} That doesn't exist.");
             }
-            return ui as T;
+            return ui;
         }
+
+        /// <summary>
+        /// 获取目标UI实例
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        /// <exception cref="Exception"></exception>
+        public static T GetUIHandleOfType<T>() where T : UIHandle => GetUIHandleInstance<T>() as T;
 
         /// <summary>
         /// 获取目标UI实例
