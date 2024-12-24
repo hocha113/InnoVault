@@ -1146,6 +1146,46 @@ namespace InnoVault
         #endregion
 
         #region UI
+        /// <summary>
+        /// 绘制一个带有边框的矩形，支持缩放及缩放中心自定义
+        /// </summary>
+        /// <param name="spriteBatch">用于绘制的SpriteBatch对象</param>
+        /// <param name="borderTexture">边框纹理，用于绘制矩形边框</param>
+        /// <param name="borderWidth">边框的宽度（像素）</param>
+        /// <param name="drawPosition">绘制矩形的起始位置（左上角坐标）</param>
+        /// <param name="drawWidth">矩形的宽度（未缩放）</param>
+        /// <param name="drawHeight">矩形的高度（未缩放）</param>
+        /// <param name="borderColor">边框的颜色</param>
+        /// <param name="borderCenterColor">矩形内部区域的颜色</param>
+        /// <param name="scale">整体缩放比例（默认为1，即不缩放）</param>
+        /// <param name="scaleCenter">缩放中心，决定缩放时的参照点（默认为矩形中心）</param>
+        public static void DrawBorderedRectangle(SpriteBatch spriteBatch, Texture2D borderTexture, int borderWidth
+            , Vector2 drawPosition, int drawWidth, int drawHeight, Color borderColor, Color borderCenterColor, float scale = 1, Vector2 scaleCenter = default) {
+            if (scaleCenter == default) {
+                scaleCenter = new Vector2(0.5f, 0.5f);
+            }
+            // 计算缩放后的整体尺寸
+            int scaledWidth = (int)(drawWidth * scale);
+            int scaledHeight = (int)(drawHeight * scale);
+            // 计算缩放偏移量，以缩放中心为基准
+            float offsetX = (scaledWidth - drawWidth) * scaleCenter.X;
+            float offsetY = (scaledHeight - drawHeight) * scaleCenter.Y;
+            // 调整后的绘制起始位置
+            Vector2 adjustedPosition = new Vector2(drawPosition.X - offsetX, drawPosition.Y - offsetY);
+            // 重新定义外部和内部的矩形区域
+            Rectangle outerRect = new Rectangle((int)adjustedPosition.X, (int)adjustedPosition.Y, scaledWidth, scaledHeight);
+            Rectangle innerRect = new Rectangle(
+                outerRect.X + borderWidth,
+                outerRect.Y + borderWidth,
+                scaledWidth - 2 * borderWidth,
+                scaledHeight - 2 * borderWidth
+            );
+            spriteBatch.Draw(borderTexture, new Rectangle(outerRect.X, outerRect.Y, scaledWidth, borderWidth), borderColor);
+            spriteBatch.Draw(borderTexture, new Rectangle(outerRect.X, outerRect.Bottom - borderWidth, scaledWidth, borderWidth), borderColor);
+            spriteBatch.Draw(borderTexture, new Rectangle(outerRect.X, outerRect.Y + borderWidth, borderWidth, scaledHeight - 2 * borderWidth), borderColor);
+            spriteBatch.Draw(borderTexture, new Rectangle(outerRect.Right - borderWidth, outerRect.Y + borderWidth, borderWidth, scaledHeight - 2 * borderWidth), borderColor);
+            spriteBatch.Draw(borderTexture, innerRect, borderCenterColor);
+        }
 
         /// <summary>
         /// 判断给定的二维点是否在屏幕内（考虑一个小范围的边界扩展）
