@@ -1287,6 +1287,48 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 获取物品绘制的大小，确保根据纹理尺寸和给定宽度比例调整物品的大小
+        /// </summary>
+        /// <param name="item">物品实例</param>
+        /// <param name="sizeW">宽度用于计算缩放比例，默认值为 32</param>
+        /// <returns>返回缩放比例</returns>
+        public static float GetDrawItemSize(this Item item, int sizeW = 32) {
+            Rectangle rectangle = Main.itemAnimations[item.type] != null ?
+                        Main.itemAnimations[item.type].GetFrame(TextureAssets.Item[item.type].Value)
+                        : TextureAssets.Item[item.type].Value.Frame(1, 1, 0, 0);
+
+            float size = 1f;
+            if (rectangle.Width > sizeW) {
+                size = sizeW / (float)rectangle.Width;
+            }
+            if (size * rectangle.Height > sizeW) {
+                size = sizeW / (float)rectangle.Height;
+            }
+            return size;
+        }
+
+        /// <summary>
+        /// 获取物品绘制的大小，确保根据纹理尺寸和给定宽度比例调整物品的大小
+        /// </summary>
+        /// <param name="type">物品类型 ID</param>
+        /// <param name="sizeW">宽度用于计算缩放比例，默认值为 32</param>
+        /// <returns>返回缩放比例</returns>
+        public static float GetDrawItemSize(int type, int sizeW = 32) {
+            Rectangle rectangle = Main.itemAnimations[type] != null ?
+                        Main.itemAnimations[type].GetFrame(TextureAssets.Item[type].Value)
+                        : TextureAssets.Item[type].Value.Frame(1, 1, 0, 0);
+
+            float size = 1f;
+            if (rectangle.Width > sizeW) {
+                size = sizeW / (float)rectangle.Width;
+            }
+            if (size * rectangle.Height > sizeW) {
+                size = sizeW / (float)rectangle.Height;
+            }
+            return size;
+        }
+
+        /// <summary>
         /// 绘制一个简单的物品图像
         /// </summary>
         /// <param name="spriteBatch">用于绘制的 <see cref="SpriteBatch"/> 实例</param>
@@ -1306,6 +1348,38 @@ namespace InnoVault
             // 如果未指定原点，则使用纹理帧的中心点作为默认原点
             if (orig == Vector2.Zero) orig = frame.HasValue ? frame.Value.Size() / 2 : texture.Size() / 2;
 
+            // 绘制物品
+            spriteBatch.Draw(texture, position, frame, color, rotation, orig, size, SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// 绘制一个简单的物品图像
+        /// </summary>
+        /// <param name="spriteBatch">用于绘制的 <see cref="SpriteBatch"/> 实例</param>
+        /// <param name="itemType">物品类型 ID</param>
+        /// <param name="position">物品绘制的屏幕坐标</param>
+        /// <param name="size">绘制缩放比例，若为 0 则自动根据物品尺寸计算</param>
+        /// <param name="rotation">物品旋转角度（弧度）</param>
+        /// <param name="color">绘制颜色</param>
+        /// <param name="orig">纹理原点（默认为纹理的中心点）</param>
+        /// <param name="itemWidth">物品绘制框宽度，默认值为 32</param>
+        public static void SimpleDrawItem(SpriteBatch spriteBatch, int itemType, Vector2 position, float size = 0, float rotation = 0, Color color = default, Vector2 orig = default, int itemWidth = 32) {
+            Texture2D texture = TextureAssets.Item[itemType].Value;
+            Rectangle? frame = Main.itemAnimations[itemType]?.GetFrame(texture) ?? texture.Frame(1, 1, 0, 0);
+            if (orig == Vector2.Zero) {
+                orig = frame.HasValue ? frame.Value.Size() / 2 : texture.Size() / 2;
+            }
+            // 如果未指定大小，则根据物品尺寸和提供的宽度计算缩放比例
+            if (size <= 0) {
+                size = GetDrawItemSize(itemType, itemWidth);
+            }
+            else {
+                size = GetDrawItemSize(itemType, itemWidth) * size;
+            }
+            // 设置颜色
+            if (color == default) {
+                color = Color.White;
+            }
             // 绘制物品
             spriteBatch.Draw(texture, position, frame, color, rotation, orig, size, SpriteEffects.None, 0f);
         }
