@@ -57,6 +57,10 @@ namespace InnoVault.UIHandles
         /// </summary>
         public Rectangle UIHitBox;
         /// <summary>
+        /// 屏幕鼠标碰撞箱
+        /// </summary>
+        public Rectangle MouseHitBox => MousePosition.GetRectangle(1);
+        /// <summary>
         /// 左键按键状态
         /// </summary>
         public KeyPressState keyLeftPressState => UIHandleLoader.keyLeftPressState;

@@ -177,6 +177,19 @@ namespace InnoVault
             return Color.Lerp(colors[currentID], colors[currentID + 1], (percent - (per * currentID)) / per);
         }
 
+        /// <summary>
+        /// 创建一个矩形
+        /// </summary>
+        public static Rectangle GetRectangle(this Vector2 topLeft, int width, int height) => new Rectangle((int)topLeft.X, (int)topLeft.Y, width, height);
+        /// <summary>
+        /// 创建一个矩形
+        /// </summary>
+        public static Rectangle GetRectangle(this Vector2 topLeft, int size) => new Rectangle((int)topLeft.X, (int)topLeft.Y, size, size);
+        /// <summary>
+        /// 创建一个矩形
+        /// </summary>
+        public static Rectangle GetRectangle(this Vector2 topLeft, Vector2 size) => new Rectangle((int)topLeft.X, (int)topLeft.Y, (int)size.X, (int)size.Y);
+
         #endregion
 
         #region System
@@ -1167,6 +1180,21 @@ namespace InnoVault
         /// <param name="spriteBatch">用于绘制的SpriteBatch对象</param>
         /// <param name="borderTexture">边框纹理，用于绘制矩形边框</param>
         /// <param name="borderWidth">边框的宽度（像素）</param>
+        /// <param name="rectangle">描述这个方框的矩形构造体</param>
+        /// <param name="borderColor">边框的颜色</param>
+        /// <param name="borderCenterColor">矩形内部区域的颜色</param>
+        /// <param name="scale">整体缩放比例（默认为1，即不缩放）</param>
+        /// <param name="scaleCenter">缩放中心，决定缩放时的参照点（默认为矩形中心）</param>
+        public static void DrawBorderedRectangle(SpriteBatch spriteBatch, Texture2D borderTexture, int borderWidth
+            , Rectangle rectangle, Color borderColor, Color borderCenterColor, float scale = 1, Vector2 scaleCenter = default)
+            => DrawBorderedRectangle(spriteBatch, borderTexture, borderWidth, rectangle.TopLeft(), rectangle.Width, rectangle.Height, borderColor, borderCenterColor, scale, scaleCenter);
+
+        /// <summary>
+        /// 绘制一个带有边框的矩形，支持缩放及缩放中心自定义
+        /// </summary>
+        /// <param name="spriteBatch">用于绘制的SpriteBatch对象</param>
+        /// <param name="borderTexture">边框纹理，用于绘制矩形边框</param>
+        /// <param name="borderWidth">边框的宽度（像素）</param>
         /// <param name="drawPosition">绘制矩形的起始位置（左上角坐标）</param>
         /// <param name="drawWidth">矩形的宽度（未缩放）</param>
         /// <param name="drawHeight">矩形的高度（未缩放）</param>
@@ -1363,7 +1391,7 @@ namespace InnoVault
         /// <param name="color">绘制颜色</param>
         /// <param name="orig">纹理原点（默认为纹理的中心点）</param>
         /// <param name="itemWidth">物品绘制框宽度，默认值为 32</param>
-        public static void SimpleDrawItem(SpriteBatch spriteBatch, int itemType, Vector2 position, float size = 0, float rotation = 0, Color color = default, Vector2 orig = default, int itemWidth = 32) {
+        public static void SimpleDrawItem(SpriteBatch spriteBatch, int itemType, Vector2 position, int itemWidth = 32, float size = 0, float rotation = 0, Color color = default, Vector2 orig = default) {
             Texture2D texture = TextureAssets.Item[itemType].Value;
             Rectangle? frame = Main.itemAnimations[itemType]?.GetFrame(texture) ?? texture.Frame(1, 1, 0, 0);
             if (orig == Vector2.Zero) {
