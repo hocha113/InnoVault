@@ -1,5 +1,5 @@
-﻿using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 
 namespace InnoVault.Trails
@@ -69,7 +69,7 @@ namespace InnoVault.Trails
             };
 
             // 生成索引数组，定义一个三角形的顶点顺序
-            indices =[
+            indices = [
             (short)startFromIndex,     // 顶点A的索引
             (short)(startFromIndex + 1), // 顶点B的索引
             (short)(startFromIndex + 2)  // 顶点C的索引

@@ -1,6 +1,5 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using System;
-using System.Data.Common;
 using Terraria;
 
 namespace InnoVault.Trails
