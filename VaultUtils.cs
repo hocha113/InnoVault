@@ -129,6 +129,21 @@ namespace InnoVault
         public static Vector2 To(this Vector2 vr1, Vector2 vr2) => vr2 - vr1;
 
         /// <summary>
+        /// 将一个二维函数填充为三维
+        /// </summary>
+        /// <param name="vector"></param>
+        /// <returns></returns>
+        public static Vector3 ToVector3(this Vector2 vector) => new Vector3(vector.X, vector.Y, 0);
+
+        /// <summary>
+        /// 将一个二维函数填充为三维
+        /// </summary>
+        /// <param name="vector"></param>
+        /// <param name="fullZ">需要填充的Z轴向量</param>
+        /// <returns></returns>
+        public static Vector3 ToVector3(this Vector2 vector, float fullZ) => new Vector3(vector.X, vector.Y, fullZ);
+
+        /// <summary>
         /// 简单安全的获取一个单位向量，如果出现非法情况则会返回 <see cref="Vector2.Zero"/>
         /// </summary>
         public static Vector2 UnitVector(this Vector2 vr) => vr.SafeNormalize(Vector2.Zero);
