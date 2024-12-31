@@ -68,6 +68,10 @@ namespace InnoVault.UIHandles
         /// 右键按键状态
         /// </summary>
         public KeyPressState keyRightPressState => UIHandleLoader.keyRightPressState;
+        /// <summary>
+        /// 预留的判定主页悬浮的字段，相关的数据建议往这里存储，以确保可能的UI元素之间的交互通畅
+        /// </summary>
+        public bool hoverInMainPage;
 
         private bool oldDownL;
         private bool downL;
