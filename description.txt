@@ -1,9 +1,11 @@
-InnoVault is a powerful API module that offers essential development support, providing APIs for UI, Tile Processor, Particle systems, and more.
+InnoVault is an API Mod that provides developers with essential code support, including basic APIs for UI, Tile Processor, Particle, and more.
 
-For detailed information, visit the [InnoVault GitHub repository](https://github.com/hocha113/InnoVault), where you can access the source code directly.
+For more information, visit the InnoVault GitHub repository: https://github.com/hocha113/InnoVault, where you can download the source code for InnoVault.
 
-To learn how to work with InnoVault's APIs, check out the [InnoVault Wiki](https://github.com/hocha113/InnoVault/wiki). It provides a comprehensive introduction and usage examples.
+If you'd like to learn how to use the APIs provided by InnoVault, check out the InnoVault Wiki: https://github.com/hocha113/InnoVault/wiki/en-Home, which contains an introduction to the APIs and usage examples.
 
-Additionally, the **InnoVault Example Mod** demonstrates practical applications of InnoVault’s APIs. You can either extract the full project in-game or download it from the [InnoVault Example GitHub repository](https://github.com/hocha113/InnoVaultExample). For English-speaking developers, an [English-annotated version](https://github.com/hocha113/InnoVaultExample/tree/en_annotation) is available.
+The InnoVault Example Mod demonstrates how to use InnoVault's APIs, serving as a practical reference for developers. You can extract the full project code for InnoVault Example Mod in-game, or download the source code from the repository: https://github.com/hocha113/InnoVaultExample. 
 
-You can also subscribe to the [InnoVault Example Mod Steam Workshop](https://steamcommunity.com/sharedfiles/filedetails/?id=3338555897).
+An English-annotated version is also available for developers who prefer English: https://github.com/hocha113/InnoVaultExample/tree/en_annotation.
+
+You can also subscribe to the InnoVault Example Mod on the InnoVault Example Steam Workshop page: https://steamcommunity.com/sharedfiles/filedetails/?id=3338555897.

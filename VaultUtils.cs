@@ -178,6 +178,25 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 检测一个圆形是否与目标矩形相交
+        /// </summary>
+        /// <param name="circleCenter">圆心的坐标</param>
+        /// <param name="radius">圆的半径</param>
+        /// <param name="targetRectangle">目标矩形的边界框</param>
+        /// <returns>返回 true 如果圆形与矩形相交，否则返回 false</returns>
+        public static bool CircleIntersectsRectangle(Vector2 circleCenter, float radius, Rectangle targetRectangle) {
+            // 计算矩形最近点到圆心的距离
+            float nearestX = MathHelper.Clamp(circleCenter.X, targetRectangle.Left, targetRectangle.Right);
+            float nearestY = MathHelper.Clamp(circleCenter.Y, targetRectangle.Top, targetRectangle.Bottom);
+
+            // 检测最近点与圆心的距离是否小于等于半径
+            float deltaX = circleCenter.X - nearestX;
+            float deltaY = circleCenter.Y - nearestY;
+
+            return (deltaX * deltaX + deltaY * deltaY) <= (radius * radius);
+        }
+
+        /// <summary>
         /// 创建一个矩形
         /// </summary>
         public static Rectangle GetRectangle(this Vector2 topLeft, int width, int height) => new Rectangle((int)topLeft.X, (int)topLeft.Y, width, height);
@@ -207,6 +226,62 @@ namespace InnoVault
             }
 
             return new string(result);
+        }
+
+        /// <summary>
+        /// 按照给定的进度逐步显示文本的一部分
+        /// </summary>
+        /// <param name="text">要显示的完整文本</param>
+        /// <param name="progress">显示进度，范围从 0.0f 到 1.0f，0.0f 表示没有字符，1.0f 表示完整显示</param>
+        /// <returns>根据进度显示的部分文本</returns>
+        public static string GetTextProgressively(string text, float progress) {
+            if (string.IsNullOrEmpty(text)) {
+                return string.Empty;
+            }
+            progress = MathHelper.Clamp(progress, 0.0f, 1.0f);
+            int charCountToShow = (int)(text.Length * progress);
+            return text.Substring(0, charCountToShow);
+        }
+
+        /// <summary>
+        /// 将输入文本自动换行以适应指定的最大宽度
+        /// </summary>
+        /// <param name="text">原始文本</param>
+        /// <param name="textSize">文本尺寸（通常由字体测量得出）</param>
+        /// <param name="maxWidth">允许的最大宽度</param>
+        /// <returns>已处理的自动换行文本</returns>
+        public static string WrapTextToWidth(string text, Vector2 textSize, float maxWidth) {
+            // 将文本转换为字符列表
+            List<char> characters = text.ToList();
+            List<char> wrappedText = new List<char>();
+            float currentWidth = 0;
+            float charWidth;
+
+            // 遍历每个字符，处理宽度限制与换行逻辑
+            foreach (char character in characters) {
+                // 计算每个字符的平均宽度（假设等宽字体或字符均匀分布）
+                charWidth = textSize.X / text.Length;
+
+                // 遇到换行符，直接重置当前宽度并加入换行符
+                if (character == '\n') {
+                    wrappedText.Add(character);
+                    currentWidth = 0;
+                }
+                else {
+                    // 如果添加当前字符后宽度超出最大限制，插入换行符
+                    if (currentWidth + charWidth > maxWidth) {
+                        wrappedText.Add('\n');
+                        currentWidth = 0;
+                    }
+
+                    // 添加字符并更新当前宽度
+                    wrappedText.Add(character);
+                    currentWidth += charWidth;
+                }
+            }
+
+            // 返回处理后的文本
+            return new string(wrappedText.ToArray());
         }
 
         /// <summary>
@@ -342,37 +417,73 @@ namespace InnoVault
         /// 让一个射弹安全的对应到弹药物品
         /// </summary>
         public static Dictionary<int, int> ProjectileToSafeAmmoMap { get; private set; } = new Dictionary<int, int>() {
-                { ProjectileID.BoneArrow, ItemID.BoneArrow},
-                { ProjectileID.MoonlordArrow, ItemID.MoonlordArrow},
-                { ProjectileID.ChlorophyteArrow, ItemID.ChlorophyteArrow},
-                { ProjectileID.CursedArrow, ItemID.CursedArrow},
-                { ProjectileID.FlamingArrow, ItemID.FlamingArrow},
-                { ProjectileID.FrostburnArrow, ItemID.FrostburnArrow},
-                { ProjectileID.HellfireArrow, ItemID.HellfireArrow},
-                { ProjectileID.HolyArrow, ItemID.HolyArrow},
-                { ProjectileID.IchorArrow, ItemID.IchorArrow},
-                { ProjectileID.JestersArrow, ItemID.JestersArrow},
-                { ProjectileID.ShimmerArrow, ItemID.ShimmerArrow},
-                { ProjectileID.UnholyArrow, ItemID.UnholyArrow},
-                { ProjectileID.VenomArrow, ItemID.VenomArrow},
-                { ProjectileID.WoodenArrowFriendly, ItemID.WoodenArrow},
-                { ProjectileID.ChumBucket, ItemID.ChumBucket},
-                { ProjectileID.ChlorophyteBullet, ItemID.ChlorophyteBullet},
-                { ProjectileID.CrystalBullet, ItemID.CrystalBullet},
-                { ProjectileID.CursedBullet, ItemID.CursedBullet},
-                { ProjectileID.ExplosiveBullet, ItemID.ExplodingBullet},
-                { ProjectileID.GoldenBullet, ItemID.GoldenBullet},
-                { ProjectileID.BulletHighVelocity, ItemID.HighVelocityBullet},
-                { ProjectileID.IchorBullet, ItemID.IchorBullet},
-                { ProjectileID.MoonlordBullet, ItemID.MoonlordBullet},
-                { ProjectileID.MeteorShot, ItemID.MeteorShot},
-                { ProjectileID.Bullet, ItemID.MusketBall},
-                { ProjectileID.NanoBullet, ItemID.NanoBullet},
-                { ProjectileID.PartyBullet, ItemID.PartyBullet},
-                { ProjectileID.SilverBullet, ItemID.SilverBullet},
-                { ProjectileID.VenomBullet, ItemID.VenomBullet},
-                { ProjectileID.SnowBallFriendly, ItemID.Snowball},
-            };
+            { ProjectileID.BoneArrow, ItemID.BoneArrow},
+            { ProjectileID.MoonlordArrow, ItemID.MoonlordArrow},
+            { ProjectileID.ChlorophyteArrow, ItemID.ChlorophyteArrow},
+            { ProjectileID.CursedArrow, ItemID.CursedArrow},
+            { ProjectileID.FlamingArrow, ItemID.FlamingArrow},
+            { ProjectileID.FrostburnArrow, ItemID.FrostburnArrow},
+            { ProjectileID.HellfireArrow, ItemID.HellfireArrow},
+            { ProjectileID.HolyArrow, ItemID.HolyArrow},
+            { ProjectileID.IchorArrow, ItemID.IchorArrow},
+            { ProjectileID.JestersArrow, ItemID.JestersArrow},
+            { ProjectileID.ShimmerArrow, ItemID.ShimmerArrow},
+            { ProjectileID.UnholyArrow, ItemID.UnholyArrow},
+            { ProjectileID.VenomArrow, ItemID.VenomArrow},
+            { ProjectileID.WoodenArrowFriendly, ItemID.WoodenArrow},
+            { ProjectileID.ChumBucket, ItemID.ChumBucket},
+            { ProjectileID.ChlorophyteBullet, ItemID.ChlorophyteBullet},
+            { ProjectileID.CrystalBullet, ItemID.CrystalBullet},
+            { ProjectileID.CursedBullet, ItemID.CursedBullet},
+            { ProjectileID.ExplosiveBullet, ItemID.ExplodingBullet},
+            { ProjectileID.GoldenBullet, ItemID.GoldenBullet},
+            { ProjectileID.BulletHighVelocity, ItemID.HighVelocityBullet},
+            { ProjectileID.IchorBullet, ItemID.IchorBullet},
+            { ProjectileID.MoonlordBullet, ItemID.MoonlordBullet},
+            { ProjectileID.MeteorShot, ItemID.MeteorShot},
+            { ProjectileID.Bullet, ItemID.MusketBall},
+            { ProjectileID.NanoBullet, ItemID.NanoBullet},
+            { ProjectileID.PartyBullet, ItemID.PartyBullet},
+            { ProjectileID.SilverBullet, ItemID.SilverBullet},
+            { ProjectileID.VenomBullet, ItemID.VenomBullet},
+            { ProjectileID.SnowBallFriendly, ItemID.Snowball},
+        };
+
+        /// <summary>
+        /// 火箭弹药映射字典
+        /// </summary>
+        public static Dictionary<int, int> RocketAmmoMap { get; private set; } = new Dictionary<int, int>() {
+            { ItemID.RocketI, ProjectileID.RocketI },
+            { ItemID.RocketII, ProjectileID.RocketII },
+            { ItemID.RocketIII, ProjectileID.RocketIII },
+            { ItemID.RocketIV, ProjectileID.RocketIV },
+            { ItemID.ClusterRocketI, ProjectileID.ClusterRocketI },
+            { ItemID.ClusterRocketII, ProjectileID.ClusterRocketII },
+            { ItemID.DryRocket, ProjectileID.DryRocket },
+            { ItemID.WetRocket, ProjectileID.WetRocket },
+            { ItemID.HoneyRocket, ProjectileID.HoneyRocket },
+            { ItemID.LavaRocket, ProjectileID.LavaRocket },
+            { ItemID.MiniNukeI, ProjectileID.MiniNukeRocketI },
+            { ItemID.MiniNukeII, ProjectileID.MiniNukeRocketII },
+        };
+
+        /// <summary>
+        /// 雪人类弹药映射字典
+        /// </summary>
+        public static Dictionary<int, int> SnowmanCannonAmmoMap { get; private set; } = new Dictionary<int, int>() {
+            { ItemID.RocketI, ProjectileID.RocketSnowmanI },
+            { ItemID.RocketII, ProjectileID.RocketSnowmanII },
+            { ItemID.RocketIII, ProjectileID.RocketSnowmanIII },
+            { ItemID.RocketIV, ProjectileID.RocketSnowmanIV },
+            { ItemID.ClusterRocketI, ProjectileID.ClusterSnowmanRocketI },
+            { ItemID.ClusterRocketII, ProjectileID.ClusterSnowmanRocketII },
+            { ItemID.DryRocket, ProjectileID.DrySnowmanRocket },
+            { ItemID.WetRocket, ProjectileID.WetSnowmanRocket },
+            { ItemID.HoneyRocket, ProjectileID.HoneySnowmanRocket },
+            { ItemID.LavaRocket, ProjectileID.LavaSnowmanRocket },
+            { ItemID.MiniNukeI, ProjectileID.MiniNukeSnowmanRocketI },
+            { ItemID.MiniNukeII, ProjectileID.MiniNukeSnowmanRocketII },
+        };
 
         /// <summary>
         /// 获取生成源
@@ -391,6 +502,61 @@ namespace InnoVault
                 return item.GetSource_FromAI();
             }
             return new EntitySource_Parent(Main.LocalPlayer, "NullSource");
+        }
+
+        /// <summary>
+        /// 寻找距离指定位置最近的NPC
+        /// </summary>
+        /// <param name="origin">开始搜索的位置</param>
+        /// <param name="maxDistanceToCheck">搜索NPC的最大距离</param>
+        /// <param name="ignoreTiles">在检查障碍物时是否忽略瓦片</param>
+        /// <param name="bossPriority">是否优先选择Boss</param>
+        /// <param name="onHitNPCs">排除的NPC列表</param>
+        /// <param name="chasedByNPC">额外的条件过滤，用于判断NPC是否应被考虑，如果该委托不为<see langword="null"/> 那么它的返回值将覆盖其他的筛选结果</param>
+        /// <returns>距离最近的NPC</returns>
+        public static NPC FindClosestNPC(this Vector2 origin, float maxDistanceToCheck, bool ignoreTiles = true
+            , bool bossPriority = false, IEnumerable<NPC> onHitNPCs = null, Func<NPC, bool> chasedByNPC = null) {
+            NPC closestTarget = null;
+            float distance = maxDistanceToCheck;
+            bool bossFound = false;
+
+            foreach (var npc in Main.npc) {
+                bool canChased = npc.CanBeChasedBy();
+                if (onHitNPCs != null) {
+                    canChased = !onHitNPCs.Contains(npc);
+                }
+
+                if (chasedByNPC != null) {
+                    canChased = chasedByNPC.Invoke(npc);
+                }
+
+                if (!canChased) {
+                    continue;
+                }
+
+                // Boss优先选择逻辑
+                if (bossPriority && bossFound && !npc.boss && npc.type != NPCID.WallofFleshEye) {
+                    continue;
+                }
+
+                // 计算NPC与起点的距离
+                float extraDistance = (npc.width / 2f) + (npc.height / 2f);
+                float actualDistance = Vector2.Distance(origin, npc.Center);
+
+                // 检查瓦片阻挡
+                bool canHit = ignoreTiles || Collision.CanHit(origin, 1, 1, npc.Center, 1, 1);
+
+                // 更新最近目标
+                if (actualDistance < distance + extraDistance && canHit) {
+                    if (bossPriority && (npc.boss || npc.type == NPCID.WallofFleshEye)) {
+                        bossFound = true;
+                    }
+                    distance = actualDistance;
+                    closestTarget = npc;
+                }
+            }
+
+            return closestTarget;
         }
 
         /// <summary>
@@ -1171,6 +1337,54 @@ namespace InnoVault
             }
             return new Vector2(TileVr.X, TileVr.Y);
         }
+        #endregion
+
+        #region Draw
+        /// <summary>
+        /// 绘制具有旋转边框效果的纹理
+        /// 该方法通过两层旋转光圈模拟出一种动态发光的边缘效果
+        /// </summary>
+        /// <param name="spriteBatch">用于绘制的 SpriteBatch 对象</param>
+        /// <param name="texture">要绘制的纹理</param>
+        /// <param name="drawTimer">用于控制旋转动画的计时器（通常递增）</param>
+        /// <param name="position">纹理绘制的位置</param>
+        /// <param name="sourceRectangle">纹理裁剪区域（可选）</param>
+        /// <param name="color">绘制颜色</param>
+        /// <param name="rotation">纹理的旋转角度（弧度制）</param>
+        /// <param name="origin">纹理的原点</param>
+        /// <param name="scale">纹理的缩放比例</param>
+        /// <param name="effects">纹理的 SpriteEffects <see cref="SpriteEffects.None"/></param>
+        public static void DrawRotatingMarginEffect(SpriteBatch spriteBatch, Texture2D texture, int drawTimer, Vector2 position,
+            Rectangle? sourceRectangle, Color color, float rotation, Vector2 origin, float scale, SpriteEffects effects = SpriteEffects.None) {
+            // 计算全局时间因子（用于同步动画效果）
+            float globalTime = Main.GlobalTimeWrappedHourly;
+            // 计算旋转计时器，用于控制旋转速度
+            float timer = drawTimer / 240f + globalTime * 0.04f;
+
+            // 控制时间的周期性变化，使光圈明暗有呼吸感
+            float timeFactor = globalTime % 4f;
+            timeFactor /= 2f;
+            if (timeFactor >= 1f)
+                timeFactor = 2f - timeFactor;
+            timeFactor = timeFactor * 0.5f + 0.5f;
+
+            // 外层旋转光圈效果（间隔0.25，较大的偏移）
+            for (float offset = 0f; offset < 1f; offset += 0.25f) {
+                float radians = (offset + timer) * MathHelper.TwoPi;
+                Vector2 offsetPosition = position + new Vector2(0f, 8f).RotatedBy(radians) * timeFactor;
+                Color transparentColor = new Color(color.R, color.G, color.B, 50); // 较透明的颜色
+                spriteBatch.Draw(texture, offsetPosition, sourceRectangle, transparentColor, rotation, origin, scale, effects, 0f);
+            }
+
+            // 内层旋转光圈效果（间隔0.34，较小的偏移）
+            for (float offset = 0f; offset < 1f; offset += 0.34f) {
+                float radians = (offset + timer) * MathHelper.TwoPi;
+                Vector2 offsetPosition = position + new Vector2(0f, 4f).RotatedBy(radians) * timeFactor;
+                Color semiTransparentColor = new Color(color.R, color.G, color.B, 77); // 半透明的颜色
+                spriteBatch.Draw(texture, offsetPosition, sourceRectangle, semiTransparentColor, rotation, origin, scale, effects, 0f);
+            }
+        }
+
         #endregion
 
         #region UI
