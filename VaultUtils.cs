@@ -522,8 +522,13 @@ namespace InnoVault
 
             foreach (var npc in Main.npc) {
                 bool canChased = npc.CanBeChasedBy();
-                if (onHitNPCs != null) {
-                    canChased = !onHitNPCs.Contains(npc);
+                if (onHitNPCs != null && onHitNPCs.Contains(npc)) {
+                    canChased = false;
+                }
+
+                // Boss优先选择逻辑
+                if (bossPriority && bossFound && !npc.boss && npc.type != NPCID.WallofFleshEye) {
+                    canChased = false;
                 }
 
                 if (chasedByNPC != null) {
@@ -531,11 +536,6 @@ namespace InnoVault
                 }
 
                 if (!canChased) {
-                    continue;
-                }
-
-                // Boss优先选择逻辑
-                if (bossPriority && bossFound && !npc.boss && npc.type != NPCID.WallofFleshEye) {
                     continue;
                 }
 
