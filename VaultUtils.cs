@@ -412,6 +412,28 @@ namespace InnoVault
         #endregion
 
         #region Game
+        /// <summary>
+        /// 根据<see cref="Item.useAmmo"/>映射到对应的物品id之上
+        /// </summary>
+        public static Dictionary<int, int> AmmoIDToItemIDMapping { get; private set; } = new Dictionary<int, int>
+        {
+            { AmmoID.FallenStar, ItemID.FallenStar },
+            { AmmoID.Gel, ItemID.Gel },
+            { AmmoID.Arrow, ItemID.WoodenArrow },
+            { AmmoID.Coin, ItemID.CopperCoin },
+            { AmmoID.Bullet, ItemID.MusketBall },
+            { AmmoID.Sand, ItemID.SandBlock },
+            { AmmoID.Dart, ItemID.PoisonDart },
+            { AmmoID.Rocket, ItemID.RocketI },
+            { AmmoID.Flare, ItemID.Flare },
+            { AmmoID.Snowball, ItemID.Snowball },
+            { AmmoID.StyngerBolt, ItemID.StyngerBolt },
+            { AmmoID.CandyCorn, ItemID.CandyCorn },
+            { AmmoID.JackOLantern, ItemID.JackOLantern },
+            { AmmoID.Stake, ItemID.Stake },
+            { AmmoID.NailFriendly, ItemID.Nail },
+            { AmmoID.None, ItemID.MusketBall },
+        };
 
         /// <summary>
         /// 让一个射弹安全的对应到弹药物品
