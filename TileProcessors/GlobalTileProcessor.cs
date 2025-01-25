@@ -44,7 +44,7 @@ namespace InnoVault.TileProcessors
             return null;
         }
         /// <summary>
-        /// 判定改位置是否是物块的左上角。如果希望系统使用原生判定，返回<see langword="null"/>，
+        /// 判定该位置是否是物块的左上角。如果希望系统使用原生判定，返回<see langword="null"/>，
         /// 若需要自定义放置原点，则返回一个有效的坐标值
         /// 如果改动了这个，务必注重<see cref="GetTopLeftPoint"/>的逻辑判定，两者具有强配合性
         /// </summary>
