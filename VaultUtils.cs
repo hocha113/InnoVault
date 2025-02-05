@@ -163,18 +163,21 @@ namespace InnoVault
         /// <param name="colors"></param>
         /// <returns></returns>
         public static Color MultiStepColorLerp(float percent, params Color[] colors) {
-            if (colors == null) {
-                Text("MultiLerpColor: 空的颜色数组!");
+            if (colors == null || colors.Length == 0) {
                 return Color.White;
             }
-            float per = 1f / (colors.Length - 1f);
-            float total = per;
-            int currentID = 0;
-            while (percent / total > 1f && currentID < colors.Length - 2) {
-                total += per;
-                currentID++;
+            if (colors.Length == 1) {
+                return colors[0];
             }
-            return Color.Lerp(colors[currentID], colors[currentID + 1], (percent - (per * currentID)) / per);
+
+            percent = MathHelper.Clamp(percent, 0f, 1f);
+            int lastIndex = colors.Length - 1;
+            float per = 1f / lastIndex;
+
+            int currentID = Math.Min((int)(percent / per), lastIndex - 1); // 防止索引溢出
+            float lerpFactor = (percent - per * currentID) / per;
+
+            return Color.Lerp(colors[currentID], colors[currentID + 1], lerpFactor);
         }
 
         /// <summary>
