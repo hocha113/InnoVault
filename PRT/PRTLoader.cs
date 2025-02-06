@@ -498,7 +498,7 @@ namespace InnoVault.PRT
         /// </summary>
         /// <returns></returns>
         public static int NumberUsablePRT() {
-            return Main.dedServ || PRT_InGame_World_Inds == null ? 0 : InGame_World_MaxPRTCount - PRT_InGame_World_Inds.Count();
+            return Main.dedServ || PRT_InGame_World_Inds == null ? 0 : InGame_World_MaxPRTCount - PRT_InGame_World_Inds.Count;
         }
     }
 }

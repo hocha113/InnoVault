@@ -1193,7 +1193,7 @@ namespace InnoVault
             // 设置最大和最小数量的物品
             if (itemInds.Count > 0) {
                 ammoState.MaxAmountItem = itemInds[0];  // 最大数量的物品
-                ammoState.MinAmountItem = itemInds[itemInds.Count - 1];  // 最小数量的物品
+                ammoState.MinAmountItem = itemInds[^1];  // 最小数量的物品
             }
             else {
                 ammoState.MaxAmountItem = new Item();  // 若无有效物品，返回空物品
