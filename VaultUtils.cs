@@ -1402,6 +1402,35 @@ namespace InnoVault
 
         #region Draw
         /// <summary>
+        /// 计算并返回屏幕变换矩阵（World-View-Projection 矩阵）
+        /// </summary>
+        /// <param name="offset">
+        /// 世界坐标的平移偏移量（默认值为 -Main.screenPosition）
+        /// 这用于调整世界空间的原点，使其相对于屏幕中心进行渲染
+        /// </param>
+        /// <param name="matrix">
+        /// 视图矩阵（View Matrix），默认为 Main.GameViewMatrix.TransformationMatrix
+        /// 该矩阵用于从世界空间转换到摄像机视角，控制视角的缩放、旋转和偏移
+        /// </param>
+        /// <param name="screenWidth">
+        /// 屏幕宽度（默认值为 Main.screenWidth）
+        /// 该参数用于定义投影矩阵的宽度，通常与游戏窗口的宽度保持一致
+        /// </param>
+        /// <param name="screenHeight">
+        /// 屏幕高度（默认值为 Main.screenHeight）
+        /// 该参数用于定义投影矩阵的高度，通常与游戏窗口的高度保持一致
+        /// </param>
+        /// <returns>
+        /// 返回一个组合后的变换矩阵（World * View * Projection）
+        /// 该矩阵用于将世界空间坐标转换为屏幕坐标，适用于 2D 渲染（如 UI 元素、精灵绘制）
+        /// </returns>
+        public static Matrix GetTransfromMatrix(Vector3? offset = null, Matrix? matrix = null, int? screenWidth = null, int? screenHeight = null) {
+            Matrix world = Matrix.CreateTranslation(offset ?? - Main.screenPosition.ToVector3());
+            Matrix view = matrix ?? Main.GameViewMatrix.TransformationMatrix;
+            Matrix projection = Matrix.CreateOrthographicOffCenter(0, screenWidth ?? Main.screenWidth, screenHeight ?? Main.screenHeight, 0, -1, 1);
+            return world * view * projection;
+        }
+        /// <summary>
         /// 绘制具有旋转边框效果的纹理
         /// 该方法通过两层旋转光圈模拟出一种动态发光的边缘效果
         /// </summary>
