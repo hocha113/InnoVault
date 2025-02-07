@@ -103,6 +103,25 @@ namespace InnoVault.Trails
         }
 
         /// <summary>
+        /// 初始化一个新的 <see cref="Trail"/> 实例
+        /// </summary>
+        /// <param name="device">渲染所需的 GraphicsDevice（例如 `Main.graphics.GraphicsDevice`）</param>
+        /// <param name="points">渲染需要的点集</param>
+        /// <param name="trailWidthFunction">用于计算轨迹宽度的委托</param>
+        /// <param name="trailColorFunction">用于计算轨迹颜色的委托</param>
+        /// <param name="tip">用于处理轨迹尖端的生成器</param>
+        /// <param name="flipVertical">是否启用竖直翻转</param>
+        public Trail(Vector2[] points, TrailThicknessCalculator trailWidthFunction, TrailColorEvaluator trailColorFunction, GraphicsDevice device = null, IMeshTrailGenerator tip = null, bool flipVertical = false) {
+            tipHandler = tip ?? new EmptyMeshGenerator();
+            maxPoints = points.Length;
+            TrailPositions = points;
+            calculateWidth = trailWidthFunction;
+            calculateColor = trailColorFunction;
+            isFlippedVertically = flipVertical;
+            renderer = new MeshRenderer(device ?? Main.graphics.GraphicsDevice, maxPoints * 2 + tipHandler.AdditionalVertexCount, 6 * (maxPoints - 1) + tipHandler.AdditionalIndexCount);
+        }
+
+        /// <summary>
         /// 构建轨迹的顶点和索引数据
         /// </summary>
         /// <param name="vertices">生成的顶点数组</param>
