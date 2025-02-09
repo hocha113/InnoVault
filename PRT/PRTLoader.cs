@@ -163,6 +163,35 @@ namespace InnoVault.PRT
         }
 
         /// <summary>
+        /// 生成提供给世界的粒子实例
+        /// </summary>
+        public static void AddParticle(BasePRT particle, bool setProperty) {
+            if (Main.gamePaused || Main.dedServ || PRT_InGame_World_Inds == null) {
+                return;
+            }
+
+            if (particle.PRTLayersMode == PRTLayersModeEnum.None) {
+                return;
+            }
+
+            int id = GetParticleID(particle.GetType());
+
+            if (PRT_IDToInGame_World_Count[id] >= particle.InGame_World_MaxCount
+                || PRT_InGame_World_Inds.Count >= InGame_World_MaxPRTCount) {
+                return;
+            }
+
+            particle.active = true;
+            particle.ID = id;
+
+            if (setProperty) {
+                particle.SetProperty();
+            }
+
+            PRT_InGame_World_Inds.Add(particle);
+        }
+
+        /// <summary>
         /// 使用指定的属性初始化并添加一个新粒子到粒子系统中
         /// </summary>
         /// <param name="prtEntity">要初始化和添加的粒子实例</param>
