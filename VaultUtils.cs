@@ -530,6 +530,29 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 解析字符串键并获取对应的物品类型
+        /// </summary>
+        /// <param name="fullName">用于解析的字符串键，可以是整数类型或模组/物品名称的组合</param>
+        /// <param name="loadVanillaItem">是否自动加载一次原版物品</param>
+        /// <returns>解析后得到的物品类型</returns>
+        public static int GetItemTypeFromFullName(string fullName, bool loadVanillaItem = false) {
+            if (fullName == "Null/Null") {
+                return ItemID.None;
+            }
+
+            if (int.TryParse(fullName, out int intValue)) {
+                if (loadVanillaItem && !isServer) {
+                    Main.instance.LoadItem(intValue);
+                }
+                return intValue;
+            }
+            else {
+                string[] fruits = fullName.Split('/');
+                return ModLoader.GetMod(fruits[0]).Find<ModItem>(fruits[1]).Type;
+            }
+        }
+
+        /// <summary>
         /// 寻找距离指定位置最近的NPC
         /// </summary>
         /// <param name="origin">开始搜索的位置</param>
