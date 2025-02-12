@@ -716,7 +716,7 @@ namespace InnoVault
                 text = obj.ToString();
             }
 
-            Text(text);
+            Text(text, Color.Red);
 
             if (mod != null) {
                 mod.Logger.Info(text);
