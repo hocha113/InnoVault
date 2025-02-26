@@ -1309,33 +1309,6 @@ namespace InnoVault
         /// <param name="reader"></param>
         /// <returns></returns>
         public static Point16 ReadPoint16(this BinaryReader reader) => new Point16(reader.ReadInt16(), reader.ReadInt16());
-
-        /// <summary>
-        /// 发送关于一个<see cref="Vector2"/>结构的网络数据
-        /// </summary>
-        /// <param name="modPacket"></param>
-        /// <param name="vector2"></param>
-        public static void WriteVector2(this ModPacket modPacket, Vector2 vector2) {
-            modPacket.Write(vector2.X);
-            modPacket.Write(vector2.Y);
-        }
-
-        /// <summary>
-        /// 发送关于一个<see cref="Vector2"/>结构的网络数据
-        /// </summary>
-        /// <param name="writer"></param>
-        /// <param name="vector2"></param>
-        public static void WriteVector2(this BinaryWriter writer, Vector2 vector2) {
-            writer.Write(vector2.X);
-            writer.Write(vector2.Y);
-        }
-
-        /// <summary>
-        /// 接收关于一个<see cref="Vector2"/>结构的网络数据
-        /// </summary>
-        /// <param name="reader"></param>
-        /// <returns></returns>
-        public static Vector2 ReadVector2(this BinaryReader reader) => new Vector2(reader.ReadSingle(), reader.ReadSingle());
         #endregion
 
         #region Tile
@@ -1388,6 +1361,15 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 获取给定坐标的物块左上角位置，并判断该位置是否为多结构物块的左上角
+        /// </summary>
+        /// <param name="point">物块的坐标</param>
+        /// <returns>
+        /// 如果物块存在并且位于一个多结构物块的左上角，返回其左上角坐标，否则返回null
+        /// </returns>
+        public static Point16? GetTopLeftOrNull(Point16 point) => GetTopLeftOrNull(point.X, point.Y);
+
+        /// <summary>
         /// 判断给定坐标是否为多结构物块的左上角位置，并输出左上角的坐标
         /// </summary>
         /// <param name="i">物块的x坐标</param>
@@ -1412,6 +1394,14 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 判断给定坐标是否为多结构物块的左上角位置，并输出左上角的坐标
+        /// </summary>
+        /// <param name="origPoint">物块的坐标</param>
+        /// <param name="point">输出的左上角坐标，如果不是左上角则为(0,0)</param>
+        /// <returns>如果是左上角，返回true，否则返回false </returns>
+        public static bool IsTopLeft(Point16 origPoint, out Point16 point) => IsTopLeft(origPoint.X, origPoint.Y, out point);
+
+        /// <summary>
         /// 安全的获取多结构物块左上角的位置，给定一个物块坐标，自动寻找到该坐标对应的左上原点位置输出
         /// </summary>
         /// <param name="i"></param>
@@ -1428,6 +1418,28 @@ namespace InnoVault
                 point = new Point16(0, 0);
                 return false;
             }
+        }
+
+        /// <summary>
+        /// 安全的获取多结构物块左上角的位置，给定一个物块坐标，自动寻找到该坐标对应的左上原点位置输出
+        /// </summary>
+        /// <param name="origPoint"></param>
+        /// <param name="point"></param>
+        /// <returns>如果没能找到，则输出(0,0)，并返回<see langword="false"/></returns>
+        public static bool SafeGetTopLeft(Point16 origPoint, out Point16 point) => SafeGetTopLeft(origPoint.X, origPoint.Y, out point);
+
+        /// <summary>
+        /// 获取一个物块的掉落物ID
+        /// </summary>
+        /// <param name="tile"></param>
+        /// <returns></returns>
+        public static int GetTileDorp(this Tile tile) {
+            int stye = TileObjectData.GetTileStyle(tile);
+            if (stye == -1) {
+                stye = 0;
+            }
+
+            return TileLoader.GetItemDropFromTypeAndStyle(tile.TileType, stye);
         }
         #endregion
 

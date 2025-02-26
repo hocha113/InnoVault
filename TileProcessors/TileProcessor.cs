@@ -56,13 +56,13 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public int ID => TileProcessorLoader.TP_Type_To_ID[GetType()];
         /// <summary>
-        /// 宽度，默认为32，如果<see cref="Tile"/>存在，则会在初始化时自动设置为其宽度
+        /// 宽度，默认为16，如果<see cref="Tile"/>存在，则会在初始化时自动设置为其宽度，注意，单位是像素，比如如果一个多结构物块有两个物块宽，这个值会是32
         /// </summary>
-        public int Width = 32;
+        public int Width = 16;
         /// <summary>
-        /// 高度，默认为32，如果<see cref="Tile"/>存在，则会在初始化时自动设置为其高度
+        /// 高度，默认为16，如果<see cref="Tile"/>存在，则会在初始化时自动设置为其高度，注意，单位是像素，比如如果一个多结构物块有两个物块高，这个值会是32
         /// </summary>
-        public int Height = 32;
+        public int Height = 16;
         /// <summary>
         /// 这个TP实体的碰撞矩形
         /// </summary>

@@ -1,5 +1,4 @@
 ﻿using Microsoft.Xna.Framework;
-using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -72,7 +71,6 @@ namespace InnoVault.TileProcessors
         /// </summary>
         internal static List<GlobalTileProcessor> TPGlobalHooks { get; private set; } = [];
 
-        private static Type tileLoaderType;
         private static MethodBase onTile_KillMultiTile_Method;
         private delegate void On_Tile_KillMultiTile_Dalegate(int i, int j, int frameX, int frameY, int type);
         #endregion
@@ -90,9 +88,8 @@ namespace InnoVault.TileProcessors
                 tpGlobal.Load();
             }
 
-            tileLoaderType = typeof(TileLoader);
-            onTile_KillMultiTile_Method = tileLoaderType.GetMethod("KillMultiTile", BindingFlags.Public | BindingFlags.Static);
-            //实际上我并不信任MonoModHook, 但考虑到稳定性和代码必要性，外加OnKillMultiTileHook这个钩子如果突然失效并不致命，我选择再次使用MonoModHook，祈祷它不会再让钩子被回收
+            onTile_KillMultiTile_Method = typeof(TileLoader).GetMethod("KillMultiTile", BindingFlags.Public | BindingFlags.Static);
+            //实际上我并不信任MonoModHook, 但考虑到稳定性和代码必要性，外加这个钩子如果突然失效并不致命，我选择再次使用MonoModHook，祈祷它不会再让钩子被回收
             MonoModHooks.Add(onTile_KillMultiTile_Method, OnKillMultiTileHook);
 
             WorldGen.Hooks.OnWorldLoad += LoadWorldTileProcessor;
@@ -138,13 +135,13 @@ namespace InnoVault.TileProcessors
             TP_ID_To_InWorld_Count.Clear();
             TP_Type_To_Mod.Clear();
             TargetTile_To_TPInstance.Clear();
-            tileLoaderType = null;
             onTile_KillMultiTile_Method = null;
             ActiveWorldTagData = null;
 
             WorldGen.Hooks.OnWorldLoad -= LoadWorldTileProcessor;
         }
 
+        //集中管理所有KillMultiTileSet钩子
         private static void OnKillMultiTileHook(On_Tile_KillMultiTile_Dalegate orig, int i, int j, int frameX, int frameY, int type) {
             foreach (var module in TP_InWorld) {
                 if (!module.Active) {
@@ -179,8 +176,10 @@ namespace InnoVault.TileProcessors
                     newProcessor.Tile = Framing.GetTileSafely(newProcessor.Position);
                     if (newProcessor.Tile != null && newProcessor.Tile.HasTile) {
                         TileObjectData data = TileObjectData.GetTileData(newProcessor.Tile);
-                        newProcessor.Width = data.Width;
-                        newProcessor.Height = data.Height;
+                        if (data != null) {
+                            newProcessor.Width = data.Width * 16;
+                            newProcessor.Height = data.Height * 16;
+                        }
                     }
 
                     newProcessor.SetProperty();
@@ -242,7 +241,10 @@ namespace InnoVault.TileProcessors
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 载入世界所有TP实体的存档数据
+        /// </summary>
+        /// <param name="tag"></param>
         internal static void LoadWorldData(TagCompound tag) {
             if (!tag.ContainsKey(key_TPData_TagList)) {
                 return;
@@ -256,6 +258,7 @@ namespace InnoVault.TileProcessors
                     tpDictionary[(tp.Mod.Name, tp.GetType().Name, tp.Position)] = tp;
                 }
             }
+
             // 遍历标签列表并在字典中查找匹配的 TileProcessor
             foreach (TagCompound thisTag in list) {
                 if (!thisTag.ContainsKey("data")) {
@@ -271,7 +274,10 @@ namespace InnoVault.TileProcessors
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 保存世界中所有TP实体的数据，在退出世界时调用
+        /// </summary>
+        /// <param name="tag"></param>
         internal static void SaveWorldData(TagCompound tag) {
             List<TagCompound> list = new List<TagCompound>();
             TagCompound saveData = new TagCompound();
@@ -299,7 +305,7 @@ namespace InnoVault.TileProcessors
 
         #region Utils
 
-        /// <inheritdoc/>
+        //集中管理所有TryIsTopLeftPoint钩子
         internal static bool? TileProcessorPlaceInWorldTryIsTopLeftPoint(int i, int j, out Point16 position) {
             bool? reset = null;
             position = default;
@@ -328,7 +334,7 @@ namespace InnoVault.TileProcessors
             return flag;
         }
 
-        /// <inheritdoc/>
+        //集中管理所有GetTopLeftPoint钩子
         internal static Point16? TileProcessorPlaceInWorldGetTopLeftPoint(int i, int j) {
             Point16? point16 = null;
             foreach (var tpGlobal in TPGlobalHooks) {
@@ -361,7 +367,7 @@ namespace InnoVault.TileProcessors
         /// </summary>
         /// <returns></returns>
         public static Dictionary<(string, Point16), TileProcessor> GetTileProcessorDictionaryByNameAndPosition() {
-            Dictionary<(string, Point16), TileProcessor> tpDictionary = new Dictionary<(string, Point16), TileProcessor>();
+            Dictionary<(string, Point16), TileProcessor> tpDictionary = [];
             foreach (TileProcessor tp in TP_InWorld) {
                 if (tp != null) {
                     tpDictionary[(tp.LoadenName, tp.Position)] = tp;
@@ -384,7 +390,47 @@ namespace InnoVault.TileProcessors
         public static int GetModuleID(Type type) => TP_Type_To_ID[type];
 
         /// <summary>
-        /// 根据点来寻找对于的TP实体实例
+        /// 输入任意一点，自动寻找该点物块的左上角并寻找到对应的TP实体，适合用于多结构物块的实体搜寻，
+        /// 本质是 VaultUtils.SafeGetTopLeft 与 ByPositionGetTP 的简写情况
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="point"></param>
+        /// <param name="tileProcessor"></param>
+        /// <returns></returns>
+        public static bool AutoPositionGetTP<T>(Point16 point, out T tileProcessor) where T : TileProcessor 
+            => AutoPositionGetTP(point.X, point.Y, out tileProcessor);
+
+        /// <summary>
+        /// 输入任意一点，自动寻找该点物块的左上角并寻找到对应的TP实体，适合用于多结构物块的实体搜寻，
+        /// 本质是 VaultUtils.SafeGetTopLeft 与 ByPositionGetTP 的简写情况
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="i"></param>
+        /// <param name="j"></param>
+        /// <param name="tileProcessor"></param>
+        /// <returns></returns>
+        public static bool AutoPositionGetTP<T>(int i, int j, out T tileProcessor) where T : TileProcessor {
+            tileProcessor = null;
+            if (!VaultUtils.SafeGetTopLeft(i, j, out var point)) {
+                return false;
+            }
+            return ByPositionGetTP<T>(point, out tileProcessor);
+        }
+
+        /// <summary>
+        /// 根据点来寻找对应的TP实体实例
+        /// </summary>
+        /// <param name="x">要查找的模块的x坐标</param>
+        /// <param name="y">要查找的模块的y坐标</param>
+        /// <param name="tileProcessor"></param>
+        /// <returns></returns>
+        public static bool ByPositionGetTP<T>(int x, int y, out T tileProcessor) where T : TileProcessor {
+            tileProcessor = FindModulePreciseSearch<T>(x, y);
+            return tileProcessor != null;
+        }
+
+        /// <summary>
+        /// 根据点来寻找对应的TP实体实例
         /// </summary>
         /// <param name="position"></param>
         /// <param name="tileProcessor"></param>
@@ -395,16 +441,30 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 根据点来寻找对于的TP实体实例
+        /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
         /// </summary>
-        /// <param name="x"></param>
-        /// <param name="y"></param>
-        /// <param name="tileProcessor"></param>
+        /// <param name="x">要查找的模块的x坐标</param>
+        /// <param name="y">要查找的模块的y坐标</param>
+        /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
-        public static bool ByPositionGetTP<T>(int x, int y, out T tileProcessor) where T : TileProcessor {
-            tileProcessor = FindModulePreciseSearch<T>(x, y);
-            return tileProcessor != null;
+        public static bool ByPositionGetTP(int x, int y, out TileProcessor tileProcessor) {
+            foreach (var inds in TP_InWorld) {
+                if (inds.Position.X == x && inds.Position.Y == y) {
+                    tileProcessor = inds;
+                    return true;
+                }
+            }
+            tileProcessor = null;
+            return false;
         }
+
+        /// <summary>
+        /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
+        /// </summary>
+        /// <param name="point">要查找的模块的坐标</param>
+        /// <param name="tileProcessor">返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></param>
+        /// <returns></returns>
+        public static bool ByPositionGetTP(Point16 point, out TileProcessor tileProcessor) => ByPositionGetTP(point.X, point.Y, out tileProcessor);
 
         /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
@@ -414,6 +474,14 @@ namespace InnoVault.TileProcessors
         /// <param name="y">要查找的模块的y坐标</param>
         /// <returns>返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></returns>
         public static T FindModulePreciseSearch<T>(int x, int y) where T : TileProcessor => FindModulePreciseSearch(GetModuleID<T>(), x, y) as T;
+
+        /// <summary>
+        /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
+        /// </summary>
+        /// <typeparam name="T">要返回的模块的类型，必须继承自 <see cref="TileProcessor"/></typeparam>
+        /// <param name="point">要查找的模块的坐标</param>
+        /// <returns>返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></returns>
+        public static T FindModulePreciseSearch<T>(Point16 point) where T : TileProcessor => FindModulePreciseSearch(GetModuleID<T>(), point.X, point.Y) as T;
 
         /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块
@@ -439,6 +507,14 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
+        /// 使用精确搜索查找与指定ID及坐标对应的模块
+        /// </summary>
+        /// <param name="ID">要查找的模块的ID</param>
+        /// <param name="point">要查找的模块的坐标</param>
+        /// <returns>返回与指定ID及坐标对应的 <see cref="TileProcessor"/>，如果未找到则返回<see langword="null"/></returns>
+        public static TileProcessor FindModulePreciseSearch(int ID, Point16 point) => FindModulePreciseSearch(ID, point.X, point.Y);
+
+        /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
         /// </summary>
         /// <param name="id">目标id</param>
@@ -459,6 +535,15 @@ namespace InnoVault.TileProcessors
         public static T FindModuleRangeSearch<T>(int x, int y, int maxFindLeng) where T : TileProcessor => FindModuleRangeSearch(GetModuleID<T>(), x, y, maxFindLeng) as T;
 
         /// <summary>
+        /// 在指定范围内查找与指定ID和坐标最接近的模块，并将其转换为指定类型的模块
+        /// </summary>
+        /// <typeparam name="T">要返回的模块的类型，必须继承自 <see cref="TileProcessor"/></typeparam>
+        /// <param name="point">要查找的模块的坐标</param>
+        /// <param name="maxFindLeng">搜索范围的最大距离</param>
+        /// <returns>返回与指定ID及坐标最接近的模块，如果未找到则返回<see langword="null"/></returns>
+        public static T FindModuleRangeSearch<T>(Point16 point, int maxFindLeng) where T : TileProcessor => FindModuleRangeSearch(GetModuleID<T>(), point.X, point.Y, maxFindLeng) as T;
+
+        /// <summary>
         /// 在指定范围内查找与指定ID和坐标最接近的模块
         /// </summary>
         /// <param name="ID">要查找的模块的ID</param>
@@ -468,20 +553,21 @@ namespace InnoVault.TileProcessors
         /// <returns>返回与指定ID及坐标最接近的 <see cref="TileProcessor"/>，如果未找到则返回<see langword="null"/></returns>
         public static TileProcessor FindModuleRangeSearch(int ID, int x, int y, int maxFindLeng) {
             TileProcessor module = null;
-            float findValue = maxFindLeng;
+            float findSquaredValue = maxFindLeng * maxFindLeng;
+            Vector2 position = new Vector2(x, y) * 16;
             // 遍历世界中的所有模块，查找与指定ID匹配并且距离最近的模块
             foreach (var inds in TP_InWorld) {
                 if (inds.ID != ID) {
                     continue;
                 }
                 // 计算当前模块与指定坐标之间的距离
-                float value = (new Vector2(x, y) * 16 - inds.PosInWorld).Length();
-                if (value > findValue) {
+                float value = (position - inds.PosInWorld).LengthSquared();
+                if (value > findSquaredValue) {
                     continue;
                 }
                 // 更新最接近的模块及其距离
                 module = inds;
-                findValue = value;
+                findSquaredValue = value;
             }
             return module;
         }

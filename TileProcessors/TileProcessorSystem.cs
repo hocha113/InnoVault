@@ -83,11 +83,21 @@ namespace InnoVault.TileProcessors
             TileProcessorBoxSizeDraw(tileProcessor);
         }
 
-        private static void TileProcessorBoxSizeDraw(TileProcessor tileProcessor) {
+        /// <summary>
+        /// 绘制这个TP实体的调试框
+        /// </summary>
+        /// <param name="tileProcessor"></param>
+        public static void TileProcessorBoxSizeDraw(TileProcessor tileProcessor) {
             if (VaultClientConfig.Instance.TileProcessorBoxSizeDraw) {
                 Vector2 drawPos = tileProcessor.PosInWorld - Main.screenPosition;
+
+                Main.EntitySpriteDraw(VaultAsset.placeholder2.Value
+                    , drawPos, Vector2.Zero.GetRectangle(tileProcessor.Size)
+                    , Color.OrangeRed * 0.3f, 0, Vector2.Zero, 1, SpriteEffects.None, 0);
+
                 Main.EntitySpriteDraw(VaultAsset.placeholder2.Value, drawPos
                 , new Rectangle(0, 0, 16, 16), Color.Red * 0.6f, 0, Vector2.Zero, 1, SpriteEffects.None, 0);
+
                 Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, tileProcessor.ToString()
                     , drawPos.X + 0, drawPos.Y - 70, Color.AliceBlue, Color.Black, Vector2.Zero, 1f);
             }
