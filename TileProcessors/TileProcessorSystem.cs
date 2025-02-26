@@ -110,8 +110,6 @@ namespace InnoVault.TileProcessors
 
                 TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID]++;
 
-                tileProcessor.Tile = VaultUtils.GetTile(tileProcessor.Position.X, tileProcessor.Position.Y);
-
                 if (TileProcessorIsDead(tileProcessor)) {
                     continue;
                 }

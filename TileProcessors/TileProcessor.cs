@@ -56,6 +56,22 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public int ID => TileProcessorLoader.TP_Type_To_ID[GetType()];
         /// <summary>
+        /// 宽度，默认为32，如果<see cref="Tile"/>存在，则会在初始化时自动设置为其宽度
+        /// </summary>
+        public int Width = 32;
+        /// <summary>
+        /// 高度，默认为32，如果<see cref="Tile"/>存在，则会在初始化时自动设置为其高度
+        /// </summary>
+        public int Height = 32;
+        /// <summary>
+        /// 这个TP实体的碰撞矩形
+        /// </summary>
+        public virtual Rectangle HitBox => PosInWorld.GetRectangle(Size);
+        /// <summary>
+        /// 矩形大小
+        /// </summary>
+        public Vector2 Size => new Vector2(Width, Height);
+        /// <summary>
         /// 这个模块在世界物块坐标系上的位置，通常等价于所跟随的物块的坐标
         /// </summary>
         public Point16 Position;
@@ -63,6 +79,10 @@ namespace InnoVault.TileProcessors
         /// 这个模块在世界实体坐标系上的位置
         /// </summary>
         public Vector2 PosInWorld => new Vector2(Position.X, Position.Y) * 16;
+        /// <summary>
+        /// 这个模块在世界实体坐标系上的中心位置
+        /// </summary>
+        public Vector2 CenterInWorld => PosInWorld + Size / 2;
         #endregion
         /// <summary>
         /// 克隆函数，如果制作的模块类型含有独立的字段，一般要重写克隆函数复制这些字段

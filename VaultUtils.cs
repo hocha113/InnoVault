@@ -1387,40 +1387,6 @@ namespace InnoVault
                 return false;
             }
         }
-
-        /// <summary>
-        /// 获取一个物块目标，输入世界物块坐标，自动考虑收界情况
-        /// </summary>
-        public static Tile GetTile(int i, int j) {
-            return GetTile(new Vector2(i, j));
-        }
-
-        /// <summary>
-        /// 获取一个物块目标，输入世界物块坐标，自动考虑收界情况
-        /// </summary>
-        public static Tile GetTile(Vector2 pos) {
-            pos = PTransgressionTile(pos);
-            return Main.tile[(int)pos.X, (int)pos.Y];
-        }
-
-        /// <summary>
-        /// 将可能越界的方块坐标收值为非越界坐标
-        /// </summary>
-        public static Vector2 PTransgressionTile(Vector2 TileVr, int L = 0, int R = 0, int D = 0, int S = 0) {
-            if (TileVr.X > Main.maxTilesX - R) {
-                TileVr.X = Main.maxTilesX - R;
-            }
-            if (TileVr.X < 0 + L) {
-                TileVr.X = 0 + L;
-            }
-            if (TileVr.Y > Main.maxTilesY - S) {
-                TileVr.Y = Main.maxTilesY - S;
-            }
-            if (TileVr.Y < 0 + D) {
-                TileVr.Y = 0 + D;
-            }
-            return new Vector2(TileVr.X, TileVr.Y);
-        }
         #endregion
 
         #region Draw

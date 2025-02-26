@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -6,6 +7,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using Terraria.ObjectData;
 
 namespace InnoVault.TileProcessors
 {
@@ -18,9 +20,9 @@ namespace InnoVault.TileProcessors
         private static readonly string key_TPData_TagList = "TPData_TagList";
 
         /// <summary>
-        /// 在世界中的Tile模块的最大存在数量
+        /// 在世界中的Tile模块的最大存在数量，最多为10000
         /// </summary>
-        public const int MaxTileModuleInWorldCount = 1000;
+        public const int MaxTileModuleInWorldCount = 10000;
         /// <summary>
         /// 当前世界的数据
         /// </summary>
@@ -174,6 +176,13 @@ namespace InnoVault.TileProcessors
                     newProcessor.Position = position;
                     newProcessor.TrackItem = item;
                     newProcessor.Active = true;
+                    newProcessor.Tile = Framing.GetTileSafely(newProcessor.Position);
+                    if (newProcessor.Tile != null && newProcessor.Tile.HasTile) {
+                        TileObjectData data = TileObjectData.GetTileData(newProcessor.Tile);
+                        newProcessor.Width = data.Width;
+                        newProcessor.Height = data.Height;
+                    }
+
                     newProcessor.SetProperty();
 
                     bool add = true;
@@ -195,7 +204,7 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 加载世界中的所有 TileModule，初始化和激活它们
+        /// 加载世界中的所有 TileProcessor，初始化和激活它们
         /// </summary>
         /// <remarks>
         /// 此方法会首先移除不再活跃的模块，然后扫描整个世界的每一个 Tile，
@@ -366,6 +375,7 @@ namespace InnoVault.TileProcessors
         /// </summary>
         /// <returns>返回该类型对应的模块ID</returns>
         public static int GetModuleID<T>() where T : TileProcessor => TP_Type_To_ID[typeof(T)];
+
         /// <summary>
         /// 根据指定类型获取对应的模块ID
         /// </summary>
@@ -385,6 +395,18 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
+        /// 根据点来寻找对于的TP实体实例
+        /// </summary>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <param name="tileProcessor"></param>
+        /// <returns></returns>
+        public static bool ByPositionGetTP<T>(int x, int y, out T tileProcessor) where T : TileProcessor {
+            tileProcessor = FindModulePreciseSearch<T>(x, y);
+            return tileProcessor != null;
+        }
+
+        /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
         /// </summary>
         /// <typeparam name="T">要返回的模块的类型，必须继承自 <see cref="TileProcessor"/></typeparam>
@@ -392,6 +414,7 @@ namespace InnoVault.TileProcessors
         /// <param name="y">要查找的模块的y坐标</param>
         /// <returns>返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></returns>
         public static T FindModulePreciseSearch<T>(int x, int y) where T : TileProcessor => FindModulePreciseSearch(GetModuleID<T>(), x, y) as T;
+
         /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块
         /// </summary>
