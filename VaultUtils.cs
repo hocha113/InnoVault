@@ -710,8 +710,8 @@ namespace InnoVault
         /// <summary>
         /// 发送游戏文本并记录日志内容
         /// </summary>
-        /// <param name="obj"></param>
-        /// <param name="mod"></param>
+        /// <param name="obj">需要输入的内容</param>
+        /// <param name="mod">打印的模组对象，如果为默认值<see langword="null"/>，则不会在日志中输出记录</param>
         public static void LoggerDomp(this object obj, Mod mod = null) {
             string text;
             if (obj == null) {
@@ -725,9 +725,6 @@ namespace InnoVault
 
             if (mod != null) {
                 mod.Logger.Info(text);
-            }
-            else {
-                VaultMod.Instance.Logger.Info(text);
             }
         }
 

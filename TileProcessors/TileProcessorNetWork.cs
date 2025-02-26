@@ -175,7 +175,7 @@ namespace InnoVault.TileProcessors
             int tpCount = reader.ReadInt32(); // 读取TP数量
 
             if (tpCount < 0 || tpCount > MaxTileModuleInWorldCount) {
-                "TileProcessorLoader-ClientRequest_TPData_Receive: Received invalid TP count, terminating read".LoggerDomp();
+                "TileProcessorLoader-ClientRequest_TPData_Receive: Received invalid TP count, terminating read".LoggerDomp(VaultMod.Instance);
                 return;
             }
 
@@ -186,7 +186,7 @@ namespace InnoVault.TileProcessors
 
                 // 确认是否为有效的起始标记
                 if (marker != TP_START_GUID) {
-                    $"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid mark {marker}，Skip to the next node".LoggerDomp();
+                    $"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid mark {marker}，Skip to the next node".LoggerDomp(VaultMod.Instance);
                     continue;
                 }
 
@@ -198,7 +198,7 @@ namespace InnoVault.TileProcessors
                 }
                 else {
                     // 跳过该TileProcessor的数据
-                    $"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip".LoggerDomp();
+                    $"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip".LoggerDomp(VaultMod.Instance);
                     SkipToNextMarker(reader);
                 }
             }
