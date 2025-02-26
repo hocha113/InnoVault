@@ -1,4 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
+using System;
+using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 
@@ -54,6 +56,17 @@ namespace InnoVault.TileProcessors
         /// <returns></returns>
         public virtual bool? TryIsTopLeftPoint(int x, int y, out Point16 position) {
             position = default;
+            return null;
+        }
+        /// <summary>
+        /// 获取给定坐标的物块左上角位置，并判断该位置是否为多结构物块的左上角
+        /// 返回<see langword="null"/>即不覆盖后续的值，反之亦然
+        /// </summary>
+        /// <param name="tile">便捷的获取目标物块的实例，等价于 Framing.GetTileSafely(i, j) </param>
+        /// <param name="i">目标物块的横坐标</param>
+        /// <param name="j">目标物块的纵坐标</param>
+        /// <returns></returns>
+        public virtual Point16? GetTopLeftOrNull(Tile tile, int i, int j) {
             return null;
         }
         /// <summary>

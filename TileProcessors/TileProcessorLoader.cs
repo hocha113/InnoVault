@@ -123,7 +123,7 @@ namespace InnoVault.TileProcessors
                 //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
                 tps.Add(module);
             }
-            targetTileTypes = new HashSet<int>(TargetTile_To_TPInstance.Keys);
+            targetTileTypes = [.. TargetTile_To_TPInstance.Keys];
         }
 
         void IVaultLoader.UnLoadData() {
@@ -445,7 +445,7 @@ namespace InnoVault.TileProcessors
         /// <param name="x">要查找的模块的x坐标</param>
         /// <param name="y">要查找的模块的y坐标</param>
         /// <returns>返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></returns>
-        [Obsolete]
+        [Obsolete("已经过时，一般使用其他重载")]
         public static T FindModulePreciseSearch<T>(int id, int x, int y) where T : TileProcessor => FindModulePreciseSearch(id, x, y) as T;
 
         /// <summary>
@@ -457,6 +457,7 @@ namespace InnoVault.TileProcessors
         /// <param name="maxFindLeng">搜索范围的最大距离</param>
         /// <returns>返回与指定ID及坐标最接近的模块，如果未找到则返回<see langword="null"/></returns>
         public static T FindModuleRangeSearch<T>(int x, int y, int maxFindLeng) where T : TileProcessor => FindModuleRangeSearch(GetModuleID<T>(), x, y, maxFindLeng) as T;
+
         /// <summary>
         /// 在指定范围内查找与指定ID和坐标最接近的模块
         /// </summary>

@@ -30,7 +30,7 @@ namespace InnoVault.TileProcessors
         public string LoadenName => Mod.Name + ":" + GetType().Name;
         /// <summary>
         /// 这个模块所要跟随的物块结构，如果对象是一个多结构物块，那么这个块一般代表左上角。
-        /// 如果这个模块还活跃，那么这个物块的值会每帧更新
+        /// 这个值只在模块加载或被放置时更新一次
         /// </summary>
         public Tile Tile;
         /// <summary>
@@ -99,6 +99,7 @@ namespace InnoVault.TileProcessors
             writer.Write(WhoAmI);
             writer.WritePoint16(Position);
         }
+
         /// <summary>
         /// 接受网络TP实体克隆的信息，对应<see cref="NetCloneSend"/>方法的处理，务必保证消息的接收是对应的
         /// </summary>
@@ -108,25 +109,30 @@ namespace InnoVault.TileProcessors
             WhoAmI = reader.ReadInt32();
             Position = reader.ReadPoint16();
         }
+
         /// <summary>
         /// 这个TP实体如果在加载世界时已经存在，这个函数会在加载世界时被调用一次，用以用来初始化一些信息
         /// </summary>
         public virtual void LoadInWorld() { }
+
         /// <summary>
         /// 在世界被卸载时调用一次
         /// </summary>
         public virtual void UnLoadInWorld() { }
+
         /// <summary>
         /// 这个模块在世界中的存在数量
         /// </summary>
         /// <returns></returns>
         public int GetInWorldHasNum() => TileProcessorLoader.TP_ID_To_InWorld_Count[ID];
+
         /// <summary>
         /// 这个函数是单实例的，在一个更新周期中，它只会运行一次，如果<see cref="GetInWorldHasNum"/>返回0，就不会被调用
         /// </summary>
         public virtual void SingleInstanceUpdate() {
 
         }
+
         /// <summary>
         /// 这个函数在跟随的物块被挖掘或者消失时自动调用一次，
         /// 调用这个函数，将会让模块变得不活跃，同时运行<see cref="OnKill"/>设置死亡事件
@@ -135,37 +141,45 @@ namespace InnoVault.TileProcessors
             OnKill();
             Active = false;
         }
+
         /// <summary>
         /// 重写这个函数设置一些特殊的死亡事件或者整理数据逻辑。
         /// 一般不直接调用这个函数而是调用<see cref="Kill"/>
         /// </summary>
         public virtual void OnKill() { }
+
         /// <summary>
         /// 多物块被挖掘时会运行的函数，输入对于动画帧
         /// </summary>
         /// <param name="frameX"></param>
         /// <param name="frameY"></param>
         public virtual void KillMultiTileSet(int frameX, int frameY) { }
+
         /// <summary>
         /// 游戏加载时调用
         /// </summary>
         public virtual void Load() { }
+
         /// <summary>
         /// 游戏卸载时调用
         /// </summary>
         public virtual void UnLoad() { }
+
         /// <summary>
         /// 在游戏加载末期调用一次，一般用于设置一些静态的值
         /// </summary>
         public virtual void SetStaticProperty() { }
+
         /// <summary>
         /// 在模块被生成时调用一次，用于初始化一些实例数据
         /// </summary>
         public virtual void SetProperty() { }
+
         /// <summary>
         /// 会在所有本地客户端、服务端上更新，编写程序时需要考虑网络结构
         /// </summary>
         public virtual void Update() { }
+
         /// <summary>
         /// 这个模块在什么情况下应该被标记为死亡
         /// </summary>

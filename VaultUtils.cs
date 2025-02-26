@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.TileProcessors;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using Steamworks;
@@ -211,6 +212,10 @@ namespace InnoVault
         /// 创建一个矩形
         /// </summary>
         public static Rectangle GetRectangle(this Vector2 topLeft, Vector2 size) => new Rectangle((int)topLeft.X, (int)topLeft.Y, (int)size.X, (int)size.Y);
+        /// <summary>
+        /// 创建一个矩形
+        /// </summary>
+        public static Rectangle GetRectangle(this Vector2 topLeft, Point size) => new Rectangle((int)topLeft.X, (int)topLeft.Y, size.X, size.Y);
 
         #endregion
 
@@ -1282,7 +1287,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 
+        /// 发送关于一个<see cref="Point16"/>结构的网络数据
         /// </summary>
         /// <param name="modPacket"></param>
         /// <param name="point16"></param>
@@ -1292,7 +1297,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 
+        /// 发送关于一个<see cref="Point16"/>结构的网络数据
         /// </summary>
         /// <param name="writer"></param>
         /// <param name="point16"></param>
@@ -1302,11 +1307,38 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 
+        /// 接收关于一个<see cref="Point16"/>结构的网络数据
         /// </summary>
         /// <param name="reader"></param>
         /// <returns></returns>
         public static Point16 ReadPoint16(this BinaryReader reader) => new Point16(reader.ReadInt16(), reader.ReadInt16());
+
+        /// <summary>
+        /// 发送关于一个<see cref="Vector2"/>结构的网络数据
+        /// </summary>
+        /// <param name="modPacket"></param>
+        /// <param name="vector2"></param>
+        public static void WriteVector2(this ModPacket modPacket, Vector2 vector2) {
+            modPacket.Write(vector2.X);
+            modPacket.Write(vector2.Y);
+        }
+
+        /// <summary>
+        /// 发送关于一个<see cref="Vector2"/>结构的网络数据
+        /// </summary>
+        /// <param name="writer"></param>
+        /// <param name="vector2"></param>
+        public static void WriteVector2(this BinaryWriter writer, Vector2 vector2) {
+            writer.Write(vector2.X);
+            writer.Write(vector2.Y);
+        }
+
+        /// <summary>
+        /// 接收关于一个<see cref="Vector2"/>结构的网络数据
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <returns></returns>
+        public static Vector2 ReadVector2(this BinaryReader reader) => new Vector2(reader.ReadSingle(), reader.ReadSingle());
         #endregion
 
         #region Tile
@@ -1322,16 +1354,29 @@ namespace InnoVault
             // 获取给定坐标的物块
             Tile tile = Framing.GetTileSafely(i, j);
 
+            //一个关于TP的G钩子，用于修改一些特殊物块对于TP的实体的判定
+            if (TileProcessorLoader.targetTileTypes.Contains(tile.TileType)) {
+                Point16? gPoint = null;
+                foreach (var gTP in TileProcessorLoader.TPGlobalHooks) {
+                    gPoint = gTP.GetTopLeftOrNull(tile, i, j);
+                }
+                if (gPoint.HasValue) {
+                    return gPoint.Value;
+                }
+            }
+
             // 如果没有物块，返回null
-            if (!tile.HasTile)
+            if (!tile.HasTile) {
                 return null;
+            }
 
             // 获取物块的数据结构，如果为null则认为是单个物块
             TileObjectData data = TileObjectData.GetTileData(tile);
 
             // 如果是单个物块，直接返回当前坐标
-            if (data == null)
+            if (data == null) {
                 return new Point16(i, j);
+            }
 
             // 计算物块的帧位置偏移量
             int frameX = tile.TileFrameX % (data.Width * 18);
