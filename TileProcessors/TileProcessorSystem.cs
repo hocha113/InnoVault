@@ -66,6 +66,47 @@ namespace InnoVault.TileProcessors
             }
         }
 
+        /// <inheritdoc/>
+        public override void PostUpdateEverything() {
+            if (TileProcessorLoader.TP_InWorld.Count <= 0) {
+                return;
+            }
+
+            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_Instances) {
+                TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID] = 0;
+            }
+
+            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+                if (!tileProcessor.Active) {
+                    continue;
+                }
+
+                TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID]++;
+
+                if (TileProcessorIsDead(tileProcessor)) {
+                    continue;
+                }
+
+                TileProcessorUpdate(tileProcessor);
+            }
+
+            foreach (TileProcessor tpInds in TileProcessorLoader.TP_Instances) {
+                if (tpInds.GetInWorldHasNum() > 0) {
+                    tpInds.SingleInstanceUpdate();
+                }
+            }
+        }
+
+        internal static void TileProcessorPreTileDraw(TileProcessor tileProcessor) {
+            bool reset = true;
+            foreach (var gTP in TileProcessorLoader.TPGlobalHooks) {
+                reset = gTP.PreTileDraw(tileProcessor, Main.spriteBatch);
+            }
+            if (reset) {
+                tileProcessor.PreTileDraw(Main.spriteBatch);
+            }
+        }
+
         internal static void TileProcessorDraw(TileProcessor tileProcessor) {
             bool reset = true;
             foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
@@ -104,37 +145,6 @@ namespace InnoVault.TileProcessors
         }
 
         /// <inheritdoc/>
-        public override void PostUpdateEverything() {
-            if (TileProcessorLoader.TP_InWorld.Count <= 0) {
-                return;
-            }
-
-            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_Instances) {
-                TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID] = 0;
-            }
-
-            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
-                if (!tileProcessor.Active) {
-                    continue;
-                }
-
-                TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID]++;
-
-                if (TileProcessorIsDead(tileProcessor)) {
-                    continue;
-                }
-
-                TileProcessorUpdate(tileProcessor);
-            }
-
-            foreach (TileProcessor tpInds in TileProcessorLoader.TP_Instances) {
-                if (tpInds.GetInWorldHasNum() > 0) {
-                    tpInds.SingleInstanceUpdate();
-                }
-            }
-        }
-
-        /// <inheritdoc/>
         public static void PreDrawTiles() {
             if (TileProcessorLoader.TP_InWorld.Count <= 0) {
                 return;
@@ -145,7 +155,7 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
 
-                tileProcessor.PreTileDraw(Main.spriteBatch);
+                TileProcessorPreTileDraw(tileProcessor);
             }
         }
 

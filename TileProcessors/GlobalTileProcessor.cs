@@ -70,6 +70,13 @@ namespace InnoVault.TileProcessors
             return null;
         }
         /// <summary>
+        /// 更新在<see cref="TileProcessor.PreTileDraw(SpriteBatch)"/>之前，返回<see langword="false"/>可以阻止其运行
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool PreTileDraw(TileProcessor tileProcessor, SpriteBatch spriteBatch) {
+            return true;
+        }
+        /// <summary>
         /// 更新在<see cref="TileProcessor.Draw(SpriteBatch)"/>之前，返回<see langword="false"/>可以阻止其运行
         /// </summary>
         /// <returns></returns>
