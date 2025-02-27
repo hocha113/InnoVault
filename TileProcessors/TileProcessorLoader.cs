@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.GameContent.Drawing;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.ObjectData;
@@ -93,6 +94,7 @@ namespace InnoVault.TileProcessors
             MonoModHooks.Add(onTile_KillMultiTile_Method, OnKillMultiTileHook);
 
             WorldGen.Hooks.OnWorldLoad += LoadWorldTileProcessor;
+            On_TileDrawing.Draw += On_TileDrawing_DrawHook;
         }
 
         void IVaultLoader.SetupData() {
@@ -139,6 +141,7 @@ namespace InnoVault.TileProcessors
             ActiveWorldTagData = null;
 
             WorldGen.Hooks.OnWorldLoad -= LoadWorldTileProcessor;
+            On_TileDrawing.Draw -= On_TileDrawing_DrawHook;
         }
 
         //集中管理所有KillMultiTileSet钩子
@@ -150,6 +153,12 @@ namespace InnoVault.TileProcessors
                 module.KillMultiTileSet(frameX, frameY);
             }
             orig.Invoke(i, j, frameX, frameY, type);
+        }
+        //集中管理所有TileDrawing_Draw钩子
+        void On_TileDrawing_DrawHook(On_TileDrawing.orig_Draw orig, TileDrawing self
+            , bool solidLayer, bool forRenderTargets, bool intoRenderTargets, int waterStyleOverride) {
+            TileProcessorSystem.PreDrawTiles();
+            orig.Invoke(self, solidLayer, forRenderTargets, intoRenderTargets, waterStyleOverride);
         }
 
         /// <summary>

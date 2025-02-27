@@ -225,17 +225,28 @@ namespace InnoVault.TileProcessors
         public virtual void SaveData(TagCompound tag) {
 
         }
+
         /// <summary>
         /// 加载这个实体的数据
         /// </summary>
         public virtual void LoadData(TagCompound tag) {
 
         }
+
+        /// <summary>
+        /// 绘制在物块之前
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        public virtual void PreTileDraw(SpriteBatch spriteBatch) {
+
+        }
+
         /// <summary>
         /// 一个独立的绘制函数，在<see cref="TileProcessorSystem.PostDrawTiles"/>中统一运行
         /// </summary>
         /// <param name="spriteBatch"></param>
         public virtual void Draw(SpriteBatch spriteBatch) { }
+
         /// <inheritdoc/>
         public override string ToString() => $"Name:{GetType().Name} \nID:{ID} \nwhoAmi:{WhoAmI}";
     }

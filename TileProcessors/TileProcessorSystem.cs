@@ -135,6 +135,21 @@ namespace InnoVault.TileProcessors
         }
 
         /// <inheritdoc/>
+        public static void PreDrawTiles() {
+            if (TileProcessorLoader.TP_InWorld.Count <= 0) {
+                return;
+            }
+
+            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+                if (!tileProcessor.Active) {
+                    continue;
+                }
+
+                tileProcessor.PreTileDraw(Main.spriteBatch);
+            }
+        }
+
+        /// <inheritdoc/>
         public override void PostDrawTiles() {
             if (TileProcessorLoader.TP_InWorld.Count <= 0) {
                 return;
