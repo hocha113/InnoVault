@@ -71,11 +71,11 @@ namespace InnoVault.GameContent.BaseEntity
         /// </summary>
         public virtual Vector2 UnitToMouseV { get; protected set; }
         /// <summary>
-        /// 是否处于开火时间
+        /// 是否处于开火时间，默认为<see langword="true"/>
         /// </summary>
-        public virtual bool CanFire => false;
+        public virtual bool CanFire => true;
         /// <summary>
-        /// 是否处于活跃状态
+        /// 是否处于活跃状态，默认为<see langword="false"/>
         /// </summary>
         public virtual bool CanMouseNet => false;
         /// <summary>
