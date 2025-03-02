@@ -1586,6 +1586,15 @@ namespace InnoVault
             => pos.X > -16 && pos.X < Main.screenWidth + 16 && pos.Y > -16 && pos.Y < Main.screenHeight + 16;
 
         /// <summary>
+        /// 判断给定的二维点是否在屏幕内（考虑一个小范围的边界扩展）
+        /// </summary>
+        /// <param name="pos">要判断的点的坐标</param>
+        /// <param name="extend">扩张范围</param>
+        /// <returns>如果点在屏幕范围内（包括扩展边界），返回 true；否则返回 false</returns>
+        public static bool IsPointOnScreen(Vector2 pos, int extend)
+            => pos.X > -extend && pos.X < Main.screenWidth + extend && pos.Y > -extend && pos.Y < Main.screenHeight + extend;
+
+        /// <summary>
         /// 判断给定的矩形是否与屏幕范围有交集
         /// </summary>
         /// <param name="rect">要判断的矩形</param>

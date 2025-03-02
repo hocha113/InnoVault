@@ -100,13 +100,6 @@ namespace InnoVault.TileProcessors
         void IVaultLoader.SetupData() {
             for (int i = 0; i < TP_Instances.Count; i++) {
                 TileProcessor module = TP_Instances[i];
-                try {
-                    module.SetStaticProperty();
-                } catch {
-                    string errorText = nameof(module) + ": 在进行 SetStaticProperty 时发生了错误，但被跳过";
-                    string errorText2 = nameof(module) + ": An error occurred while performing SetStaticProperty, but it was skipped";
-                    VaultMod.Instance.Logger.Info(VaultUtils.Translation(errorText, errorText2));
-                }
 
                 TP_Type_To_ID.Add(module.GetType(), i);
                 TP_Type_To_Instance.Add(module.GetType(), module);
@@ -121,6 +114,14 @@ namespace InnoVault.TileProcessors
                 }
                 //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
                 tps.Add(module);
+
+                try {
+                    module.SetStaticProperty();
+                } catch {
+                    string errorText = nameof(module) + ": 在进行 SetStaticProperty 时发生了错误，但被跳过";
+                    string errorText2 = nameof(module) + ": An error occurred while performing SetStaticProperty, but it was skipped";
+                    VaultMod.Instance.Logger.Info(VaultUtils.Translation(errorText, errorText2));
+                }
             }
             targetTileTypes = [.. TargetTile_To_TPInstance.Keys];
         }
@@ -130,13 +131,13 @@ namespace InnoVault.TileProcessors
                 module.UnLoad();
             }
 
-            TP_Instances.Clear();
-            TP_Type_To_ID.Clear();
-            TP_Type_To_Instance.Clear();
-            TP_ID_To_Instance.Clear();
-            TP_ID_To_InWorld_Count.Clear();
-            TP_Type_To_Mod.Clear();
-            TargetTile_To_TPInstance.Clear();
+            TP_Instances?.Clear();
+            TP_Type_To_ID?.Clear();
+            TP_Type_To_Instance?.Clear();
+            TP_ID_To_Instance?.Clear();
+            TP_ID_To_InWorld_Count?.Clear();
+            TP_Type_To_Mod?.Clear();
+            TargetTile_To_TPInstance?.Clear();
             onTile_KillMultiTile_Method = null;
             ActiveWorldTagData = null;
 

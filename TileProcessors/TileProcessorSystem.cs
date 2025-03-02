@@ -98,6 +98,10 @@ namespace InnoVault.TileProcessors
         }
 
         internal static void TileProcessorPreTileDraw(TileProcessor tileProcessor) {
+            if (!VaultUtils.IsPointOnScreen(tileProcessor.PosInWorld - Main.screenPosition, tileProcessor.DrawExtendMode)) {
+                return;
+            }
+
             bool reset = true;
             foreach (var gTP in TileProcessorLoader.TPGlobalHooks) {
                 reset = gTP.PreTileDraw(tileProcessor, Main.spriteBatch);
@@ -108,6 +112,10 @@ namespace InnoVault.TileProcessors
         }
 
         internal static void TileProcessorDraw(TileProcessor tileProcessor) {
+            if (!VaultUtils.IsPointOnScreen(tileProcessor.PosInWorld - Main.screenPosition, tileProcessor.DrawExtendMode)) {
+                return;
+            }
+
             bool reset = true;
             foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
                 reset = tpGlobal.PreDraw(tileProcessor, Main.spriteBatch);
