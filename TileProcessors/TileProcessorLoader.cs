@@ -40,6 +40,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static Dictionary<Type, int> TP_Type_To_ID { get; private set; } = [];
         /// <summary>
+        /// 将Tile模块的内部名映射到其对应的ID的字典
+        /// </summary>
+        public static Dictionary<string, int> TP_FullName_To_ID { get; private set; } = [];
+        /// <summary>
         /// 将Tile模块的类型映射到模块实例的字典
         /// </summary>
         public static Dictionary<Type, TileProcessor> TP_Type_To_Instance { get; private set; } = [];
@@ -95,6 +99,7 @@ namespace InnoVault.TileProcessors
 
             WorldGen.Hooks.OnWorldLoad += LoadWorldTileProcessor;
             On_Main.DrawBackgroundBlackFill += On_TileDrawing_DrawHook;
+            //On_Main.Initialize_AlmostEverything += On_Main_Initialize_AlmostEverything;
         }
 
         void IVaultLoader.SetupData() {
@@ -102,6 +107,7 @@ namespace InnoVault.TileProcessors
                 TileProcessor module = TP_Instances[i];
 
                 TP_Type_To_ID.Add(module.GetType(), i);
+                TP_FullName_To_ID.Add(module.LoadenName, i);
                 TP_Type_To_Instance.Add(module.GetType(), module);
                 TP_ID_To_Instance.Add(module.ID, module);
                 TP_ID_To_InWorld_Count.Add(module.ID, 0);
@@ -133,6 +139,7 @@ namespace InnoVault.TileProcessors
 
             TP_Instances?.Clear();
             TP_Type_To_ID?.Clear();
+            TP_FullName_To_ID?.Clear();
             TP_Type_To_Instance?.Clear();
             TP_ID_To_Instance?.Clear();
             TP_ID_To_InWorld_Count?.Clear();
@@ -143,6 +150,7 @@ namespace InnoVault.TileProcessors
 
             WorldGen.Hooks.OnWorldLoad -= LoadWorldTileProcessor;
             On_Main.DrawBackgroundBlackFill -= On_TileDrawing_DrawHook;
+            //On_Main.Initialize_AlmostEverything -= On_Main_Initialize_AlmostEverything;
         }
 
         //集中管理所有KillMultiTileSet钩子
@@ -184,15 +192,7 @@ namespace InnoVault.TileProcessors
                     newProcessor.Position = position;
                     newProcessor.TrackItem = item;
                     newProcessor.Active = true;
-                    newProcessor.Tile = Framing.GetTileSafely(newProcessor.Position);
-                    if (newProcessor.Tile != null && newProcessor.Tile.HasTile) {
-                        TileObjectData data = TileObjectData.GetTileData(newProcessor.Tile);
-                        if (data != null) {
-                            newProcessor.Width = data.Width * 16;
-                            newProcessor.Height = data.Height * 16;
-                        }
-                    }
-
+                    newProcessor.LoadenTile();
                     newProcessor.SetProperty();
 
                     bool add = true;
@@ -401,6 +401,21 @@ namespace InnoVault.TileProcessors
         public static int GetModuleID(Type type) => TP_Type_To_ID[type];
 
         /// <summary>
+        /// 根据指定内部名获取对应的模块ID
+        /// </summary>
+        /// <param name="name">模块的内部名</param>
+        /// <returns>返回该类型对应的模块ID</returns>
+        public static int GetModuleID(string name) => TP_FullName_To_ID[name];
+
+        /// <summary>
+        /// 根据指定内部名获取对应的模块ID
+        /// </summary>
+        /// <param name="name">模块的内部名</param>
+        /// <param name="id">输出id</param>
+        /// <returns>返回该类型对应的模块ID</returns>
+        public static bool TryGetTpID(string name, out int id) => TP_FullName_To_ID.TryGetValue(name, out id);
+
+        /// <summary>
         /// 输入任意一点，自动寻找该点物块的左上角并寻找到对应的TP实体，适合用于多结构物块的实体搜寻，
         /// 本质是 VaultUtils.SafeGetTopLeft 与 ByPositionGetTP 的简写情况
         /// </summary>
@@ -468,6 +483,34 @@ namespace InnoVault.TileProcessors
             tileProcessor = null;
             return false;
         }
+
+        /// <summary>
+        /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
+        /// </summary>
+        /// <param name="id">要查找的模块的ID</param>
+        /// <param name="x">要查找的模块的x坐标</param>
+        /// <param name="y">要查找的模块的y坐标</param>
+        /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
+        /// <returns></returns>
+        public static bool ByPositionGetTP(int id, int x, int y, out TileProcessor tileProcessor) {
+            foreach (var inds in TP_InWorld) {
+                if (inds.ID == id && inds.Position.X == x && inds.Position.Y == y) {
+                    tileProcessor = inds;
+                    return true;
+                }
+            }
+            tileProcessor = null;
+            return false;
+        }
+
+        /// <summary>
+        /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
+        /// </summary>
+        /// <param name="id">要查找的模块的ID</param>
+        /// <param name="point">要查找的模块的坐标</param>
+        /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
+        /// <returns></returns>
+        public static bool ByPositionGetTP(int id, Point16 point, out TileProcessor tileProcessor) => ByPositionGetTP(id, point.X, point.Y, out tileProcessor);
 
         /// <summary>
         /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况

@@ -39,6 +39,9 @@ namespace InnoVault.TileProcessors
             }
 
             if (isDead) {
+                if (VaultUtils.isServer) {
+                    TileProcessorNetWork.SendTPDeathByServer(tileProcessor);
+                }
 
                 tileProcessor.Kill();
 

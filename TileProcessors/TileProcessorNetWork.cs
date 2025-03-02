@@ -4,6 +4,7 @@ using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 using static InnoVault.TileProcessors.TileProcessorLoader;
 using static InnoVault.VaultNetWork;
 
@@ -48,7 +49,7 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 发送数据
+        /// 发送TP网络数据
         /// </summary>
         public static void TileProcessorSendData(TileProcessor tp) {
             if (VaultUtils.isSinglePlayer) {
@@ -64,7 +65,7 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 接收数据
+        /// 接收TP网络数据
         /// </summary>
         public static void TileProcessorReceiveData(BinaryReader reader, int whoAmI) {
             //"TileProcessorLoader-ReceiveData:正在接收数据".LoggerDomp();
@@ -90,6 +91,45 @@ namespace InnoVault.TileProcessors
             }
             else {
                 throw new Exception($"TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found : {name}-position[{position}]");
+            }
+        }
+
+        //我们需要先明白，在多人模式中地图加载是不完全的，对于客户端，完整的图格加载往往只在玩家生成点周围
+        //所以如果不进行处理，客户端的TP实体就会在进入地图后消失，但服务端的不受影响
+        //为了解决这个问题，我禁止了客户端自行杀死TP的更新，转而让服务端广播TP的死亡消息
+        //目前来讲，这个问题被很好的解决了。但是要小心由这种解决方法所诞生出来的不安全字段，比如TP的Tile字段将有可能为默认值
+        //并且，在客户端进入服务器后可能会需要自行加载大量的TP实体
+
+        /// <summary>
+        /// 由服务端向所有客户端广播这个TP实体死亡的消息
+        /// </summary>
+        /// <param name="tileProcessor"></param>
+        public static void SendTPDeathByServer(TileProcessor tileProcessor) {
+            if (!VaultUtils.isServer) {
+                return;
+            }
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.ServerTPDeathVerify);
+            modPacket.Write(tileProcessor.ID);
+            modPacket.WritePoint16(tileProcessor.Position);
+            modPacket.Send();
+        }
+
+        /// <summary>
+        /// 客户端接收死亡消息后设置其死亡
+        /// </summary>
+        /// <param name="reader"></param>
+        public static void HandlerTPDeathByClient(BinaryReader reader) {
+            if (!VaultUtils.isClient) {
+                return;
+            }
+            int id = reader.ReadInt32();
+            Point16 point = reader.ReadPoint16();
+            if (ByPositionGetTP(id, point, out var tileProcessor)) {
+                tileProcessor.Kill();
+                foreach (var tpGlobal in TPGlobalHooks) {
+                    tpGlobal.OnKill(tileProcessor);
+                }
             }
         }
 
@@ -186,7 +226,7 @@ namespace InnoVault.TileProcessors
 
                 // 确认是否为有效的起始标记
                 if (marker != TP_START_GUID) {
-                    $"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid mark {marker}，Skip to the next node".LoggerDomp(VaultMod.Instance);
+                    $"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid markID: {i}，Skip to the next node".LoggerDomp(VaultMod.Instance);
                     continue;
                 }
 
@@ -197,14 +237,30 @@ namespace InnoVault.TileProcessors
                     tp.ReceiveData(reader, -1);
                 }
                 else {
-                    // 跳过该TileProcessor的数据
-                    $"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip".LoggerDomp(VaultMod.Instance);
-                    SkipToNextMarker(reader);
+                    if (TryGetTpID(name, out int tpID)) {
+                        AddInWorld(TP_ID_To_Instance[tpID].TargetTileID, position, null);
+                        if (ByPositionGetTP(tpID, position.X, position.Y, out var newTP)) {
+                            newTP.ReceiveData(reader, -1);
+                        }
+                        else {
+                            // 跳过该TileProcessor的数据
+                            DompTPinstanceNotFound(name, position);
+                            SkipToNextMarker(reader);
+                        }
+                    }
+                    else {
+                        // 跳过该TileProcessor的数据
+                        DompTPinstanceNotFound(name, position);
+                        SkipToNextMarker(reader);
+                    }
                 }
             }
 
             InitializeWorld = false;
         }
+
+        private static void DompTPinstanceNotFound(string name, Point16 position) 
+            => $"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip".LoggerDomp(VaultMod.Instance);
 
         /// <summary>
         /// 跳到下一个标记节点

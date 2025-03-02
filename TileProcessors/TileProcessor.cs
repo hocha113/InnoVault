@@ -6,6 +6,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using Terraria.ObjectData;
 
 namespace InnoVault.TileProcessors
 {
@@ -29,10 +30,11 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public string LoadenName => Mod.Name + ":" + GetType().Name;
         /// <summary>
-        /// 这个模块所要跟随的物块结构，如果对象是一个多结构物块，那么这个块一般代表左上角。
+        /// 这个模块所要跟随的物块结构，如果对象是一个多结构物块，那么这个块一般代表左上角
         /// 这个值只在模块加载或被放置时更新一次
+        /// 在客户端上，这个值可能并没有加载，在使用时需要考虑环境验证或者编写一些防御代码，防止出现一些意料之外的情况
         /// </summary>
-        public Tile Tile;
+        public Tile Tile = default;
         /// <summary>
         /// 如果是玩家中途手动放置的物块所生成的模块，这个值会标记为放置所用的物品
         /// ，否则为<see langword="null"/>，比如进入世界初始化生成的模块
@@ -170,6 +172,20 @@ namespace InnoVault.TileProcessors
         public virtual void UnLoad() { }
 
         /// <summary>
+        /// 加载这个TP实体所依赖的物块相关的数据，这个函数一般只在实体生成时调用一次
+        /// </summary>
+        public virtual void LoadenTile() {
+            Tile = Framing.GetTileSafely(Position);
+            if (Tile != null && Tile.HasTile) {
+                TileObjectData data = TileObjectData.GetTileData(Tile);
+                if (data != null) {
+                    Width = data.Width * 16;
+                    Height = data.Height * 16;
+                }
+            }
+        }
+
+        /// <summary>
         /// 在游戏加载末期调用一次，一般用于设置一些静态的值
         /// </summary>
         public virtual void SetStaticProperty() { }
@@ -189,6 +205,11 @@ namespace InnoVault.TileProcessors
         /// </summary>
         /// <returns></returns>
         public virtual bool IsDaed() {
+            //在多人游戏中，不允许客户端自行杀死Tp实体，这些要通过服务器的统一广播来管理
+            if (VaultUtils.isClient) {
+                return false;
+            }
+
             if (Tile == null) {
                 return true;
             }
