@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 using Terraria.UI;
 
 namespace InnoVault.UIHandles
@@ -237,6 +238,47 @@ namespace InnoVault.UIHandles
 
             foreach (var layersMode in allLayersModes) {
                 GetLayerModeHandlers(layersMode).Sort((x, y) => x.RenderPriority.CompareTo(y.RenderPriority));//按照升序排列
+            }
+        }
+
+        /// <summary>
+        /// 进入世界时调用
+        /// </summary>
+        public static void OnEnterWorld() {
+            foreach (var ui in UIHandles) {
+                if (ui.LayersMode == LayersModeEnum.None
+                    || ui.LayersMode == LayersModeEnum.Mod_MenuLoad) {
+                    continue;
+                }
+                ui.OnEnterWorld();
+            }
+        }
+
+        /// <summary>
+        /// 保存UI数据
+        /// </summary>
+        /// <param name="tag"></param>
+        public static void SaveUIData(TagCompound tag) {
+            foreach (var ui in UIHandles) {
+                if (ui.LayersMode == LayersModeEnum.None 
+                    || ui.LayersMode == LayersModeEnum.Mod_MenuLoad) {
+                    continue;
+                }
+                ui.SaveUIData(tag);
+            }
+        }
+
+        /// <summary>
+        /// 加载UI数据
+        /// </summary>
+        /// <param name="tag"></param>
+        public static void LoadUIData(TagCompound tag) {
+            foreach (var ui in UIHandles) {
+                if (ui.LayersMode == LayersModeEnum.None
+                    || ui.LayersMode == LayersModeEnum.Mod_MenuLoad) {
+                    continue;
+                }
+                ui.LoadUIData(tag);
             }
         }
 

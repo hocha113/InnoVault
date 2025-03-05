@@ -50,6 +50,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public bool LoadenWorldSendData = true;
         /// <summary>
+        /// 这个Tp实体是否在玩家的画面内，该值在绘制函数中实时更新
+        /// </summary>
+        public bool InScreen;
+        /// <summary>
         /// 这个模块在世界中的唯一标签，如果模块不再活跃，它将随时被新加入的模块顶替，顶替的模块将继续使用相同WhoAmI值
         /// </summary>
         public int WhoAmI;
@@ -267,10 +271,22 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
+        /// 一个独立的绘制函数，在<see cref="TileProcessorSystem.PostDrawTiles"/>中统一运行，该函数的绘制图层在<see cref="Draw"/>下方
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        public virtual void BackDraw(SpriteBatch spriteBatch) { }
+
+        /// <summary>
         /// 一个独立的绘制函数，在<see cref="TileProcessorSystem.PostDrawTiles"/>中统一运行
         /// </summary>
         /// <param name="spriteBatch"></param>
         public virtual void Draw(SpriteBatch spriteBatch) { }
+
+        /// <summary>
+        /// 一个独立的绘制函数，在<see cref="TileProcessorSystem.PostDrawTiles"/>中统一运行，该函数的绘制图层在<see cref="Draw"/>上方
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        public virtual void FrontDraw(SpriteBatch spriteBatch) { }
 
         /// <inheritdoc/>
         public override string ToString() => $"Name:{GetType().Name} \nID:{ID} \nwhoAmi:{WhoAmI}";

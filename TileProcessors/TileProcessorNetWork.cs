@@ -212,8 +212,7 @@ namespace InnoVault.TileProcessors
 
             InitializeWorld = reader.ReadBoolean();
 
-            int tpCount = reader.ReadInt32(); // 读取TP数量
-
+            int tpCount = reader.ReadInt32(); // 读取 TP 数量
             if (tpCount < 0 || tpCount > MaxTileModuleInWorldCount) {
                 "TileProcessorLoader-ClientRequest_TPData_Receive: Received invalid TP count, terminating read".LoggerDomp(VaultMod.Instance);
                 return;
@@ -222,42 +221,52 @@ namespace InnoVault.TileProcessors
             Dictionary<(string, Point16), TileProcessor> tpDictionary = GetTileProcessorDictionaryByNameAndPosition();
 
             for (int i = 0; i < tpCount; i++) {
-                string marker = reader.ReadString();
-
-                // 确认是否为有效的起始标记
-                if (marker != TP_START_GUID) {
-                    $"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid markID: {i}，Skip to the next node".LoggerDomp(VaultMod.Instance);
+                // 确保是合法的标记
+                if (reader.ReadString() != TP_START_GUID) {
+                    $"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid markID: {i}, skipping to the next node".LoggerDomp(VaultMod.Instance);
+                    SkipToNextMarker(reader);
                     continue;
                 }
 
                 string name = reader.ReadString();
                 Point16 position = reader.ReadPoint16();
 
+                // 先检查字典中是否已有该 TileProcessor
                 if (tpDictionary.TryGetValue((name, position), out TileProcessor tp)) {
                     tp.ReceiveData(reader, -1);
+                    continue;
                 }
-                else {
-                    if (TryGetTpID(name, out int tpID)) {
-                        AddInWorld(TP_ID_To_Instance[tpID].TargetTileID, position, null);
-                        if (ByPositionGetTP(tpID, position.X, position.Y, out var newTP)) {
-                            newTP.ReceiveData(reader, -1);
-                        }
-                        else {
-                            // 跳过该TileProcessor的数据
-                            DompTPinstanceNotFound(name, position);
-                            SkipToNextMarker(reader);
-                        }
-                    }
-                    else {
-                        // 跳过该TileProcessor的数据
-                        DompTPinstanceNotFound(name, position);
-                        SkipToNextMarker(reader);
+
+                // 通过 name 获取 TP ID
+                if (!TryGetTpID(name, out int tpID)) {
+                    DompTPinstanceNotFound(name, position);
+                    SkipToNextMarker(reader);
+                    continue;
+                }
+
+                // 先尝试从现有的 TileProcessor 列表中查找
+                if (ByPositionGetTP(tpID, position.X, position.Y, out TileProcessor existingTP)) {
+                    existingTP.ReceiveData(reader, -1);
+                    continue;
+                }
+
+                // 如果找不到，尝试新建
+                if (TP_ID_To_Instance.TryGetValue(tpID, out TileProcessor template)) {
+                    TileProcessor newTP = AddInWorld(template.TargetTileID, position, null);
+                    if (newTP != null) {
+                        newTP.ReceiveData(reader, -1);
+                        continue;
                     }
                 }
+
+                // 仍然失败，则记录日志并跳过
+                DompTPinstanceNotFound(name, position);
+                SkipToNextMarker(reader);
             }
 
             InitializeWorld = false;
         }
+
 
         private static void DompTPinstanceNotFound(string name, Point16 position) 
             => $"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip".LoggerDomp(VaultMod.Instance);

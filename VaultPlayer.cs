@@ -1,20 +1,23 @@
 ﻿using InnoVault.TileProcessors;
+using InnoVault.UIHandles;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 
 namespace InnoVault
 {
     internal class VaultPlayer : ModPlayer
     {
-        public static int ClientTPWaitsTime = -1;
         public override void OnEnterWorld() {
-            ClientTPWaitsTime = 60;
+            UIHandleLoader.OnEnterWorld();
             TileProcessorNetWork.ClientRequest_TPData_Send(true);
         }
 
-        public override void PostUpdate() {
-            if (ClientTPWaitsTime > 0) {
-                ClientTPWaitsTime--;
-            }
+        public override void SaveData(TagCompound tag) {
+            UIHandleLoader.SaveUIData(tag);
+        }
+
+        public override void LoadData(TagCompound tag) {
+            UIHandleLoader.LoadUIData(tag);
         }
     }
 }

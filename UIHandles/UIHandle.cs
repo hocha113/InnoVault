@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 
 namespace InnoVault.UIHandles
 {
@@ -132,6 +133,23 @@ namespace InnoVault.UIHandles
         /// 更新逻辑相关
         /// </summary>
         public virtual void Update() { }
+
+        /// <summary>
+        /// 玩家进入世界时调用一次该方法，可以用于一些UI的初始化操作
+        /// </summary>
+        public virtual void OnEnterWorld() { }
+
+        /// <summary>
+        /// 保存UI数据，UI数据将保存到玩家之上
+        /// </summary>
+        /// <param name="tag"></param>
+        public virtual void SaveUIData(TagCompound tag) { }
+
+        /// <summary>
+        /// 加载UI数据，UI数据将保存到玩家之上
+        /// </summary>
+        /// <param name="tag"></param>
+        public virtual void LoadUIData(TagCompound tag) { }
 
         /// <summary>
         /// 更新绘制相关

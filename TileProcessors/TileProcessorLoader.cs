@@ -172,7 +172,7 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 向世界中的模块列表添加一个新的 TileModule
+        /// 向世界中的模块列表添加一个新的 TileProcessor
         /// </summary>
         /// <param name="tileID">要添加的 Tile 的 ID</param>
         /// <param name="position">该模块的左上角位置</param>
@@ -181,10 +181,12 @@ namespace InnoVault.TileProcessors
         /// 该方法会首先尝试从 <see cref="TP_Type_To_ID"/> 获取对应的模块，然后克隆该模块并设置其位置、跟踪物品和激活状态
         /// 如果有空闲的模块槽位，会将新模块放入该槽位，否则会添加到列表的末尾
         /// </remarks>
-        public static void AddInWorld(int tileID, Point16 position, Item item) {
+        public static TileProcessor AddInWorld(int tileID, Point16 position, Item item) {
             if (tileID == 0 || TP_InWorld.Count >= MaxTileModuleInWorldCount) {//是的，我们拒绝泥土
-                return;
+                return null;
             }
+
+            TileProcessor reset = null;
 
             if (TargetTile_To_TPInstance.TryGetValue(tileID, out List<TileProcessor> processorList)) {
                 foreach (var processor in processorList) {
@@ -201,16 +203,20 @@ namespace InnoVault.TileProcessors
                             newProcessor.WhoAmI = TP_InWorld[i].WhoAmI;
                             TP_InWorld[i] = newProcessor;
                             add = false;
+                            reset = newProcessor;
                             break;
                         }
                     }
 
                     if (add) {
                         newProcessor.WhoAmI = TP_InWorld.Count;
+                        reset = newProcessor;
                         TP_InWorld.Add(newProcessor);
                     }
                 }
             }
+
+            return reset;
         }
 
         /// <summary>

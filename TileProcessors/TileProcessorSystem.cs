@@ -114,27 +114,6 @@ namespace InnoVault.TileProcessors
             }
         }
 
-        internal static void TileProcessorDraw(TileProcessor tileProcessor) {
-            if (!VaultUtils.IsPointOnScreen(tileProcessor.PosInWorld - Main.screenPosition, tileProcessor.DrawExtendMode)) {
-                return;
-            }
-
-            bool reset = true;
-            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
-                reset = tpGlobal.PreDraw(tileProcessor, Main.spriteBatch);
-            }
-
-            if (reset) {
-                tileProcessor.Draw(Main.spriteBatch);
-            }
-
-            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
-                tpGlobal.PostDraw(tileProcessor, Main.spriteBatch);
-            }
-
-            TileProcessorBoxSizeDraw(tileProcessor);
-        }
-
         /// <summary>
         /// 绘制这个TP实体的调试框
         /// </summary>
@@ -179,12 +158,49 @@ namespace InnoVault.TileProcessors
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
                 , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
 
+            //第一次层，也是最下方的
             foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+                tileProcessor.InScreen = false;
                 if (!tileProcessor.Active) {
                     continue;
                 }
+                
+                tileProcessor.InScreen = VaultUtils.IsPointOnScreen(tileProcessor.PosInWorld - Main.screenPosition, tileProcessor.DrawExtendMode);
 
-                TileProcessorDraw(tileProcessor);
+                if (!tileProcessor.InScreen) {
+                    continue;
+                }
+
+                tileProcessor.BackDraw(Main.spriteBatch);
+            }
+            //第二次层次
+            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+                if (!tileProcessor.Active || !tileProcessor.InScreen) {
+                    continue;
+                }
+
+                bool reset = true;
+                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                    reset = tpGlobal.PreDraw(tileProcessor, Main.spriteBatch);
+                }
+
+                if (reset) {
+                    tileProcessor.Draw(Main.spriteBatch);
+                }
+
+                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                    tpGlobal.PostDraw(tileProcessor, Main.spriteBatch);
+                }
+            }
+            //第三次层，也是最上方的
+            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+                if (!tileProcessor.Active || !tileProcessor.InScreen) {
+                    continue;
+                }
+
+                tileProcessor.FrontDraw(Main.spriteBatch);
+
+                TileProcessorBoxSizeDraw(tileProcessor);
             }
 
             Main.spriteBatch.End();
