@@ -21,15 +21,21 @@ namespace InnoVault
         /// 错误素材占位符
         /// </summary>
         public static Asset<Texture2D> placeholder3 { get; internal set; }
+        /// <summary>
+        /// 一个近十字光纹理
+        /// </summary>
+        public static Asset<Texture2D> Light { get; internal set; }
         void IVaultLoader.LoadAsset() {
             placeholder = ModContent.Request<Texture2D>("InnoVault/Assets/placeholder");
             placeholder2 = ModContent.Request<Texture2D>("InnoVault/Assets/placeholder2");
             placeholder3 = ModContent.Request<Texture2D>("InnoVault/Assets/placeholder3");
+            Light = ModContent.Request<Texture2D>("InnoVault/Assets/Light");
         }
         void IVaultLoader.UnLoadData() {
             placeholder = null;
             placeholder2 = null;
             placeholder3 = null;
+            Light = null;
         }
     }
 }
