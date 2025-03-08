@@ -166,6 +166,12 @@ namespace InnoVault.TileProcessors
                 }
                 
                 tileProcessor.InScreen = VaultUtils.IsPointOnScreen(tileProcessor.PosInWorld - Main.screenPosition, tileProcessor.DrawExtendMode);
+                if (tileProcessor.InScreen) {
+                    tileProcessor.HoverTP = tileProcessor.HitBox.Intersects(Main.MouseWorld.GetRectangle(1));
+                }
+                else {
+                    tileProcessor.HoverTP = false;
+                }
 
                 if (!tileProcessor.InScreen) {
                     continue;

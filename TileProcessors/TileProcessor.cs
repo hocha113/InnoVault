@@ -50,6 +50,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public bool LoadenWorldSendData = true;
         /// <summary>
+        /// 玩家鼠标是否悬停在TP实体之上
+        /// </summary>
+        public bool HoverTP;
+        /// <summary>
         /// 这个Tp实体是否在玩家的画面内，该值在绘制函数中实时更新
         /// </summary>
         public bool InScreen;
