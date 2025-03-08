@@ -84,6 +84,13 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
 
+                if (tileProcessor.InScreen) {
+                    tileProcessor.HoverTP = tileProcessor.HitBox.Intersects(Main.MouseWorld.GetRectangle(1));
+                }
+                else {//不在屏幕里面鼠标肯定是点不到的
+                    tileProcessor.HoverTP = false;
+                }
+                
                 TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID]++;
 
                 if (TileProcessorIsDead(tileProcessor)) {
@@ -164,14 +171,8 @@ namespace InnoVault.TileProcessors
                 if (!tileProcessor.Active) {
                     continue;
                 }
-                
+
                 tileProcessor.InScreen = VaultUtils.IsPointOnScreen(tileProcessor.PosInWorld - Main.screenPosition, tileProcessor.DrawExtendMode);
-                if (tileProcessor.InScreen) {
-                    tileProcessor.HoverTP = tileProcessor.HitBox.Intersects(Main.MouseWorld.GetRectangle(1));
-                }
-                else {
-                    tileProcessor.HoverTP = false;
-                }
 
                 if (!tileProcessor.InScreen) {
                     continue;

@@ -193,6 +193,9 @@ namespace InnoVault.TileProcessors
                 modPacket.Write(TP_START_GUID); // 添加分隔标签
                 modPacket.Write(tp.LoadenName);
                 modPacket.WritePoint16(tp.Position);
+                //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
+                modPacket.Write((byte)(tp.Width / 16));
+                modPacket.Write((byte)(tp.Height / 16));
 
                 // 发送TileProcessor数据
                 tp.SendData(modPacket);
@@ -230,6 +233,8 @@ namespace InnoVault.TileProcessors
 
                 string name = reader.ReadString();
                 Point16 position = reader.ReadPoint16();
+                byte widthByTile = reader.ReadByte();
+                byte heightByTile = reader.ReadByte();
 
                 // 先检查字典中是否已有该 TileProcessor
                 if (tpDictionary.TryGetValue((name, position), out TileProcessor tp)) {
@@ -254,6 +259,9 @@ namespace InnoVault.TileProcessors
                 if (TP_ID_To_Instance.TryGetValue(tpID, out TileProcessor template)) {
                     TileProcessor newTP = AddInWorld(template.TargetTileID, position, null);
                     if (newTP != null) {
+                        //因为客户端上的物块加载不完整，所以客户端生成的TP大小很可能不正确，这里接收服务器的数据来进行覆盖矫正
+                        newTP.Width = widthByTile * 16;//乘以16转化为像素宽度
+                        newTP.Height = heightByTile * 16;
                         newTP.ReceiveData(reader, -1);
                         continue;
                     }
