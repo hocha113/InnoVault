@@ -74,9 +74,9 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public int Height = 16;
         /// <summary>
-        /// 这个实体在屏幕上绘制的扩张范围，默认为124
+        /// 这个实体在屏幕上绘制的扩张范围，默认为160
         /// </summary>
-        public int DrawExtendMode = 124;
+        public int DrawExtendMode = 160;
         /// <summary>
         /// 这个TP实体的碰撞矩形
         /// </summary>

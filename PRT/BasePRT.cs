@@ -56,15 +56,23 @@ namespace InnoVault.PRT
         /// <summary>
         /// 如果你想让你的粒子在达到其最大寿命时自动移除,将此设置为<see langword="true"/>
         /// </summary>
+        [Obsolete("如果需要让粒子无视寿命计时,将Lifetime设置为-1或者是其他小于0的值即可")]
         public bool SetLifetime = false;
         /// <summary>
-        /// 一个粒子可以存活的最大时间,单位为tick,一般如果想让其有效需要先将<see cref="SetLifetime"/>设置为<see langword="true"/>
+        /// 一个粒子可以存活的最大时间,单位为tick,如果为默认值-1或者是其他小于0的值，则认定不启用寿命计时
         /// </summary>
-        public int Lifetime = 0;
+        public int Lifetime = -1;
         /// <summary>
         /// 存活时间比例
         /// </summary>
-        public float LifetimeCompletion => Lifetime != 0 ? Time / (float)Lifetime : 0;
+        public float LifetimeCompletion {
+            get {
+                if (Lifetime <= 0) {
+                    return 0;
+                }
+                return Time / (float)Lifetime;
+            }
+        }
         /// <summary>
         /// 渐变值，在多数情况下用于插值计算，意义上等同于"sengs"
         /// </summary>

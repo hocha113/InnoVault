@@ -359,7 +359,7 @@ namespace InnoVault.PRT
                     continue;
                 }
 
-                if (particle.Time >= particle.Lifetime && particle.SetLifetime) {
+                if (particle.Lifetime >= 0 && particle.Time >= particle.Lifetime && particle.SetLifetime) {
                     particle.active = false;
                     continue;
                 }
