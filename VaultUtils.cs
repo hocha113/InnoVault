@@ -1441,6 +1441,43 @@ namespace InnoVault
 
             return TileLoader.GetItemDropFromTypeAndStyle(tile.TileType, stye);
         }
+
+        /// <summary>
+        /// 检查给定的 <see cref="Vector2"/> 坐标点是否位于世界范围内
+        /// </summary>
+        /// <param name="vector">要检查的世界坐标，以像素为单位</param>
+        /// <returns>如果坐标转换为 <see cref="Point16"/> 后仍然位于世界范围内，则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
+        /// <remarks>
+        /// 由于世界的物块坐标是 16×16 像素的网格，因此本方法会将 <paramref name="vector"/> 的 X 和 Y 坐标
+        /// 除以 16 并取整，以转换为 tile 坐标，然后调用 <see cref="InWorld(Point16)"/> 进行判断
+        /// </remarks>
+        public static bool InWorld(Vector2 vector) => InWorld(new Point16((int)(vector.X / 16), (int)(vector.Y / 16)));
+
+        /// <summary>
+        /// 检查给定的 <see cref="Point16"/> 坐标点是否位于世界范围内
+        /// </summary>
+        /// <param name="point">要检查的 tile 坐标，以 <see cref="Point16"/> 形式表示</param>
+        /// <returns>如果点位于世界范围内，则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
+        /// <remarks>
+        /// 本方法是对 <see cref="WorldGen.InWorld"/> 方法的封装，以支持 <see cref="Point16"/> 类型的参数
+        /// 适用于 tile 级别的世界范围判断，而非像素级别的坐标检查
+        /// </remarks>
+        public static bool InWorld(Point16 point) => WorldGen.InWorld(point.X, point.Y);
+
+        /// <summary>
+        /// 检查多个 <see cref="Point16"/> 坐标点是否全部位于世界范围内
+        /// </summary>
+        /// <param name="points">要检查的多个 tile 坐标点</param>
+        /// <returns>如果所有点都位于世界范围内，则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
+        public static bool InWorld(params Point16[] points) {
+            foreach (var point in points) {
+                if (!WorldGen.InWorld(point.X, point.Y)) {
+                    return false; // 只要有一个点不在世界范围内，就返回 false
+                }
+            }
+            return true; // 所有点都在世界范围内
+        }
+
         #endregion
 
         #region Draw
