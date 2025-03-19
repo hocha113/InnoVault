@@ -359,11 +359,12 @@ namespace InnoVault.PRT
                     continue;
                 }
 
-                if (particle.Lifetime >= 0 && particle.Time >= particle.Lifetime && particle.SetLifetime) {
+                if (particle.Lifetime >= 0 && particle.Time >= particle.Lifetime) {
                     particle.active = false;
                     continue;
                 }
-                if (particle.ShouldKillWhenOffScreen && !VaultUtils.IsPointOnScreen(particle.Position - Main.screenPosition)) {
+
+                if (particle.ShouldKillWhenOffScreen && !VaultUtils.IsPointOnScreen(particle.Position - Main.screenPosition, 160)) {
                     particle.active = false;
                 }
             }
