@@ -421,7 +421,7 @@ namespace InnoVault.PRT
             orig(self);
         }
 
-        private static void defaultDraw(SpriteBatch spriteBatch, BasePRT particle) {
+        private static void DefaultDraw(SpriteBatch spriteBatch, BasePRT particle) {
             Texture2D value = PRT_IDToTexture[particle.ID];
             if (particle.Frame == default) {
                 particle.Frame = new Rectangle(0, 0, value.Width, value.Height);
@@ -464,7 +464,7 @@ namespace InnoVault.PRT
         /// <param name="particle"></param>
         public static void PRTInstanceDraw(SpriteBatch spriteBatch, BasePRT particle) {
             if (particle.PreDraw(spriteBatch)) {
-                defaultDraw(spriteBatch, particle);
+                DefaultDraw(spriteBatch, particle);
             }
             particle.PostDraw(spriteBatch);
         }
