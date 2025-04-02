@@ -54,11 +54,6 @@ namespace InnoVault.PRT
         /// </summary>
         public int Time;
         /// <summary>
-        /// 如果你想让你的粒子在达到其最大寿命时自动移除,将此设置为<see langword="true"/>
-        /// </summary>
-        [Obsolete("如果需要让粒子无视寿命计时,将Lifetime设置为-1或者是其他小于0的值即可")]
-        public bool SetLifetime = false;
-        /// <summary>
         /// 一个粒子可以存活的最大时间,单位为tick,如果为默认值-1或者是其他小于0的值，则认定不启用寿命计时
         /// </summary>
         public int Lifetime = -1;
