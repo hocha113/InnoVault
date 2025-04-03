@@ -24,6 +24,15 @@ namespace InnoVault.UIHandles
         /// </summary>
         public int ID => UIHandleLoader.UIHandle_Type_To_ID[GetType()];
         /// <summary>
+        /// 程序进行防御性处理时会用到的值，如果该实例内部发生错误，则会将该值设置为大于0的值，期间不会再自动调用该实例
+        /// 这个值每帧减一，直到不再大于0。无论出于什么目的，不要去自行设置它，而是使用<see cref="Active"/>
+        /// </summary>
+        internal int ignoreBug = -1;
+        /// <summary>
+        /// 记录发生错误的次数，不要自行设置它
+        /// </summary>
+        internal int errorCount;
+        /// <summary>
         /// 这个UI是否活跃
         /// </summary>
         public virtual bool Active {

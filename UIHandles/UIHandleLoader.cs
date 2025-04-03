@@ -443,22 +443,34 @@ namespace InnoVault.UIHandles
         }
         /// <inheritdoc/>
         public static void UIHanderElementUpdate(UIHandle hander) {
+            if (hander.ignoreBug > 0) {
+                hander.ignoreBug--;
+                return;
+            }
+
             if (!hander.Active) {
                 return;
             }
 
-            bool reset = true;
-            foreach (var global in UIHandleGlobalHooks) {
-                reset = global.PreUIHanderElementUpdate(hander);
-            }
+            try {
+                bool reset = true;
+                foreach (var global in UIHandleGlobalHooks) {
+                    reset = global.PreUIHanderElementUpdate(hander);
+                }
 
-            if (reset) {
-                hander.Update();
-                hander.Draw(Main.spriteBatch);
-            }
+                if (reset) {
+                    hander.Update();
+                    hander.Draw(Main.spriteBatch);
+                }
 
-            foreach (var global in UIHandleGlobalHooks) {
-                global.PostUIHanderElementUpdate(hander);
+                foreach (var global in UIHandleGlobalHooks) {
+                    global.PostUIHanderElementUpdate(hander);
+                }
+            } 
+            catch (Exception ex) {
+                hander.ignoreBug = 600;
+                hander.errorCount++;
+                VaultMod.Instance.Logger.Error($"{hander} encountered an error {hander.errorCount} times: {ex}");
             }
         }
         /// <inheritdoc/>
@@ -507,8 +519,7 @@ namespace InnoVault.UIHandles
                 i => i.Match(OpCodes.Ldnull),
                 i => i.MatchCall(typeof(Main), $"get_{nameof(Main.UIScaleMatrix)}")
             )) {
-                string conxt2 = VaultUtils.Translation("IL 挂载失败，是否是目标流已经更改或者移除框架?"
-                    , "IL mount failed. Has the target stream changed or the frame has been removed?");
+                string conxt2 = "IL mount failed. Has the target stream changed or the frame has been removed?";
                 string errortext = $"{nameof(UIHandleLoader)}: {conxt2} ";
                 VaultMod.Instance.Logger.Info(errortext);
                 throw new Exception(errortext);
