@@ -638,6 +638,23 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 尝试寻找距离指定位置最近的NPC
+        /// </summary>
+        /// <param name="origin">开始搜索的位置</param>
+        /// <param name="npc">返回找到的NPC</param>
+        /// <param name="maxDistanceToCheck">搜索NPC的最大距离</param>
+        /// <param name="ignoreTiles">在检查障碍物时是否忽略瓦片</param>
+        /// <param name="bossPriority">是否优先选择Boss</param>
+        /// <param name="onHitNPCs">排除的NPC列表</param>
+        /// <param name="chasedByNPC">额外的条件过滤，用于判断NPC是否应被考虑，如果该委托不为<see langword="null"/> 那么它的返回值将覆盖其他的筛选结果</param>
+        /// <returns>是否成功找到NPC</returns>
+        public static bool TryFindClosestNPC(this Vector2 origin, out NPC npc, float maxDistanceToCheck, bool ignoreTiles = true,
+            bool bossPriority = false, IEnumerable<NPC> onHitNPCs = null, Func<NPC, bool> chasedByNPC = null) {
+            npc = origin.FindClosestNPC(maxDistanceToCheck, ignoreTiles, bossPriority, onHitNPCs, chasedByNPC);
+            return npc != null;
+        }
+
+        /// <summary>
         /// 寻找距离指定位置最近的玩家
         /// </summary>
         /// <param name="position">搜索起点</param>
@@ -671,6 +688,20 @@ namespace InnoVault
             }
 
             return closestPlayer;
+        }
+
+        /// <summary>
+        /// 尝试寻找距离指定位置最近的玩家
+        /// </summary>
+        /// <param name="position">搜索起点</param>
+        /// <param name="player">返回找到的玩家</param>
+        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制</param>
+        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
+        /// <param name="playerFilter">玩家过滤条件</param>
+        /// <returns>是否成功找到玩家</returns>
+        public static bool TryFindClosestPlayer(this Vector2 position, out Player player, float maxRange = 3000f, bool ignoreTiles = true, Func<Player, bool> playerFilter = null) {
+            player = position.FindClosestPlayer(maxRange, ignoreTiles, playerFilter);
+            return player != null;
         }
 
         /// <summary>
