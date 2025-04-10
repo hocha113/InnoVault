@@ -448,11 +448,11 @@ namespace InnoVault.UIHandles
                 return;
             }
 
-            if (!hander.Active) {
-                return;
-            }
-
             try {
+                if (!hander.Active) {
+                    return;
+                }
+
                 bool reset = true;
                 foreach (var global in UIHandleGlobalHooks) {
                     reset = global.PreUIHanderElementUpdate(hander);

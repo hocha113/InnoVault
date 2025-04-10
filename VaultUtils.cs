@@ -1288,6 +1288,7 @@ namespace InnoVault
         /// <param name="player">触发生成的玩家实例</param>
         /// <param name="bossType">要生成的 Boss 的类型</param>
         /// <param name="obeyLocalPlayerCheck">是否要遵循本地玩家检查</param>
+        [Obsolete("已经弃用，请使用 TrySpawnBossWithNet")]
         public static void SpawnBossNetcoded(Player player, int bossType, bool obeyLocalPlayerCheck = true) {
             if (player.whoAmI == Main.myPlayer || !obeyLocalPlayerCheck) {
                 // 如果使用物品的玩家是客户端
@@ -1307,6 +1308,37 @@ namespace InnoVault
                 }
             }
         }
+
+        /// <summary>
+        /// 尝试在考虑网络状态的前提下生成一个 Boss NPC
+        /// </summary>
+        /// <param name="player">触发生成的玩家实例</param>
+        /// <param name="bossType">要生成的 Boss 的类型</param>
+        /// <param name="checkLocalPlayer">是否只允许本地玩家触发生成</param>
+        /// <returns>是否成功发起了 Boss 的生成请求</returns>
+        public static bool TrySpawnBossWithNet(Player player, int bossType, bool checkLocalPlayer = true) {
+            // 若启用了本地玩家检查，但当前玩家不是本地玩家，则中止
+            if (checkLocalPlayer && player.whoAmI != Main.myPlayer) {
+                return false;
+            }
+
+            SoundEngine.PlaySound(SoundID.Roar, player.position);
+
+            if (Main.netMode == NetmodeID.SinglePlayer || Main.netMode == NetmodeID.Server) {
+                // 本地或服务器：直接生成 Boss
+                NPC.SpawnOnPlayer(player.whoAmI, bossType);
+                return true;
+            }
+            else if (Main.netMode == NetmodeID.MultiplayerClient) {
+                // 多人客户端：发送生成请求给服务器
+                NetMessage.SendData(MessageID.SpawnBossUseLicenseStartEvent, number: player.whoAmI, number2: bossType);
+                return true;
+            }
+
+            // 不在任何有效模式下
+            return false;
+        }
+
 
         /// <summary>
         /// 发送关于一个<see cref="Point16"/>结构的网络数据
