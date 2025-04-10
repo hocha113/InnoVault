@@ -638,6 +638,42 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 寻找距离指定位置最近的玩家
+        /// </summary>
+        /// <param name="position">搜索起点</param>
+        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制</param>
+        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
+        /// <param name="playerFilter">额外的玩家过滤器；若不为 <see langword="null"/>，将根据此委托结果决定玩家是否被考虑</param>
+        /// <returns>距离最近的玩家；若无匹配玩家，返回 <see langword="null"/></returns>
+        public static Player FindClosestPlayer(this Vector2 position, float maxRange = 3000f, bool ignoreTiles = true, Func<Player, bool> playerFilter = null) {
+            Player closestPlayer = null;
+            float minDistance = maxRange == -1f ? float.MaxValue : maxRange;
+
+            foreach (Player player in Main.player) {
+                if (!player.Alives()) {
+                    continue;
+                }
+
+                if (playerFilter != null && !playerFilter(player)) {
+                    continue;
+                }
+
+                float distance = Vector2.Distance(position, player.Center);
+
+                if (distance <= minDistance) {
+                    bool canHit = ignoreTiles || Collision.CanHit(position, 1, 1, player.Center, 1, 1);
+
+                    if (canHit) {
+                        minDistance = distance;
+                        closestPlayer = player;
+                    }
+                }
+            }
+
+            return closestPlayer;
+        }
+
+        /// <summary>
         /// 检测玩家是否有效且正常存活
         /// </summary>
         /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
