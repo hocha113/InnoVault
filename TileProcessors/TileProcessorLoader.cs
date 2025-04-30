@@ -26,7 +26,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 当前世界的数据
         /// </summary>
-        public static TagCompound ActiveWorldTagData;
+        public static TagCompound ActiveWorldTagData { get; internal set; }
         /// <summary>
         /// 所有Tile模块的列表该列表在加载时初始化，并包含所有Tile模块的实例
         /// </summary>

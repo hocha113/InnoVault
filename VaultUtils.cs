@@ -32,6 +32,36 @@ namespace InnoVault
         #region Math
 
         /// <summary>
+        /// 表示一个完整的圆周角度（2π），约为 6.2832 弧度
+        /// </summary>
+        public const float TwoPi = MathF.PI * 2;
+
+        /// <summary>
+        /// 表示两个完整的圆周角度（4π），约为 12.5664 弧度
+        /// </summary>
+        public const float FourPi = MathF.PI * 4;
+
+        /// <summary>
+        /// 表示一个半圆周角度（3π），约为 9.4248 弧度
+        /// </summary>
+        public const float ThreePi = MathF.PI * 3;
+
+        /// <summary>
+        /// 表示三分之一圆周角度（π/3），约为 1.0472 弧度（60度）
+        /// </summary>
+        public const float PiOver3 = MathF.PI / 3f;
+
+        /// <summary>
+        /// 表示五分之一圆周角度（π/5），约为 0.6283 弧度（36度）
+        /// </summary>
+        public const float PiOver5 = MathF.PI / 5f;
+
+        /// <summary>
+        /// 表示六分之一圆周角度（π/6），约为 0.5236 弧度（30度）
+        /// </summary>
+        public const float PiOver6 = MathF.PI / 6f;
+
+        /// <summary>
         /// 二次缓动的入场效果
         /// </summary>
         /// <remarks>该曲线呈加速状态</remarks>
@@ -216,6 +246,53 @@ namespace InnoVault
         /// 创建一个矩形
         /// </summary>
         public static Rectangle GetRectangle(this Vector2 topLeft, Point size) => new Rectangle((int)topLeft.X, (int)topLeft.Y, size.X, size.Y);
+
+        /// <summary>
+        /// 计算一个渐进速度值
+        /// </summary>
+        /// <param name="thisCenter">本体位置</param>
+        /// <param name="targetCenter">目标位置</param>
+        /// <param name="speed">速度</param>
+        /// <param name="shutdownDistance">停摆范围</param>
+        /// <returns></returns>
+        public static float AsymptoticVelocity(this Vector2 thisCenter, Vector2 targetCenter, float speed, float shutdownDistance) {
+            Vector2 toMou = targetCenter - thisCenter;
+            float thisSpeed = toMou.LengthSquared() > shutdownDistance * shutdownDistance ? speed : MathHelper.Min(speed, toMou.Length());
+            return thisSpeed;
+        }
+
+        /// <summary>
+        /// 平滑地将当前角度旋转到目标角度，限制每次更新的最大变化量
+        /// 该方法确保采用最短旋转路径，并正确处理角度环绕
+        /// </summary>
+        /// <param name="currentAngle">当前角度（弧度）</param>
+        /// <param name="targetAngle">目标角度（弧度）</param>
+        /// <param name="maxChange">每次更新允许的最大角度变化量（弧度），必须为非负数</param>
+        /// <returns>新的角度（弧度），向目标角度靠近但不超过最大变化量</returns>
+        /// <remarks>
+        /// 此方法适用于游戏或动画中的平滑旋转，例如角色或摄像机的转向
+        /// 角度会被归一化到 [-π, π] 范围，以避免大角度值引发的问题
+        /// 方法会自动选择最短旋转路径，即使跨越 -π/π 边界
+        /// </remarks>
+        /// <exception cref="System.ArgumentOutOfRangeException">如果 maxChange 小于 0，则抛出异常</exception>
+        public static float RotTowards(this float currentAngle, float targetAngle, float maxChange) {
+            if (maxChange < 0f) {
+                maxChange *= -1;
+            }
+
+            // 归一化角度到 [-π, π]
+            currentAngle = MathHelper.WrapAngle(currentAngle);
+            targetAngle = MathHelper.WrapAngle(targetAngle);
+
+            // 计算最短路径的角度差
+            float delta = MathHelper.WrapAngle(targetAngle - currentAngle);
+
+            // 限制变化量
+            delta = MathHelper.Clamp(delta, -maxChange, maxChange);
+
+            // 返回新的角度并再次归一化
+            return MathHelper.WrapAngle(currentAngle + delta);
+        }
 
         #endregion
 
@@ -419,6 +496,234 @@ namespace InnoVault
 
         #endregion
 
+        #region AI
+
+        /// <summary>
+        /// 让弹幕进行爆炸效果的操作
+        /// </summary>
+        /// <param name="projectile">要爆炸的投射物</param>
+        /// <param name="blastRadius">爆炸效果的半径（默认为 120 单位）</param>
+        /// <param name="explosionSound">爆炸声音的样式（默认为默认的爆炸声音）</param>
+        /// <param name="spanSound">是否自行播放声音，默认为<see langword="true"/></param>
+        public static void Explode(this Projectile projectile, int blastRadius = 120, SoundStyle explosionSound = default, bool spanSound = true) {
+            Vector2 originalPosition = projectile.position;
+            int originalWidth = projectile.width;
+            int originalHeight = projectile.height;
+
+            if (spanSound) {
+                _ = SoundEngine.PlaySound(explosionSound == default ? SoundID.Item14 : explosionSound, projectile.Center);
+            }
+
+            projectile.position = projectile.Center;
+            projectile.width = projectile.height = blastRadius * 2;
+            projectile.position.X -= projectile.width / 2;
+            projectile.position.Y -= projectile.height / 2;
+
+            projectile.maxPenetrate = -1;
+            projectile.penetrate = -1;
+            projectile.usesLocalNPCImmunity = true;
+            projectile.localNPCHitCooldown = -1;
+
+            projectile.Damage();
+
+            projectile.position = originalPosition;
+            projectile.width = originalWidth;
+            projectile.height = originalHeight;
+        }
+
+        /// <summary>
+        /// 普通的追逐行为
+        /// </summary>
+        /// <param name="entity">需要操纵的实体</param>
+        /// <param name="TargetCenter">目标地点</param>
+        /// <param name="Speed">速度</param>
+        /// <param name="ShutdownDistance">停摆距离</param>
+        /// <returns></returns>
+        public static Vector2 ChasingBehavior(this Entity entity, Vector2 TargetCenter, float Speed, float ShutdownDistance = 16) {
+            if (entity == null) {
+                return Vector2.Zero;
+            }
+
+            Vector2 ToTarget = TargetCenter - entity.Center;
+            Vector2 ToTargetNormalize = ToTarget.SafeNormalize(Vector2.Zero);
+            Vector2 speed = ToTargetNormalize * entity.Center.AsymptoticVelocity(TargetCenter, Speed, ShutdownDistance);
+            entity.velocity = speed;
+            return speed;
+        }
+
+        /// <summary>
+        /// 更加缓和的追逐行为
+        /// </summary>
+        /// <param name="entity">需要操纵的实体</param>
+        /// <param name="TargetCenter">目标地点</param>
+        /// <param name="SpeedUpdates">速度的更新系数</param>
+        /// <param name="HomingStrenght">追击力度</param>
+        /// <returns></returns>
+        public static Vector2 SmoothHomingBehavior(this Entity entity, Vector2 TargetCenter, float SpeedUpdates = 1, float HomingStrenght = 0.1f) {
+            float targetAngle = entity.AngleTo(TargetCenter);
+            float f = entity.velocity.ToRotation().RotTowards(targetAngle, HomingStrenght);
+            Vector2 speed = f.ToRotationVector2() * entity.velocity.Length() * SpeedUpdates;
+            entity.velocity = speed;
+            return speed;
+        }
+
+        /// <summary>
+        /// 寻找必要的玩家目标
+        /// </summary>
+        /// <param name="npc"></param>
+        /// <returns></returns>
+        public static Player FindPlayer(this NPC npc) {
+            if (npc.target < 0 || npc.target >= 255 || !Main.player[npc.target].Alives()) {
+                npc.FindClosestPlayer();
+            }
+            if (npc.target < 0 || npc.target >= 255 || !Main.player[npc.target].Alives()) {
+                npc.target = 0;
+            }
+            return Main.player[npc.target];
+        }
+
+        /// <summary>
+        /// 寻找距离指定位置最近的NPC
+        /// </summary>
+        /// <param name="origin">开始搜索的位置</param>
+        /// <param name="maxDistanceToCheck">搜索NPC的最大距离</param>
+        /// <param name="ignoreTiles">在检查障碍物时是否忽略瓦片</param>
+        /// <param name="bossPriority">是否优先选择Boss</param>
+        /// <param name="onHitNPCs">排除的NPC列表</param>
+        /// <param name="chasedByNPC">额外的条件过滤，用于判断NPC是否应被考虑，如果该委托不为<see langword="null"/> 那么它的返回值将覆盖其他的筛选结果</param>
+        /// <returns>距离最近的NPC</returns>
+        public static NPC FindClosestNPC(this Vector2 origin, float maxDistanceToCheck, bool ignoreTiles = true
+            , bool bossPriority = false, IEnumerable<NPC> onHitNPCs = null, Func<NPC, bool> chasedByNPC = null) {
+            NPC closestTarget = null;
+            float distance = maxDistanceToCheck;
+            bool bossFound = false;
+
+            foreach (var npc in Main.npc) {
+                bool canChased = npc.CanBeChasedBy();
+                if (onHitNPCs != null && onHitNPCs.Contains(npc)) {
+                    canChased = false;
+                }
+
+                // Boss优先选择逻辑
+                if (bossPriority && bossFound && !npc.boss && npc.type != NPCID.WallofFleshEye) {
+                    canChased = false;
+                }
+
+                if (chasedByNPC != null) {
+                    canChased = chasedByNPC.Invoke(npc);
+                }
+
+                if (!canChased) {
+                    continue;
+                }
+
+                // 计算NPC与起点的距离
+                float extraDistance = (npc.width / 2f) + (npc.height / 2f);
+                float actualDistance = Vector2.Distance(origin, npc.Center);
+
+                // 检查瓦片阻挡
+                bool canHit = ignoreTiles || Collision.CanHit(origin, 1, 1, npc.Center, 1, 1);
+
+                // 更新最近目标
+                if (actualDistance < distance + extraDistance && canHit) {
+                    if (bossPriority && (npc.boss || npc.type == NPCID.WallofFleshEye)) {
+                        bossFound = true;
+                    }
+                    distance = actualDistance;
+                    closestTarget = npc;
+                }
+            }
+
+            return closestTarget;
+        }
+
+        /// <summary>
+        /// 尝试寻找距离指定位置最近的NPC
+        /// </summary>
+        /// <param name="origin">开始搜索的位置</param>
+        /// <param name="npc">返回找到的NPC</param>
+        /// <param name="maxDistanceToCheck">搜索NPC的最大距离</param>
+        /// <param name="ignoreTiles">在检查障碍物时是否忽略瓦片</param>
+        /// <param name="bossPriority">是否优先选择Boss</param>
+        /// <param name="onHitNPCs">排除的NPC列表</param>
+        /// <param name="chasedByNPC">额外的条件过滤，用于判断NPC是否应被考虑，如果该委托不为<see langword="null"/> 那么它的返回值将覆盖其他的筛选结果</param>
+        /// <returns>是否成功找到NPC</returns>
+        public static bool TryFindClosestNPC(this Vector2 origin, out NPC npc, float maxDistanceToCheck, bool ignoreTiles = true,
+            bool bossPriority = false, IEnumerable<NPC> onHitNPCs = null, Func<NPC, bool> chasedByNPC = null) {
+            npc = origin.FindClosestNPC(maxDistanceToCheck, ignoreTiles, bossPriority, onHitNPCs, chasedByNPC);
+            return npc != null;
+        }
+
+        /// <summary>
+        /// 寻找距离指定位置最近的玩家
+        /// </summary>
+        /// <param name="position">搜索起点</param>
+        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制</param>
+        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
+        /// <param name="playerFilter">额外的玩家过滤器；若不为 <see langword="null"/>，将根据此委托结果决定玩家是否被考虑</param>
+        /// <returns>距离最近的玩家；若无匹配玩家，返回 <see langword="null"/></returns>
+        public static Player FindClosestPlayer(this Vector2 position, float maxRange = 3000f, bool ignoreTiles = true, Func<Player, bool> playerFilter = null) {
+            Player closestPlayer = null;
+            float minDistance = maxRange == -1f ? float.MaxValue : maxRange;
+
+            foreach (Player player in Main.player) {
+                if (!player.Alives()) {
+                    continue;
+                }
+
+                if (playerFilter != null && !playerFilter(player)) {
+                    continue;
+                }
+
+                float distance = Vector2.Distance(position, player.Center);
+
+                if (distance <= minDistance) {
+                    bool canHit = ignoreTiles || Collision.CanHit(position, 1, 1, player.Center, 1, 1);
+
+                    if (canHit) {
+                        minDistance = distance;
+                        closestPlayer = player;
+                    }
+                }
+            }
+
+            return closestPlayer;
+        }
+
+        /// <summary>
+        /// 尝试寻找距离指定位置最近的玩家
+        /// </summary>
+        /// <param name="position">搜索起点</param>
+        /// <param name="player">返回找到的玩家</param>
+        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制</param>
+        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
+        /// <param name="playerFilter">玩家过滤条件</param>
+        /// <returns>是否成功找到玩家</returns>
+        public static bool TryFindClosestPlayer(this Vector2 position, out Player player, float maxRange = 3000f, bool ignoreTiles = true, Func<Player, bool> playerFilter = null) {
+            player = position.FindClosestPlayer(maxRange, ignoreTiles, playerFilter);
+            return player != null;
+        }
+
+        /// <summary>
+        /// 检测玩家是否有效且正常存活
+        /// </summary>
+        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
+        public static bool Alives(this Player player) => player != null && player.active && !player.dead;
+
+        /// <summary>
+        /// 检测弹幕是否有效且正常存活
+        /// </summary>
+        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
+        public static bool Alives(this Projectile projectile) => projectile != null && projectile.active && projectile.timeLeft > 0;
+
+        /// <summary>
+        /// 检测NPC是否有效且正常存活
+        /// </summary>
+        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
+        public static bool Alives(this NPC npc) => npc != null && npc.active && npc.timeLeft > 0;
+
+        #endregion
+
         #region Game
         /// <summary>
         /// 根据<see cref="Item.useAmmo"/>映射到对应的物品id之上
@@ -581,146 +886,6 @@ namespace InnoVault
                 return ModLoader.GetMod(fruits[0]).Find<ModItem>(fruits[1]).Type;
             }
         }
-
-        /// <summary>
-        /// 寻找距离指定位置最近的NPC
-        /// </summary>
-        /// <param name="origin">开始搜索的位置</param>
-        /// <param name="maxDistanceToCheck">搜索NPC的最大距离</param>
-        /// <param name="ignoreTiles">在检查障碍物时是否忽略瓦片</param>
-        /// <param name="bossPriority">是否优先选择Boss</param>
-        /// <param name="onHitNPCs">排除的NPC列表</param>
-        /// <param name="chasedByNPC">额外的条件过滤，用于判断NPC是否应被考虑，如果该委托不为<see langword="null"/> 那么它的返回值将覆盖其他的筛选结果</param>
-        /// <returns>距离最近的NPC</returns>
-        public static NPC FindClosestNPC(this Vector2 origin, float maxDistanceToCheck, bool ignoreTiles = true
-            , bool bossPriority = false, IEnumerable<NPC> onHitNPCs = null, Func<NPC, bool> chasedByNPC = null) {
-            NPC closestTarget = null;
-            float distance = maxDistanceToCheck;
-            bool bossFound = false;
-
-            foreach (var npc in Main.npc) {
-                bool canChased = npc.CanBeChasedBy();
-                if (onHitNPCs != null && onHitNPCs.Contains(npc)) {
-                    canChased = false;
-                }
-
-                // Boss优先选择逻辑
-                if (bossPriority && bossFound && !npc.boss && npc.type != NPCID.WallofFleshEye) {
-                    canChased = false;
-                }
-
-                if (chasedByNPC != null) {
-                    canChased = chasedByNPC.Invoke(npc);
-                }
-
-                if (!canChased) {
-                    continue;
-                }
-
-                // 计算NPC与起点的距离
-                float extraDistance = (npc.width / 2f) + (npc.height / 2f);
-                float actualDistance = Vector2.Distance(origin, npc.Center);
-
-                // 检查瓦片阻挡
-                bool canHit = ignoreTiles || Collision.CanHit(origin, 1, 1, npc.Center, 1, 1);
-
-                // 更新最近目标
-                if (actualDistance < distance + extraDistance && canHit) {
-                    if (bossPriority && (npc.boss || npc.type == NPCID.WallofFleshEye)) {
-                        bossFound = true;
-                    }
-                    distance = actualDistance;
-                    closestTarget = npc;
-                }
-            }
-
-            return closestTarget;
-        }
-
-        /// <summary>
-        /// 尝试寻找距离指定位置最近的NPC
-        /// </summary>
-        /// <param name="origin">开始搜索的位置</param>
-        /// <param name="npc">返回找到的NPC</param>
-        /// <param name="maxDistanceToCheck">搜索NPC的最大距离</param>
-        /// <param name="ignoreTiles">在检查障碍物时是否忽略瓦片</param>
-        /// <param name="bossPriority">是否优先选择Boss</param>
-        /// <param name="onHitNPCs">排除的NPC列表</param>
-        /// <param name="chasedByNPC">额外的条件过滤，用于判断NPC是否应被考虑，如果该委托不为<see langword="null"/> 那么它的返回值将覆盖其他的筛选结果</param>
-        /// <returns>是否成功找到NPC</returns>
-        public static bool TryFindClosestNPC(this Vector2 origin, out NPC npc, float maxDistanceToCheck, bool ignoreTiles = true,
-            bool bossPriority = false, IEnumerable<NPC> onHitNPCs = null, Func<NPC, bool> chasedByNPC = null) {
-            npc = origin.FindClosestNPC(maxDistanceToCheck, ignoreTiles, bossPriority, onHitNPCs, chasedByNPC);
-            return npc != null;
-        }
-
-        /// <summary>
-        /// 寻找距离指定位置最近的玩家
-        /// </summary>
-        /// <param name="position">搜索起点</param>
-        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制</param>
-        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
-        /// <param name="playerFilter">额外的玩家过滤器；若不为 <see langword="null"/>，将根据此委托结果决定玩家是否被考虑</param>
-        /// <returns>距离最近的玩家；若无匹配玩家，返回 <see langword="null"/></returns>
-        public static Player FindClosestPlayer(this Vector2 position, float maxRange = 3000f, bool ignoreTiles = true, Func<Player, bool> playerFilter = null) {
-            Player closestPlayer = null;
-            float minDistance = maxRange == -1f ? float.MaxValue : maxRange;
-
-            foreach (Player player in Main.player) {
-                if (!player.Alives()) {
-                    continue;
-                }
-
-                if (playerFilter != null && !playerFilter(player)) {
-                    continue;
-                }
-
-                float distance = Vector2.Distance(position, player.Center);
-
-                if (distance <= minDistance) {
-                    bool canHit = ignoreTiles || Collision.CanHit(position, 1, 1, player.Center, 1, 1);
-
-                    if (canHit) {
-                        minDistance = distance;
-                        closestPlayer = player;
-                    }
-                }
-            }
-
-            return closestPlayer;
-        }
-
-        /// <summary>
-        /// 尝试寻找距离指定位置最近的玩家
-        /// </summary>
-        /// <param name="position">搜索起点</param>
-        /// <param name="player">返回找到的玩家</param>
-        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制</param>
-        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
-        /// <param name="playerFilter">玩家过滤条件</param>
-        /// <returns>是否成功找到玩家</returns>
-        public static bool TryFindClosestPlayer(this Vector2 position, out Player player, float maxRange = 3000f, bool ignoreTiles = true, Func<Player, bool> playerFilter = null) {
-            player = position.FindClosestPlayer(maxRange, ignoreTiles, playerFilter);
-            return player != null;
-        }
-
-        /// <summary>
-        /// 检测玩家是否有效且正常存活
-        /// </summary>
-        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
-        public static bool Alives(this Player player) => player != null && player.active && !player.dead;
-
-        /// <summary>
-        /// 检测弹幕是否有效且正常存活
-        /// </summary>
-        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
-        public static bool Alives(this Projectile projectile) => projectile != null && projectile.active && projectile.timeLeft > 0;
-
-        /// <summary>
-        /// 检测NPC是否有效且正常存活
-        /// </summary>
-        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
-        public static bool Alives(this NPC npc) => npc != null && npc.active && npc.timeLeft > 0;
 
         /// <summary>
         /// 检查指定玩家是否按下了鼠标键

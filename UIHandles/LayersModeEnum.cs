@@ -41,5 +41,9 @@
         /// 游戏开始菜单，初始界面，通常用于显示公告类信息
         /// </summary>
         Mod_MenuLoad,
+        /// <summary>
+        /// 模组图标界面，用于覆盖模组图标界面的绘制或者进行挂载的绘制更新
+        /// </summary>
+        Mod_UIModItem,
     }
 }

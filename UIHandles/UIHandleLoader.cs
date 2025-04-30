@@ -3,6 +3,8 @@ using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Terraria;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -109,6 +111,10 @@ namespace InnoVault.UIHandles
         /// </summary>
         public static List<UIHandle> UIHandles_Mod_MenuLoad { get; private set; } = [];
         /// <summary>
+        /// 与模组图标界面相关的 UI 处理器列表，用于覆盖模组图标界面的绘制或者进行挂载的绘制更新
+        /// </summary>
+        public static List<UIHandle> UIHandles_Mod_UIModItem { get; private set; } = [];
+        /// <summary>
         /// UI关于Type到所属模组的映射
         /// </summary>
         internal static Dictionary<Type, Mod> UIHandle_Type_To_Mod { get; private set; } = [];
@@ -129,9 +135,28 @@ namespace InnoVault.UIHandles
         /// </summary>
         internal static Dictionary<int, UIHandle> UIHandle_ID_To_Instance { get; private set; } = [];
 
+        /// <summary>
+        /// 用于绘制挂载的委托类型
+        /// </summary>
+        /// <param name="uiModItem"></param>
+        /// <param name="spriteBatch"></param>
+        public delegate void On_Draw_Delegate(object uiModItem, SpriteBatch spriteBatch);
+        /// <summary>
+        /// UIModItem的类型
+        /// </summary>
+        public static Type UIModItemType { get; private set; }
+        /// <summary>
+        /// 存储传递UIModItem的实例
+        /// </summary>
+        public static object UIModItemInstance { get; private set; }
+        /// <summary>
+        /// 存储传递UIModItem的画布对象
+        /// </summary>
+        public static object UIModItemSpriteBatch { get; private set; }
+
         private static readonly LayersModeEnum[] allLayersModes = (LayersModeEnum[])Enum.GetValues(typeof(LayersModeEnum));
         #endregion
-        internal void Initialize() {
+        internal static void Initialize() {
             UIHandles = [];
             UIHandleGlobalHooks = [];
             UIHandles_Vanilla_Mouse_Text = [];
@@ -142,6 +167,7 @@ namespace InnoVault.UIHandles
             UIHandles_Vanilla_Ingame_Options = [];
             UIHandles_Vanilla_Diagnose_Net = [];
             UIHandles_Mod_MenuLoad = [];
+            UIHandles_Mod_UIModItem = [];
             UIHandle_Type_To_Mod = [];
             UIHandleGlobal_Type_To_Mod = [];
             UIHandle_Name_To_ID = [];
@@ -242,12 +268,29 @@ namespace InnoVault.UIHandles
         }
 
         /// <summary>
+        /// 根据指定的 <see cref="LayersModeEnum"/>，判断该模式是否包含在需要修改接口层的钩子中
+        /// </summary>
+        /// <param name="layersMode">图层模式枚举 <see cref="LayersModeEnum"/></param>
+        /// <returns>如果该模式需要修改接口层，则返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
+        public static bool ShouldModifyInterfaceLayers(LayersModeEnum layersMode) {
+            if (layersMode == LayersModeEnum.None) {
+                return false;
+            }
+            if (layersMode == LayersModeEnum.Mod_MenuLoad) {
+                return false;
+            }
+            if (layersMode == LayersModeEnum.Mod_UIModItem) {
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>
         /// 进入世界时调用
         /// </summary>
         public static void OnEnterWorld() {
             foreach (var ui in UIHandles) {
-                if (ui.LayersMode == LayersModeEnum.None
-                    || ui.LayersMode == LayersModeEnum.Mod_MenuLoad) {
+                if (!ShouldModifyInterfaceLayers(ui.LayersMode)) {
                     continue;
                 }
                 ui.OnEnterWorld();
@@ -260,8 +303,7 @@ namespace InnoVault.UIHandles
         /// <param name="tag"></param>
         public static void SaveUIData(TagCompound tag) {
             foreach (var ui in UIHandles) {
-                if (ui.LayersMode == LayersModeEnum.None 
-                    || ui.LayersMode == LayersModeEnum.Mod_MenuLoad) {
+                if (!ShouldModifyInterfaceLayers(ui.LayersMode)) {
                     continue;
                 }
                 ui.SaveUIData(tag);
@@ -274,8 +316,7 @@ namespace InnoVault.UIHandles
         /// <param name="tag"></param>
         public static void LoadUIData(TagCompound tag) {
             foreach (var ui in UIHandles) {
-                if (ui.LayersMode == LayersModeEnum.None
-                    || ui.LayersMode == LayersModeEnum.Mod_MenuLoad) {
+                if (!ShouldModifyInterfaceLayers(ui.LayersMode)) {
                     continue;
                 }
                 ui.LoadUIData(tag);
@@ -294,11 +335,15 @@ namespace InnoVault.UIHandles
 
         /// <inheritdoc/>
         public override void Load() {
+            UIModItemType = typeof(Main).Assembly.GetTypes().First(t => t.Name == "UIModItem");
+
             Initialize();
             UIHandlesLoad();
             UIHandleGlobalLoad();
 
             IL_Main.DrawMenu += IL_MenuLoadDraw_Hook;
+
+            MonoModHooks.Add(UIModItemType.GetMethod("Draw", BindingFlags.Instance | BindingFlags.Public), On_UIModItem_DrawHook);
         }
 
         /// <inheritdoc/>
@@ -314,6 +359,8 @@ namespace InnoVault.UIHandles
             RightPressedEvent = null;
             RightReleasedEvent = null;
             IL_Main.DrawMenu -= IL_MenuLoadDraw_Hook;
+
+            UIModItemType = null;
         }
 
         /// <summary>
@@ -366,19 +413,13 @@ namespace InnoVault.UIHandles
             if (keyRightPressState != KeyPressState.None) {
                 switch (keyRightPressState) {
                     case KeyPressState.Held:
-                        if (RightHeldEvent != null) {
-                            RightHeldEvent.Invoke();
-                        }
+                        RightHeldEvent?.Invoke();
                         break;
                     case KeyPressState.Pressed:
-                        if (RightPressedEvent != null) {
-                            RightPressedEvent.Invoke();
-                        }
+                        RightPressedEvent?.Invoke();
                         break;
                     case KeyPressState.Released:
-                        if (RightReleasedEvent != null) {
-                            RightReleasedEvent.Invoke();
-                        }
+                        RightReleasedEvent?.Invoke();
                         break;
                 }
             }
@@ -386,21 +427,6 @@ namespace InnoVault.UIHandles
             foreach (var global in UIHandleGlobalHooks) {
                 global.UpdateKeyState();
             }
-        }
-
-        /// <summary>
-        /// 根据指定的 <see cref="LayersModeEnum"/>，判断该模式是否包含在需要修改接口层的钩子中
-        /// </summary>
-        /// <param name="layersMode">图层模式枚举 <see cref="LayersModeEnum"/></param>
-        /// <returns>如果该模式需要修改接口层，则返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
-        public static bool ShouldModifyInterfaceLayers(LayersModeEnum layersMode) {
-            if (layersMode == LayersModeEnum.None) {
-                return false;
-            }
-            if (layersMode == LayersModeEnum.Mod_MenuLoad) {
-                return false;
-            }
-            return true;
         }
 
         /// <summary>
@@ -419,6 +445,7 @@ namespace InnoVault.UIHandles
                 LayersModeEnum.Vanilla_Ingame_Options => "Vanilla: Ingame Options",
                 LayersModeEnum.Vanilla_Diagnose_Net => "Vanilla: Diagnose Net",
                 LayersModeEnum.Mod_MenuLoad => "Mod_MenuLoad",
+                LayersModeEnum.Mod_UIModItem => "Mod_UIModItem",
                 _ => "Null"
             };
         }
@@ -438,6 +465,7 @@ namespace InnoVault.UIHandles
                 LayersModeEnum.Vanilla_Ingame_Options => UIHandles_Vanilla_Ingame_Options,
                 LayersModeEnum.Vanilla_Diagnose_Net => UIHandles_Vanilla_Diagnose_Net,
                 LayersModeEnum.Mod_MenuLoad => UIHandles_Mod_MenuLoad,
+                LayersModeEnum.Mod_UIModItem => UIHandles_Mod_UIModItem,
                 _ => null
             };
         }
@@ -541,6 +569,23 @@ namespace InnoVault.UIHandles
                 }
                 spriteBatch.End();
             }
+        }
+
+        private static void On_UIModItem_DrawHook(On_Draw_Delegate orig, object instance, SpriteBatch spriteBatch) {
+            UIModItemInstance = instance;
+            UIModItemSpriteBatch = spriteBatch;
+            orig.Invoke(instance, spriteBatch);
+            if (Main.gameMenu && UIHandles_Mod_UIModItem != null && UIHandles_Mod_UIModItem.Count > 0) {
+                UpdateKeyState();
+                foreach (var hander in UIHandles_Mod_UIModItem) {
+                    UIHanderElementUpdate(hander);
+                }
+                foreach (var global in UIHandleGlobalHooks) {
+                    global.PostUpdataInUIEverything();
+                }
+            }
+            UIModItemInstance = null;
+            UIModItemSpriteBatch = null;
         }
     }
 }
