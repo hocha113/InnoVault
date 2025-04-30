@@ -246,14 +246,14 @@ namespace InnoVault.Trails
             if (UseNonOrAdd) {
                 graphicsDevice.BlendState = BlendState.NonPremultiplied;
             }
-                
+
             graphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, barsTop.ToArray(), 0, barsTop.Count - 2);
             graphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, barsBottom.ToArray(), 0, barsTop.Count - 2);
 
             if (UseNonOrAdd) {
                 graphicsDevice.BlendState = BlendState.Additive;
             }
-                
+
             graphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, bars2Top.ToArray(), 0, bars2Top.Count - 2);
             graphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, bars2Bottom.ToArray(), 0, bars2Top.Count - 2);
 

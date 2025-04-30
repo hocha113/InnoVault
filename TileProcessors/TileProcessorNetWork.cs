@@ -4,7 +4,6 @@ using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
-using Terraria.ModLoader.IO;
 using static InnoVault.TileProcessors.TileProcessorLoader;
 using static InnoVault.VaultNetWork;
 
@@ -276,7 +275,7 @@ namespace InnoVault.TileProcessors
         }
 
 
-        private static void DompTPinstanceNotFound(string name, Point16 position) 
+        private static void DompTPinstanceNotFound(string name, Point16 position)
             => $"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip".LoggerDomp(VaultMod.Instance);
 
         /// <summary>

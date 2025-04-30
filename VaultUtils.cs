@@ -1794,7 +1794,7 @@ namespace InnoVault
         /// 该矩阵用于将世界空间坐标转换为屏幕坐标，适用于 2D 渲染（如 UI 元素、精灵绘制）
         /// </returns>
         public static Matrix GetTransfromMatrix(Vector3? offset = null, Matrix? matrix = null, int? screenWidth = null, int? screenHeight = null) {
-            Matrix world = Matrix.CreateTranslation(offset ?? - Main.screenPosition.ToVector3());
+            Matrix world = Matrix.CreateTranslation(offset ?? -Main.screenPosition.ToVector3());
             Matrix view = matrix ?? Main.GameViewMatrix.TransformationMatrix;
             Matrix projection = Matrix.CreateOrthographicOffCenter(0, screenWidth ?? Main.screenWidth, screenHeight ?? Main.screenHeight, 0, -1, 1);
             return world * view * projection;

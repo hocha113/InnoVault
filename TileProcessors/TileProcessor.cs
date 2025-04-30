@@ -2,7 +2,6 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.IO;
-using System.Runtime.CompilerServices;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;

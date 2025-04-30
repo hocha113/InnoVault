@@ -1,11 +1,11 @@
-﻿using Microsoft.Xna.Framework.Graphics;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.IO;
 using System.Reflection;
-using System;
-using Terraria.GameContent;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ModLoader;
-using Microsoft.Xna.Framework;
 
 namespace InnoVault.GameContent.BaseEntity
 {

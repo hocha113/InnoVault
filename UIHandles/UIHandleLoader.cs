@@ -494,8 +494,7 @@ namespace InnoVault.UIHandles
                 foreach (var global in UIHandleGlobalHooks) {
                     global.PostUIHanderElementUpdate(hander);
                 }
-            } 
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 hander.ignoreBug = 600;
                 hander.errorCount++;
                 VaultMod.Instance.Logger.Error($"{hander} encountered an error {hander.errorCount} times: {ex}");

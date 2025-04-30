@@ -4,10 +4,8 @@ using System.Collections.Generic;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
-using Terraria.GameContent.Drawing;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
-using Terraria.ObjectData;
 
 namespace InnoVault.TileProcessors
 {
@@ -20,7 +18,7 @@ namespace InnoVault.TileProcessors
         private static readonly string key_TPData_TagList = "TPData_TagList";
 
         /// <summary>
-        /// 在世界中的Tile模块的最大存在数量，最多为10000
+        /// 在世界中的TP实体的最大存在数量，最多为10000
         /// </summary>
         public const int MaxTileModuleInWorldCount = 10000;
         /// <summary>
@@ -28,11 +26,11 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static TagCompound ActiveWorldTagData { get; internal set; }
         /// <summary>
-        /// 所有Tile模块的列表该列表在加载时初始化，并包含所有Tile模块的实例
+        /// 所有TP实体的列表该列表在加载时初始化，并包含所有TP实体的实例
         /// </summary>
         public static List<TileProcessor> TP_Instances { get; private set; } = [];
         /// <summary>
-        /// 当前世界中的Tile模块列表此列表在世界加载和操作时动态更新
+        /// 当前世界中的TP实体列表此列表在世界加载和操作时动态更新
         /// </summary>
         public static List<TileProcessor> TP_InWorld { get; internal set; } = [];
         /// <summary>
@@ -40,19 +38,19 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static Dictionary<(int, Point16), TileProcessor> TP_DataMap { get; private set; } = [];
         /// <summary>
-        /// 将Tile模块的类型映射到其对应的ID的字典
+        /// 将TP实体的类型映射到其对应的ID的字典
         /// </summary>
         public static Dictionary<Type, int> TP_Type_To_ID { get; private set; } = [];
         /// <summary>
-        /// 将Tile模块的内部名映射到其对应的ID的字典
+        /// 将TP实体的内部名映射到其对应的ID的字典
         /// </summary>
         public static Dictionary<string, int> TP_FullName_To_ID { get; private set; } = [];
         /// <summary>
-        /// 将Tile模块的类型映射到模块实例的字典
+        /// 将TP实体的类型映射到模块实例的字典
         /// </summary>
         public static Dictionary<Type, TileProcessor> TP_Type_To_Instance { get; private set; } = [];
         /// <summary>
-        /// 记录当前世界中每个模块ID对应的Tile模块数量
+        /// 记录当前世界中每个模块ID对应的TP实体数量
         /// </summary>
         public static Dictionary<int, int> TP_ID_To_InWorld_Count { get; internal set; } = [];
         /// <summary>
@@ -462,7 +460,7 @@ namespace InnoVault.TileProcessors
         /// <param name="point"></param>
         /// <param name="tileProcessor"></param>
         /// <returns></returns>
-        public static bool AutoPositionGetTP<T>(Point16 point, out T tileProcessor) where T : TileProcessor 
+        public static bool AutoPositionGetTP<T>(Point16 point, out T tileProcessor) where T : TileProcessor
             => AutoPositionGetTP(point.X, point.Y, out tileProcessor);
 
         /// <summary>
