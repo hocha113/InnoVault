@@ -51,10 +51,29 @@ namespace InnoVault.TileProcessors
 
                 return true;
             }
+
             return false;
         }
 
         internal static void TileProcessorUpdate(TileProcessor tileProcessor) {
+            //如果待机距离大于0则启动距离计算
+            if (tileProcessor.IdleDistance > 0) {
+                long idleDistanceSQ = tileProcessor.IdleDistance * tileProcessor.IdleDistance;
+                Vector2 posInWorld = tileProcessor.PosInWorld;
+
+                foreach (var p in Main.player) {
+                    if (!p.active) {
+                        continue;
+                    }
+                    //常用的手段，平方比较避免开根造成的额外性能开销
+                    if (p.position.DistanceSQ(posInWorld) < idleDistanceSQ) {
+                        break;//只要有一个玩家在范围内就继续更新
+                    }
+
+                    return;//如果范围内一个玩家都没有就直接返回出去不要更新
+                }
+            }
+
             bool reset = true;
             foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
                 reset = tpGlobal.PreUpdate(tileProcessor);
@@ -79,13 +98,14 @@ namespace InnoVault.TileProcessors
                 TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID] = 0;
             }
 
+            Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);//在这里缓存鼠标的矩形，避免在下面的遍历中多次构造矩形
             foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
                 if (!tileProcessor.Active) {
                     continue;
                 }
 
                 if (tileProcessor.InScreen) {
-                    tileProcessor.HoverTP = tileProcessor.HitBox.Intersects(Main.MouseWorld.GetRectangle(1));
+                    tileProcessor.HoverTP = tileProcessor.HitBox.Intersects(mouseRec);
                 }
                 else {//不在屏幕里面鼠标肯定是点不到的
                     tileProcessor.HoverTP = false;

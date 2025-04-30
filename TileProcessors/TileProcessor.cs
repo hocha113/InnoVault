@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.IO;
+using System.Runtime.CompilerServices;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
@@ -77,6 +78,10 @@ namespace InnoVault.TileProcessors
         /// 这个实体在屏幕上绘制的扩张范围，默认为160
         /// </summary>
         public int DrawExtendMode = 160;
+        /// <summary>
+        /// 单位为像素，玩家超出此距离后，实体将停止更新以节省性能。默认为 -1，即不启用
+        /// </summary>
+        public int IdleDistance = -1;
         /// <summary>
         /// 这个TP实体的碰撞矩形
         /// </summary>

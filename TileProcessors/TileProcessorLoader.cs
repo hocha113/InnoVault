@@ -36,6 +36,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static List<TileProcessor> TP_InWorld { get; internal set; } = [];
         /// <summary>
+        /// 当使用<see cref="AddInWorld(int, Point16, Item)"/>函数时更新这个字典，用于快速查询对应的TP实体以节省性能
+        /// </summary>
+        public static Dictionary<(int, Point16), TileProcessor> TP_DataMap { get; private set; } = [];
+        /// <summary>
         /// 将Tile模块的类型映射到其对应的ID的字典
         /// </summary>
         public static Dictionary<Type, int> TP_Type_To_ID { get; private set; } = [];
@@ -138,6 +142,8 @@ namespace InnoVault.TileProcessors
             }
 
             TP_Instances?.Clear();
+            TP_InWorld?.Clear();
+            TP_DataMap?.Clear();
             TP_Type_To_ID?.Clear();
             TP_FullName_To_ID?.Clear();
             TP_Type_To_Instance?.Clear();
@@ -166,7 +172,8 @@ namespace InnoVault.TileProcessors
         //集中管理所有TileDrawing_Draw钩子
         void On_TileDrawing_DrawHook(On_Main.orig_DrawBackgroundBlackFill orig, Main self) {
             orig.Invoke(self);
-            if (!Main.gameMenu) {
+            //不要在主页面进行绘制，也不要在地图界面进行绘制
+            if (!Main.gameMenu && !Main.mapFullscreen) {
                 TileProcessorSystem.PreDrawTiles();
             }
         }
@@ -180,6 +187,7 @@ namespace InnoVault.TileProcessors
         /// <remarks>
         /// 该方法会首先尝试从 <see cref="TP_Type_To_ID"/> 获取对应的模块，然后克隆该模块并设置其位置、跟踪物品和激活状态
         /// 如果有空闲的模块槽位，会将新模块放入该槽位，否则会添加到列表的末尾
+        /// 在绝大多数情况下，都应该只使用这个方法添加新的TP实体，以确保处理完善
         /// </remarks>
         public static TileProcessor AddInWorld(int tileID, Point16 position, Item item) {
             if (tileID == 0 || TP_InWorld.Count >= MaxTileModuleInWorldCount) {//是的，我们拒绝泥土
@@ -188,31 +196,42 @@ namespace InnoVault.TileProcessors
 
             TileProcessor reset = null;
 
-            if (TargetTile_To_TPInstance.TryGetValue(tileID, out List<TileProcessor> processorList)) {
-                foreach (var processor in processorList) {
-                    TileProcessor newProcessor = processor.Clone();
-                    newProcessor.Position = position;
-                    newProcessor.TrackItem = item;
-                    newProcessor.Active = true;
-                    newProcessor.LoadenTile();
-                    newProcessor.SetProperty();
+            if (!TargetTile_To_TPInstance.TryGetValue(tileID, out List<TileProcessor> processorList)) {
+                return reset;
+            }
 
-                    bool add = true;
-                    for (int i = 0; i < TP_InWorld.Count; i++) {
-                        if (!TP_InWorld[i].Active) {
-                            newProcessor.WhoAmI = TP_InWorld[i].WhoAmI;
-                            TP_InWorld[i] = newProcessor;
-                            add = false;
-                            reset = newProcessor;
-                            break;
-                        }
+            foreach (var processor in processorList) {
+                TileProcessor newProcessor = processor.Clone();
+                newProcessor.Position = position;
+                newProcessor.TrackItem = item;
+                newProcessor.Active = true;
+                newProcessor.LoadenTile();
+                newProcessor.SetProperty();
+
+                //在这里实体已经被设置好了，更新一下Map
+                var _key = (newProcessor.ID, newProcessor.Position);
+                if (!TP_DataMap.TryAdd(_key, newProcessor)) {//如果添加失败说明实体重叠，进行覆盖
+                    TP_DataMap[_key] = newProcessor;
+                }
+
+                bool add = true;
+                for (int i = 0; i < TP_InWorld.Count; i++) {
+                    if (TP_InWorld[i].Active) {
+                        continue;//如果目标的实体槽位是活跃的就跳过
                     }
 
-                    if (add) {
-                        newProcessor.WhoAmI = TP_InWorld.Count;
-                        reset = newProcessor;
-                        TP_InWorld.Add(newProcessor);
-                    }
+                    newProcessor.WhoAmI = TP_InWorld[i].WhoAmI;
+                    TP_InWorld[i] = newProcessor;
+                    add = false;
+                    reset = newProcessor;
+                    break;
+                }
+
+                //如果便利至末尾也没能找到空闲槽位插入实体，就进行扩容
+                if (add) {
+                    newProcessor.WhoAmI = TP_InWorld.Count;
+                    reset = newProcessor;
+                    TP_InWorld.Add(newProcessor);
                 }
             }
 
@@ -220,7 +239,7 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 加载世界中的所有 TileProcessor，初始化和激活它们
+        /// 加载世界中的所有 <see cref="TileProcessor"/>，初始化和激活它们
         /// </summary>
         /// <remarks>
         /// 此方法会首先移除不再活跃的模块，然后扫描整个世界的每一个 Tile，
@@ -228,7 +247,19 @@ namespace InnoVault.TileProcessors
         /// 最后，加载所有处于激活状态的模块
         /// </remarks>
         public static void LoadWorldTileProcessor() {
-            TP_InWorld = [];
+            if (TP_InWorld == null) {
+                TP_InWorld = [];
+            }
+            else {
+                TP_InWorld.Clear();
+            }
+
+            if (TP_DataMap == null) {
+                TP_DataMap = [];
+            }
+            else {
+                TP_DataMap.Clear();
+            }
 
             for (int x = 0; x < Main.tile.Width; x++) {
                 for (int y = 0; y < Main.tile.Height; y++) {
@@ -240,6 +271,7 @@ namespace InnoVault.TileProcessors
                     if (!targetTileTypes.Contains(tile.TileType)) {
                         continue;
                     }
+
                     if (TileProcessorIsTopLeft(x, y, out Point16 point)) {
                         AddInWorld(tile.TileType, point, null);
                     }
@@ -268,12 +300,13 @@ namespace InnoVault.TileProcessors
             }
             IList<TagCompound> list = tag.GetList<TagCompound>(key_TPData_TagList);
             // 将 TP_InWorld 转化为一个字典，以便快速查找
-            Dictionary<(string, string, Point16), TileProcessor> tpDictionary = new Dictionary<(string, string, Point16), TileProcessor>();
+            Dictionary<(string, string, Point16), TileProcessor> tpDictionary = [];
             //VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Load Count: " + TP_InWorld.Count);
             foreach (TileProcessor tp in TP_InWorld) {
-                if (tp != null) {
-                    tpDictionary[(tp.Mod.Name, tp.GetType().Name, tp.Position)] = tp;
+                if (tp == null) {
+                    continue;
                 }
+                tpDictionary[(tp.Mod.Name, tp.GetType().Name, tp.Position)] = tp;
             }
 
             // 遍历标签列表并在字典中查找匹配的 TileProcessor
@@ -547,42 +580,29 @@ namespace InnoVault.TileProcessors
         /// 使用精确搜索查找与指定ID及坐标对应的模块
         /// </summary>
         /// <param name="ID">要查找的模块的ID</param>
-        /// <param name="x">要查找的模块的x坐标</param>
-        /// <param name="y">要查找的模块的y坐标</param>
-        /// <returns>返回与指定ID及坐标对应的 <see cref="TileProcessor"/>，如果未找到则返回<see langword="null"/></returns>
-        public static TileProcessor FindModulePreciseSearch(int ID, int x, int y) {
-            TileProcessor module = null;
-
-            // 判断坐标是否为多结构物块的左上角，并获取其左上角位置
-            if (TileProcessorIsTopLeft(x, y, out Point16 point)) {
-                // 遍历世界中的所有模块，查找与指定ID和坐标匹配的模块
-                foreach (var inds in TP_InWorld) {
-                    if (inds.Position.X == point.X && inds.Position.Y == point.Y && inds.ID == ID) {
-                        module = inds;
-                        break;
-                    }
-                }
-            }
-            return module;
-        }
-
-        /// <summary>
-        /// 使用精确搜索查找与指定ID及坐标对应的模块
-        /// </summary>
-        /// <param name="ID">要查找的模块的ID</param>
         /// <param name="point">要查找的模块的坐标</param>
         /// <returns>返回与指定ID及坐标对应的 <see cref="TileProcessor"/>，如果未找到则返回<see langword="null"/></returns>
         public static TileProcessor FindModulePreciseSearch(int ID, Point16 point) => FindModulePreciseSearch(ID, point.X, point.Y);
 
         /// <summary>
-        /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
+        /// 使用精确搜索查找与指定ID及坐标对应的模块
         /// </summary>
-        /// <param name="id">目标id</param>
+        /// <param name="ID">要查找的模块的ID</param>
         /// <param name="x">要查找的模块的x坐标</param>
         /// <param name="y">要查找的模块的y坐标</param>
-        /// <returns>返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></returns>
-        [Obsolete("已经过时，一般使用其他重载")]
-        public static T FindModulePreciseSearch<T>(int id, int x, int y) where T : TileProcessor => FindModulePreciseSearch(id, x, y) as T;
+        /// <returns>返回与指定ID及坐标对应的 <see cref="TileProcessor"/>，如果未找到则返回<see langword="null"/></returns>
+        public static TileProcessor FindModulePreciseSearch(int ID, int x, int y) {
+            // 判断坐标是否为多结构物块的左上角，并获取其左上角位置
+            if (!TileProcessorIsTopLeft(x, y, out Point16 point)) {
+                return null;
+            }
+            //我们必须理解这个函数的调用环境是相当恐怖的，可以预料到该函数将被极高频率的调用，所以哈希优化是必要的
+            if (TP_DataMap.TryGetValue((ID, point), out var tileProcessor)) {
+                return tileProcessor;
+            }
+
+            return null;
+        }
 
         /// <summary>
         /// 在指定范围内查找与指定ID和坐标最接近的模块，并将其转换为指定类型的模块
