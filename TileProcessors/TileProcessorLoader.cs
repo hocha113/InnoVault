@@ -38,6 +38,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static Dictionary<(int, Point16), TileProcessor> TP_DataMap { get; private set; } = [];
         /// <summary>
+        /// 当使用<see cref="AddInWorld(int, Point16, Item)"/>函数时更新这个字典，用于快速查询对应的TP实体以节省性能
+        /// </summary>
+        public static Dictionary<Point16, TileProcessor> PointToTP { get; private set; } = [];
+        /// <summary>
         /// 将TP实体的类型映射到其对应的ID的字典
         /// </summary>
         public static Dictionary<Type, int> TP_Type_To_ID { get; private set; } = [];
@@ -142,6 +146,7 @@ namespace InnoVault.TileProcessors
             TP_Instances?.Clear();
             TP_InWorld?.Clear();
             TP_DataMap?.Clear();
+            PointToTP?.Clear();
             TP_Type_To_ID?.Clear();
             TP_FullName_To_ID?.Clear();
             TP_Type_To_Instance?.Clear();
@@ -159,12 +164,10 @@ namespace InnoVault.TileProcessors
 
         //集中管理所有KillMultiTileSet钩子
         private static void OnKillMultiTileHook(On_Tile_KillMultiTile_Dalegate orig, int i, int j, int frameX, int frameY, int type) {
-            foreach (var module in TP_InWorld) {
-                if (!module.Active) {
-                    continue;
-                }
-                module.KillMultiTileSet(frameX, frameY);
+            if (ByPositionGetTP(i, j, out var tileProcessor)) {
+                tileProcessor.KillMultiTileSet(frameX, frameY);
             }
+
             orig.Invoke(i, j, frameX, frameY, type);
         }
         //集中管理所有TileDrawing_Draw钩子
@@ -207,10 +210,8 @@ namespace InnoVault.TileProcessors
                 newProcessor.SetProperty();
 
                 //在这里实体已经被设置好了，更新一下Map
-                var _key = (newProcessor.ID, newProcessor.Position);
-                if (!TP_DataMap.TryAdd(_key, newProcessor)) {//如果添加失败说明实体重叠，进行覆盖
-                    TP_DataMap[_key] = newProcessor;
-                }
+                TP_DataMap[(newProcessor.ID, newProcessor.Position)] = newProcessor;//如果实体重叠，那么就会进行覆盖
+                PointToTP[newProcessor.Position] = newProcessor;
 
                 bool add = true;
                 for (int i = 0; i < TP_InWorld.Count; i++) {
@@ -257,6 +258,13 @@ namespace InnoVault.TileProcessors
             }
             else {
                 TP_DataMap.Clear();
+            }
+
+            if (PointToTP == null) {
+                PointToTP = [];
+            }
+            else {
+                PointToTP.Clear();
             }
 
             for (int x = 0; x < Main.tile.Width; x++) {
@@ -510,16 +518,8 @@ namespace InnoVault.TileProcessors
         /// <param name="y">要查找的模块的y坐标</param>
         /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
-        public static bool ByPositionGetTP(int x, int y, out TileProcessor tileProcessor) {
-            foreach (var inds in TP_InWorld) {
-                if (inds.Position.X == x && inds.Position.Y == y) {
-                    tileProcessor = inds;
-                    return true;
-                }
-            }
-            tileProcessor = null;
-            return false;
-        }
+        public static bool ByPositionGetTP(int x, int y, out TileProcessor tileProcessor) 
+            => PointToTP.TryGetValue(new(x, y), out tileProcessor);
 
         /// <summary>
         /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
@@ -529,16 +529,17 @@ namespace InnoVault.TileProcessors
         /// <param name="y">要查找的模块的y坐标</param>
         /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
-        public static bool ByPositionGetTP(int id, int x, int y, out TileProcessor tileProcessor) {
-            foreach (var inds in TP_InWorld) {
-                if (inds.ID == id && inds.Position.X == x && inds.Position.Y == y) {
-                    tileProcessor = inds;
-                    return true;
-                }
-            }
-            tileProcessor = null;
-            return false;
-        }
+        public static bool ByPositionGetTP(int id, int x, int y, out TileProcessor tileProcessor) 
+            => TP_DataMap.TryGetValue((id, new Point16(x, y)), out tileProcessor);
+
+        /// <summary>
+        /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
+        /// </summary>
+        /// <param name="point">要查找的模块的坐标</param>
+        /// <param name="tileProcessor">返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></param>
+        /// <returns></returns>
+        public static bool ByPositionGetTP(Point16 point, out TileProcessor tileProcessor)
+            => PointToTP.TryGetValue(point, out tileProcessor);
 
         /// <summary>
         /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
@@ -547,15 +548,8 @@ namespace InnoVault.TileProcessors
         /// <param name="point">要查找的模块的坐标</param>
         /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
-        public static bool ByPositionGetTP(int id, Point16 point, out TileProcessor tileProcessor) => ByPositionGetTP(id, point.X, point.Y, out tileProcessor);
-
-        /// <summary>
-        /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
-        /// </summary>
-        /// <param name="point">要查找的模块的坐标</param>
-        /// <param name="tileProcessor">返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></param>
-        /// <returns></returns>
-        public static bool ByPositionGetTP(Point16 point, out TileProcessor tileProcessor) => ByPositionGetTP(point.X, point.Y, out tileProcessor);
+        public static bool ByPositionGetTP(int id, Point16 point, out TileProcessor tileProcessor) 
+            => TP_DataMap.TryGetValue((id, point), out tileProcessor);
 
         /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
@@ -631,22 +625,25 @@ namespace InnoVault.TileProcessors
         /// <returns>返回与指定ID及坐标最接近的 <see cref="TileProcessor"/>，如果未找到则返回<see langword="null"/></returns>
         public static TileProcessor FindModuleRangeSearch(int ID, int x, int y, int maxFindLeng) {
             TileProcessor module = null;
-            float findSquaredValue = maxFindLeng * maxFindLeng;
+            float findSquaredValue = maxFindLeng * maxFindLeng * 256; // 平方距离（像素）
             Vector2 position = new Vector2(x, y) * 16;
-            // 遍历世界中的所有模块，查找与指定ID匹配并且距离最近的模块
-            foreach (var inds in TP_InWorld) {
-                if (inds.ID != ID) {
-                    continue;
+
+            foreach (KeyValuePair<(int, Point16), TileProcessor> kvp in TP_DataMap) {
+                if (kvp.Key.Item1 != ID) {
+                    continue; // 筛选ID
                 }
-                // 计算当前模块与指定坐标之间的距离
+
+                var inds = kvp.Value;
+                //平方计算进行搜索
                 float value = (position - inds.PosInWorld).LengthSquared();
                 if (value > findSquaredValue) {
                     continue;
                 }
-                // 更新最接近的模块及其距离
+
                 module = inds;
                 findSquaredValue = value;
             }
+
             return module;
         }
 

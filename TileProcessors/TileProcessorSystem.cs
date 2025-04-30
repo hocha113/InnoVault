@@ -49,6 +49,8 @@ namespace InnoVault.TileProcessors
                     tpGlobal.OnKill(tileProcessor);
                 }
 
+                tileProcessor.TrackItem = null;
+
                 return true;
             }
 
