@@ -36,11 +36,15 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 当使用<see cref="AddInWorld(int, Point16, Item)"/>函数时更新这个字典，用于快速查询对应的TP实体以节省性能
         /// </summary>
-        public static Dictionary<(int, Point16), TileProcessor> TP_DataMap { get; private set; } = [];
+        public static Dictionary<(int, Point16), TileProcessor> TP_IDAndPoint_To_Instance { get; private set; } = [];
         /// <summary>
         /// 当使用<see cref="AddInWorld(int, Point16, Item)"/>函数时更新这个字典，用于快速查询对应的TP实体以节省性能
         /// </summary>
-        public static Dictionary<Point16, TileProcessor> PointToTP { get; private set; } = [];
+        public static Dictionary<(string, Point16), TileProcessor> TP_NameAndPoint_To_Instance { get; private set; } = [];
+        /// <summary>
+        /// 当使用<see cref="AddInWorld(int, Point16, Item)"/>函数时更新这个字典，用于快速查询对应的TP实体以节省性能
+        /// </summary>
+        public static Dictionary<Point16, TileProcessor> TP_Point_To_Instance { get; private set; } = [];
         /// <summary>
         /// 将TP实体的类型映射到其对应的ID的字典
         /// </summary>
@@ -76,7 +80,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 关于目标物块键的哈希列表
         /// </summary>
-        public static HashSet<int> targetTileTypes { get; private set; } = [];
+        public static HashSet<int> TargetTileTypes { get; private set; } = [];
         /// <summary>
         /// 所有的<see cref="GlobalTileProcessor"/>实例在此处储存
         /// </summary>
@@ -135,7 +139,7 @@ namespace InnoVault.TileProcessors
                     VaultMod.Instance.Logger.Info(VaultUtils.Translation(errorText, errorText2));
                 }
             }
-            targetTileTypes = [.. TargetTile_To_TPInstance.Keys];
+            TargetTileTypes = [.. TargetTile_To_TPInstance.Keys];
         }
 
         void IVaultLoader.UnLoadData() {
@@ -145,8 +149,9 @@ namespace InnoVault.TileProcessors
 
             TP_Instances?.Clear();
             TP_InWorld?.Clear();
-            TP_DataMap?.Clear();
-            PointToTP?.Clear();
+            TP_IDAndPoint_To_Instance?.Clear();
+            TP_NameAndPoint_To_Instance?.Clear();
+            TP_Point_To_Instance?.Clear();
             TP_Type_To_ID?.Clear();
             TP_FullName_To_ID?.Clear();
             TP_Type_To_Instance?.Clear();
@@ -210,8 +215,9 @@ namespace InnoVault.TileProcessors
                 newProcessor.SetProperty();
 
                 //在这里实体已经被设置好了，更新一下Map
-                TP_DataMap[(newProcessor.ID, newProcessor.Position)] = newProcessor;//如果实体重叠，那么就会进行覆盖
-                PointToTP[newProcessor.Position] = newProcessor;
+                TP_IDAndPoint_To_Instance[(newProcessor.ID, newProcessor.Position)] = newProcessor;//如果实体重叠，那么就会进行覆盖
+                TP_NameAndPoint_To_Instance[(newProcessor.LoadenName, newProcessor.Position)] = newProcessor;
+                TP_Point_To_Instance[newProcessor.Position] = newProcessor;
 
                 bool add = true;
                 for (int i = 0; i < TP_InWorld.Count; i++) {
@@ -253,18 +259,25 @@ namespace InnoVault.TileProcessors
                 TP_InWorld.Clear();
             }
 
-            if (TP_DataMap == null) {
-                TP_DataMap = [];
+            if (TP_IDAndPoint_To_Instance == null) {
+                TP_IDAndPoint_To_Instance = [];
             }
             else {
-                TP_DataMap.Clear();
+                TP_IDAndPoint_To_Instance.Clear();
             }
 
-            if (PointToTP == null) {
-                PointToTP = [];
+            if (TP_NameAndPoint_To_Instance == null) {
+                TP_NameAndPoint_To_Instance = [];
             }
             else {
-                PointToTP.Clear();
+                TP_NameAndPoint_To_Instance.Clear();
+            }
+
+            if (TP_Point_To_Instance == null) {
+                TP_Point_To_Instance = [];
+            }
+            else {
+                TP_Point_To_Instance.Clear();
             }
 
             for (int x = 0; x < Main.tile.Width; x++) {
@@ -274,7 +287,7 @@ namespace InnoVault.TileProcessors
                         continue;
                     }
 
-                    if (!targetTileTypes.Contains(tile.TileType)) {
+                    if (!TargetTileTypes.Contains(tile.TileType)) {
                         continue;
                     }
 
@@ -304,16 +317,8 @@ namespace InnoVault.TileProcessors
             if (!tag.ContainsKey(key_TPData_TagList)) {
                 return;
             }
+
             IList<TagCompound> list = tag.GetList<TagCompound>(key_TPData_TagList);
-            // 将 TP_InWorld 转化为一个字典，以便快速查找
-            Dictionary<(string, string, Point16), TileProcessor> tpDictionary = [];
-            //VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Load Count: " + TP_InWorld.Count);
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (tp == null) {
-                    continue;
-                }
-                tpDictionary[(tp.Mod.Name, tp.GetType().Name, tp.Position)] = tp;
-            }
 
             // 遍历标签列表并在字典中查找匹配的 TileProcessor
             foreach (TagCompound thisTag in list) {
@@ -322,9 +327,10 @@ namespace InnoVault.TileProcessors
                 }
                 string modName = thisTag.GetString("mod");
                 string name = thisTag.GetString("name");
+                string loadenName = modName + ":" + name;
                 Point16 point = new Point16(thisTag.GetShort("X"), thisTag.GetShort("Y"));
                 // 从字典中查找匹配项
-                if (tpDictionary.TryGetValue((modName, name, point), out TileProcessor tp)) {
+                if (TP_NameAndPoint_To_Instance.TryGetValue((loadenName, point), out TileProcessor tp)) {
                     tp.LoadData(thisTag.GetCompound("data"));
                 }
             }
@@ -520,7 +526,7 @@ namespace InnoVault.TileProcessors
         /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
         public static bool ByPositionGetTP(int x, int y, out TileProcessor tileProcessor) 
-            => PointToTP.TryGetValue(new(x, y), out tileProcessor);
+            => TP_Point_To_Instance.TryGetValue(new(x, y), out tileProcessor);
 
         /// <summary>
         /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
@@ -531,7 +537,7 @@ namespace InnoVault.TileProcessors
         /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
         public static bool ByPositionGetTP(int id, int x, int y, out TileProcessor tileProcessor) 
-            => TP_DataMap.TryGetValue((id, new Point16(x, y)), out tileProcessor);
+            => TP_IDAndPoint_To_Instance.TryGetValue((id, new Point16(x, y)), out tileProcessor);
 
         /// <summary>
         /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
@@ -540,7 +546,7 @@ namespace InnoVault.TileProcessors
         /// <param name="tileProcessor">返回与指定ID及坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
         public static bool ByPositionGetTP(Point16 point, out TileProcessor tileProcessor)
-            => PointToTP.TryGetValue(point, out tileProcessor);
+            => TP_Point_To_Instance.TryGetValue(point, out tileProcessor);
 
         /// <summary>
         /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
@@ -550,7 +556,7 @@ namespace InnoVault.TileProcessors
         /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
         public static bool ByPositionGetTP(int id, Point16 point, out TileProcessor tileProcessor) 
-            => TP_DataMap.TryGetValue((id, point), out tileProcessor);
+            => TP_IDAndPoint_To_Instance.TryGetValue((id, point), out tileProcessor);
 
         /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
@@ -590,7 +596,7 @@ namespace InnoVault.TileProcessors
                 return null;
             }
             //我们必须理解这个函数的调用环境是相当恐怖的，可以预料到该函数将被极高频率的调用，所以哈希优化是必要的
-            if (TP_DataMap.TryGetValue((ID, point), out var tileProcessor)) {
+            if (TP_IDAndPoint_To_Instance.TryGetValue((ID, point), out var tileProcessor)) {
                 return tileProcessor;
             }
 
@@ -629,7 +635,7 @@ namespace InnoVault.TileProcessors
             float findSquaredValue = maxFindLeng * maxFindLeng * 256; // 平方距离（像素）
             Vector2 position = new Vector2(x, y) * 16;
 
-            foreach (KeyValuePair<(int, Point16), TileProcessor> kvp in TP_DataMap) {
+            foreach (KeyValuePair<(int, Point16), TileProcessor> kvp in TP_IDAndPoint_To_Instance) {
                 if (kvp.Key.Item1 != ID) {
                     continue; // 筛选ID
                 }

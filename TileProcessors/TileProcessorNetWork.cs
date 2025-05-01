@@ -19,6 +19,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public const string TP_START_GUID = "{VaultMod_TP_START_GUID_94AE-XYZ-AB34-BY27}";
         /// <summary>
+        /// 单次发布的最大TP实体容量
+        /// </summary>
+        public const int MaxTPSendPackCount = 400;
+        /// <summary>
         /// 当前是否正在进行初始化世界的网络工作
         /// </summary>
         public static bool InitializeWorld { get; private set; }
@@ -182,6 +186,54 @@ namespace InnoVault.TileProcessors
             }
             modPacket.Write(sendTPCount); // 写入活跃的TP数量
 
+            if (sendTPCount > MaxTPSendPackCount) {//如果数量大于1000
+                int splits = sendTPCount / MaxTPSendPackCount + 1;
+                for (int i = 0; i < splits; i++) {
+                    int start = i * MaxTPSendPackCount;
+                    int size = MaxTPSendPackCount;
+                    if (start + size > TP_InWorld.Count) {//如果大于，说明已经到了末流
+                        size = TP_InWorld.Count - start;//重新计算一下末流的长度
+                    }
+
+                    modPacket = VaultMod.Instance.GetPacket();//创建一个新的数据包对象
+                    modPacket.Write((byte)MessageType.Handle_TPData_Receive); // 包类型
+                    modPacket.Write(InitializeWorld);
+                    modPacket.Write(size);
+                    
+                    for (int j = start; j < start + size; j++) {
+                        if (j > TP_InWorld.Count) {
+                            break;
+                        }
+                        TileProcessor tp = TP_InWorld[j];
+                        if (!tp.Active || !tp.LoadenWorldSendData) {
+                            continue;
+                        }
+
+                        // 标记节点开始
+                        modPacket.Write(TP_START_GUID); // 添加分隔标签
+                        modPacket.Write(tp.LoadenName);
+                        modPacket.WritePoint16(tp.Position);
+                        //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
+                        modPacket.Write((byte)(tp.Width / 16));
+                        modPacket.Write((byte)(tp.Height / 16));
+
+                        // 发送TileProcessor数据
+                        tp.SendData(modPacket);
+                    }
+
+                    if (modPacket.BaseStream.Length > 65535) {
+                        $"ServerRecovery_TPData: Packet too large ({modPacket.BaseStream.Length}), aborting".LoggerDomp(VaultMod.Instance);
+                        modPacket.Dispose();
+                        continue;
+                    }
+
+                    modPacket.Send(whoAmI); // 将数据包发送给客户端
+                }
+
+                InitializeWorld = false;
+                return;
+            }
+
             // 发送每个活跃的TP数据
             foreach (TileProcessor tp in TP_InWorld) {
                 if (!tp.Active || !tp.LoadenWorldSendData) {
@@ -198,6 +250,13 @@ namespace InnoVault.TileProcessors
 
                 // 发送TileProcessor数据
                 tp.SendData(modPacket);
+            }
+
+            if (modPacket.BaseStream.Length > 65535) {
+                $"ServerRecovery_TPData: Packet too large ({modPacket.BaseStream.Length}), aborting".LoggerDomp(VaultMod.Instance);
+                modPacket.Dispose();
+                InitializeWorld = false;
+                return;
             }
 
             modPacket.Send(whoAmI); // 将数据包发送给客户端

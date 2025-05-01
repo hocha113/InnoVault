@@ -1614,7 +1614,7 @@ namespace InnoVault
             Tile tile = Framing.GetTileSafely(i, j);
 
             //一个关于TP的G钩子，用于修改一些特殊物块对于TP的实体的判定
-            if (TileProcessorLoader.targetTileTypes.Contains(tile.TileType)) {
+            if (TileProcessorLoader.TargetTileTypes.Contains(tile.TileType)) {
                 Point16? gPoint = null;
                 foreach (var gTP in TileProcessorLoader.TPGlobalHooks) {
                     gPoint = gTP.GetTopLeftOrNull(tile, i, j);
