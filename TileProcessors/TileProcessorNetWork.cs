@@ -23,6 +23,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public const int MaxTPSendPackCount = 400;
         /// <summary>
+        /// 单个包的最大文件流长度
+        /// </summary>
+        public const int MaxStreamSize = 65535;
+        /// <summary>
         /// 当前是否正在进行初始化世界的网络工作
         /// </summary>
         public static bool InitializeWorld { get; private set; }
@@ -72,28 +76,29 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static void TileProcessorReceiveData(BinaryReader reader, int whoAmI) {
             //"TileProcessorLoader-ReceiveData:正在接收数据".LoggerDomp();
-            Dictionary<string, object> data = [];
-            string name = reader.ReadString();
+            string loadenName = reader.ReadString();
             Point16 position = reader.ReadPoint16();
             TileProcessor tileProcessor = null;
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (tp.LoadenName == name && tp.Position == position) {
-                    tileProcessor = tp;
-                    tileProcessor.ReceiveData(reader, whoAmI);
-                }
+
+            //使用字典查询节省性能
+            if (ByPositionGetTP(loadenName, position, out var tp)) {
+                tileProcessor = tp;
+                tileProcessor.ReceiveData(reader, whoAmI);
             }
+
+            //如果找到实体了就尝试进行广播
             if (tileProcessor != null) {
                 if (Main.dedServ) {
                     ModPacket modPacket = VaultMod.Instance.GetPacket();
                     modPacket.Write((byte)MessageType.TPNetWork);
-                    modPacket.Write(name);
+                    modPacket.Write(loadenName);
                     modPacket.WritePoint16(position);
                     tileProcessor.SendData(modPacket);
                     modPacket.Send(-1, whoAmI);
                 }
             }
             else {
-                throw new Exception($"TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found : {name}-position[{position}]");
+                throw new Exception($"TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found : {loadenName}-position[{position}]");
             }
         }
 
@@ -221,9 +226,8 @@ namespace InnoVault.TileProcessors
                         tp.SendData(modPacket);
                     }
 
-                    if (modPacket.BaseStream.Length > 65535) {
-                        $"ServerRecovery_TPData: Packet too large ({modPacket.BaseStream.Length}), aborting".LoggerDomp(VaultMod.Instance);
-                        modPacket.Dispose();
+                    if (modPacket.BaseStream.Length > MaxStreamSize) {
+                        HandlerPackMeltingAway(modPacket);
                         continue;
                     }
 
@@ -252,9 +256,8 @@ namespace InnoVault.TileProcessors
                 tp.SendData(modPacket);
             }
 
-            if (modPacket.BaseStream.Length > 65535) {
-                $"ServerRecovery_TPData: Packet too large ({modPacket.BaseStream.Length}), aborting".LoggerDomp(VaultMod.Instance);
-                modPacket.Dispose();
+            if (modPacket.BaseStream.Length > MaxStreamSize) {
+                HandlerPackMeltingAway(modPacket);
                 InitializeWorld = false;
                 return;
             }
@@ -279,8 +282,6 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
-            Dictionary<(string, Point16), TileProcessor> tpDictionary = GetTileProcessorDictionaryByNameAndPosition();
-
             for (int i = 0; i < tpCount; i++) {
                 // 确保是合法的标记
                 if (reader.ReadString() != TP_START_GUID) {
@@ -289,20 +290,20 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
 
-                string name = reader.ReadString();
+                string loadenName = reader.ReadString();
                 Point16 position = reader.ReadPoint16();
                 byte widthByTile = reader.ReadByte();
                 byte heightByTile = reader.ReadByte();
 
                 // 先检查字典中是否已有该 TileProcessor
-                if (tpDictionary.TryGetValue((name, position), out TileProcessor tp)) {
+                if (ByPositionGetTP(loadenName, position, out TileProcessor tp)) {
                     tp.ReceiveData(reader, -1);
                     continue;
                 }
 
                 // 通过 name 获取 TP ID
-                if (!TryGetTpID(name, out int tpID)) {
-                    DompTPinstanceNotFound(name, position);
+                if (!TryGetTpID(loadenName, out int tpID)) {
+                    DompTPinstanceNotFound(loadenName, position);
                     SkipToNextMarker(reader);
                     continue;
                 }
@@ -326,13 +327,17 @@ namespace InnoVault.TileProcessors
                 }
 
                 // 仍然失败，则记录日志并跳过
-                DompTPinstanceNotFound(name, position);
+                DompTPinstanceNotFound(loadenName, position);
                 SkipToNextMarker(reader);
             }
 
             InitializeWorld = false;
         }
 
+        private static void HandlerPackMeltingAway(ModPacket modPacket) {
+            $"ServerRecovery_TPData: Packet too large ({modPacket.BaseStream.Length}), aborting".LoggerDomp(VaultMod.Instance);
+            modPacket.Dispose();
+        }
 
         private static void DompTPinstanceNotFound(string name, Point16 position)
             => $"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip".LoggerDomp(VaultMod.Instance);

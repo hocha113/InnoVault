@@ -301,11 +301,11 @@ namespace InnoVault.TileProcessors
                 LoadWorldData(ActiveWorldTagData);
             }
 
-            foreach (TileProcessor module in TP_InWorld) {
-                if (!module.Active) {
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (!tp.Active) {
                     continue;
                 }
-                module.LoadInWorld();
+                tp.LoadInWorld();
             }
         }
 
@@ -557,6 +557,16 @@ namespace InnoVault.TileProcessors
         /// <returns></returns>
         public static bool ByPositionGetTP(int id, Point16 point, out TileProcessor tileProcessor) 
             => TP_IDAndPoint_To_Instance.TryGetValue((id, point), out tileProcessor);
+
+        /// <summary>
+        /// 根据点来寻找对应的TP实体实例，这个方法只适用于一个物块上只附着一个TP实体的情况
+        /// </summary>
+        /// <param name="loadenName">要查找的模块的内部名</param>
+        /// <param name="point">要查找的模块的坐标</param>
+        /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
+        /// <returns></returns>
+        public static bool ByPositionGetTP(string loadenName, Point16 point, out TileProcessor tileProcessor)
+            => TP_NameAndPoint_To_Instance.TryGetValue((loadenName, point), out tileProcessor);
 
         /// <summary>
         /// 使用精确搜索查找与指定ID及坐标对应的模块，并将其转换为指定类型的模块
