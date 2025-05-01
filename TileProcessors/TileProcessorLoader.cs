@@ -18,9 +18,9 @@ namespace InnoVault.TileProcessors
         private static readonly string key_TPData_TagList = "TPData_TagList";
 
         /// <summary>
-        /// 在世界中的TP实体的最大存在数量，最多为10000
+        /// 在世界中的TP实体的最大存在数量
         /// </summary>
-        public const int MaxTileModuleInWorldCount = 10000;
+        public const int MaxTPInWorldCount = 20000;
         /// <summary>
         /// 当前世界的数据
         /// </summary>
@@ -196,7 +196,7 @@ namespace InnoVault.TileProcessors
         /// 在绝大多数情况下，都应该只使用这个方法添加新的TP实体，以确保处理完善
         /// </remarks>
         public static TileProcessor AddInWorld(int tileID, Point16 position, Item item) {
-            if (tileID == 0 || TP_InWorld.Count >= MaxTileModuleInWorldCount) {//是的，我们拒绝泥土
+            if (tileID == 0 || TP_InWorld.Count >= MaxTPInWorldCount) {//是的，我们拒绝泥土
                 return null;
             }
 

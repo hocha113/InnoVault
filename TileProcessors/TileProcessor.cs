@@ -58,11 +58,12 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public bool InScreen;
         /// <summary>
-        /// 这个模块在世界中的唯一标签，如果模块不再活跃，它将随时被新加入的模块顶替，顶替的模块将继续使用相同WhoAmI值
+        /// 这个模块在世界中的唯一标签，如果实体不再活跃，它将随时被新加入的模块顶替，顶替的模块将继续使用相同WhoAmI值
+        /// 注意，WhoAmI的值在各个端上都可能是不一致的，WhoAmI只应当做本地端的索引使用
         /// </summary>
         public int WhoAmI;
         /// <summary>
-        /// 模块的ID，在游戏加载时会给每个模块分配一个唯一的ID值
+        /// 实体的ID，在游戏加载时会给每个实体分配一个唯一的ID值
         /// </summary>
         public int ID => TileProcessorLoader.TP_Type_To_ID[GetType()];
         /// <summary>

@@ -4,6 +4,7 @@ using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 using static InnoVault.TileProcessors.TileProcessorLoader;
 using static InnoVault.VaultNetWork;
 
@@ -176,52 +177,39 @@ namespace InnoVault.TileProcessors
 
             InitializeWorld = reader.ReadBoolean();
 
-            //"TileProcessorLoader-ServerRecovery_TPData:服务器数据正在响应请求".LoggerDomp();
-            ModPacket modPacket = VaultMod.Instance.GetPacket();// 创建一个数据包，用于批量发送多个TP数据
-            modPacket.Write((byte)MessageType.Handle_TPData_Receive); // 包类型
-            modPacket.Write(InitializeWorld);
-            int sendTPCount = 0;
-
+            List<TileProcessor> activeTPs = [];//建立一个临时的活跃实体列表用于后续的遍历发包
             // 统计活跃的TP数量
             foreach (TileProcessor tp in TP_InWorld) {
                 if (!tp.Active || !tp.LoadenWorldSendData) {
                     continue;
                 }
-                sendTPCount++;
+                activeTPs.Add(tp);
             }
-            modPacket.Write(sendTPCount); // 写入活跃的TP数量
 
-            if (sendTPCount > MaxTPSendPackCount) {//如果数量大于1000
+            int sendTPCount = activeTPs.Count;
+
+            if (sendTPCount > MaxTPSendPackCount) {//如果数量大于MaxTPSendPackCount
                 int splits = sendTPCount / MaxTPSendPackCount + 1;
                 for (int i = 0; i < splits; i++) {
                     int start = i * MaxTPSendPackCount;
                     int size = MaxTPSendPackCount;
-                    if (start + size > TP_InWorld.Count) {//如果大于，说明已经到了末流
-                        size = TP_InWorld.Count - start;//重新计算一下末流的长度
+                    if (start + size > sendTPCount) {//如果大于，说明已经到了末流
+                        size = sendTPCount - start;//重新计算一下末流的长度
                     }
 
-                    modPacket = VaultMod.Instance.GetPacket();//创建一个新的数据包对象
+                    ModPacket modPacket = VaultMod.Instance.GetPacket();//创建一个新的数据包对象
                     modPacket.Write((byte)MessageType.Handle_TPData_Receive); // 包类型
                     modPacket.Write(InitializeWorld);
-                    modPacket.Write(size);
-                    
-                    for (int j = start; j < start + size; j++) {
-                        if (j > TP_InWorld.Count) {
-                            break;
-                        }
-                        TileProcessor tp = TP_InWorld[j];
-                        if (!tp.Active || !tp.LoadenWorldSendData) {
-                            continue;
-                        }
+                    modPacket.Write(size);// 写入活跃的TP数量
 
-                        // 标记节点开始
-                        modPacket.Write(TP_START_GUID); // 添加分隔标签
+                    for (int j = start; j < start + size; j++) {
+                        TileProcessor tp = activeTPs[j];
+                        modPacket.Write(TP_START_GUID);//标记节点开始，添加分隔标签
                         modPacket.Write(tp.LoadenName);
                         modPacket.WritePoint16(tp.Position);
                         //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
                         modPacket.Write((byte)(tp.Width / 16));
                         modPacket.Write((byte)(tp.Height / 16));
-
                         // 发送TileProcessor数据
                         tp.SendData(modPacket);
                     }
@@ -238,32 +226,30 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
-            // 发送每个活跃的TP数据
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (!tp.Active || !tp.LoadenWorldSendData) {
-                    continue;
-                }
+            // 数据量未超上限，直接发送一个完整包
+            ModPacket fullPacket = VaultMod.Instance.GetPacket();
+            fullPacket.Write((byte)MessageType.Handle_TPData_Receive);
+            fullPacket.Write(InitializeWorld);
+            fullPacket.Write(sendTPCount);
 
-                // 标记节点开始
-                modPacket.Write(TP_START_GUID); // 添加分隔标签
-                modPacket.Write(tp.LoadenName);
-                modPacket.WritePoint16(tp.Position);
+            foreach (TileProcessor tp in activeTPs) {
+                fullPacket.Write(TP_START_GUID);
+                fullPacket.Write(tp.LoadenName);
+                fullPacket.WritePoint16(tp.Position);
                 //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
-                modPacket.Write((byte)(tp.Width / 16));
-                modPacket.Write((byte)(tp.Height / 16));
-
+                fullPacket.Write((byte)(tp.Width / 16));
+                fullPacket.Write((byte)(tp.Height / 16));
                 // 发送TileProcessor数据
-                tp.SendData(modPacket);
+                tp.SendData(fullPacket);
             }
 
-            if (modPacket.BaseStream.Length > MaxStreamSize) {
-                HandlerPackMeltingAway(modPacket);
+            if (fullPacket.BaseStream.Length > MaxStreamSize) {
+                HandlerPackMeltingAway(fullPacket);
                 InitializeWorld = false;
                 return;
             }
 
-            modPacket.Send(whoAmI); // 将数据包发送给客户端
-
+            fullPacket.Send(whoAmI);// 将数据包发送给客户端
             InitializeWorld = false;
         }
         /// <summary>
@@ -277,7 +263,7 @@ namespace InnoVault.TileProcessors
             InitializeWorld = reader.ReadBoolean();
 
             int tpCount = reader.ReadInt32(); // 读取 TP 数量
-            if (tpCount < 0 || tpCount > MaxTileModuleInWorldCount) {
+            if (tpCount < 0 || tpCount > MaxTPInWorldCount) {
                 "TileProcessorLoader-ClientRequest_TPData_Receive: Received invalid TP count, terminating read".LoggerDomp(VaultMod.Instance);
                 return;
             }
