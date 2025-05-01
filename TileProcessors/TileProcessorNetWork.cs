@@ -4,7 +4,6 @@ using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
-using Terraria.ModLoader.IO;
 using static InnoVault.TileProcessors.TileProcessorLoader;
 using static InnoVault.VaultNetWork;
 

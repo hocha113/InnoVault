@@ -525,7 +525,7 @@ namespace InnoVault.TileProcessors
         /// <param name="y">要查找的模块的y坐标</param>
         /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
-        public static bool ByPositionGetTP(int x, int y, out TileProcessor tileProcessor) 
+        public static bool ByPositionGetTP(int x, int y, out TileProcessor tileProcessor)
             => TP_Point_To_Instance.TryGetValue(new(x, y), out tileProcessor);
 
         /// <summary>
@@ -536,7 +536,7 @@ namespace InnoVault.TileProcessors
         /// <param name="y">要查找的模块的y坐标</param>
         /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
-        public static bool ByPositionGetTP(int id, int x, int y, out TileProcessor tileProcessor) 
+        public static bool ByPositionGetTP(int id, int x, int y, out TileProcessor tileProcessor)
             => TP_IDAndPoint_To_Instance.TryGetValue((id, new Point16(x, y)), out tileProcessor);
 
         /// <summary>
@@ -555,7 +555,7 @@ namespace InnoVault.TileProcessors
         /// <param name="point">要查找的模块的坐标</param>
         /// <param name="tileProcessor">返回坐标对应的模块，如果未找到则返回<see langword="null"/></param>
         /// <returns></returns>
-        public static bool ByPositionGetTP(int id, Point16 point, out TileProcessor tileProcessor) 
+        public static bool ByPositionGetTP(int id, Point16 point, out TileProcessor tileProcessor)
             => TP_IDAndPoint_To_Instance.TryGetValue((id, point), out tileProcessor);
 
         /// <summary>
