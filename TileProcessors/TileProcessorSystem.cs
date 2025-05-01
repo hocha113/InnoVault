@@ -63,16 +63,20 @@ namespace InnoVault.TileProcessors
                 long idleDistanceSQ = tileProcessor.IdleDistance * tileProcessor.IdleDistance;
                 Vector2 posInWorld = tileProcessor.PosInWorld;
 
+                bool playerInRange = false;
+
                 foreach (var p in Main.player) {
                     if (!p.active) {
                         continue;
                     }
-                    //常用的手段，平方比较避免开根造成的额外性能开销
                     if (p.position.DistanceSQ(posInWorld) < idleDistanceSQ) {
-                        break;//只要有一个玩家在范围内就继续更新
+                        playerInRange = true;
+                        break; // 有玩家在范围内就可以停止检查
                     }
+                }
 
-                    return;//如果范围内一个玩家都没有就直接返回出去不要更新
+                if (!playerInRange) {
+                    return; // 没有任何玩家在范围内，跳过更新
                 }
             }
 
