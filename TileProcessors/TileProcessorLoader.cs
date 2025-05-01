@@ -173,7 +173,7 @@ namespace InnoVault.TileProcessors
         //集中管理所有TileDrawing_Draw钩子
         void On_TileDrawing_DrawHook(On_Main.orig_DrawBackgroundBlackFill orig, Main self) {
             orig.Invoke(self);
-            //不要在主页面进行绘制，也不要在地图界面进行绘制
+            //不要在主页面进行绘制，也不要在全屏地图界面进行绘制
             if (!Main.gameMenu && !Main.mapFullscreen) {
                 TileProcessorSystem.PreDrawTiles();
             }
@@ -425,9 +425,10 @@ namespace InnoVault.TileProcessors
         public static Dictionary<(string, Point16), TileProcessor> GetTileProcessorDictionaryByNameAndPosition() {
             Dictionary<(string, Point16), TileProcessor> tpDictionary = [];
             foreach (TileProcessor tp in TP_InWorld) {
-                if (tp != null) {
-                    tpDictionary[(tp.LoadenName, tp.Position)] = tp;
+                if (tp == null) {
+                    continue;
                 }
+                tpDictionary[(tp.LoadenName, tp.Position)] = tp;
             }
             return tpDictionary;
         }
@@ -621,7 +622,7 @@ namespace InnoVault.TileProcessors
         /// <param name="ID">要查找的模块的ID</param>
         /// <param name="x">要查找的模块的x坐标</param>
         /// <param name="y">要查找的模块的y坐标</param>
-        /// <param name="maxFindLeng">搜索范围的最大距离</param>
+        /// <param name="maxFindLeng">搜索范围的最大距离，单位为物块图格距离</param>
         /// <returns>返回与指定ID及坐标最接近的 <see cref="TileProcessor"/>，如果未找到则返回<see langword="null"/></returns>
         public static TileProcessor FindModuleRangeSearch(int ID, int x, int y, int maxFindLeng) {
             TileProcessor module = null;
