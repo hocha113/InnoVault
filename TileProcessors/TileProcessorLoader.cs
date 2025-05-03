@@ -366,6 +366,19 @@ namespace InnoVault.TileProcessors
         }
 
         #region Utils
+        /// <summary>
+        /// 移除对应TP实体在字典中的记录，目前仅在<see cref="TileProcessor.Kill"/>中被使用
+        /// 如果你考虑自行调用，请务必保证自己清楚自己在做什么，在错误的时机中移除活跃实体的字典存据会导致多种问题
+        /// </summary>
+        /// <param name="tp"></param>
+        public static void RemoveFromDictionaries(TileProcessor tp) {
+            TP_IDAndPoint_To_Instance.Remove((tp.ID, tp.Position));
+            TP_NameAndPoint_To_Instance.Remove((tp.LoadenName, tp.Position));
+            //因为Point_To_Instance只考虑位置，所以在某些情况下可能出现实体顶替的情况，一个萝卜一个坑，移除时判断一下ID避免误杀
+            if (TP_Point_To_Instance.TryGetValue(tp.Position, out var existing) && existing.ID == tp.ID) {
+                TP_Point_To_Instance.Remove(tp.Position);
+            }
+        }
 
         //集中管理所有TryIsTopLeftPoint钩子
         internal static bool? TileProcessorPlaceInWorldTryIsTopLeftPoint(int i, int j, out Point16 position) {

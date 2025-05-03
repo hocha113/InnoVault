@@ -38,18 +38,13 @@ namespace InnoVault.TileProcessors
                 }
             }
 
-            if (isDead) {
+            //在多人游戏中，不允许客户端自行杀死Tp实体，这些要通过服务器的统一广播来管理
+            if (isDead && !VaultUtils.isClient) {
                 if (VaultUtils.isServer) {
                     TileProcessorNetWork.SendTPDeathByServer(tileProcessor);
                 }
 
                 tileProcessor.Kill();
-
-                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
-                    tpGlobal.OnKill(tileProcessor);
-                }
-
-                tileProcessor.TrackItem = null;
 
                 return true;
             }

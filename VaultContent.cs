@@ -1,6 +1,4 @@
-﻿using InnoVault.GameContent;
-using InnoVault.GameContent.BaseEntity;
-using InnoVault.PRT;
+﻿using InnoVault.PRT;
 using InnoVault.TileProcessors;
 using InnoVault.UIHandles;
 using Terraria.ModLoader;
@@ -39,15 +37,6 @@ namespace InnoVault
         /// <returns>类型为 <typeparamref name="T"/> 的瓦片处理器实例，若未找到或实例类型不匹配则返回 <see langword="null"/></returns>
         /// <exception cref="System.Collections.Generic.KeyNotFoundException">若 ID 在 <see cref="TileProcessorLoader.TP_Instances"/> 中不存在，可能抛出此异常</exception>
         public static T FindTP<T>(this Mod _) where T : TileProcessor => TileProcessorLoader.TP_Instances[TileProcessorLoader.GetModuleID<T>()] as T;
-        /// <summary>
-        /// 获取指定模组关联的手持投射物实例（继承自 <see cref="BaseHeldProj"/>），通过类型 <typeparamref name="T"/> 查找
-        /// 从全局类型到实例的映射中直接获取实例
-        /// </summary>
-        /// <typeparam name="T">手持投射物类型，必须继承自 <see cref="BaseHeldProj"/></typeparam>
-        /// <param name="_">模组实例，此方法未使用，仅为扩展方法兼容性保留</param>
-        /// <returns>类型为 <typeparamref name="T"/> 的手持投射物实例，若未找到或实例类型不匹配则返回 <see langword="null"/></returns>
-        /// <exception cref="System.Collections.Generic.KeyNotFoundException">若类型 <typeparamref name="T"/> 在 <see cref="GameLoaden.BaseHeldProj_Type_To_Instances"/> 中不存在，可能抛出此异常</exception>
-        public static T FindHeldProj<T>(this Mod _) where T : BaseHeldProj => GameLoaden.BaseHeldProj_Type_To_Instances[typeof(T)] as T;
         /// <summary>
         /// 通过类型名称和关联模组查找粒子实例（<see cref="BasePRT"/>）
         /// 遍历类型到模组的映射，匹配模组和类型名称，然后通过 ID 映射解析实例

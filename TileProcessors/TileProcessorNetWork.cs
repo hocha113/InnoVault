@@ -135,9 +135,6 @@ namespace InnoVault.TileProcessors
             Point16 point = reader.ReadPoint16();
             if (ByPositionGetTP(id, point, out var tileProcessor)) {
                 tileProcessor.Kill();
-                foreach (var tpGlobal in TPGlobalHooks) {
-                    tpGlobal.OnKill(tileProcessor);
-                }
             }
         }
 

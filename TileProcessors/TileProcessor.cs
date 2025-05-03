@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Mono.Cecil.Cil;
 using System;
 using System.IO;
 using Terraria;
@@ -159,6 +160,14 @@ namespace InnoVault.TileProcessors
         public void Kill() {
             OnKill();
             Active = false;
+
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                tpGlobal.OnKill(this);
+            }
+
+            TrackItem = null;
+
+            TileProcessorLoader.RemoveFromDictionaries(this);
         }
 
         /// <summary>
