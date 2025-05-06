@@ -42,6 +42,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public Item TrackItem;
         /// <summary>
+        /// 在<see cref="Initialize"/>调用后被设置为<see langword="true"/>
+        /// </summary>
+        public bool Spwan;
+        /// <summary>
         /// 模块的活跃性，如果是<see langword="false"/>，那么模块将不再进行更新和绘制
         /// ，其在列表<see cref="TileProcessorLoader.TP_InWorld"/>中的实例引用将随时可能被顶替为新的模块
         /// </summary>
@@ -216,6 +220,12 @@ namespace InnoVault.TileProcessors
         /// 在模块被生成时调用一次，用于初始化一些实例数据
         /// </summary>
         public virtual void SetProperty() { }
+
+        /// <summary>
+        /// 运行在<see cref="Update"/>之前，此时基本数据都已经设置好了，只会在添加进世界时被调用一次，一般用于初始化一些次要数据
+        /// 这个函数会在客户端和服务端上运行
+        /// </summary>
+        public virtual void Initialize() { }
 
         /// <summary>
         /// 会在所有本地客户端、服务端上更新，编写程序时需要考虑网络结构

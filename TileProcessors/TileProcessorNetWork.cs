@@ -15,9 +15,9 @@ namespace InnoVault.TileProcessors
     public class TileProcessorNetWork
     {
         /// <summary>
-        /// 属于TP实体网络工作的独特GUID标签
+        /// 属于TP实体网络工作的独特魔术标签，更加节省空间
         /// </summary>
-        public const string TP_START_GUID = "{VaultMod_TP_START_GUID_94AE-XYZ-AB34-BY27}";
+        public const uint TP_START_MARKER = 0xDEADCAFE;
         /// <summary>
         /// 单次发布的最大TP实体容量
         /// </summary>
@@ -183,6 +183,10 @@ namespace InnoVault.TileProcessors
             }
 
             int sendTPCount = activeTPs.Count;
+            if (sendTPCount <= 0) {//如果没有可使用的TP实体就不用发送相关的数据了，虽然一般不会这样
+                InitializeWorld = false;
+                return;
+            }
 
             if (sendTPCount > MaxTPSendPackCount) {//如果数量大于MaxTPSendPackCount
                 int splits = sendTPCount / MaxTPSendPackCount + 1;
@@ -200,7 +204,7 @@ namespace InnoVault.TileProcessors
 
                     for (int j = start; j < start + size; j++) {
                         TileProcessor tp = activeTPs[j];
-                        modPacket.Write(TP_START_GUID);//标记节点开始，添加分隔标签
+                        modPacket.Write(TP_START_MARKER);//标记节点开始，添加分隔标签
                         modPacket.Write(tp.LoadenName);
                         modPacket.WritePoint16(tp.Position);
                         //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
@@ -229,7 +233,7 @@ namespace InnoVault.TileProcessors
             fullPacket.Write(sendTPCount);
 
             foreach (TileProcessor tp in activeTPs) {
-                fullPacket.Write(TP_START_GUID);
+                fullPacket.Write(TP_START_MARKER);
                 fullPacket.Write(tp.LoadenName);
                 fullPacket.WritePoint16(tp.Position);
                 //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
@@ -266,7 +270,7 @@ namespace InnoVault.TileProcessors
 
             for (int i = 0; i < tpCount; i++) {
                 // 确保是合法的标记
-                if (reader.ReadString() != TP_START_GUID) {
+                if (reader.ReadUInt32() != TP_START_MARKER) {
                     $"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid markID: {i}, skipping to the next node".LoggerDomp(VaultMod.Instance);
                     SkipToNextMarker(reader);
                     continue;
@@ -329,10 +333,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         private static void SkipToNextMarker(BinaryReader reader) {
             while (reader.BaseStream.Position < reader.BaseStream.Length) {
-                string marker = reader.ReadString();
-                if (marker == TP_START_GUID) {
+                uint marker = reader.ReadUInt32();
+                if (marker == TP_START_MARKER) {
                     // 回退以便下一个处理块能够正确读取标记
-                    reader.BaseStream.Position -= marker.Length;
+                    reader.BaseStream.Position -= 4;
                     break;
                 }
             }

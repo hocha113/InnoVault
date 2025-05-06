@@ -188,6 +188,14 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 将制定角度转化为指定模长的向量
+        /// </summary>
+        /// <param name="radius"></param>
+        /// <param name="theta"></param>
+        /// <returns></returns>
+        public static Vector2 RodingToVer(float radius, float theta) => theta.ToRotationVector2() * radius;
+
+        /// <summary>
         /// 色彩混合
         /// </summary>
         /// <param name="percent"></param>

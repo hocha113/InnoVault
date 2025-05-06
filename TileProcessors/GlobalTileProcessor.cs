@@ -21,6 +21,13 @@ namespace InnoVault.TileProcessors
 
         }
         /// <summary>
+        /// 用于初始化一些次要信息，只会在实体生成时调用一次
+        /// </summary>
+        /// <param name="tileProcessor"></param>
+        public virtual void Initialize(TileProcessor tileProcessor) {
+
+        }
+        /// <summary>
         /// 更新在<see cref="TileProcessor.Update"/>之前，返回<see langword="false"/>可以阻止其运行
         /// </summary>
         /// <returns></returns>

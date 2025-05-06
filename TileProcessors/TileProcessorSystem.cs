@@ -53,6 +53,14 @@ namespace InnoVault.TileProcessors
         }
 
         internal static void TileProcessorUpdate(TileProcessor tileProcessor) {
+            if (!tileProcessor.Spwan) {
+                tileProcessor.Initialize();
+                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                    tpGlobal.Initialize(tileProcessor);
+                }
+                tileProcessor.Spwan = true;
+            }
+
             //如果待机距离大于0则启动距离计算
             if (tileProcessor.IdleDistance > 0) {
                 long idleDistanceSQ = tileProcessor.IdleDistance * tileProcessor.IdleDistance;
