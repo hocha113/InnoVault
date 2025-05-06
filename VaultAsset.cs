@@ -1,6 +1,5 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
-using Terraria.ModLoader;
 
 namespace InnoVault
 {
@@ -12,30 +11,22 @@ namespace InnoVault
         /// <summary>
         /// 透明素材无填充
         /// </summary>
-        public static Asset<Texture2D> placeholder { get; internal set; }
+        [VaultLoaden("Assets/placeholder")]
+        public static Asset<Texture2D> placeholder {  get; set; }
         /// <summary>
         /// 透明素材白色填充
         /// </summary>
-        public static Asset<Texture2D> placeholder2 { get; internal set; }
+        [VaultLoaden("Assets/placeholder2")]
+        public static Asset<Texture2D> placeholder2 { get; set; }
         /// <summary>
         /// 错误素材占位符
         /// </summary>
-        public static Asset<Texture2D> placeholder3 { get; internal set; }
+        [VaultLoaden("Assets/placeholder3")]
+        public static Asset<Texture2D> placeholder3 { get; set; }
         /// <summary>
         /// 一个近十字光纹理
         /// </summary>
-        public static Asset<Texture2D> Light { get; internal set; }
-        void IVaultLoader.LoadAsset() {
-            placeholder = ModContent.Request<Texture2D>("InnoVault/Assets/placeholder");
-            placeholder2 = ModContent.Request<Texture2D>("InnoVault/Assets/placeholder2");
-            placeholder3 = ModContent.Request<Texture2D>("InnoVault/Assets/placeholder3");
-            Light = ModContent.Request<Texture2D>("InnoVault/Assets/Light");
-        }
-        void IVaultLoader.UnLoadData() {
-            placeholder = null;
-            placeholder2 = null;
-            placeholder3 = null;
-            Light = null;
-        }
+        [VaultLoaden("Assets/Light")]
+        public static Asset<Texture2D> Light { get; set; }
     }
 }

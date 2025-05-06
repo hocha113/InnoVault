@@ -31,6 +31,7 @@ namespace InnoVault
                 loader.SetupData();
             }
             if (!Main.dedServ) {
+                VaultLoad.LoadAsset();
                 foreach (var loader in Loaders) {
                     loader.LoadAsset();
                 }
@@ -42,6 +43,7 @@ namespace InnoVault
                 loader.UnLoadData();
             }
             Loaders.Clear();
+            VaultLoad.UnLoadAsset();
         }
         /// <inheritdoc/>
         public override void HandlePacket(BinaryReader reader, int whoAmI) => VaultNetWork.HandlePacket(this, reader, whoAmI);
