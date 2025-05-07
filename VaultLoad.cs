@@ -216,10 +216,18 @@ namespace InnoVault
             var fields = type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
             foreach (FieldInfo field in fields) {
                 // 检查字段是否标记了 VaultLoadenAttribute
-                VaultLoadenAttribute attribute = field.GetCustomAttribute<VaultLoadenAttribute>();
+                VaultLoadenAttribute attribute;
+                try {
+                    attribute = field.GetCustomAttribute<VaultLoadenAttribute>();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Warn($"Skipped field {field.Name} due to attribute load error: {ex.Message}");
+                    continue;
+                }
+
                 if (attribute == null) {
                     continue;
                 }
+
                 field.SetValue(null, null);
                 attribute.Mod = null;
             }
@@ -228,10 +236,18 @@ namespace InnoVault
             var properties = type.GetProperties(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
             foreach (PropertyInfo property in properties) {
                 // 检查属性是否标记了 VaultLoadenAttribute
-                VaultLoadenAttribute attribute = property.GetCustomAttribute<VaultLoadenAttribute>();
+                VaultLoadenAttribute attribute;
+                try {
+                    attribute = property.GetCustomAttribute<VaultLoadenAttribute>();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Warn($"Skipped property {property.Name} due to attribute load error: {ex.Message}");
+                    continue;
+                }
+
                 if (attribute == null) {
                     continue;
                 }
+
                 // 仅对有 setter 的属性进行卸载
                 if (property.CanWrite && property.GetSetMethod(true) != null) {
                     property.SetValue(null, null);
