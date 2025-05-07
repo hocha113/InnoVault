@@ -402,8 +402,12 @@ namespace InnoVault
         /// <returns>如果找到包含该类型的 Mod，返回对应的 Mod 实例；否则返回 null</returns>
         public static Mod FindModByType(Type type, Mod[] mods) {
             foreach (var mod in mods) {
-                Type[] fromModCodeTypes = AssemblyManager.GetLoadableTypes(mod.Code);
-                if (fromModCodeTypes.Contains(type)) {
+                if (!VaultMod.ModTypeSetCache.TryGetValue(mod.Code, out var typeSet)) {
+                    typeSet = [.. AssemblyManager.GetLoadableTypes(mod.Code)];
+                    VaultMod.ModTypeSetCache[mod.Code] = typeSet;
+                }
+
+                if (typeSet.Contains(type)) {
                     return mod;
                 }
             }

@@ -89,7 +89,7 @@ namespace InnoVault
                     FindattributeByMod(type, attribute);
                     LoadenByFieldAsset(field, attribute);
                 } catch (Exception ex) {
-                    Console.WriteLine($"Failed to load asset for field {field.Name} at path: {attribute.Path}. Error: {ex.Message}");
+                    VaultMod.Instance.Logger.Error($"Failed to load asset for field {field.Name} at path: {attribute.Path}. Error: {ex.Message}");
                 }
             }
 
@@ -103,7 +103,7 @@ namespace InnoVault
                 }
                 // 检查属性是否有 setter
                 if (!property.CanWrite || property.GetSetMethod(true) == null) {
-                    Console.WriteLine($"Property {property.Name} is marked with VaultLoadenAttribute but has no setter.");
+                    VaultMod.Instance.Logger.Error($"Property {property.Name} is marked with VaultLoadenAttribute but has no setter.");
                     continue;
                 }
                 // 通过检查后开始加载
@@ -111,7 +111,7 @@ namespace InnoVault
                     FindattributeByMod(type, attribute);
                     LoadenByPropertyAsset(property, attribute);
                 } catch (Exception ex) {
-                    Console.WriteLine($"Failed to load asset for property {property.Name} at path: {attribute.Path}. Error: {ex.Message}");
+                    VaultMod.Instance.Logger.Error($"Failed to load asset for property {property.Name} at path: {attribute.Path}. Error: {ex.Message}");
                 }
             }
         }
@@ -124,13 +124,22 @@ namespace InnoVault
             attribute.Mod = mod;
         }
 
-        private static void LoadenByFieldAsset(FieldInfo field, VaultLoadenAttribute attribute) {
+        private static void CheckAttributePath(VaultLoadenAttribute attribute) {
             // 校验和处理 attribute.Path
             string[] pathParts = attribute.Path.Split('/');
             if (pathParts.Length > 1 && pathParts[0] == attribute.Mod.Name) {
                 // 如果路径以模组名开头，去掉模组名部分
                 attribute.Path = string.Join("/", pathParts.Skip(1));
             }
+        }
+
+        private static void LoadenByFieldAsset(FieldInfo field, VaultLoadenAttribute attribute) {
+            if (attribute.Mod == null) {
+                VaultMod.Instance.Logger.Error($"Failed {field.Name} from Mod is Null");
+                return;
+            }
+
+            CheckAttributePath(attribute);
 
             if (attribute.AssetMode == AssetMode.None) {
                 if (field.FieldType == typeof(Asset<Texture2D>)) {
@@ -157,6 +166,13 @@ namespace InnoVault
         }
 
         private static void LoadenByPropertyAsset(PropertyInfo property, VaultLoadenAttribute attribute) {
+            if (attribute.Mod == null) {
+                VaultMod.Instance.Logger.Error($"Property {property.Name} from Mod is Null");
+                return;
+            }
+
+            CheckAttributePath(attribute);
+
             if (attribute.AssetMode == AssetMode.None) {
                 if (property.PropertyType == typeof(Asset<Texture2D>)) {
                     attribute.AssetMode = AssetMode.Texture;
