@@ -30,6 +30,10 @@ namespace InnoVault
     public static class VaultUtils
     {
         #region Math
+        /// <summary>
+        /// 弧度分母
+        /// </summary>
+        public const float atoR = MathHelper.Pi / 180;
 
         /// <summary>
         /// 表示一个完整的圆周角度（2π），约为 6.2832 弧度
@@ -896,6 +900,25 @@ namespace InnoVault
             else {
                 string[] fruits = fullName.Split('/');
                 return ModLoader.GetMod(fruits[0]).Find<ModItem>(fruits[1]).Type;
+            }
+        }
+
+        /// <summary>
+        /// 安全加载物品资源
+        /// </summary>
+        /// <param name="id"></param>
+        public static void SafeLoadItem(int id) {
+            if (!Main.dedServ && id > 0 && id < TextureAssets.Item.Length && Main.Assets != null && TextureAssets.Item[id] != null) {
+                Main.instance.LoadItem(id);
+            }
+        }
+        /// <summary>
+        /// 安全加载弹幕资源
+        /// </summary>
+        /// <param name="id"></param>
+        public static void SafeLoadProj(int id) {
+            if (!Main.dedServ && id > 0 && id < TextureAssets.Projectile.Length && Main.Assets != null && TextureAssets.Projectile[id] != null) {
+                Main.instance.LoadProjectile(id);
             }
         }
 

@@ -5,6 +5,9 @@ using System;
 using Terraria.Audio;
 using Terraria.ModLoader;
 using System.Linq;
+using Microsoft.Xna.Framework.Input;
+using Terraria.Graphics.Effects;
+using Terraria.Graphics.Shaders;
 
 namespace InnoVault
 {
@@ -39,8 +42,9 @@ namespace InnoVault
     /// </summary>
     /// <param name="path"></param>
     /// <param name="assetMode"></param>
+    /// <param name="effectPassname"></param>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
-    public class VaultLoadenAttribute(string path, AssetMode assetMode = AssetMode.None) : Attribute
+    public class VaultLoadenAttribute(string path, AssetMode assetMode = AssetMode.None, string effectPassname = "") : Attribute
     {
         /// <summary>
         /// 这个字段或属性所属的模组程序集，自动指定
@@ -55,6 +59,10 @@ namespace InnoVault
         /// <br>路径值可以选择不包含模组名</br>
         /// </summary>
         public string Path { get; set; } = path;
+        /// <summary>
+        /// 用于<see cref="AssetMode.Effects"/>的加载，默认为空字符串，即自动指定为渲染文件名 + Pass
+        /// </summary>
+        public string EffectPassname { get; set; } = effectPassname;
     }
 
     /// <summary>
@@ -203,12 +211,25 @@ namespace InnoVault
                     property.SetValue(null, attribute.Mod.Assets.Request<Texture2D>(attribute.Path));
                     break;
                 case AssetMode.Effects:
-                    property.SetValue(null, attribute.Mod.Assets.Request<Effect>(attribute.Path));
+                    property.SetValue(null, LoadEffect(attribute));
                     break;
                 case AssetMode.Sound:
                     property.SetValue(null, new SoundStyle(attribute.Mod.Name + "/" + attribute.Path));
                     break;
             }
+        }
+
+        private static Asset<Effect> LoadEffect(VaultLoadenAttribute attribute) {
+            Asset<Effect> asset = attribute.Mod.Assets.Request<Effect>(attribute.Path);
+            string effectName = attribute.Path.Split('/')[^1];
+            string effectKey = attribute.Mod.Name + ":" + effectName;
+            if (attribute.EffectPassname == "") {
+                attribute.EffectPassname = effectName + "Pass";
+            }
+            if (Filters.Scene[effectKey] == null) {
+                Filters.Scene[effectKey] = new Filter(new ScreenShaderData(asset, attribute.EffectPassname), EffectPriority.VeryHigh);
+            }
+            return asset;
         }
 
         private static void UnLoadenByTypeAsset(Type type) {
