@@ -444,13 +444,16 @@ namespace InnoVault
         /// </summary>
         /// <returns>所有Mod代码中的可加载类型数组</returns>
         public static Type[] GetAnyModCodeType() {
-            // 创建一个存储所有类型的列表
-            List<Type> types = new List<Type>();
-            Mod[] mods = ModLoader.Mods;
-
-            // 使用 LINQ 将每个Mod的代码程序集中的所有可加载类型平铺到一个集合中
-            types.AddRange(mods.SelectMany(mod => AssemblyManager.GetLoadableTypes(mod.Code)));
-            return types.ToArray();
+            if (VaultMod.AnyModCodeType == null) {
+                // 创建一个存储所有类型的列表
+                List<Type> types = [];
+                Mod[] mods = ModLoader.Mods;
+                // 使用 LINQ 将每个Mod的代码程序集中的所有可加载类型平铺到一个集合中
+                types.AddRange(mods.SelectMany(mod => AssemblyManager.GetLoadableTypes(mod.Code)));
+                VaultMod.AnyModCodeType = [.. types];
+            }
+            
+            return VaultMod.AnyModCodeType;
         }
 
         /// <summary>

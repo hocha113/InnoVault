@@ -24,6 +24,10 @@ namespace InnoVault
         /// 用于模组源查找的性能优化，在加载完成后会立即释放
         /// </summary>
         internal static readonly Dictionary<Assembly, HashSet<Type>> ModTypeSetCache = new();
+        /// <summary>
+        /// 用于模组总程序集查找的性能优化，在加载完成后会立即释放
+        /// </summary>
+        internal static Type[] AnyModCodeType = null;
         /// <inheritdoc/>
         public override void Load() {
             Loaders = VaultUtils.GetSubInterface<IVaultLoader>();
@@ -44,6 +48,7 @@ namespace InnoVault
             }
             //完成加载后就释放，防止在游戏周期中占用不必要的内存
             ModTypeSetCache?.Clear();
+            AnyModCodeType = null;
         }
         /// <inheritdoc/>
         public override void Unload() {
@@ -53,6 +58,7 @@ namespace InnoVault
             Loaders.Clear();
             VaultLoad.UnLoadAsset();
             ModTypeSetCache?.Clear();
+            AnyModCodeType = null;
         }
         /// <inheritdoc/>
         public override void HandlePacket(BinaryReader reader, int whoAmI) => VaultNetWork.HandlePacket(this, reader, whoAmI);

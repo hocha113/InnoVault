@@ -21,6 +21,10 @@ namespace InnoVault
         /// </summary>
         None,
         /// <summary>
+        /// 声音，即<see cref="SoundStyle"/>类型
+        /// </summary>
+        Sound,
+        /// <summary>
         /// 纹理，即<see cref="Texture2D"/>类型
         /// </summary>
         Texture,
@@ -29,9 +33,9 @@ namespace InnoVault
         /// </summary>
         Effects,
         /// <summary>
-        /// 声音，即<see cref="SoundStyle"/>类型
+        /// 加载<see cref="ArmorShaderData"/>类型的渲染类文件
         /// </summary>
-        Sound,
+        ArmorShader,
     }
 
     /// <summary>
@@ -102,6 +106,7 @@ namespace InnoVault
                 // 通过检查后开始加载
                 try {
                     FindattributeByMod(type, attribute);
+                    CheckAttributePath(type, field.Name, attribute);
                     LoadenByFieldAsset(field, attribute);
                 } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error($"Failed to load asset for field {field.Name} at path: {attribute.Path}. Error: {ex.Message}");
@@ -131,6 +136,7 @@ namespace InnoVault
                 // 通过检查后开始加载
                 try {
                     FindattributeByMod(type, attribute);
+                    CheckAttributePath(type, property.Name, attribute);
                     LoadenByPropertyAsset(property, attribute);
                 } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error($"Failed to load asset for property {property.Name} at path: {attribute.Path}. Error: {ex.Message}");
@@ -146,8 +152,19 @@ namespace InnoVault
             attribute.Mod = mod;
         }
 
-        private static void CheckAttributePath(VaultLoadenAttribute attribute) {
-            // 校验和处理 attribute.Path
+        private static void CheckAttributePath(Type type, string targetName, VaultLoadenAttribute attribute) {
+            // 如果路径以 "/" 结尾，则追加 targetName
+            if (attribute.Path.EndsWith('/')) {
+                attribute.Path += targetName;
+            }
+
+            // 替换 {@namespace} 为 type.Namespace 的路径格式
+            if (!string.IsNullOrEmpty(type.Namespace)) {
+                string namespacePath = type.Namespace.Replace('.', '/');
+                attribute.Path = attribute.Path.Replace("{@namespace}", namespacePath);
+            }
+
+            // 校验和处理 modName
             string[] pathParts = attribute.Path.Split('/');
             if (pathParts.Length > 1 && pathParts[0] == attribute.Mod.Name) {
                 // 如果路径以模组名开头，去掉模组名部分
@@ -161,28 +178,33 @@ namespace InnoVault
                 return;
             }
 
-            CheckAttributePath(attribute);
-
             if (attribute.AssetMode == AssetMode.None) {
-                if (field.FieldType == typeof(Asset<Texture2D>)) {
+                if (field.FieldType == typeof(SoundStyle)) {
+                    attribute.AssetMode = AssetMode.Sound;
+                }
+                else if (field.FieldType == typeof(Asset<Texture2D>)) {
                     attribute.AssetMode = AssetMode.Texture;
                 }
                 else if (field.FieldType == typeof(Asset<Effect>)) {
                     attribute.AssetMode = AssetMode.Effects;
                 }
-                else if (field.FieldType == typeof(SoundStyle)) {
-                    attribute.AssetMode = AssetMode.Sound;
+                else if (field.FieldType == typeof(ArmorShaderData)) {
+                    attribute.AssetMode = AssetMode.ArmorShader;
                 }
             }
             switch (attribute.AssetMode) {
+                case AssetMode.Sound:
+                    field.SetValue(null, new SoundStyle(attribute.Mod.Name + "/" + attribute.Path));
+                    break;
                 case AssetMode.Texture:
                     field.SetValue(null, attribute.Mod.Assets.Request<Texture2D>(attribute.Path));
                     break;
                 case AssetMode.Effects:
-                    field.SetValue(null, attribute.Mod.Assets.Request<Effect>(attribute.Path));
+                    field.SetValue(null, LoadEffect(attribute));
                     break;
-                case AssetMode.Sound:
-                    field.SetValue(null, new SoundStyle(attribute.Mod.Name + "/" + attribute.Path));
+                case AssetMode.ArmorShader:
+                    Asset<Effect> value = attribute.Mod.Assets.Request<Effect>(attribute.Path);
+                    field.SetValue(null, new ArmorShaderData(value, attribute.EffectPassname));
                     break;
             }
         }
@@ -192,8 +214,6 @@ namespace InnoVault
                 VaultMod.Instance.Logger.Error($"Property {property.Name} from Mod is Null");
                 return;
             }
-
-            CheckAttributePath(attribute);
 
             if (attribute.AssetMode == AssetMode.None) {
                 if (property.PropertyType == typeof(Asset<Texture2D>)) {
@@ -207,14 +227,18 @@ namespace InnoVault
                 }
             }
             switch (attribute.AssetMode) {
+                case AssetMode.Sound:
+                    property.SetValue(null, new SoundStyle(attribute.Mod.Name + "/" + attribute.Path));
+                    break;
                 case AssetMode.Texture:
                     property.SetValue(null, attribute.Mod.Assets.Request<Texture2D>(attribute.Path));
                     break;
                 case AssetMode.Effects:
                     property.SetValue(null, LoadEffect(attribute));
                     break;
-                case AssetMode.Sound:
-                    property.SetValue(null, new SoundStyle(attribute.Mod.Name + "/" + attribute.Path));
+                case AssetMode.ArmorShader:
+                    Asset<Effect> value = attribute.Mod.Assets.Request<Effect>(attribute.Path);
+                    property.SetValue(null, new ArmorShaderData(value, attribute.EffectPassname));
                     break;
             }
         }
