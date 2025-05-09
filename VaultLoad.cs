@@ -137,8 +137,8 @@ namespace InnoVault
             if (valueType == null) {
                 return;
             }
-            //对于属性需要检测其是否可写
-            if (member is PropertyInfo prop && (!prop.CanWrite || prop.GetSetMethod(true) == null)) {
+            
+            if (member is PropertyInfo prop && (!prop.CanWrite || prop.GetSetMethod(true) == null)) {//对于属性需要检测其是否可写
                 VaultMod.Instance.Logger.Error($"Property {member.Name} is marked with VaultLoadenAttribute but has no setter.");
                 return;
             }
@@ -149,10 +149,14 @@ namespace InnoVault
             }
 
             if (attribute.AssetMode == AssetMode.None) {//自动指定资源类型
-                attribute.AssetMode = GetAttributeAssetMode(valueType);
+                attribute.AssetMode = GetAttributeAssetMode(valueType);              
             }
-            //根据资源类型来加载值
-            object value = attribute.AssetMode switch {
+            if (attribute.AssetMode == AssetMode.None) {//第二次检测，如果还是None就跳过
+                VaultMod.Instance.Logger.Warn($"Cannot determine asset mode for {member.Name} of type {valueType}. Skipped.");
+                return;
+            }
+
+            object value = attribute.AssetMode switch {//根据资源类型来加载值
                 AssetMode.Sound => new SoundStyle(attribute.Mod.Name + "/" + attribute.Path),
                 AssetMode.Texture => attribute.Mod.Assets.Request<Texture2D>(attribute.Path),
                 AssetMode.Effects => LoadEffect(attribute),
@@ -197,7 +201,21 @@ namespace InnoVault
             }
 
             string[] pathParts = attribute.Path.Split('/');//切割路径，检测是否以模组名字开头，如果包含模组名部分则切除
-            if (pathParts.Length > 1 && pathParts[0] == attribute.Mod.Name) {
+            if (pathParts.Length == 0) {
+                throw new Exception($"Attribute path on member \"{targetName}\" is empty or invalid: \"{attribute.Path}\"");
+            }
+            
+            if (attribute.Path.StartsWith('@')) {//用@指定其他模组，重新设置源模组对象
+                pathParts[0] = pathParts[0][1..]; // 去掉@
+                if (ModLoader.TryGetMod(pathParts[0], out Mod newMod)) {
+                    attribute.Mod = newMod;
+                }
+                else {
+                    throw new Exception($"Member {targetName} couldn't find Mod \"{pathParts[0]}\". Original Mod Name: \"{attribute.Mod.Name}\"");
+                }
+            }
+
+            if (pathParts[0] == attribute.Mod.Name) {//最后检测一下是否对齐源模组名称，如果对齐则进行剔除
                 attribute.Path = string.Join("/", pathParts.Skip(1));
             }
         }
