@@ -916,6 +916,12 @@ namespace InnoVault
             }
         }
         /// <summary>
+        /// 安全加载物品资源
+        /// </summary>
+        /// <param name="item"></param>
+        public static void SafeLoadItem(this Item item) => SafeLoadItem(item.type);
+
+        /// <summary>
         /// 安全加载弹幕资源
         /// </summary>
         /// <param name="id"></param>
@@ -924,6 +930,11 @@ namespace InnoVault
                 Main.instance.LoadProjectile(id);
             }
         }
+        /// <summary>
+        /// 安全加载弹幕资源
+        /// </summary>
+        /// <param name="proj"></param>
+        public static void SafeLoadProj(this Projectile proj) => SafeLoadProj(proj.type);
 
         /// <summary>
         /// 检查指定玩家是否按下了鼠标键

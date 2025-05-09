@@ -39,14 +39,21 @@ namespace InnoVault
     }
 
     /// <summary>
-    /// <br>一个指定用于加载操作的标签</br>
-    /// <br>可以用于标记静态的属性或者字段，自动为其分配和管理资源的值</br>
-    /// <br>资源类型会根据目标的声明类型自动指定</br>
-    /// <br>如果目标是只读属性则无法加载</br>
+    /// 指定一个用于自动资源加载的标签
+    /// 可用于标记静态字段或属性，自动为其分配并管理资源对象
     /// </summary>
-    /// <param name="path"></param>
-    /// <param name="assetMode"></param>
-    /// <param name="effectPassname"></param>
+    /// <remarks>
+    /// <para>资源类型将根据目标成员的声明类型自动推断</para>
+    /// <para>只读属性无法被加载</para>
+    /// <para>支持的资源类型包括：<see cref="SoundStyle"/>、<see cref="ArmorShaderData"/>、<see cref="Asset{T}"/>，其中 T 可为 <see cref="Texture2D"/> 或 <see cref="Effect"/></para>
+    /// <para>如果指定的路径以 <c>"/"</c> 结尾，将自动在末尾追加字段名作为资源名</para>
+    /// <para>路径中若包含 <c>{@namespace}</c>，将自动替换为字段所在的完整命名空间路径</para>
+    /// </remarks>
+    /// <param name="path">资源的加载路径可省略模组名支持路径占位符规则</param>
+    /// <param name="assetMode">资源加载类型，默认为 <see cref="AssetMode.None"/>，即自动推断</param>
+    /// <param name="effectPassname">
+    /// 用于 <see cref="AssetMode.Effects"/> 模式时指定 Pass 名称留空则自动采用渲染文件名作为默认 Pass
+    /// </param>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property, AllowMultiple = false)]
     public class VaultLoadenAttribute(string path, AssetMode assetMode = AssetMode.None, string effectPassname = "") : Attribute
     {
@@ -75,230 +82,157 @@ namespace InnoVault
     public static class VaultLoad
     {
         internal static void LoadAsset() {
-            Type[] allModTypes = VaultUtils.GetAnyModCodeType();
-            foreach (var t in allModTypes) {
-                LoadenByTypeAsset(t);
+            foreach (var t in VaultUtils.GetAnyModCodeType()) {
+                ProcessTypeAssets(t, load: true);
             }
         }
+
         internal static void UnLoadAsset() {
-            Type[] allModTypes = VaultUtils.GetAnyModCodeType();
-            foreach (var t in allModTypes) {
-                UnLoadenByTypeAsset(t);
+            foreach (var t in VaultUtils.GetAnyModCodeType()) {
+                ProcessTypeAssets(t, load: false);
             }
         }
 
-        private static void LoadenByTypeAsset(Type type) {
-            // 获取当前类的所有静态字段
-            var fields = type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
-            foreach (FieldInfo field in fields) {
-                // 检查字段是否标记了 VaultLoadenAttribute
-                VaultLoadenAttribute attribute;
-                try {
-                    attribute = field.GetCustomAttribute<VaultLoadenAttribute>();
-                } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Warn($"Skipped field {field.Name} due to attribute load error: {ex.Message}");
-                    continue;
-                }
-
-                if (attribute == null) {
-                    continue;
-                }
-                // 通过检查后开始加载
-                try {
-                    FindattributeByMod(type, attribute);
-                    CheckAttributePath(type, field.Name, attribute);
-                    LoadenByFieldAsset(field, attribute);
-                } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"Failed to load asset for field {field.Name} at path: {attribute.Path}. Error: {ex.Message}");
-                }
+        private static void ProcessTypeAssets(Type type, bool load) {
+            //反射所有的静态字段，无论是否公开
+            BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static;
+            //寻找并加载字段
+            foreach (var field in type.GetFields(flags)) {
+                ProcessMemberAsset(field, type, load);
             }
-
-            // 获取当前类的所有静态属性
-            var properties = type.GetProperties(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
-            foreach (PropertyInfo property in properties) {
-                // 检查属性是否标记了 VaultLoadenAttribute
-                VaultLoadenAttribute attribute;
-                try {
-                    attribute = property.GetCustomAttribute<VaultLoadenAttribute>();
-                } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Warn($"Skipped property {property.Name} due to attribute load error: {ex.Message}");
-                    continue;
-                }
-
-                if (attribute == null) {
-                    continue;
-                }
-                // 检查属性是否有 setter
-                if (!property.CanWrite || property.GetSetMethod(true) == null) {
-                    VaultMod.Instance.Logger.Error($"Property {property.Name} is marked with VaultLoadenAttribute but has no setter.");
-                    continue;
-                }
-                // 通过检查后开始加载
-                try {
-                    FindattributeByMod(type, attribute);
-                    CheckAttributePath(type, property.Name, attribute);
-                    LoadenByPropertyAsset(property, attribute);
-                } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"Failed to load asset for property {property.Name} at path: {attribute.Path}. Error: {ex.Message}");
-                }
+            //寻找并加载属性
+            foreach (var property in type.GetProperties(flags)) {
+                ProcessMemberAsset(property, type, load);
             }
         }
 
-        private static void FindattributeByMod(Type type, VaultLoadenAttribute attribute) {
+        private static void ProcessMemberAsset(MemberInfo member, Type type, bool load) {
+            VaultLoadenAttribute attribute;
+            try {
+                attribute = member.GetCustomAttribute<VaultLoadenAttribute>();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} due to attribute load error: {ex.Message}");
+                return;
+            }
+
+            if (attribute == null) {
+                return;
+            }
+
+            if (!FindattributeByMod(type, attribute)) {
+                return;//存在无法找到源模组的情况，在这种情况下需要返回
+            }
+
+            if (load) {
+                CheckAttributePath(type, member.Name, attribute);
+                LoadMember(member, attribute);
+            }
+            else {
+                UnloadMember(member);
+                attribute.Mod = null;
+            }
+        }
+
+        private static void LoadMember(MemberInfo member, VaultLoadenAttribute attribute) {
+            Type valueType = member is FieldInfo field ? field.FieldType : (member as PropertyInfo)?.PropertyType;
+            if (valueType == null) {
+                return;
+            }
+            //对于属性需要检测其是否可写
+            if (member is PropertyInfo prop && (!prop.CanWrite || prop.GetSetMethod(true) == null)) {
+                VaultMod.Instance.Logger.Error($"Property {member.Name} is marked with VaultLoadenAttribute but has no setter.");
+                return;
+            }
+
+            if (attribute.Mod == null) {//一般来说到这里了不会出现这种情况，但多判断一下总没错
+                VaultMod.Instance.Logger.Error($"{member.MemberType} {member.Name} from Mod is Null");
+                return;
+            }
+
+            if (attribute.AssetMode == AssetMode.None) {//自动指定资源类型
+                attribute.AssetMode = GetAttributeAssetMode(valueType);
+            }
+            //根据资源类型来加载值
+            object value = attribute.AssetMode switch {
+                AssetMode.Sound => new SoundStyle(attribute.Mod.Name + "/" + attribute.Path),
+                AssetMode.Texture => attribute.Mod.Assets.Request<Texture2D>(attribute.Path),
+                AssetMode.Effects => LoadEffect(attribute),
+                AssetMode.ArmorShader => new ArmorShaderData(LoadEffect(attribute), attribute.EffectPassname),
+                _ => null
+            };
+
+            if (member is FieldInfo fieldInfo) {
+                fieldInfo.SetValue(null, value);
+            }
+            else if (member is PropertyInfo propInfo) {
+                propInfo.SetValue(null, value);
+            }
+        }
+
+        private static void UnloadMember(MemberInfo member) {
+            if (member is FieldInfo field) {
+                field.SetValue(null, null);
+            }
+            else if (member is PropertyInfo prop && prop.CanWrite && prop.GetSetMethod(true) != null) {
+                prop.SetValue(null, null);
+            }
+        }
+
+        private static bool FindattributeByMod(Type type, VaultLoadenAttribute attribute) {
             if (attribute.Mod != null) {
-                return;// 如果已经手动指定了模组对象就不需要进行查找了
+                return true; // 如果已经手动指定了模组对象就不需要进行查找了
             }
-            Mod mod = VaultUtils.FindModByType(type, ModLoader.Mods);
-            attribute.Mod = mod;
+
+            attribute.Mod = VaultUtils.FindModByType(type, ModLoader.Mods);
+            return attribute.Mod != null;
         }
 
         private static void CheckAttributePath(Type type, string targetName, VaultLoadenAttribute attribute) {
-            // 如果路径以 "/" 结尾，则追加 targetName
-            if (attribute.Path.EndsWith('/')) {
+            if (attribute.Path.EndsWith('/')) {//如果以该符号结尾，补全成员的句柄名
                 attribute.Path += targetName;
             }
 
-            // 替换 {@namespace} 为 type.Namespace 的路径格式
-            if (!string.IsNullOrEmpty(type.Namespace)) {
+            if (!string.IsNullOrEmpty(type.Namespace)) {//替换该特殊词柄为命名空间路径
                 string namespacePath = type.Namespace.Replace('.', '/');
                 attribute.Path = attribute.Path.Replace("{@namespace}", namespacePath);
             }
 
-            // 校验和处理 modName
-            string[] pathParts = attribute.Path.Split('/');
+            string[] pathParts = attribute.Path.Split('/');//切割路径，检测是否以模组名字开头，如果包含模组名部分则切除
             if (pathParts.Length > 1 && pathParts[0] == attribute.Mod.Name) {
-                // 如果路径以模组名开头，去掉模组名部分
                 attribute.Path = string.Join("/", pathParts.Skip(1));
             }
         }
 
-        private static void LoadenByFieldAsset(FieldInfo field, VaultLoadenAttribute attribute) {
-            if (attribute.Mod == null) {
-                VaultMod.Instance.Logger.Error($"Failed {field.Name} from Mod is Null");
-                return;
+        private static AssetMode GetAttributeAssetMode(Type type) {
+            if (type == typeof(SoundStyle)) {
+                return AssetMode.Sound;
             }
-
-            if (attribute.AssetMode == AssetMode.None) {
-                if (field.FieldType == typeof(SoundStyle)) {
-                    attribute.AssetMode = AssetMode.Sound;
-                }
-                else if (field.FieldType == typeof(Asset<Texture2D>)) {
-                    attribute.AssetMode = AssetMode.Texture;
-                }
-                else if (field.FieldType == typeof(Asset<Effect>)) {
-                    attribute.AssetMode = AssetMode.Effects;
-                }
-                else if (field.FieldType == typeof(ArmorShaderData)) {
-                    attribute.AssetMode = AssetMode.ArmorShader;
-                }
+            else if (type == typeof(Asset<Texture2D>)) {
+                return AssetMode.Texture;
             }
-            switch (attribute.AssetMode) {
-                case AssetMode.Sound:
-                    field.SetValue(null, new SoundStyle(attribute.Mod.Name + "/" + attribute.Path));
-                    break;
-                case AssetMode.Texture:
-                    field.SetValue(null, attribute.Mod.Assets.Request<Texture2D>(attribute.Path));
-                    break;
-                case AssetMode.Effects:
-                    field.SetValue(null, LoadEffect(attribute));
-                    break;
-                case AssetMode.ArmorShader:
-                    Asset<Effect> value = attribute.Mod.Assets.Request<Effect>(attribute.Path);
-                    field.SetValue(null, new ArmorShaderData(value, attribute.EffectPassname));
-                    break;
+            else if (type == typeof(Asset<Effect>)) {
+                return AssetMode.Effects;
             }
-        }
-
-        private static void LoadenByPropertyAsset(PropertyInfo property, VaultLoadenAttribute attribute) {
-            if (attribute.Mod == null) {
-                VaultMod.Instance.Logger.Error($"Property {property.Name} from Mod is Null");
-                return;
+            else if (type == typeof(ArmorShaderData)) {
+                return AssetMode.ArmorShader;
             }
-
-            if (attribute.AssetMode == AssetMode.None) {
-                if (property.PropertyType == typeof(Asset<Texture2D>)) {
-                    attribute.AssetMode = AssetMode.Texture;
-                }
-                else if (property.PropertyType == typeof(Asset<Effect>)) {
-                    attribute.AssetMode = AssetMode.Effects;
-                }
-                else if (property.PropertyType == typeof(SoundStyle)) {
-                    attribute.AssetMode = AssetMode.Sound;
-                }
-            }
-            switch (attribute.AssetMode) {
-                case AssetMode.Sound:
-                    property.SetValue(null, new SoundStyle(attribute.Mod.Name + "/" + attribute.Path));
-                    break;
-                case AssetMode.Texture:
-                    property.SetValue(null, attribute.Mod.Assets.Request<Texture2D>(attribute.Path));
-                    break;
-                case AssetMode.Effects:
-                    property.SetValue(null, LoadEffect(attribute));
-                    break;
-                case AssetMode.ArmorShader:
-                    Asset<Effect> value = attribute.Mod.Assets.Request<Effect>(attribute.Path);
-                    property.SetValue(null, new ArmorShaderData(value, attribute.EffectPassname));
-                    break;
-            }
+            return AssetMode.None;
         }
 
         private static Asset<Effect> LoadEffect(VaultLoadenAttribute attribute) {
             Asset<Effect> asset = attribute.Mod.Assets.Request<Effect>(attribute.Path);
             string effectName = attribute.Path.Split('/')[^1];
             string effectKey = attribute.Mod.Name + ":" + effectName;
-            if (attribute.EffectPassname == "") {
+
+            if (string.IsNullOrEmpty(attribute.EffectPassname)) {
                 attribute.EffectPassname = effectName + "Pass";
             }
+
             if (Filters.Scene[effectKey] == null) {
                 Filters.Scene[effectKey] = new Filter(new ScreenShaderData(asset, attribute.EffectPassname), EffectPriority.VeryHigh);
             }
+
             return asset;
-        }
-
-        private static void UnLoadenByTypeAsset(Type type) {
-            // 获取当前类的所有静态字段
-            var fields = type.GetFields(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
-            foreach (FieldInfo field in fields) {
-                // 检查字段是否标记了 VaultLoadenAttribute
-                VaultLoadenAttribute attribute;
-                try {
-                    attribute = field.GetCustomAttribute<VaultLoadenAttribute>();
-                } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Warn($"Skipped field {field.Name} due to attribute load error: {ex.Message}");
-                    continue;
-                }
-
-                if (attribute == null) {
-                    continue;
-                }
-
-                field.SetValue(null, null);
-                attribute.Mod = null;
-            }
-
-            // 获取当前类的所有静态属性
-            var properties = type.GetProperties(BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static);
-            foreach (PropertyInfo property in properties) {
-                // 检查属性是否标记了 VaultLoadenAttribute
-                VaultLoadenAttribute attribute;
-                try {
-                    attribute = property.GetCustomAttribute<VaultLoadenAttribute>();
-                } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Warn($"Skipped property {property.Name} due to attribute load error: {ex.Message}");
-                    continue;
-                }
-
-                if (attribute == null) {
-                    continue;
-                }
-
-                // 仅对有 setter 的属性进行卸载
-                if (property.CanWrite && property.GetSetMethod(true) != null) {
-                    property.SetValue(null, null);
-                }
-                attribute.Mod = null;
-            }
         }
     }
 }
