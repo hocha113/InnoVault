@@ -12,7 +12,7 @@ namespace InnoVault
         /// 透明素材无填充
         /// </summary>
         [VaultLoaden("Assets/placeholder")]
-        public static Asset<Texture2D> placeholder {  get; set; }
+        public static Asset<Texture2D> placeholder { get; set; }
         /// <summary>
         /// 透明素材白色填充
         /// </summary>

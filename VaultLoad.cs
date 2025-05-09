@@ -1,13 +1,12 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
-using System.Reflection;
 using System;
-using Terraria.Audio;
-using Terraria.ModLoader;
 using System.Linq;
-using Microsoft.Xna.Framework.Input;
+using System.Reflection;
+using Terraria.Audio;
 using Terraria.Graphics.Effects;
 using Terraria.Graphics.Shaders;
+using Terraria.ModLoader;
 
 namespace InnoVault
 {

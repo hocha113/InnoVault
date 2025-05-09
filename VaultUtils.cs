@@ -452,7 +452,7 @@ namespace InnoVault
                 types.AddRange(mods.SelectMany(mod => AssemblyManager.GetLoadableTypes(mod.Code)));
                 VaultMod.AnyModCodeType = [.. types];
             }
-            
+
             return VaultMod.AnyModCodeType;
         }
 
