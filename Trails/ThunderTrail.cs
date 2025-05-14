@@ -243,6 +243,10 @@ namespace InnoVault.Trails
             graphicsDevice.Textures[0] = Texture;
             BlendState state = graphicsDevice.BlendState;
 
+            //修改采样模式，这样才能正确的循环贴图
+            SamplerState sp = graphicsDevice.SamplerStates[0];
+            graphicsDevice.SamplerStates[0] = SamplerState.PointWrap;
+
             if (UseNonOrAdd) {
                 graphicsDevice.BlendState = BlendState.NonPremultiplied;
             }
@@ -258,6 +262,7 @@ namespace InnoVault.Trails
             graphicsDevice.DrawUserPrimitives(PrimitiveType.TriangleStrip, bars2Bottom.ToArray(), 0, bars2Top.Count - 2);
 
             graphicsDevice.BlendState = state;
+            graphicsDevice.SamplerStates[0] = sp;
 
             if (drawInTip) {
                 Texture2D mainTex = VaultAsset.Light.Value;
