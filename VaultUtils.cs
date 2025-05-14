@@ -1566,6 +1566,16 @@ namespace InnoVault
         /// <summary>
         /// 尝试在考虑网络状态的前提下生成一个 Boss NPC
         /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="player">触发生成的玩家实例</param>
+        /// <param name="checkLocalPlayer">是否只允许本地玩家触发生成</param>
+        /// <returns></returns>
+        public static bool TrySpawnBossWithNet<T>(Player player, bool checkLocalPlayer = true) where T : ModNPC 
+            => TrySpawnBossWithNet(player, ModContent.NPCType<T>(), checkLocalPlayer);
+
+        /// <summary>
+        /// 尝试在考虑网络状态的前提下生成一个 Boss NPC
+        /// </summary>
         /// <param name="player">触发生成的玩家实例</param>
         /// <param name="bossType">要生成的 Boss 的类型</param>
         /// <param name="checkLocalPlayer">是否只允许本地玩家触发生成</param>
