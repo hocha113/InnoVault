@@ -1564,33 +1564,6 @@ namespace InnoVault
         public static bool IsOwnedByLocalPlayer(this Projectile projectile) => projectile.owner == Main.myPlayer;
 
         /// <summary>
-        /// 生成Boss级实体，考虑网络状态
-        /// </summary>
-        /// <param name="player">触发生成的玩家实例</param>
-        /// <param name="bossType">要生成的 Boss 的类型</param>
-        /// <param name="obeyLocalPlayerCheck">是否要遵循本地玩家检查</param>
-        [Obsolete("已经弃用，请使用 TrySpawnBossWithNet")]
-        public static void SpawnBossNetcoded(Player player, int bossType, bool obeyLocalPlayerCheck = true) {
-            if (player.whoAmI == Main.myPlayer || !obeyLocalPlayerCheck) {
-                // 如果使用物品的玩家是客户端
-                // （在此明确排除了服务器端）
-
-                _ = SoundEngine.PlaySound(SoundID.Roar, player.position);
-
-                if (Main.netMode != NetmodeID.MultiplayerClient) {
-                    // 如果玩家不在多人游戏中，直接生成 Boss
-                    NPC.SpawnOnPlayer(player.whoAmI, bossType);
-                }
-                else {
-                    // 如果玩家在多人游戏中，请求生成
-                    // 仅当 NPCID.Sets.MPAllowedEnemies[type] 为真时才有效，需要在 NPC 代码中设置
-
-                    NetMessage.SendData(MessageID.SpawnBossUseLicenseStartEvent, number: player.whoAmI, number2: bossType);
-                }
-            }
-        }
-
-        /// <summary>
         /// 尝试在考虑网络状态的前提下生成一个 Boss NPC
         /// </summary>
         /// <param name="player">触发生成的玩家实例</param>
@@ -1605,12 +1578,12 @@ namespace InnoVault
 
             SoundEngine.PlaySound(SoundID.Roar, player.position);
 
-            if (Main.netMode == NetmodeID.SinglePlayer || Main.netMode == NetmodeID.Server) {
+            if (isSinglePlayer || isServer) {
                 // 本地或服务器：直接生成 Boss
                 NPC.SpawnOnPlayer(player.whoAmI, bossType);
                 return true;
             }
-            else if (Main.netMode == NetmodeID.MultiplayerClient) {
+            else if (isClient) {
                 // 多人客户端：发送生成请求给服务器
                 NetMessage.SendData(MessageID.SpawnBossUseLicenseStartEvent, number: player.whoAmI, number2: bossType);
                 return true;
