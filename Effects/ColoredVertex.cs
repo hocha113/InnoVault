@@ -44,6 +44,18 @@ public struct ColoredVertex : IVertexType
     }
 
     /// <summary>
+    /// 构造一个带有位置、颜色和纹理坐标的顶点
+    /// </summary>
+    /// <param name="position">顶点的位置</param>
+    /// <param name="texCoord">顶点的纹理坐标</param>
+    /// <param name="color">顶点的颜色</param>
+    public ColoredVertex(Vector2 position, Vector3 texCoord, Color color) {//这个重载函数仅仅用于在某些情况下的适配，考虑到有的开发者非常喜欢这种参数排列
+        Position = position;
+        TexCoord = texCoord;
+        Color = color;
+    }
+
+    /// <summary>
     /// 获取该顶点的声明，用于描述顶点的内存布局
     /// </summary>
     public VertexDeclaration VertexDeclaration => _vertexDeclaration;

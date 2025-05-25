@@ -60,6 +60,7 @@ namespace InnoVault
     ///   <item>以 <c>"/"</c> 结尾的路径会自动追加成员名作为资源名</item>
     ///   <item>包含 <c>{@namespace}</c> 的路径会替换为成员的完整命名空间（以 <c>/</c> 分隔）</item>
     ///   <item>路径可省略模组名前缀，自动使用当前模组</item>
+    ///   <item>@可以标记外部模组名，比如"@OtherMod/Asset/MyItem"</item>
     /// </list>
     /// </para>
     /// <para>限制：
