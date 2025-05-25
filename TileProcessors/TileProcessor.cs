@@ -12,6 +12,7 @@ namespace InnoVault.TileProcessors
 {
     /// <summary>
     /// 物块处理器，简称TP实体，它的功能目标类似于<see cref="TileEntity"/>
+    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-TP-Entity"/></br>
     /// </summary>
     public abstract class TileProcessor
     {
@@ -50,9 +51,15 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public bool Active;
         /// <summary>
-        /// 关于多人模式下，玩家进入世界时是否要请求这个TP实例进行网络响应，默认为<see langword="true"/>
+        /// 在多人模式下，玩家进入世界时是否要请求这个TP实例进行网络响应，默认为<see langword="true"/>
         /// </summary>
         public bool LoadenWorldSendData = true;
+        /// <summary>
+        /// 在多人模式下，玩家放置这个TP实体时，是否由该客户端向其他端进行一次广播，默认为<see langword="false"/>
+        /// 如果为 <see langword="true"/>，则在 <see cref="TrackItem"/> 不为 <see langword="null"/> 时会在放置时调用一次 <see cref="SendData()"/>
+        /// 该调用运行在<see cref="Initialize"/>之后
+        /// </summary>
+        public bool PlaceNet = false;
         /// <summary>
         /// 玩家鼠标是否悬停在TP实体之上
         /// </summary>

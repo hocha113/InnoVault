@@ -44,6 +44,7 @@ namespace InnoVault
     /// <summary>
     /// 标记静态字段、属性或类以自动加载和管理资源
     /// 类级别标记会自动处理所有符合条件的静态成员，但跳过已标记 `VaultLoadenAttribute` 的成员
+    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-VaultLoaden"/></br>
     /// </summary>
     /// <remarks>
     /// <para>支持的资源类型包括：

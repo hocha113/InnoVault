@@ -8,6 +8,7 @@ namespace InnoVault.UIHandles
 {
     /// <summary>
     /// UI处理器，一个简易的UI基类，继承它用于自定义各种UI实现
+    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-UI"/></br>
     /// </summary>
     public abstract class UIHandle
     {

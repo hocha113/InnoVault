@@ -8,6 +8,7 @@ namespace InnoVault.PRT
 {
     /// <summary>
     /// 粒子基类，继承它用于实现各种高度自定义的粒子效果
+    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-PRT-System"/></br>
     /// </summary>
     public abstract class BasePRT
     {

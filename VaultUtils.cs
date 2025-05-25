@@ -310,6 +310,25 @@ namespace InnoVault
 
         #region System
         /// <summary>
+        /// 发送游戏文本并记录日志内容
+        /// </summary>
+        /// <param name="obj">需要输入的内容</param>
+        /// <param name="mod">打印的模组对象，如果为默认值<see langword="null"/>，则不会在日志中输出记录</param>
+        public static void LoggerDomp(this object obj, Mod mod = null) {
+            string text;
+            if (obj == null) {
+                text = "ERROR is Null";
+            }
+            else {
+                text = obj.ToString();
+            }
+
+            Text(text, Color.Red);
+
+            mod?.Logger.Info(text);
+        }
+
+        /// <summary>
         /// 生成乱码字符串
         /// </summary>
         /// <param name="length"></param>
@@ -840,6 +859,11 @@ namespace InnoVault
         };
 
         /// <summary>
+        /// 是否处于愚人节
+        /// </summary>
+        public static bool IsAprilFoolsDay => DateTime.Now.Month == 4 && DateTime.Now.Day == 1;
+
+        /// <summary>
         /// 获取生成源
         /// </summary>
         public static IEntitySource FromObjectGetParent(this object obj) {
@@ -964,6 +988,109 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 设置玩家鼠标指向物块的信息状态
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="itemID"></param>
+        public static void SetMouseOverByTile(this Player player, int itemID) {
+            player.noThrow = 2;
+            player.mouseInterface = true;
+            player.cursorItemIconEnabled = true;
+            if (itemID > 0) {
+                player.cursorItemIconID = itemID;//当玩家鼠标悬停在物块之上时，显示该物品的材质
+            }
+        }
+
+        /// <summary>
+        /// 设置玩家鼠标指向物块的信息状态
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="player"></param>
+        public static void SetMouseOverByTile<T>(this Player player) where T : ModItem 
+            => SetMouseOverByTile(player, ModContent.ItemType<T>());
+
+        /// <summary>
+        /// 实时计算当前所有激活弹幕中，指定ID的弹幕数量
+        /// </summary>
+        /// <param name="projID">要统计的弹幕类型<see cref="Projectile.type"/></param>
+        /// <param name="owner">玩家索引 <see cref="Projectile.owner"/> , 默认为-1，即不启用玩家主人排查</param>
+        /// <returns>符合条件的弹幕数量</returns>
+        public static int CountProjectilesOfID(int projID, int owner = -1) {
+            int num = 0;
+            foreach (var proj in Main.ActiveProjectiles) {
+                if (owner >= 0 && owner != proj.owner) {
+                    continue;
+                }
+                if (proj.type == projID) {
+                    num++;
+                }
+            }
+            return num;
+        }
+        /// <summary>
+        /// 实时计算当前所有激活弹幕中，指定ID的弹幕数量
+        /// </summary>
+        /// <typeparam name="T">弹幕类型</typeparam>
+        /// <param name="owner">玩家索引 <see cref="Projectile.owner"/> , 默认为-1，即不启用玩家主人排查</param>
+        /// <returns></returns>
+        public static int CountProjectilesOfID<T>(int owner = -1) where T : ModProjectile 
+            => CountProjectilesOfID(ModContent.ProjectileType<T>(), owner);
+        /// <summary>
+        /// 实时计算当前所有激活弹幕中，指定ID的弹幕数量
+        /// </summary>
+        /// <param name="player">玩家实例</param>
+        /// <param name="projID">要统计的弹幕类型<see cref="Projectile.type"/></param>
+        /// <returns></returns>
+        public static int CountProjectilesOfID(this Player player, int projID) => CountProjectilesOfID(projID, player.whoAmI);
+        /// <summary>
+        /// 实时计算当前所有激活弹幕中，指定ID的弹幕数量
+        /// </summary>
+        /// <typeparam name="T">弹幕类型</typeparam>
+        /// <param name="player">玩家索引 <see cref="Projectile.owner"/> , 默认为-1，即不启用玩家主人排查</param>
+        /// <returns></returns>
+        public static int CountProjectilesOfID<T>(this Player player) where T : ModProjectile 
+            => CountProjectilesOfID(ModContent.ProjectileType<T>(), player.whoAmI);
+
+        /// <summary>
+        /// 一个模拟原版机制的消耗判定，考虑了大多数情况下的弹药消耗概率因素
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="ammo"></param>
+        /// <returns>如果返回<see langword="true"/>则代表不消耗</returns>
+        public static bool IsRangedAmmoFreeThisShot(this Player player, Item ammo) {
+            bool flag2 = false;
+            if (player.magicQuiver && ammo.ammo == AmmoID.Arrow && Main.rand.NextBool(5)) {
+                flag2 = true;
+            }
+
+            if (player.ammoBox && Main.rand.NextBool(5)) {
+                flag2 = true;
+            }
+
+            if (player.ammoPotion && Main.rand.NextBool(5)) {
+                flag2 = true;
+            }
+
+            if (player.huntressAmmoCost90 && Main.rand.NextBool(10)) {
+                flag2 = true;
+            }
+
+            if (player.chloroAmmoCost80 && Main.rand.NextBool(5)) {
+                flag2 = true;
+            }
+
+            if (player.ammoCost80 && Main.rand.NextBool(5)) {
+                flag2 = true;
+            }
+
+            if (player.ammoCost75 && Main.rand.NextBool(4)) {
+                flag2 = true;
+            }
+
+            return flag2;
+        }
+
+        /// <summary>
         /// 处理对物品集合的堆叠添加
         /// </summary>
         /// <param name="itemList"></param>
@@ -1014,54 +1141,17 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 发送游戏文本并记录日志内容
-        /// </summary>
-        /// <param name="obj">需要输入的内容</param>
-        /// <param name="mod">打印的模组对象，如果为默认值<see langword="null"/>，则不会在日志中输出记录</param>
-        public static void LoggerDomp(this object obj, Mod mod = null) {
-            string text;
-            if (obj == null) {
-                text = "ERROR is Null";
-            }
-            else {
-                text = obj.ToString();
-            }
-
-            Text(text, Color.Red);
-
-            if (mod != null) {
-                mod.Logger.Info(text);
-            }
-        }
-
-        /// <summary>
         /// 一个根据语言选项返回字符的方法
         /// </summary>
         public static string Translation(string Chinese = null, string English = null, string Spanish = null, string Russian = null) {
-            string text = default(string);
-
-            if (English == null) {
-                English = "Invalid Character";
-            }
-
-            switch (Language.ActiveCulture.LegacyId) {
-                case (int)GameCulture.CultureName.Chinese:
-                    text = Chinese;
-                    break;
-                case (int)GameCulture.CultureName.Russian:
-                    text = Russian;
-                    break;
-                case (int)GameCulture.CultureName.Spanish:
-                    text = Spanish;
-                    break;
-                case (int)GameCulture.CultureName.English:
-                    text = English;
-                    break;
-                default:
-                    text = English;
-                    break;
-            }
-
+            English ??= "Invalid Character";
+            string text = Language.ActiveCulture.LegacyId switch {
+                (int)GameCulture.CultureName.Chinese => Chinese,
+                (int)GameCulture.CultureName.Russian => Russian,
+                (int)GameCulture.CultureName.Spanish => Spanish,
+                (int)GameCulture.CultureName.English => English,
+                _ => English,
+            };
             return text;
         }
 
@@ -1084,6 +1174,32 @@ namespace InnoVault
                     }
                 }
             }
+        }
+
+        /// <summary>
+        /// 将文本拆分为多行，并为每行分别添加颜色代码
+        /// </summary>
+        /// <param name="textContent">输入的文本内容，支持换行符</param>
+        /// <param name="color">颜色对象</param>
+        /// <returns>格式化后的多行带颜色文本</returns>
+        public static string FormatColorTextMultiLine(string textContent, Color color) {
+            if (string.IsNullOrEmpty(textContent)) {
+                return string.Empty;
+            }
+
+            // 将颜色转换为 16 进制字符串
+            string hexColor = $"{color.R:X2}{color.G:X2}{color.B:X2}";
+
+            // 按换行符分割文本
+            string[] lines = textContent.Split('\n');
+
+            // 对每一行添加颜色代码
+            for (int i = 0; i < lines.Length; i++) {
+                lines[i] = $"[c/{hexColor}:{lines[i]}]";
+            }
+
+            // 使用换行符重新组合
+            return string.Join("\n", lines);
         }
 
         /// <summary>
@@ -1876,6 +1992,104 @@ namespace InnoVault
             }
         }
 
+        /// <summary>
+        /// 获取完整纹理的矩形区域
+        /// </summary>
+        /// <param name="value">纹理对象</param>
+        /// <returns>完整纹理的 Rectangle 区域</returns>
+        public static Rectangle GetRectangle(this Texture2D value) 
+            => new Rectangle(0, 0, value.Width, value.Height);
+
+        /// <summary>
+        /// 获取分帧后的某一帧对应的矩形区域
+        /// </summary>
+        /// <param name="value">纹理对象</param>
+        /// <param name="frame">当前帧索引</param>
+        /// <param name="maxFrame">总帧数</param>
+        /// <returns>对应帧的 Rectangle 区域</returns>
+        public static Rectangle GetRectangle(this Texture2D value, int frame, int maxFrame = 1) {
+            int singleFrameY = value.Height / maxFrame;
+            return new Rectangle(0, singleFrameY * frame, value.Width, singleFrameY);
+        }
+
+        /// <summary>
+        /// 获取纹理的中心点作为绘制原点
+        /// </summary>
+        /// <param name="value">纹理对象</param>
+        /// <returns>原点坐标</returns>
+        public static Vector2 GetOrig(this Texture2D value) => value.Size() / 2;
+
+        /// <summary>
+        /// 获取分帧纹理中某一帧的中心点作为绘制原点
+        /// </summary>
+        /// <param name="value">纹理对象</param>
+        /// <param name="maxFrame">帧总数</param>
+        /// <returns>某帧的原点坐标</returns>
+        public static Vector2 GetOrig(this Texture2D value, int maxFrame) =>
+            new Vector2(value.Width / 2, value.Height / maxFrame / 2);
+
+        /// <summary>
+        /// 控制帧动画的播放，基于游戏更新频率定时播放
+        /// </summary>
+        /// <param name="frame">当前帧引用</param>
+        /// <param name="intervalFrame">每几帧切换一次动画</param>
+        /// <param name="maxFrame">帧上限（包含）</param>
+        /// <param name="minFrame">帧起始（默认 0）</param>
+        public static void ClockFrame(ref int frame, int intervalFrame, int maxFrame, int minFrame = 0) {
+            if (frame < minFrame) {
+                frame = minFrame;
+            }
+
+            if (Main.GameUpdateCount % intervalFrame == 0) {
+                frame++;
+            }
+
+            if (frame > maxFrame) {
+                frame = minFrame;
+            }
+        }
+
+        /// <summary>
+        /// 控制帧动画的播放，基于游戏更新频率定时播放
+        /// </summary>
+        /// <param name="frame">当前帧引用</param>
+        /// <param name="intervalFrame">每几帧切换一次动画</param>
+        /// <param name="maxFrame">帧上限</param>
+        /// <param name="minFrame">帧起始，默认0</param>
+        public static void ClockFrame(ref double frame, int intervalFrame, int maxFrame, int minFrame = 0) {
+            if (frame < minFrame) {
+                frame = minFrame;
+            }
+
+            if (Main.GameUpdateCount % intervalFrame == 0) {
+                frame++;
+            }
+
+            if (frame > maxFrame) {
+                frame = minFrame;
+            }
+        }
+
+        /// <summary>
+        /// 控制帧动画的播放，基于游戏更新频率定时播放
+        /// </summary>
+        /// <param name="frame">当前帧引用</param>
+        /// <param name="intervalFrame">每几帧切换一次动画</param>
+        /// <param name="maxFrame">帧上限</param>
+        /// <param name="minFrame">帧起始，默认0</param>
+        public static void ClockFrame(ref float frame, int intervalFrame, int maxFrame, int minFrame = 0) {
+            if (frame < minFrame) {
+                frame = minFrame;
+            }
+
+            if (Main.GameUpdateCount % intervalFrame == 0) {
+                frame++;
+            }
+
+            if (frame > maxFrame) {
+                frame = minFrame;
+            }
+        }
         #endregion
 
         #region UI

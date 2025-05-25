@@ -58,6 +58,9 @@ namespace InnoVault.TileProcessors
                 foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
                     tpGlobal.Initialize(tileProcessor);
                 }
+                if (VaultUtils.isClient && tileProcessor.PlaceNet && tileProcessor.TrackItem != null) {
+                    tileProcessor.SendData();
+                }
                 tileProcessor.Spwan = true;
             }
 
