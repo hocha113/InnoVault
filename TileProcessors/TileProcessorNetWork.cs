@@ -85,20 +85,23 @@ namespace InnoVault.TileProcessors
                 tileProcessor = tp;
                 tileProcessor.ReceiveData(reader, whoAmI);
             }
-
-            //如果找到实体了就尝试进行广播
-            if (tileProcessor != null) {
-                if (Main.dedServ) {
-                    ModPacket modPacket = VaultMod.Instance.GetPacket();
-                    modPacket.Write((byte)MessageType.TPNetWork);
-                    modPacket.Write(loadenName);
-                    modPacket.WritePoint16(position);
-                    tileProcessor.SendData(modPacket);
-                    modPacket.Send(-1, whoAmI);
+            //如果没找到就临时新建一个
+            if (tileProcessor == null) {
+                VaultMod.Instance.Logger.Error($"TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found: {loadenName}-Position [{position}]");
+                tileProcessor = AddInWorld(TP_FullName_To_ID[loadenName], position, null);
+                if (tileProcessor == null) {
+                    VaultMod.Instance.Logger.Error($"TileProcessorLoader-ReceiveData: Re-Establishment Failed: {loadenName}-Position [{position}]");
+                    return;
                 }
             }
-            else {
-                throw new Exception($"TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found : {loadenName}-position[{position}]");
+            //如果找到实体了就尝试进行广播
+            if (Main.dedServ) {
+                ModPacket modPacket = VaultMod.Instance.GetPacket();
+                modPacket.Write((byte)MessageType.TPNetWork);
+                modPacket.Write(loadenName);
+                modPacket.WritePoint16(position);
+                tileProcessor.SendData(modPacket);
+                modPacket.Send(-1, whoAmI);
             }
         }
 

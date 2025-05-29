@@ -1010,6 +1010,14 @@ namespace InnoVault
             => SetMouseOverByTile(player, ModContent.ItemType<T>());
 
         /// <summary>
+        /// 利用<see cref="Projectile.identity"/>搜索对应的弹幕实例
+        /// </summary>
+        /// <param name="projectiles"></param>
+        /// <param name="identity"></param>
+        /// <returns></returns>
+        public static Projectile FindByIdentity(this Projectile[] projectiles, int identity) => projectiles.FirstOrDefault(x => x.identity == identity);
+
+        /// <summary>
         /// 实时计算当前所有激活弹幕中，指定ID的弹幕数量
         /// </summary>
         /// <param name="projID">要统计的弹幕类型<see cref="Projectile.type"/></param>
