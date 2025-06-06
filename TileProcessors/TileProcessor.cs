@@ -69,6 +69,18 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public bool InScreen;
         /// <summary>
+        /// 屏蔽数据发送的周期刻度，一般发生了网络错误时会给该实体设置为大于0的值以屏蔽数据发送操作
+        /// </summary>
+        public int SendCooldownTicks;
+        /// <summary>
+        /// 一秒内该实体所累计发包的计数，即每60tick进行一次重置，当该值高于<see cref="SendpacketPeak"/>时会暂时禁用发包操作
+        /// </summary>
+        public int SendpacketCount;
+        /// <summary>
+        /// //发包峰值，默认为10
+        /// </summary>
+        public int SendpacketPeak = 10;
+        /// <summary>
         /// 这个模块在世界中的唯一标签，如果实体不再活跃，它将随时被新加入的模块顶替，顶替的模块将继续使用相同WhoAmI值
         /// 注意，WhoAmI的值在各个端上都可能是不一致的，WhoAmI只应当做本地端的索引使用
         /// </summary>
@@ -248,7 +260,7 @@ namespace InnoVault.TileProcessors
                 return false;
             }
 
-            if (Tile == null) {
+            if (Tile == default(Tile)) {
                 return true;
             }
 
@@ -266,7 +278,13 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 发送数据
         /// </summary>
-        public void SendData() => TileProcessorNetWork.TileProcessorSendData(this);
+        public void SendData() {
+            if (SendCooldownTicks > 0) {
+                return;
+            }
+            SendpacketCount++;
+            TileProcessorNetWork.TileProcessorSendData(this);
+        }
 
         /// <summary>
         /// 发送数据

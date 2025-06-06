@@ -64,6 +64,15 @@ namespace InnoVault.TileProcessors
                 tileProcessor.Spwan = true;
             }
 
+            if (!VaultUtils.isSinglePlayer) {
+                if (Main.GameUpdateCount % 60 == 0) {
+                    tileProcessor.SendpacketCount = 0;
+                }
+                if (tileProcessor.SendCooldownTicks > 0) {
+                    tileProcessor.SendCooldownTicks--;
+                }
+            }
+
             //如果待机距离大于0则启动距离计算
             if (tileProcessor.IdleDistance > 0) {
                 long idleDistanceSQ = tileProcessor.IdleDistance * tileProcessor.IdleDistance;
@@ -97,6 +106,13 @@ namespace InnoVault.TileProcessors
 
             foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
                 tpGlobal.PostUpdate(tileProcessor);
+            }
+
+            if (!VaultUtils.isSinglePlayer && tileProcessor.SendCooldownTicks <= 0) {
+                if (tileProcessor.SendpacketCount > tileProcessor.SendpacketPeak) {
+                    tileProcessor.SendCooldownTicks = 60;
+                    tileProcessor.SendpacketCount = 0;
+                }
             }
         }
 

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Mono.Cecil.Cil;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Terraria;
@@ -31,7 +32,12 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static bool InitializeWorld { get; private set; }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 发送放置一个TP实体到世界中的消息
+        /// </summary>
+        /// <param name="mod"></param>
+        /// <param name="type"></param>
+        /// <param name="point"></param>
         public static void PlaceInWorldNetSend(Mod mod, int type, Point16 point) {
             // 客户端发送同步请求到服务器
             ModPacket packet = mod.GetPacket();
@@ -40,7 +46,12 @@ namespace InnoVault.TileProcessors
             packet.WritePoint16(point);
             packet.Send(); //发送到服务器
         }
-        /// <inheritdoc/>
+        /// <summary>
+        /// 接收放置一个TP实体到世界中的消息
+        /// </summary>
+        /// <param name="mod"></param>
+        /// <param name="reader"></param>
+        /// <param name="whoAmI"></param>
         internal static void PlaceInWorldNetReceive(Mod mod, BinaryReader reader, int whoAmI) {
             // 读取放置方块的数据
             int tileType = reader.ReadInt32();
@@ -72,18 +83,34 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
+        /// 该函数是对接收逻辑的二次封装，用于在让TP实体接收数据时进行通用的额外处理
+        /// </summary>
+        /// <param name="tileProcessor"></param>
+        /// <param name="reader"></param>
+        /// <param name="whoAmI"></param>
+        private static void TileProcessorInstanceDoReceiveData(TileProcessor tileProcessor, BinaryReader reader, int whoAmI) {
+            try {
+                tileProcessor.ReceiveData(reader, whoAmI);
+            } 
+            catch (Exception ex) {
+                string msg = $"TileProcessorInstanceDoReceiveData-Data Reception Failure: {ex.Message}\n{ex.StackTrace}";
+                VaultMod.Instance.Logger.Error(msg);
+            }
+        }
+
+        /// <summary>
         /// 接收TP网络数据
         /// </summary>
         public static void TileProcessorReceiveData(BinaryReader reader, int whoAmI) {
             //"TileProcessorLoader-ReceiveData:正在接收数据".LoggerDomp();
             string loadenName = reader.ReadString();
             Point16 position = reader.ReadPoint16();
-            TileProcessor tileProcessor = null;
+            TileProcessor tileProcessor;
 
             //使用字典查询节省性能
             if (ByPositionGetTP(loadenName, position, out var tp)) {
                 tileProcessor = tp;
-                tileProcessor.ReceiveData(reader, whoAmI);
+                TileProcessorInstanceDoReceiveData(tileProcessor, reader, whoAmI);
             }
             else {//如果没找到就临时新建一个
                 VaultMod.Instance.Logger.Error($"TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found: {loadenName}-Position [{position}]");
@@ -96,7 +123,7 @@ namespace InnoVault.TileProcessors
                     VaultMod.Instance.Logger.Error($"TileProcessorLoader-ReceiveData: Re-Establishment Failed: {loadenName}-Position [{position}]");
                     return;
                 }
-                tileProcessor.ReceiveData(reader, whoAmI);
+                TileProcessorInstanceDoReceiveData(tileProcessor, reader, whoAmI);
             }
 
             //如果找到实体了就尝试进行广播
@@ -291,7 +318,7 @@ namespace InnoVault.TileProcessors
 
                 // 先检查字典中是否已有该 TileProcessor
                 if (ByPositionGetTP(loadenName, position, out TileProcessor tp)) {
-                    tp.ReceiveData(reader, -1);
+                    TileProcessorInstanceDoReceiveData(tp, reader, -1);
                     continue;
                 }
 
@@ -304,7 +331,7 @@ namespace InnoVault.TileProcessors
 
                 // 先尝试从现有的 TileProcessor 列表中查找
                 if (ByPositionGetTP(tpID, position.X, position.Y, out TileProcessor existingTP)) {
-                    existingTP.ReceiveData(reader, -1);
+                    TileProcessorInstanceDoReceiveData(existingTP, reader, -1);
                     continue;
                 }
 
@@ -315,7 +342,7 @@ namespace InnoVault.TileProcessors
                         //因为客户端上的物块加载不完整，所以客户端生成的TP大小很可能不正确，这里接收服务器的数据来进行覆盖矫正
                         newTP.Width = widthByTile * 16;//乘以16转化为像素宽度
                         newTP.Height = heightByTile * 16;
-                        newTP.ReceiveData(reader, -1);
+                        TileProcessorInstanceDoReceiveData(newTP, reader, -1);
                         continue;
                     }
                 }

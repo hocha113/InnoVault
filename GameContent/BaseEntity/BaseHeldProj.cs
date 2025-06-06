@@ -20,12 +20,9 @@ namespace InnoVault.GameContent.BaseEntity
         private bool downLeftValue;
         private bool old_downRightValue;
         private bool downRightValue;
-        /// <summary>
-        /// 这个值用于在联机同步中使用，一般来讲，应该使用<see cref="ToMouse"/>
-        /// </summary>
-        private Vector2 toMouseVecterDate;
+        private Vector2 _toMouseVecterDate;
         private Vector2 _old_toMouseVecterDate;
-        private const float toMouseVer_variationMode = 0.5f;
+        private const float toMouseVer_variationModeSQ = 0.01f;
         /// <summary>
         /// 主纹理资源，应该在子类中被实际使用
         /// </summary>
@@ -90,23 +87,22 @@ namespace InnoVault.GameContent.BaseEntity
         /// <returns></returns>
         private Vector2 UpdateToMouse() {
             if (Projectile.IsOwnedByLocalPlayer()) {
-                toMouseVecterDate = Owner.GetPlayerStabilityCenter().To(Main.MouseWorld);
+                _toMouseVecterDate = Owner.GetPlayerStabilityCenter().To(Main.MouseWorld);
 
                 int grgDir = 1;
                 if (ModLoader.HasMod("GravityDontFlipScreen") && SafeGravDir < 0) {
                     grgDir *= -1;
                 }
                 //因为重力翻转后进行了坐标变换，这里反转一下Y值以保证旋转角正常
-                toMouseVecterDate.Y *= grgDir;
-
-                bool difference = Math.Abs(toMouseVecterDate.X - _old_toMouseVecterDate.X) > toMouseVer_variationMode
-                    || Math.Abs(toMouseVecterDate.Y - _old_toMouseVecterDate.Y) > toMouseVer_variationMode;
+                _toMouseVecterDate.Y *= grgDir;
+                //避免很多不必要的敏感抖动发包
+                bool difference = _toMouseVecterDate.DistanceSQ(_old_toMouseVecterDate) > toMouseVer_variationModeSQ;
                 if (difference && (CanFire || CanMouseNet)) {
                     NetUpdate();
                 }
-                _old_toMouseVecterDate = toMouseVecterDate;
+                _old_toMouseVecterDate = _toMouseVecterDate;
             }
-            return toMouseVecterDate;
+            return _toMouseVecterDate;
         }
         /// <summary>
         /// 处理左键点击的更新逻辑，同时处理对应的网络逻辑
@@ -172,6 +168,7 @@ namespace InnoVault.GameContent.BaseEntity
         public sealed override void PostAI() {
             if (!Owner.Alives()) {
                 Projectile.Kill();
+                NetUpdate();
             }
         }
         /// <summary>
@@ -196,13 +193,13 @@ namespace InnoVault.GameContent.BaseEntity
         }
         /// <inheritdoc/>
         public sealed override void SendExtraAI(BinaryWriter writer) {
-            writer.WriteVector2(toMouseVecterDate);
+            writer.WriteVector2(_toMouseVecterDate);
             writer.Write(SandBitsByte(new BitsByte()));
             NetHeldSend(writer);
         }
         /// <inheritdoc/>
         public sealed override void ReceiveExtraAI(BinaryReader reader) {
-            toMouseVecterDate = reader.ReadVector2();
+            _toMouseVecterDate = reader.ReadVector2();
             ReceiveBitsByte(reader.ReadByte());
             NetHeldReceive(reader);
         }
