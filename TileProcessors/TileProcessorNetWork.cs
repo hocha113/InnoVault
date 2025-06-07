@@ -95,6 +95,7 @@ namespace InnoVault.TileProcessors
             catch (Exception ex) {
                 string msg = $"TileProcessorInstanceDoReceiveData-Data Reception Failure: {ex.Message}\n{ex.StackTrace}";
                 VaultMod.Instance.Logger.Error(msg);
+                tileProcessor.SendCooldownTicks = 60;
             }
         }
 
