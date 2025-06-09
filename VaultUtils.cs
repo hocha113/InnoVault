@@ -743,6 +743,83 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 寻找距离指定位置最近的箱子
+        /// </summary>
+        /// <param name="point">搜索起点，单位为物块</param>
+        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制，单位为像素</param>
+        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
+        /// <param name="chestFilter">可选的箱子过滤器；若为 <see langword="null"/> 则不过滤</param>
+        /// <returns>距离最近且符合条件的 <see cref="Chest"/>，若无匹配项则为  <see langword="null"/></returns>
+        public static Chest FindClosestChest(this Point16 point, float maxRange = 3000f, bool ignoreTiles = true, Func<Chest, bool> chestFilter = null)
+            => FindClosestChest(point.ToWorldCoordinates(), maxRange, ignoreTiles, chestFilter);
+
+        /// <summary>
+        /// 寻找距离指定位置最近的箱子
+        /// </summary>
+        /// <param name="point">搜索起点，单位为物块</param>
+        /// <param name="chest">返回的箱子实例</param>
+        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制，单位为像素</param>
+        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
+        /// <param name="chestFilter">可选的箱子过滤器；若为 <see langword="null"/> 则不过滤</param>
+        /// <returns>距离最近且符合条件的 <see cref="Chest"/>，若无匹配项则为  <see langword="null"/></returns>
+        public static bool TryFindClosestChest(this Point16 point, out Chest chest, float maxRange = 3000f, bool ignoreTiles = true, Func<Chest, bool> chestFilter = null) {
+            chest = FindClosestChest(point, maxRange, ignoreTiles, chestFilter);
+            return chest != null;
+        }
+
+        /// <summary>
+        /// 寻找距离指定位置最近的箱子
+        /// </summary>
+        /// <param name="position">搜索起点，单位为像素</param>
+        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制，单位为像素</param>
+        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
+        /// <param name="chestFilter">可选的箱子过滤器；若为 <see langword="null"/> 则不过滤</param>
+        /// <returns>距离最近且符合条件的 <see cref="Chest"/>，若无匹配项则为  <see langword="null"/></returns>
+        public static Chest FindClosestChest(this Vector2 position, float maxRange = 3000f, bool ignoreTiles = true, Func<Chest, bool> chestFilter = null) {
+            Chest closestChest = null;
+            float minDistance = maxRange == -1f ? float.MaxValue : maxRange;
+
+            foreach (Chest chest in Main.chest) {
+                if (chest == null) {
+                    continue;
+                }   
+
+                if (chestFilter != null && !chestFilter(chest)) {
+                    continue;
+                }  
+
+                //箱子位置为左上角 Tile，需转换为世界坐标
+                Vector2 chestWorldPos = new(chest.x * 16 + 8, chest.y * 16 + 8); //中心点
+
+                float distance = Vector2.Distance(position, chestWorldPos);
+                if (distance <= minDistance) {
+                    bool canReach = ignoreTiles || Collision.CanHitLine(position, 0, 0, chestWorldPos, 0, 0);
+
+                    if (canReach) {
+                        minDistance = distance;
+                        closestChest = chest;
+                    }
+                }
+            }
+
+            return closestChest;
+        }
+
+        /// <summary>
+        /// 寻找距离指定位置最近的箱子
+        /// </summary>
+        /// <param name="position">搜索起点，单位为像素</param>
+        /// <param name="chest">返回的箱子实例</param>
+        /// <param name="maxRange">最大搜索距离；如果为-1，则忽略范围限制，单位为像素</param>
+        /// <param name="ignoreTiles">是否忽略瓦片遮挡</param>
+        /// <param name="chestFilter">可选的箱子过滤器；若为 <see langword="null"/> 则不过滤</param>
+        /// <returns>距离最近且符合条件的 <see cref="Chest"/>，若无匹配项则为  <see langword="null"/></returns>
+        public static bool TryFindClosestChest(Vector2 position, out Chest chest, float maxRange = 3000f, bool ignoreTiles = true, Func<Chest, bool> chestFilter = null) {
+            chest = FindClosestChest(position, maxRange, ignoreTiles, chestFilter);
+            return chest != null;
+        }
+
+        /// <summary>
         /// 检测玩家是否有效且正常存活
         /// </summary>
         /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
@@ -878,6 +955,15 @@ namespace InnoVault
             }
             if (obj is Item item) {
                 return item.GetSource_FromAI();
+            }
+            if (obj is TileProcessor tp) {
+                return new EntitySource_WorldEvent($"{tp.Position.X}:{tp.Position.Y}");
+            }
+            if (obj is Chest chest) {
+                return new EntitySource_WorldEvent($"{chest.x}:{chest.y}");
+            }
+            if (obj is Point16 point) {
+                return new EntitySource_WorldEvent($"{point.X}:{point.Y}");
             }
             return new EntitySource_Parent(Main.LocalPlayer, "NullSource");
         }
@@ -1133,6 +1219,203 @@ namespace InnoVault
                 itemList.Add(itemToAdd);
             }
         }
+
+        /// <summary>
+        /// 向指定的 <see cref="Chest"/> 中添加一个物品，支持自动堆叠与空格插入，
+        /// 可选：当无法完全存入时，将剩余物品丢弃到世界中
+        /// </summary>
+        /// <param name="chest">目标箱子实例</param>
+        /// <param name="item">要添加的物品对象（必须为合法的非空气物品）</param>
+        /// <param name="throwingExcessItems">
+        /// 是否在物品无法全部放入箱子时，将剩余部分掉落在箱子实体位置处（默认 false）
+        /// </param>
+        public static void AddItem(this Chest chest, Item item, bool throwingExcessItems = false) {
+            if (item == null || item.IsAir || item.stack <= 0) {
+                return;
+            }
+
+            Item toAdd = item.Clone();
+
+            //1.先尝试堆叠到已有相同类型的物品
+            for (int i = 0; i < chest.item.Length && toAdd.stack > 0; i++) {
+                Item slot = chest.item[i];
+                if (slot == null || slot.IsAir) {
+                    continue;
+                }
+
+                if (slot.type == toAdd.type && slot.stack < slot.maxStack) {
+                    int transferable = Math.Min(toAdd.stack, slot.maxStack - slot.stack);
+                    slot.stack += transferable;
+                    toAdd.stack -= transferable;
+                }
+            }
+
+            //2.然后尝试放到空格子中
+            for (int i = 0; i < chest.item.Length && toAdd.stack > 0; i++) {
+                Item slot = chest.item[i];
+                if (slot == null || slot.IsAir || slot.type == ItemID.None) {
+                    chest.item[i] = toAdd.Clone();
+                    chest.item[i].stack = Math.Min(toAdd.stack, chest.item[i].maxStack);
+                    toAdd.stack -= chest.item[i].stack;
+                }
+            }
+
+            //3.如果还有剩余物品，考虑丢弃
+            if (throwingExcessItems) {
+                toAdd.SpwanItem(chest.FromObjectGetParent());
+            }
+        }
+
+        /// <summary>
+        /// 判断一个物品是否可以完整放入指定的箱子中
+        /// </summary>
+        /// <param name="chest">目标箱子</param>
+        /// <param name="item">要尝试放入的物品</param>
+        /// <returns>如果该物品可以完全放入箱子，返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
+        public static bool CanItemBeAddedToChest(this Chest chest, Item item) {
+            if (item == null || item.IsAir || item.stack <= 0) {
+                return false;
+            }
+
+            int remaining = item.stack;
+
+            for (int i = 0; i < chest.item.Length && remaining > 0; i++) {
+                Item slot = chest.item[i];
+
+                //可堆叠
+                if (slot != null && !slot.IsAir && slot.type == item.type && slot.stack < slot.maxStack) {
+                    int space = slot.maxStack - slot.stack;
+                    remaining -= Math.Min(remaining, space);
+                }
+                //空格子可用
+                else if (slot == null || slot.IsAir || slot.type == ItemID.None) {
+                    remaining -= Math.Min(remaining, item.maxStack);
+                }
+            }
+
+            return remaining <= 0;
+        }
+
+        /// <summary>
+        /// 判断一个物品是否可以完整放入指定的箱子中
+        /// </summary>
+        public static bool CanItemBeAddedToChest(this Chest chest) {
+            for (int i = 0; i < chest.item.Length; i++) {
+                Item item = chest.item[i];
+                if (item == null || item.IsAir || item.stack < item.maxStack) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 在指定位置生成一个物品，生成区域为以 <paramref name="spwanPos"/> 为中心，尺寸为 <paramref name="randomSize"/> 的矩形区域
+        /// </summary>
+        /// <param name="source">物品生成源（通常为玩家、NPC、事件等）</param>
+        /// <param name="spwanPos">中心生成位置</param>
+        /// <param name="randomSize">生成区域尺寸，用于制造掉落的“偏移感”</param>
+        /// <param name="spwanItem">要生成的物品实例</param>
+        /// <param name="netUpdate">是否进行网络同步，默认为 true</param>
+        /// <returns>生成物品的索引 ID</returns>
+        public static int SpwanItem(IEntitySource source, Vector2 spwanPos, Vector2 randomSize, Item spwanItem, bool netUpdate = true) {
+            int whoAmi = Item.NewItem(source, spwanPos.GetRectangle(randomSize), spwanItem.Clone());
+            if (!isSinglePlayer && netUpdate) {
+                NetMessage.SendData(MessageID.SyncItem, -1, -1, null, whoAmi, 0f, 0f, 0f, 0, 0, 0);
+            }
+            return whoAmi;
+        }
+
+        /// <summary>
+        /// 在指定位置生成一个物品
+        /// </summary>
+        /// <param name="spwanItem">要生成的物品</param>
+        /// <param name="source">物品生成源</param>
+        /// <param name="spwanPos">中心生成位置</param>
+        /// <param name="randomSize">生成偏移尺寸</param>
+        /// <param name="netUpdate">是否网络同步</param>
+        /// <returns>生成物品的索引 ID</returns>
+        public static int SpwanItem(this Item spwanItem, IEntitySource source, Vector2 spwanPos, Vector2 randomSize, bool netUpdate = true) 
+            => SpwanItem(source, spwanPos, randomSize, spwanItem, netUpdate);
+
+        /// <summary>
+        /// 在指定的矩形区域内生成一个物品
+        /// </summary>
+        /// <param name="source">物品生成源</param>
+        /// <param name="spwanBox">生成区域的矩形框</param>
+        /// <param name="spwanItem">要生成的物品实例</param>
+        /// <param name="netUpdate">是否网络同步</param>
+        /// <returns>生成物品的索引 ID</returns>
+        public static int SpwanItem(IEntitySource source, Rectangle spwanBox, Item spwanItem, bool netUpdate = true) {
+            int whoAmi = Item.NewItem(source, spwanBox, spwanItem.Clone());
+            if (!isSinglePlayer && netUpdate) {
+                NetMessage.SendData(MessageID.SyncItem, -1, -1, null, whoAmi, 0f, 0f, 0f, 0, 0, 0);
+            }
+            return whoAmi;
+        }
+
+        /// <summary>
+        /// 在指定矩形区域内生成一个物品
+        /// </summary>
+        /// <param name="spwanItem">要生成的物品</param>
+        /// <param name="source">生成源</param>
+        /// <param name="spwanBox">生成区域</param>
+        /// <param name="netUpdate">是否网络同步</param>
+        /// <returns>生成物品的索引 ID</returns>
+        public static int SpwanItem(this Item spwanItem, IEntitySource source, Rectangle spwanBox, bool netUpdate = true)
+            => SpwanItem(source, spwanBox, spwanItem, netUpdate);
+
+        /// <summary>
+        /// 在指定中心位置生成一个物品，其生成区域大小为该物品尺寸的一半
+        /// </summary>
+        /// <param name="source">生成源</param>
+        /// <param name="spwanPos">生成中心位置</param>
+        /// <param name="spwanItem">要生成的物品实例</param>
+        /// <param name="netUpdate">是否网络同步</param>
+        /// <returns>生成物品的索引 ID</returns>
+        public static int SpwanItem(IEntitySource source, Vector2 spwanPos, Item spwanItem, bool netUpdate = true) {
+            int whoAmi = Item.NewItem(source, spwanPos.GetRectangle(spwanItem.Size / 2), spwanItem.Clone());
+            if (!isSinglePlayer && netUpdate) {
+                NetMessage.SendData(MessageID.SyncItem, -1, -1, null, whoAmi, 0f, 0f, 0f, 0, 0, 0);
+            }
+            return whoAmi;
+        }
+
+        /// <summary>
+        /// 在指定位置生成物品，区域大小为物品尺寸一半
+        /// </summary>
+        /// <param name="spwanItem">要生成的物品</param>
+        /// <param name="source">生成源</param>
+        /// <param name="spwanPos">中心生成位置</param>
+        /// <param name="netUpdate">是否网络同步</param>
+        /// <returns>生成物品的索引 ID</returns>
+        public static int SpwanItem(this Item spwanItem, IEntitySource source, Vector2 spwanPos, bool netUpdate = true)
+            => SpwanItem(source, spwanPos, spwanItem, netUpdate);
+
+        /// <summary>
+        /// 在指定中心位置生成一个物品，其生成区域大小为该物品尺寸的一半
+        /// </summary>
+        /// <param name="source">生成源</param>
+        /// <param name="spwanItem">要生成的物品实例</param>
+        /// <param name="netUpdate">是否网络同步</param>
+        /// <returns>生成物品的索引 ID</returns>
+        public static int SpwanItem(IEntitySource source, Item spwanItem, bool netUpdate = true) {
+            int whoAmi = Item.NewItem(source, spwanItem.position.GetRectangle(spwanItem.Size / 2), spwanItem.Clone());
+            if (!isSinglePlayer && netUpdate) {
+                NetMessage.SendData(MessageID.SyncItem, -1, -1, null, whoAmi, 0f, 0f, 0f, 0, 0, 0);
+            }
+            return whoAmi;
+        }
+
+        /// <summary>
+        /// 在指定位置生成物品，区域大小为物品尺寸一半
+        /// </summary>
+        /// <param name="spwanItem">要生成的物品</param>
+        /// <param name="source">生成源</param>
+        /// <param name="netUpdate">是否网络同步</param>
+        /// <returns>生成物品的索引 ID</returns>
+        public static int SpwanItem(this Item spwanItem, IEntitySource source, bool netUpdate = true)
+            => SpwanItem(source, spwanItem, netUpdate);
 
         /// <summary>
         /// 在游戏中发送文本消息
