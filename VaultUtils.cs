@@ -822,20 +822,26 @@ namespace InnoVault
         /// <summary>
         /// 检测玩家是否有效且正常存活
         /// </summary>
-        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
+        /// <returns>返回 <see langword="true"/> 表示活跃，返回 <see langword="false"/> 表示为空或者已经死亡的非活跃状态</returns>
         public static bool Alives(this Player player) => player != null && player.active && !player.dead;
 
         /// <summary>
         /// 检测弹幕是否有效且正常存活
         /// </summary>
-        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
+        /// <returns>返回 <see langword="true"/> 表示活跃，返回 <see langword="false"/> 表示为空或者已经死亡的非活跃状态</returns>
         public static bool Alives(this Projectile projectile) => projectile != null && projectile.active && projectile.timeLeft > 0;
 
         /// <summary>
         /// 检测NPC是否有效且正常存活
         /// </summary>
-        /// <returns>返回 true 表示活跃，返回 false 表示为空或者已经死亡的非活跃状态</returns>
+        /// <returns>返回 <see langword="true"/> 表示活跃，返回 <see langword="false"/> 表示为空或者已经死亡的非活跃状态</returns>
         public static bool Alives(this NPC npc) => npc != null && npc.active && npc.timeLeft > 0;
+
+        /// <summary>
+        /// 检测物品是否有效且正常存活
+        /// </summary>
+        /// <returns>返回 <see langword="true"/> 表示活跃，返回 <see langword="false"/> 表示为空或者已经死亡的非活跃状态</returns>
+        public static bool Alives(this Item item) => item != null && item.type > ItemID.None && item.stack > 0;
 
         #endregion
 
@@ -1221,13 +1227,12 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 向指定的 <see cref="Chest"/> 中添加一个物品，支持自动堆叠与空格插入，
-        /// 可选：当无法完全存入时，将剩余物品丢弃到世界中
+        /// 向指定的 <see cref="Chest"/> 中添加一个物品，支持自动堆叠与空格插入
         /// </summary>
         /// <param name="chest">目标箱子实例</param>
-        /// <param name="item">要添加的物品对象（必须为合法的非空气物品）</param>
+        /// <param name="item">要添加的物品对象</param>
         /// <param name="throwingExcessItems">
-        /// 是否在物品无法全部放入箱子时，将剩余部分掉落在箱子实体位置处（默认 false）
+        /// 是否在物品无法全部放入箱子时，将剩余部分掉落在箱子实体位置处，默认为<see langword="false"/>
         /// </param>
         public static void AddItem(this Chest chest, Item item, bool throwingExcessItems = false) {
             if (item == null || item.IsAir || item.stack <= 0) {
@@ -1260,11 +1265,22 @@ namespace InnoVault
                 }
             }
 
+            if (toAdd == null || toAdd.IsAir || toAdd.stack <= 0) {
+                return;
+            }
+
             //3.如果还有剩余物品，考虑丢弃
             if (throwingExcessItems) {
-                toAdd.SpwanItem(chest.FromObjectGetParent());
+                toAdd.SpwanItem(chest.FromObjectGetParent(), chest.GetPoint16().ToWorldCoordinates());
             }
         }
+
+        /// <summary>
+        /// 获取箱子的坐标
+        /// </summary>
+        /// <param name="chest"></param>
+        /// <returns></returns>
+        public static Point16 GetPoint16(this Chest chest) => new Point16(chest.x, chest.y);
 
         /// <summary>
         /// 判断一个物品是否可以完整放入指定的箱子中
@@ -1421,10 +1437,10 @@ namespace InnoVault
         /// 在游戏中发送文本消息
         /// </summary>
         /// <param name="message">要发送的消息文本</param>
-        /// <param name="colour">（可选）消息的颜色,默认为 null</param>
+        /// <param name="colour">消息的颜色,默认为 <see langword="null"/></param>
         public static void Text(string message, Color? colour = null) {
             Color newColor = (Color)(colour == null ? Color.White : colour);
-            if (Main.netMode == NetmodeID.Server) {
+            if (isServer) {
                 ChatHelper.BroadcastChatMessage(NetworkText.FromLiteral(message), (Color)(colour == null ? Color.White : colour));
                 return;
             }
