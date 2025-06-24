@@ -10,14 +10,6 @@ using static InnoVault.VaultNetWork;
 
 namespace InnoVault.GameSystem
 {
-    public class NPCOverrideGlobalInstance : GlobalNPC
-    {
-        public override bool InstancePerEntity => true;
-        public Dictionary<Type, NPCOverride> NPCOverrides { get; set; }
-        public override bool AppliesToEntity(NPC entity, bool lateInstantiation) => lateInstantiation && NPCOverride.ByID.ContainsKey(entity.type);
-        public override void SetDefaults(NPC npc) => NPCOverride.SetDefaults(npc);
-    }
-
     /// <summary>
     /// 提供一个强行覆盖目标NPC行为性质的基类，通过On钩子为基础运行
     /// </summary>
@@ -137,7 +129,7 @@ namespace InnoVault.GameSystem
         public static bool TryFetchByID(int id, out Dictionary<Type, NPCOverride> npcOverrides) {
             npcOverrides = null;
 
-            if (ByID.TryGetValue(id, out Dictionary<Type, NPCOverride> npcResults)) {
+            if (!ByID.TryGetValue(id, out Dictionary<Type, NPCOverride> npcResults)) {
                 return false;//通过ID查找NPCOverride，如果未找到，直接返回
             }
 
@@ -176,7 +168,7 @@ namespace InnoVault.GameSystem
                 npcOverrideInstance.SetProperty();
             }
 
-            if (npc.TryGetGlobalNPC(out NPCOverrideGlobalInstance globalInstance)) {
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
                 globalInstance.NPCOverrides = inds;
             }
         }
@@ -294,8 +286,7 @@ namespace InnoVault.GameSystem
 
 
         #region NetWork
-        //统一管理的网络行为，自动运行在更新后
-        internal void DoNet() {
+        internal void DoNetWork() {
             if (!VaultUtils.isServer) {
                 return;
             }
@@ -349,7 +340,7 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            var netMessage = Mod.GetPacket();
+            var netMessage = VaultMod.Instance.GetPacket();
             netMessage.Write((byte)MessageType.NPCOverrideAI);
             netMessage.Write(npc.whoAmI);
             netMessage.Write(FullName);
@@ -374,7 +365,7 @@ namespace InnoVault.GameSystem
             }
 
             foreach (var value in values.Values) {
-                var netMessage = value.Mod.GetPacket();
+                var netMessage = VaultMod.Instance.GetPacket();
                 netMessage.Write((byte)MessageType.NPCOverrideAI);
                 netMessage.Write(npc.whoAmI);
                 netMessage.Write(value.FullName);

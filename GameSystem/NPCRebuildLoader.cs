@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using System.Reflection;
 using Terraria;
 using Terraria.ID;
@@ -12,7 +13,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 所有关于NPC行为覆盖和性质加载的钩子在此处挂载
     /// </summary>
-    internal class NPCSystem : ModSystem
+    internal class NPCRebuildLoader : GlobalNPC, IVaultLoader
     {
         #region Data
         internal delegate void On_NPCDelegate(NPC npc);
@@ -30,7 +31,82 @@ namespace InnoVault.GameSystem
         public static MethodInfo onPreDraw_Method;
         public static MethodInfo onPostDraw_Method;
         public static MethodInfo onCheckDead_Method;
+        public override bool InstancePerEntity => true;
+        public Dictionary<Type, NPCOverride> NPCOverrides { get; set; }
         #endregion
+
+        void IVaultLoader.LoadData() {
+            npcLoaderType = typeof(NPCLoader);
+            LoaderMethodAndHook();
+        }
+
+        void IVaultLoader.UnLoadData() {
+            npcLoaderType = null;
+            onHitByProjectile_Method = null;
+            modifyIncomingHit_Method = null;
+            onNPCAI_Method = null;
+            onPreKill_Method = null;
+            onPreDraw_Method = null;
+            onPostDraw_Method = null;
+            onCheckDead_Method = null;
+        }
+
+        public override bool AppliesToEntity(NPC entity, bool lateInstantiation) {
+            return lateInstantiation && ByID.ContainsKey(entity.type);
+        }
+
+        public override void SetDefaults(NPC npc) => NPCOverride.SetDefaults(npc);
+
+        public override void ModifyHitByItem(NPC npc, Player player, Item item, ref NPC.HitModifiers modifiers) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.ModifyHitByItem(player, item, ref modifiers);
+                }
+            }
+        }
+
+        public override void ModifyHitByProjectile(NPC npc, Projectile projectile, ref NPC.HitModifiers modifiers) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.ModifyHitByProjectile(projectile, ref modifiers);
+                }
+            }
+        }
+
+        public override bool CheckActive(NPC npc) {
+            bool result = true;
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    result = value.CheckActive();
+                }
+            }
+            return result;
+        }
+
+        public override void BossHeadSlot(NPC npc, ref int index) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.BossHeadSlot(ref index);
+                }
+            }
+        }
+
+        public override void BossHeadRotation(NPC npc, ref float rotation) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.BossHeadRotation(ref rotation);
+                }
+            }
+        }
+
+        public override void ModifyNPCLoot(NPC npc, NPCLoot npcLoot) {
+            //不要用TryFetchByID或者直接访问NPCOverride
+            if (ByID.TryGetValue(npc.type, out var values)) {
+                foreach (var value in values.Values) {
+                    value.ModifyNPCLoot(npc, npcLoot);
+                }
+            }
+        }
 
         private static MethodInfo GetMethodInfo(string key) => npcLoaderType.GetMethod(key, BindingFlags.Public | BindingFlags.Static);
 
@@ -102,24 +178,6 @@ namespace InnoVault.GameSystem
             }
         }
 
-        public override void Load() {
-            npcLoaderType = typeof(NPCLoader);
-            LoaderMethodAndHook();
-            //On_NPC.SetDefaults += OnNPCSetDefaultsHook;
-        }
-
-        public override void Unload() {
-            npcLoaderType = null;
-            onHitByProjectile_Method = null;
-            modifyIncomingHit_Method = null;
-            onNPCAI_Method = null;
-            onPreKill_Method = null;
-            onPreDraw_Method = null;
-            onPostDraw_Method = null;
-            onCheckDead_Method = null;
-            //On_NPC.SetDefaults -= OnNPCSetDefaultsHook;
-        }
-
         public static bool OnPreKillHook(On_NPCDelegate2 orig, NPC npc) {
             if (npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc);
@@ -168,7 +226,7 @@ namespace InnoVault.GameSystem
                 int type = npc.type;
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
                     result = npcOverrideInstance.AI();
-                    npcOverrideInstance.DoNet();
+                    npcOverrideInstance.DoNetWork();
                 }
                 npc.type = type;
                 if (!result) {

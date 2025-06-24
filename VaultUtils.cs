@@ -976,18 +976,59 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 获取该NPC的重制节点实例
+        /// 获取指定类型 <typeparamref name="T"/> 的 <see cref="NPCOverride"/> 实例
+        /// 通常用于直接访问某个特定的重制逻辑节点，无需判断是否存在
+        /// 若未在 <see cref="NPCRebuildLoader"/> 中注册对应类型，会抛出异常
         /// </summary>
-        /// <param name="npc"></param>
-        /// <param name="value"></param>
-        /// <returns></returns>
+        /// <typeparam name="T">要获取的重制节点类型</typeparam>
+        /// <param name="npc">目标 NPC 实例</param>
+        /// <returns><typeparamref name="T"/> 类型对应的 <see cref="NPCOverride"/> 实例</returns>
+        /// <exception cref="KeyNotFoundException">如果未注册指定类型的节点</exception>
+        public static T GetOverride<T>(this NPC npc) where T : NPCOverride
+            => npc.GetGlobalNPC<NPCRebuildLoader>().NPCOverrides[typeof(T)] as T;
+
+        /// <summary>
+        /// 尝试获取目标 <paramref name="npc"/> 的全部 <see cref="NPCOverride"/> 节点集合
+        /// 该方法通常用于遍历或批量处理所有已注册的重制逻辑节点
+        /// </summary>
+        /// <param name="npc">目标 NPC 实例</param>
+        /// <param name="value">返回对应的重制节点字典，键为类型，值为 <see cref="NPCOverride"/> 实例</param>
+        /// <returns>
+        /// 如果获取成功并非处于主菜单状态，则返回 <see langword="true"/>；
+        /// 否则返回 <see langword="false"/>，此时 <paramref name="value"/> 为 <see langword="null"/>
+        /// </returns>
         public static bool TryGetOverride(this NPC npc, out Dictionary<Type, NPCOverride> value) {
             value = null;
             if (Main.gameMenu) {
                 return false;
             }
-            if (npc.TryGetGlobalNPC(out NPCOverrideGlobalInstance globalInstance)) {
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
                 value = globalInstance.NPCOverrides;
+            }
+            return value != null;
+        }
+
+        /// <summary>
+        /// 尝试获取目标 <paramref name="npc"/> 的特定类型 <typeparamref name="T"/> 的 <see cref="NPCOverride"/> 实例
+        /// </summary>
+        /// <typeparam name="T">要尝试获取的重制节点类型</typeparam>
+        /// <param name="npc">目标 NPC 实例</param>
+        /// <param name="value">返回的 <see cref="NPCOverride"/> 实例，如果未找到则为 <see langword="null"/></param>
+        /// <returns>
+        /// 如果找到指定类型的重制节点并成功获取，则返回 <see langword="true"/>；
+        /// 否则返回 <see langword="false"/>
+        /// </returns>
+        public static bool TryGetOverride<T>(this NPC npc, out T value) where T : NPCOverride {
+            value = null;
+            if (Main.gameMenu) {
+                return false;
+            }
+            if (!npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
+                return false;
+            }
+            if (!globalInstance.NPCOverrides.TryGetValue(typeof(T), out var value2)) {
+                value = value2 as T;
+                return false;
             }
             return value != null;
         }
