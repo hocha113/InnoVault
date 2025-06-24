@@ -13,35 +13,42 @@ using static InnoVault.GameSystem.ItemOverride;
 
 namespace InnoVault.GameSystem
 {
-    //关于物品重制节点的钩子均挂载于此处
-    internal class ItemRebuildLoader : GlobalItem, IVaultLoader
+    /// <summary>
+    /// 关于物品重制节点的钩子均挂载于此处
+    /// </summary>
+    public class ItemRebuildLoader : GlobalItem, IVaultLoader
     {
+#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
         #region On and IL
-        internal delegate bool On_Item_Dalegate(Item item);
-        internal delegate bool On_AllowPrefix_Dalegate(Item item, int pre);
-        internal delegate void On_SetDefaults_Dalegate(Item item, bool createModItem = true);
-        internal delegate bool On_Shoot_Dalegate(Item item, Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback, bool defaultResult = true);
-        internal delegate void On_ModifyShootStats_Delegate(Item item, Player player, ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockback);
-        internal delegate void On_HitNPC_Delegate(Item item, Player player, NPC target, in NPC.HitInfo hit, int damageDone);
-        internal delegate void On_HitPvp_Delegate(Item item, Player player, Player target, Player.HurtInfo hurtInfo);
-        internal delegate void On_ModifyHitNPC_Delegate(Item item, Player player, NPC target, ref NPC.HitModifiers modifiers);
-        internal delegate bool On_CanUseItem_Delegate(Item item, Player player);
-        internal delegate bool On_PreDrawInInventory_Delegate(Item item, SpriteBatch spriteBatch, Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale);
-        internal delegate bool? On_UseItem_Delegate(Item item, Player player);
-        internal delegate void On_UseAnimation_Delegate(Item item, Player player);
-        internal delegate void On_ModifyWeaponCrit_Delegate(Item item, Player player, ref float crit);
-        internal delegate void On_ModifyItemLoot_Delegate(Item item, ItemLoot itemLoot);
-        internal delegate bool On_CanConsumeAmmo_Delegate(Item weapon, Item ammo, Player player);
-        internal delegate void On_ModifyWeaponDamage_Delegate(Item item, Player player, ref StatModifier damage);
-        internal delegate void On_UpdateAccessory_Delegate(Item item, Player player, bool hideVisual);
-        internal delegate bool On_AltFunctionUse_Delegate(Item item, Player player);
-        internal delegate void On_ModItem_ModifyTooltips_Delegate(object obj, List<TooltipLine> list);
-        internal delegate List<TooltipLine> On_ModifyTooltips_Delegate(Item item, ref int numTooltips, string[] names, ref string[] text
+        public delegate bool On_Item_Dalegate(Item item);
+        public delegate void On_Item_Void_Dalegate(Item item);
+        public delegate bool On_AllowPrefix_Dalegate(Item item, int pre);
+        public delegate void On_SetDefaults_Dalegate(Item item, bool createModItem = true);
+        public delegate bool On_Shoot_Dalegate(Item item, Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback, bool defaultResult = true);
+        public delegate void On_ModifyShootStats_Delegate(Item item, Player player, ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockback);
+        public delegate void On_HitNPC_Delegate(Item item, Player player, NPC target, in NPC.HitInfo hit, int damageDone);
+        public delegate void On_HitPvp_Delegate(Item item, Player player, Player target, Player.HurtInfo hurtInfo);
+        public delegate void On_ModifyHitNPC_Delegate(Item item, Player player, NPC target, ref NPC.HitModifiers modifiers);
+        public delegate bool On_CanUseItem_Delegate(Item item, Player player);
+        public delegate bool On_PreDrawInInventory_Delegate(Item item, SpriteBatch spriteBatch, Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale);
+        public delegate bool? On_UseItem_Delegate(Item item, Player player);
+        public delegate void On_UseAnimation_Delegate(Item item, Player player);
+        public delegate void On_ModifyWeaponCrit_Delegate(Item item, Player player, ref float crit);
+        public delegate void On_ModifyItemLoot_Delegate(Item item, ItemLoot itemLoot);
+        public delegate bool On_CanConsumeAmmo_Delegate(Item weapon, Item ammo, Player player);
+        public delegate void On_ModifyWeaponDamage_Delegate(Item item, Player player, ref StatModifier damage);
+        public delegate void On_UpdateAccessory_Delegate(Item item, Player player, bool hideVisual);
+        public delegate bool On_AltFunctionUse_Delegate(Item item, Player player);
+        public delegate void On_ModifyTooltips_Dalegate(Item item, List<TooltipLine> tooltips);
+        public delegate void On_ModItem_ModifyTooltips_Delegate(object obj, List<TooltipLine> list);
+        public delegate List<TooltipLine> On_ModifyTooltips_Delegate(Item item, ref int numTooltips, string[] names, ref string[] text
             , ref bool[] modifier, ref bool[] badModifier, ref int oneDropLogo, out Color?[] overrideColor, int prefixlineIndex);
-        internal delegate string On_GetItemNameValue_Delegate(int id);
-        internal delegate string On_GetItemName_get_Delegate(Item item);
-        public static event On_Item_Dalegate PreSetDefaultsEvent;
-        public static event On_Item_Dalegate PostSetDefaultsEvent;
+        public delegate string On_GetItemNameValue_Delegate(int id);
+        public delegate string On_GetItemName_get_Delegate(Item item);
+        public static event On_Item_Void_Dalegate PreSetDefaultsEvent;
+        public static event On_Item_Void_Dalegate PostSetDefaultsEvent;
+        public static event On_ModifyTooltips_Dalegate PreModifyTooltipsEvent;
+        public static event On_ModifyTooltips_Dalegate PostModifyTooltipsEvent;
         public static Type itemLoaderType;
         public static MethodBase onMeleePrefixMethod;
         public static MethodBase onRangedPrefixMethod;
@@ -67,18 +74,19 @@ namespace InnoVault.GameSystem
         public static MethodBase onGetItemNameValueMethod;
         public static MethodBase onItemNamePropertyGetMethod;
         public static MethodBase onAffixNameMethod;
-        private static FieldInfo TooltipLine_ModName_Field { get; set; }
-        private static FieldInfo TooltipLine_OneDropLogo_Field { get; set; }
+        public static FieldInfo TooltipLine_ModName_Field { get; set; }
+        public static FieldInfo TooltipLine_OneDropLogo_Field { get; set; }
         public static GlobalHookList<GlobalItem> ItemLoader_Shoot_Hook { get; private set; }
         public static GlobalHookList<GlobalItem> ItemLoader_CanUse_Hook { get; private set; }
         public static GlobalHookList<GlobalItem> ItemLoader_UseItem_Hook { get; private set; }
         public static GlobalHookList<GlobalItem> ItemLoader_ModifyTooltips_Hook { get; private set; }
 
-        public static GlobalHookList<GlobalItem> GetItemLoaderHookTargetValue(string key)
+        private static GlobalHookList<GlobalItem> GetItemLoaderHookTargetValue(string key)
             => (GlobalHookList<GlobalItem>)typeof(ItemLoader).GetField(key, BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null);
 
         void IVaultLoader.LoadData() {
             Instances ??= [];
+            TypeToInstance ??= [];
             ByID ??= [];
 
             TooltipLine_ModName_Field = typeof(TooltipLine).GetField("Mod", BindingFlags.Public | BindingFlags.Instance);
@@ -114,10 +122,7 @@ namespace InnoVault.GameSystem
             onGetItemNameValueMethod = typeof(Lang).GetMethod("GetItemNameValue", BindingFlags.Public | BindingFlags.Static);
             onItemNamePropertyGetMethod = typeof(Item).GetProperty("Name", BindingFlags.Instance | BindingFlags.Public).GetGetMethod();
             onAffixNameMethod = typeof(Item).GetMethod("AffixName", BindingFlags.Instance | BindingFlags.Public);
-            //这个钩子的挂载最终还是被废弃掉，因为会与一些二次继承了ModItem类的第三方模组发生严重的错误，我目前无法解决这个，所以放弃了这个钩子的挂载
-            //if (onSetDefaultsMethod != null && !ModLoader.HasMod("MagicBuilder")) {
-            //    VaultHook.Add(onSetDefaultsMethod, OnSetDefaultsHook);
-            //}
+
             if (onShootMethod != null) {
                 VaultHook.Add(onShootMethod, OnShootHook);
             }
@@ -175,9 +180,6 @@ namespace InnoVault.GameSystem
             if (onAllowPrefixMethod != null) {
                 VaultHook.Add(onAllowPrefixMethod, OnAllowPrefixHook);
             }
-            if (onGetItemNameValueMethod != null) {
-                //VaultHook.Add(onGetItemNameValueMethod, OnGetItemNameValueHook);
-            }
             if (onModifyTooltipsMethod != null) {
                 VaultHook.Add(onModifyTooltipsMethod, On_ModifyTooltips_Hook);
             }
@@ -193,7 +195,13 @@ namespace InnoVault.GameSystem
 
         void IVaultLoader.UnLoadData() {
             Instances?.Clear();
+            TypeToInstance?.Clear();
             ByID?.Clear();
+
+            PreSetDefaultsEvent = null;
+            PostSetDefaultsEvent = null;
+            PreModifyTooltipsEvent = null;
+            PostModifyTooltipsEvent = null;
 
             TooltipLine_ModName_Field = null;
             TooltipLine_OneDropLogo_Field = null;
@@ -301,19 +309,46 @@ namespace InnoVault.GameSystem
         /// <br>直观来讲，一个负责改变UI上显示的名字(OnAffixNameHook)，一个负责改变逻辑数据，使其在搜索框之类的功能中能够被以新名字检索到(OnAffixNameHook)</br> 
         /// </summary>
         public string On_Name_Get_Hook(On_GetItemName_get_Delegate orig, Item item) {
-            if (TryFetchByID(item.type, out ItemOverride ritem) && ritem.CanLoadLocalization) {
-                return ritem.DisplayName.Value;
+            if (!TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
+                return orig.Invoke(item);
             }
+
+            string result = string.Empty;
+            foreach (var value in values.Values) {
+                if (!value.CanLoadLocalization) {
+                    continue;
+                }
+                result = value.DisplayName.Value;
+            }
+
+            if (result != string.Empty) {
+                return result;
+            }
+
             return orig.Invoke(item);
         }
 
         public string OnAffixNameHook(On_GetItemName_get_Delegate orig, Item item) {
             bool onOverd = false;
-            if (TryFetchByID(item.type, out ItemOverride ritem) && ritem.CanLoadLocalization) {
-                item.SetNameOverride(ritem.DisplayName.Value);
-                onOverd = true;
+
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
+                string result = string.Empty;
+                foreach (var value in values.Values) {
+                    if (!value.CanLoadLocalization) {
+                        continue;
+                    }
+                    result = value.DisplayName.Value;
+                }
+
+                if (result != string.Empty) {
+                    item.SetNameOverride(result);
+                    onOverd = true;
+                }
             }
-            string forgtName = orig.Invoke(item);//这是个很取巧的办法，保证了兼容性
+            //这是个很取巧的办法，保证了兼容性
+            //因为上面已经将名称重命名了，所以这里会以重命名的内容进入原版的处理
+            string forgtName = orig.Invoke(item);
+            //清除物品的重命名状态
             if (onOverd) {
                 item.ClearNameOverride();
             }
@@ -888,7 +923,13 @@ namespace InnoVault.GameSystem
         }
 
         public override void ModifyTooltips(Item item, List<TooltipLine> tooltips) {
+            if (item.type > ItemID.None) {
+                PreModifyTooltipsEvent?.Invoke(item, tooltips);
+            }
             ProcessRemakeAction(item, (inds) => inds.ModifyTooltips(item, tooltips));
+            if (item.type > ItemID.None) {
+                PostModifyTooltipsEvent?.Invoke(item, tooltips);
+            }
         }
 
         public override void ModifyWeaponCrit(Item item, Player player, ref float crit) {
@@ -1025,5 +1066,6 @@ namespace InnoVault.GameSystem
         }
 
         #endregion
+#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
     }
 }

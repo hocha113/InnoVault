@@ -975,6 +975,29 @@ namespace InnoVault
             return new EntitySource_Parent(Main.LocalPlayer, "NullSource");
         }
 
+        public static bool TryGetOverride(this Item item, out Dictionary<Type, ItemOverride> value) {
+            value = null;
+            if (Main.gameMenu) {
+                return false;
+            }
+            if (ItemOverride.ByID.TryGetValue(item.type, out value)) {
+                return true;
+            }
+            return value != null;
+        }
+
+        public static bool TryGetOverride<T>(this Item item, out T value) where T : NPCOverride {
+            value = null;
+            if (Main.gameMenu) {
+                return false;
+            }
+            if (ItemOverride.ByID.TryGetValue(item.type, out var values)) {
+                value = values[typeof(T)] as T;
+                return true;
+            }
+            return value != null;
+        }
+
         /// <summary>
         /// 获取指定类型 <typeparamref name="T"/> 的 <see cref="NPCOverride"/> 实例
         /// 通常用于直接访问某个特定的重制逻辑节点，无需判断是否存在

@@ -37,10 +37,15 @@ namespace InnoVault.GameSystem
 
         void IVaultLoader.LoadData() {
             npcLoaderType = typeof(NPCLoader);
+            Instances ??= [];
+            ByID ??= [];
             LoaderMethodAndHook();
         }
 
         void IVaultLoader.UnLoadData() {
+            Instances?.Clear();
+            ByID?.Clear();
+
             npcLoaderType = null;
             onHitByProjectile_Method = null;
             modifyIncomingHit_Method = null;

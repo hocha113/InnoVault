@@ -22,6 +22,10 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static List<ItemOverride> Instances { get; internal set; } = [];
         /// <summary>
+        /// 从类型映射到实例
+        /// </summary>
+        public static Dictionary<Type, ItemOverride> TypeToInstance { get; internal set; } = [];
+        /// <summary>
         /// 一个字典，可以根据目标ID来获得对应的修改实例
         /// </summary>
         public static Dictionary<int, Dictionary<Type, ItemOverride>> ByID { get; internal set; } = [];
@@ -51,6 +55,7 @@ namespace InnoVault.GameSystem
         public virtual bool FormulaSubstitution => !IsVanilla;
         /// <summary>
         /// 该重置节点是否会加载进图鉴中，默认为<see langword="true"/>
+        /// [未使用]
         /// </summary>
         public virtual bool DrawingInfo => true;
         /// <summary>
@@ -108,6 +113,7 @@ namespace InnoVault.GameSystem
         protected override void Register() {
             if (CanLoad() && TargetID > ItemID.None) {
                 Instances.Add(this);
+                TypeToInstance.Add(GetType(), this);
             }
         }
 
@@ -164,12 +170,12 @@ namespace InnoVault.GameSystem
                 return false;//通过ID查找ItemOverride，如果未找到，直接返回
             }
 
-            bool? reset = null;//调用该ItemOverride的CanOverride方法，判断是否允许覆盖
+            bool result = true;//调用该ItemOverride的CanOverride方法，判断是否允许覆盖
             foreach (var item in itemOverrides.Values) {
-                reset = item.CanOverride();
+                result = item.CanOverride();
             }
 
-            return reset ?? true;
+            return result;
         }
 
         /// <summary>
@@ -201,10 +207,17 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 判断当前<see cref="ItemOverride"/>是否能够进行覆盖默认实现返回null，子类可以重写此方法以实现具体的覆盖逻辑
         /// </summary>
-        /// <returns>如果可以覆盖，返回<see langword="true"/>；如果不可以覆盖，返回<see langword="false"/>；默认返回<see langword="null"/></returns>
-        public virtual bool? CanOverride() {
-            return null;
+        /// <returns>如果可以覆盖，返回<see langword="true"/>；如果不可以覆盖，返回<see langword="false"/></returns>
+        public virtual bool CanOverride() {
+            return true;
         }
+
+        /// <summary>
+        /// 获取对应物品的重制节点实例
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static T GetOverride<T>() where T : ItemOverride => TypeToInstance[typeof(T)] as T;
 
         /// <summary>
         /// 进行背包中的物品绘制，这个函数会执行在Draw之后
