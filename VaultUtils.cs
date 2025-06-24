@@ -1000,6 +1000,31 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 获取指定物品的本地化描述
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <returns></returns>
+        public static LocalizedText GetLocalizedItemTooltip<T>() where T : ModItem => GetLocalizedItemTooltip(ModContent.ItemType<T>());
+
+        /// <summary>
+        /// 获取指定物品的本地化描述
+        /// </summary>
+        /// <param name="id"></param>
+        /// <returns></returns>
+        public static LocalizedText GetLocalizedItemTooltip(int id) {
+            if (id <= ItemID.None) {
+                return null;
+            }
+
+            if (id < ItemID.Count) {
+                return Language.GetText("ItemTooltip." + ItemID.Search.GetName(id));
+            }
+            else {
+                return ItemLoader.GetItem(id).GetLocalization("Tooltip");
+            }
+        }
+
+        /// <summary>
         /// 解析字符串键并获取对应的物品类型
         /// </summary>
         /// <param name="fullName">用于解析的字符串键，可以是整数类型或模组/物品名称的组合</param>
