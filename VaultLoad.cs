@@ -252,7 +252,7 @@ namespace InnoVault
             if (valueType == null) {
                 return;
             }
-            
+
             if (member is PropertyInfo prop && (!prop.CanWrite || prop.GetSetMethod(true) == null)) {//对于属性需要检测其是否可写
                 VaultMod.Instance.Logger.Error($"Property {member.Name} is marked with VaultLoadenAttribute but has no setter.");
                 return;
@@ -264,7 +264,7 @@ namespace InnoVault
             }
 
             if (attribute.AssetMode == AssetMode.None) {//自动指定资源类型
-                attribute.AssetMode = GetAttributeAssetMode(valueType);              
+                attribute.AssetMode = GetAttributeAssetMode(valueType);
             }
             if (attribute.AssetMode == AssetMode.None) {//第二次检测，如果还是None就跳过
                 VaultMod.Instance.Logger.Warn($"Cannot determine asset mode for {member.Name} of type {valueType}. Skipped.");

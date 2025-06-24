@@ -1,5 +1,4 @@
-﻿using Mono.Cecil.Cil;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using Terraria;
@@ -91,8 +90,7 @@ namespace InnoVault.TileProcessors
         private static void TileProcessorInstanceDoReceiveData(TileProcessor tileProcessor, BinaryReader reader, int whoAmI) {
             try {
                 tileProcessor.ReceiveData(reader, whoAmI);
-            } 
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 string msg = $"TileProcessorInstanceDoReceiveData-Data Reception Failure: {ex.Message}\n{ex.StackTrace}";
                 VaultMod.Instance.Logger.Error(msg);
                 tileProcessor.SendCooldownTicks = 60;

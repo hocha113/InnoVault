@@ -1,4 +1,5 @@
-﻿using InnoVault.TileProcessors;
+﻿using InnoVault.GameSystem;
+using InnoVault.TileProcessors;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
@@ -782,11 +783,11 @@ namespace InnoVault
             foreach (Chest chest in Main.chest) {
                 if (chest == null) {
                     continue;
-                }   
+                }
 
                 if (chestFilter != null && !chestFilter(chest)) {
                     continue;
-                }  
+                }
 
                 //箱子位置为左上角 Tile，需转换为世界坐标
                 Vector2 chestWorldPos = new(chest.x * 16 + 8, chest.y * 16 + 8); //中心点
@@ -975,6 +976,23 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 获取该NPC的重制节点实例
+        /// </summary>
+        /// <param name="npc"></param>
+        /// <param name="value"></param>
+        /// <returns></returns>
+        public static bool TryGetOverride(this NPC npc, out Dictionary<Type, NPCOverride> value) {
+            value = null;
+            if (Main.gameMenu) {
+                return false;
+            }
+            if (npc.TryGetGlobalNPC(out NPCOverrideGlobalInstance globalInstance)) {
+                value = globalInstance.NPCOverrides;
+            }
+            return value != null;
+        }
+
+        /// <summary>
         /// 获取指定物品的本地化名字
         /// </summary>
         /// <typeparam name="T"></typeparam>
@@ -1123,7 +1141,7 @@ namespace InnoVault
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <param name="player"></param>
-        public static void SetMouseOverByTile<T>(this Player player) where T : ModItem 
+        public static void SetMouseOverByTile<T>(this Player player) where T : ModItem
             => SetMouseOverByTile(player, ModContent.ItemType<T>());
 
         /// <summary>
@@ -1158,7 +1176,7 @@ namespace InnoVault
         /// <typeparam name="T">弹幕类型</typeparam>
         /// <param name="owner">玩家索引 <see cref="Projectile.owner"/> , 默认为-1，即不启用玩家主人排查</param>
         /// <returns></returns>
-        public static int CountProjectilesOfID<T>(int owner = -1) where T : ModProjectile 
+        public static int CountProjectilesOfID<T>(int owner = -1) where T : ModProjectile
             => CountProjectilesOfID(ModContent.ProjectileType<T>(), owner);
         /// <summary>
         /// 实时计算当前所有激活弹幕中，指定ID的弹幕数量
@@ -1173,7 +1191,7 @@ namespace InnoVault
         /// <typeparam name="T">弹幕类型</typeparam>
         /// <param name="player">玩家索引 <see cref="Projectile.owner"/> , 默认为-1，即不启用玩家主人排查</param>
         /// <returns></returns>
-        public static int CountProjectilesOfID<T>(this Player player) where T : ModProjectile 
+        public static int CountProjectilesOfID<T>(this Player player) where T : ModProjectile
             => CountProjectilesOfID(ModContent.ProjectileType<T>(), player.whoAmI);
 
         /// <summary>
@@ -1376,7 +1394,7 @@ namespace InnoVault
         /// <param name="randomSize">生成偏移尺寸</param>
         /// <param name="netUpdate">是否网络同步</param>
         /// <returns>生成物品的索引 ID</returns>
-        public static int SpwanItem(this Item spwanItem, IEntitySource source, Vector2 spwanPos, Vector2 randomSize, bool netUpdate = true) 
+        public static int SpwanItem(this Item spwanItem, IEntitySource source, Vector2 spwanPos, Vector2 randomSize, bool netUpdate = true)
             => SpwanItem(source, spwanPos, randomSize, spwanItem, netUpdate);
 
         /// <summary>
@@ -2018,7 +2036,7 @@ namespace InnoVault
         /// <param name="player">触发生成的玩家实例</param>
         /// <param name="checkLocalPlayer">是否只允许本地玩家触发生成</param>
         /// <returns></returns>
-        public static bool TrySpawnBossWithNet<T>(Player player, bool checkLocalPlayer = true) where T : ModNPC 
+        public static bool TrySpawnBossWithNet<T>(Player player, bool checkLocalPlayer = true) where T : ModNPC
             => TrySpawnBossWithNet(player, ModContent.NPCType<T>(), checkLocalPlayer);
 
         /// <summary>
@@ -2329,7 +2347,7 @@ namespace InnoVault
         /// </summary>
         /// <param name="value">纹理对象</param>
         /// <returns>完整纹理的 Rectangle 区域</returns>
-        public static Rectangle GetRectangle(this Texture2D value) 
+        public static Rectangle GetRectangle(this Texture2D value)
             => new Rectangle(0, 0, value.Width, value.Height);
 
         /// <summary>

@@ -1,4 +1,5 @@
-﻿using InnoVault.TileProcessors;
+﻿using InnoVault.GameSystem;
+using InnoVault.TileProcessors;
 using System.IO;
 using Terraria.ModLoader;
 
@@ -13,6 +14,8 @@ namespace InnoVault
             ClientRequest_TPData_Send,
             Handle_TPData_Receive,
             ServerTPDeathVerify,
+            NPCOverrideAI,
+            NPCOverrideOtherAI,
         }
 
         public static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
@@ -32,6 +35,12 @@ namespace InnoVault
             }
             else if (type == MessageType.ServerTPDeathVerify) {
                 TileProcessorNetWork.HandlerTPDeathByClient(reader);
+            }
+            else if (type == MessageType.NPCOverrideAI) {
+                NPCOverride.NetAIReceive(reader);
+            }
+            else if (type == MessageType.NPCOverrideOtherAI) {
+                NPCOverride.OtherNetWorkReceiveHander(reader);
             }
         }
     }

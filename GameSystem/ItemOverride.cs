@@ -121,11 +121,20 @@ namespace InnoVault.GameSystem
         /// 加载内容
         /// </summary>
         public sealed override void SetupContent() {
+            if (!CanLoad()) {
+                return;
+            }
+
             SetStaticDefaults();
             if (CanLoadLocalization) {
                 _ = DisplayName;
                 _ = Tooltip;
             }
+
+            if (TargetID <= ItemID.None) {
+                return;
+            }
+
             //嵌套字典需要提前挖坑
             ByID.TryAdd(TargetID, []);
             ByID[TargetID][GetType()] = this;
