@@ -526,7 +526,7 @@ namespace InnoVault.GameSystem
                     }
                 }
             }
-            
+
             orig.Invoke(item, player, ref crit);
         }
         /// <summary>

@@ -1,5 +1,4 @@
 ﻿using Microsoft.Xna.Framework;
-using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
@@ -9,9 +8,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.WorldBuilding;
 using static InnoVault.GameSystem.PlayerOverride;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace InnoVault.GameSystem
 {
