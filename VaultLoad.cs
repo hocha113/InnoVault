@@ -367,7 +367,7 @@ namespace InnoVault
             if (load) {
                 // 加载资源
                 CheckAttributePath(type, memberName, tempAttribute);
-                VaultMod.Instance.Logger.Debug($"CheckAttributePath set TempAttribute resource path for {member.MemberType} : {tempAttribute.Path}");
+                //VaultMod.Instance.Logger.Debug($"CheckAttributePath set TempAttribute resource path for {member.MemberType} : {tempAttribute.Path}");
                 LoadMember(member, tempAttribute);
             }
             else {
@@ -401,7 +401,7 @@ namespace InnoVault
                 }
 
                 if (GetAttributeAssetMode(memberType) != classAttribute.AssetMode) {
-                    VaultMod.Instance.Logger.Debug($"Skipped {member.MemberType} {member.Name} in class {type.FullName} due to mismatched AssetMode");
+                    //VaultMod.Instance.Logger.Debug($"Skipped {member.MemberType} {member.Name} in class {type.FullName} due to mismatched AssetMode");
                     return;
                 }
             }
