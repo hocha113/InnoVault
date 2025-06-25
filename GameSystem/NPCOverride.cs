@@ -25,7 +25,7 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static Dictionary<int, Dictionary<Type, NPCOverride>> ByID { get; internal set; } = [];
         /// <summary>
-        /// 要修改的NPC的ID值，在目前为止，每一个类型的NPC只能有一个实例对应
+        /// 要修改的NPC的ID值
         /// </summary>
         public virtual int TargetID => NPCID.None;
         /// <summary>
@@ -133,20 +133,14 @@ namespace InnoVault.GameSystem
                 return false;//通过ID查找NPCOverride，如果未找到，直接返回
             }
 
-            bool result = true;//调用该NPCOverride的CanOverride方法，判断是否允许覆盖
+            npcOverrides = [];
             foreach (var npcOverrideInstance in npcResults.Values) {
-                result = npcOverrideInstance.CanOverride();
-            }
-
-            if (result) {
-                npcOverrides = [];
-                foreach (var npcOverrideInstance in npcResults.Values) {
+                if (npcOverrideInstance.CanOverride()) {
                     npcOverrides[npcOverrideInstance.GetType()] = npcOverrideInstance.Clone();
                 }
-                return true;
             }
 
-            return false;
+            return npcOverrides.Count > 0;
         }
         /// <summary>
         /// 加载并初始化重制节点到对应的NPC实例上

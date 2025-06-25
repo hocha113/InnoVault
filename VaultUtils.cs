@@ -1027,7 +1027,6 @@ namespace InnoVault
 
         /// <summary>
         /// 获取指定类型 <typeparamref name="T"/> 的 <see cref="NPCOverride"/> 实例
-        /// 通常用于直接访问某个特定的重制逻辑节点，无需判断是否存在
         /// 若未在 <see cref="NPCRebuildLoader"/> 中注册对应类型，会抛出异常
         /// </summary>
         /// <typeparam name="T">要获取的重制节点类型</typeparam>
@@ -1039,23 +1038,22 @@ namespace InnoVault
 
         /// <summary>
         /// 尝试获取目标 <paramref name="npc"/> 的全部 <see cref="NPCOverride"/> 节点集合
-        /// 该方法通常用于遍历或批量处理所有已注册的重制逻辑节点
         /// </summary>
         /// <param name="npc">目标 NPC 实例</param>
-        /// <param name="value">返回对应的重制节点字典，键为类型，值为 <see cref="NPCOverride"/> 实例</param>
+        /// <param name="values">返回对应的重制节点字典，键为类型，值为 <see cref="NPCOverride"/> 实例</param>
         /// <returns>
         /// 如果获取成功并非处于主菜单状态，则返回 <see langword="true"/>；
-        /// 否则返回 <see langword="false"/>，此时 <paramref name="value"/> 为 <see langword="null"/>
+        /// 否则返回 <see langword="false"/>，此时 <paramref name="values"/> 为 <see langword="null"/>
         /// </returns>
-        public static bool TryGetOverride(this NPC npc, out Dictionary<Type, NPCOverride> value) {
-            value = null;
+        public static bool TryGetOverride(this NPC npc, out Dictionary<Type, NPCOverride> values) {
+            values = null;
             if (Main.gameMenu) {
                 return false;
             }
             if (npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
-                value = globalInstance.NPCOverrides;
+                values = globalInstance.NPCOverrides;
             }
-            return value != null;
+            return values != null;
         }
 
         /// <summary>
@@ -1077,6 +1075,54 @@ namespace InnoVault
                 return false;
             }
             if (!globalInstance.NPCOverrides.TryGetValue(typeof(T), out var value2)) {
+                value = value2 as T;
+                return false;
+            }
+            return value != null;
+        }
+
+        /// <summary>
+        /// 获取指定类型的 <see cref="ProjOverride"/> 实例
+        /// </summary>
+        /// <typeparam name="T">要获取的 Override 类型，必须继承自 <see cref="ProjOverride"/></typeparam>
+        /// <param name="proj">目标弹幕实例</param>
+        /// <returns>对应类型的 Override 实例，如果不存在则返回 <see langword="null"/></returns>
+        public static T GetOverride<T>(this Projectile proj) where T : ProjOverride
+            => proj.GetGlobalProjectile<ProjRebuildLoader>().ProjOverrides[typeof(T)] as T;
+
+        /// <summary>
+        /// 尝试从弹幕中获取所有已附加的 <see cref="ProjOverride"/> 实例集合
+        /// </summary>
+        /// <param name="proj">目标弹幕实例</param>
+        /// <param name="values">输出参数，用于接收类型到 Override 的映射表</param>
+        /// <returns>若成功获取到映射表，返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
+        public static bool TryGetOverride(this Projectile proj, out Dictionary<Type, ProjOverride> values) {
+            values = null;
+            if (Main.gameMenu) {
+                return false;
+            }
+            if (proj.TryGetGlobalProjectile(out ProjRebuildLoader globalInstance)) {
+                values = globalInstance.ProjOverrides;
+            }
+            return values != null;
+        }
+
+        /// <summary>
+        /// 尝试获取指定类型的 <see cref="ProjOverride"/> 实例
+        /// </summary>
+        /// <typeparam name="T">要获取的 Override 类型，必须继承自 <see cref="ProjOverride"/></typeparam>
+        /// <param name="proj">目标弹幕实例</param>
+        /// <param name="value">输出参数，用于接收对应类型的 Override 实例</param>
+        /// <returns>若成功获取到指定类型的 Override，返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
+        public static bool TryGetOverride<T>(this Projectile proj, out T value) where T : ProjOverride {
+            value = null;
+            if (Main.gameMenu) {
+                return false;
+            }
+            if (!proj.TryGetGlobalProjectile(out ProjRebuildLoader globalInstance)) {
+                return false;
+            }
+            if (!globalInstance.ProjOverrides.TryGetValue(typeof(T), out var value2)) {
                 value = value2 as T;
                 return false;
             }

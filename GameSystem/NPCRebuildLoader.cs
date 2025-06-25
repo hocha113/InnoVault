@@ -36,7 +36,7 @@ namespace InnoVault.GameSystem
         public static MethodInfo onPostDraw_Method;
         public static MethodInfo onCheckDead_Method;
         public override bool InstancePerEntity => true;
-        public Dictionary<Type, NPCOverride> NPCOverrides { get; set; }
+        public Dictionary<Type, NPCOverride> NPCOverrides { get; internal set; }
         #endregion
 
         void IVaultLoader.LoadData() {
@@ -247,7 +247,11 @@ namespace InnoVault.GameSystem
                 }
             }
 
-            orig.Invoke(npc);
+            try {
+                orig.Invoke(npc);
+            } catch {
+                npc.active = false;
+            }
         }
 
         public static bool OnPreDrawHook(On_DrawDelegate orig, NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {

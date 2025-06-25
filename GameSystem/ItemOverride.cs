@@ -13,6 +13,7 @@ namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 物品行为覆盖
+    /// 该基类以单实例形式存在
     /// </summary>
     public abstract class ItemOverride : ModType, ILocalizedModType
     {

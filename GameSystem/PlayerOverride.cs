@@ -10,6 +10,7 @@ namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 玩家行为覆盖
+    /// 该基类以单实例形式存在
     /// </summary>
     public abstract class PlayerOverride : ModType
     {
@@ -28,7 +29,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 生效在对于关于物品的钩子函数上，如果为默认值<see cref="ItemID.None"/>则对所有物品生效
         /// </summary>
-        public virtual int TargetItemType => ItemID.None;
+        public virtual int TargetItemID => ItemID.None;
 
         /// <summary>
         /// 封闭内容

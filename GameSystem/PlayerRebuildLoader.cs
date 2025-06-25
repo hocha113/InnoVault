@@ -183,7 +183,7 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(Player, out var values)) {
                 bool result = true;
                 foreach (var value in values.Values) {
-                    if (value.TargetItemType == ItemID.None || value.TargetItemType == item.type) {
+                    if (value.TargetItemID == ItemID.None || value.TargetItemID == item.type) {
                         result = value.ItemShoot(item, source, position, velocity, type, damage, knockback);
                     }
                 }
@@ -201,7 +201,7 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(Player, out var values)) {
                 bool result = true;
                 foreach (var value in values.Values) {
-                    if (value.TargetItemType == ItemID.None || value.TargetItemType == item.type) {
+                    if (value.TargetItemID == ItemID.None || value.TargetItemID == item.type) {
                         result = value.CanUseItem(item);
                     }
                 }
