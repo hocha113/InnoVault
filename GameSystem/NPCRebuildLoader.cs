@@ -2,10 +2,13 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
+using Terraria.WorldBuilding;
 using static InnoVault.GameSystem.NPCOverride;
 
 namespace InnoVault.GameSystem
@@ -13,16 +16,17 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 所有关于NPC行为覆盖和性质加载的钩子在此处挂载
     /// </summary>
-    internal class NPCRebuildLoader : GlobalNPC, IVaultLoader
+    public class NPCRebuildLoader : GlobalNPC, IVaultLoader
     {
+#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
         #region Data
-        internal delegate void On_NPCDelegate(NPC npc);
-        internal delegate bool On_NPCDelegate2(NPC npc);
-        internal delegate bool On_DrawDelegate(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor);
-        internal delegate void On_DrawDelegate2(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor);
-        internal delegate void On_OnHitByProjectileDelegate(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone);
-        internal delegate void On_ModifyIncomingHitDelegate(NPC npc, ref NPC.HitModifiers modifiers);
-        internal delegate void On_NPCSetDefaultDelegate();
+        public delegate void On_NPCDelegate(NPC npc);
+        public delegate bool On_NPCDelegate2(NPC npc);
+        public delegate bool On_DrawDelegate(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor);
+        public delegate void On_DrawDelegate2(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor);
+        public delegate void On_OnHitByProjectileDelegate(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone);
+        public delegate void On_ModifyIncomingHitDelegate(NPC npc, ref NPC.HitModifiers modifiers);
+        public delegate void On_NPCSetDefaultDelegate();
         public static Type npcLoaderType;
         public static MethodInfo onHitByProjectile_Method;
         public static MethodInfo modifyIncomingHit_Method;
@@ -56,9 +60,13 @@ namespace InnoVault.GameSystem
             onCheckDead_Method = null;
         }
 
-        public override bool AppliesToEntity(NPC entity, bool lateInstantiation) {
-            return lateInstantiation && ByID.ContainsKey(entity.type);
+        public override GlobalNPC Clone(NPC from, NPC to) {
+            NPCRebuildLoader rebuildLoader = (NPCRebuildLoader)base.Clone(from, to);
+            rebuildLoader.NPCOverrides = NPCOverrides;
+            return rebuildLoader;
         }
+
+        public override bool AppliesToEntity(NPC entity, bool lateInstantiation) => lateInstantiation && ByID.ContainsKey(entity.type);
 
         public override void SetDefaults(NPC npc) => NPCOverride.SetDefaults(npc);
 
@@ -328,5 +336,6 @@ namespace InnoVault.GameSystem
 
             orig.Invoke(npc, ref modifiers);
         }
+#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
     }
 }

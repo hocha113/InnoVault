@@ -1010,6 +1010,15 @@ namespace InnoVault.GameSystem
             return null;
         }
         /// <summary>
+        /// 返回<see langword="false"/>时禁止玩家切换该物品
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="player"></param>
+        /// <returns></returns>
+        public virtual bool? CanSwitchWeapon(Item item, Player player) {
+            return null;
+        }
+        /// <summary>
         /// 修改这个物品的配方，注意，添加类操作不建议写在此处，因为这个函数在物品有多个同结果配方的情况下可能会被调用多次
         /// </summary>
         /// <param name="recipe"></param>

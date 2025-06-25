@@ -975,6 +975,18 @@ namespace InnoVault
             return new EntitySource_Parent(Main.LocalPlayer, "NullSource");
         }
 
+        /// <summary>
+        /// 尝试获取指定 <see cref="Item"/> 类型的全部 <see cref="ItemOverride"/> 映射
+        /// </summary>
+        /// <param name="item">要查询的物品实例</param>
+        /// <param name="value">
+        /// 输出参数如果成功，则包含该物品类型对应的 <see cref="ItemOverride"/> 字典；
+        /// 若失败则为 <c>null</c>
+        /// </param>
+        /// <returns>
+        /// 如果当前不在主菜单中且成功从 <see cref="ItemOverride.ByID"/> 中获取到对应的映射，则返回 <c>true</c>；
+        /// 否则返回 <c>false</c>
+        /// </returns>
         public static bool TryGetOverride(this Item item, out Dictionary<Type, ItemOverride> value) {
             value = null;
             if (Main.gameMenu) {
@@ -986,6 +998,21 @@ namespace InnoVault
             return value != null;
         }
 
+        /// <summary>
+        /// 尝试获取指定 <see cref="Item"/> 类型对应的特定 <typeparamref name="T"/> 类型的 <see cref="NPCOverride"/>
+        /// </summary>
+        /// <typeparam name="T">
+        /// 期望获取的重写类型，必须继承自 <see cref="NPCOverride"/>
+        /// </typeparam>
+        /// <param name="item">要查询的物品实例</param>
+        /// <param name="value">
+        /// 输出参数如果成功，则包含该类型的重写实例；
+        /// 若失败则为 <c>null</c>
+        /// </param>
+        /// <returns>
+        /// 如果当前不在主菜单中，且存在该类型的重写映射，则返回 <c>true</c>；
+        /// 否则返回 <c>false</c>
+        /// </returns>
         public static bool TryGetOverride<T>(this Item item, out T value) where T : NPCOverride {
             value = null;
             if (Main.gameMenu) {

@@ -36,9 +36,7 @@ namespace InnoVault.GameSystem
                 hook.Apply();
             }
             if (!_hooks.TryAdd((method, hookDelegate), hook)) {
-                string ctext = "目标方法已经被该委托挂载";
-                string egtext = "The target method is already mounted by the delegate";
-                VaultMod.Instance.Logger.Info(VaultUtils.Translation(ctext, egtext));
+                VaultMod.Instance.Logger.Info("The target method is already mounted by the delegate");
             }
             return hook;
         }
@@ -52,7 +50,7 @@ namespace InnoVault.GameSystem
 
             foreach (var hook in _hooks.Values) {
                 if (!hook.IsApplied) {
-                    VaultMod.Instance.Logger.Info((hook + VaultUtils.Translation("挂载失效", "Mount failure")));
+                    VaultMod.Instance.Logger.Info((hook + "Mount failure"));
                     hookDownNum++;
                 }
             }

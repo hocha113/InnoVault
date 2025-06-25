@@ -45,6 +45,7 @@ namespace InnoVault.GameSystem
             , ref bool[] modifier, ref bool[] badModifier, ref int oneDropLogo, out Color?[] overrideColor, int prefixlineIndex);
         public delegate string On_GetItemNameValue_Delegate(int id);
         public delegate string On_GetItemName_get_Delegate(Item item);
+        public static event On_Shoot_Dalegate PreShootEvent;
         public static event On_Item_Void_Dalegate PreSetDefaultsEvent;
         public static event On_Item_Void_Dalegate PostSetDefaultsEvent;
         public static event On_ModifyTooltips_Dalegate PreModifyTooltipsEvent;
@@ -198,6 +199,7 @@ namespace InnoVault.GameSystem
             TypeToInstance?.Clear();
             ByID?.Clear();
 
+            PreShootEvent = null;
             PreSetDefaultsEvent = null;
             PostSetDefaultsEvent = null;
             PreModifyTooltipsEvent = null;
@@ -308,7 +310,7 @@ namespace InnoVault.GameSystem
         /// <br>OnAffixNameHook用于改变UI获取物品名字的方式，(不知道为何，明明AffixName的返回值是基于Item.Name的，但On_Name_Get_Hook的修改没能在这上面起作用)</br> 
         /// <br>直观来讲，一个负责改变UI上显示的名字(OnAffixNameHook)，一个负责改变逻辑数据，使其在搜索框之类的功能中能够被以新名字检索到(OnAffixNameHook)</br> 
         /// </summary>
-        public string On_Name_Get_Hook(On_GetItemName_get_Delegate orig, Item item) {
+        public static string On_Name_Get_Hook(On_GetItemName_get_Delegate orig, Item item) {
             if (!TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
                 return orig.Invoke(item);
             }
@@ -328,7 +330,7 @@ namespace InnoVault.GameSystem
             return orig.Invoke(item);
         }
 
-        public string OnAffixNameHook(On_GetItemName_get_Delegate orig, Item item) {
+        public static string OnAffixNameHook(On_GetItemName_get_Delegate orig, Item item) {
             bool onOverd = false;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
@@ -355,7 +357,7 @@ namespace InnoVault.GameSystem
             return forgtName;
         }
 
-        public bool OnAllowPrefixHook(On_AllowPrefix_Dalegate orig, Item item, int pre) {
+        public static bool OnAllowPrefixHook(On_AllowPrefix_Dalegate orig, Item item, int pre) {
             if (ItemAllowPrefixDic.TryGetValue(item.type, out bool? value)) {
                 if (value.HasValue) {
                     return value.Value;
@@ -368,7 +370,7 @@ namespace InnoVault.GameSystem
             return orig.Invoke(item, pre);
         }
 
-        public bool OnMeleePrefixHook(On_Item_Dalegate orig, Item item) {
+        public static bool OnMeleePrefixHook(On_Item_Dalegate orig, Item item) {
             if (ItemMeleePrefixDic.TryGetValue(item.type, out bool? value)) {
                 if (value.HasValue) {
                     return value.Value;
@@ -381,7 +383,7 @@ namespace InnoVault.GameSystem
             return orig.Invoke(item);
         }
 
-        public bool OnRangedPrefixHook(On_Item_Dalegate orig, Item item) {
+        public static bool OnRangedPrefixHook(On_Item_Dalegate orig, Item item) {
             if (ItemRangedPrefixDic.TryGetValue(item.type, out bool? value)) {
                 if (value.HasValue) {
                     return value.Value;
@@ -398,7 +400,7 @@ namespace InnoVault.GameSystem
         /// 提前于 TML 的方法执行，这样继承重写 <see cref="ItemOverride.On_AltFunctionUse"/> 便拥有阻断后续逻辑的能力，用于进行一些高级修改。
         /// 若多个覆盖器返回了非空值，则优先返回最后一个非空值。
         /// </summary>
-        public bool OnAltFunctionUseHook(On_AltFunctionUse_Delegate orig, Item item, Player player) {
+        public static bool OnAltFunctionUseHook(On_AltFunctionUse_Delegate orig, Item item, Player player) {
             if (item.IsAir) {
                 return false;
             }
@@ -424,7 +426,7 @@ namespace InnoVault.GameSystem
         /// 提前于 TML 的方法执行，这样继承重写 <see cref="ItemOverride.On_UpdateAccessory"/> 便拥有阻断后续逻辑的能力，用于进行一些高级修改。
         /// 若任意一个覆盖器返回 <c>false</c>，则立即中止原方法执行。
         /// </summary>
-        public void OnUpdateAccessoryHook(On_UpdateAccessory_Delegate orig, Item item, Player player, bool hideVisual) {
+        public static void OnUpdateAccessoryHook(On_UpdateAccessory_Delegate orig, Item item, Player player, bool hideVisual) {
             if (item.IsAir) {
                 return;
             }
@@ -442,7 +444,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 提前于TML的方法执行，这样继承重写<br/><see cref="ItemOverride.On_CanConsumeAmmo"/><br/>便拥有可以阻断TML后续方法运行的能力，用于进行一些高级修改
         /// </summary>
-        public void OnModifyWeaponDamageHook(On_ModifyWeaponDamage_Delegate orig, Item item, Player player, ref StatModifier damage) {
+        public static void OnModifyWeaponDamageHook(On_ModifyWeaponDamage_Delegate orig, Item item, Player player, ref StatModifier damage) {
             if (item.IsAir) {
                 return;
             }
@@ -461,7 +463,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 提前于TML的方法执行，这样继承重写<br/><see cref="ItemOverride.On_CanConsumeAmmo"/><br/>便拥有可以阻断TML后续方法运行的能力，用于进行一些高级修改
         /// </summary>
-        public bool OnCanConsumeAmmoHook(On_CanConsumeAmmo_Delegate orig, Item item, Item ammo, Player player) {
+        public static bool OnCanConsumeAmmoHook(On_CanConsumeAmmo_Delegate orig, Item item, Item ammo, Player player) {
             bool? result = null;
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -480,7 +482,7 @@ namespace InnoVault.GameSystem
         /// <param name="orig"></param>
         /// <param name="item"></param>
         /// <param name="itemLoot"></param>
-        public void OnModifyItemLootHook(On_ModifyItemLoot_Delegate orig, Item item, ItemLoot itemLoot) {
+        public static void OnModifyItemLootHook(On_ModifyItemLoot_Delegate orig, Item item, ItemLoot itemLoot) {
             bool? result = null;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -507,8 +509,8 @@ namespace InnoVault.GameSystem
         /// <param name="orig"></param>
         /// <param name="item"></param>
         /// <param name="player"></param>
-        /// <returns></returns>
-        public void OnModifyWeaponCritHook(On_ModifyWeaponCrit_Delegate orig, Item item, Player player, ref float crit) {
+        /// <param name="crit"></param>
+        public static void OnModifyWeaponCritHook(On_ModifyWeaponCrit_Delegate orig, Item item, Player player, ref float crit) {
             bool? result = null;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -535,7 +537,7 @@ namespace InnoVault.GameSystem
         /// <param name="item"></param>
         /// <param name="player"></param>
         /// <returns></returns>
-        public void OnUseAnimationHook(On_UseAnimation_Delegate orig, Item item, Player player) {
+        public static void OnUseAnimationHook(On_UseAnimation_Delegate orig, Item item, Player player) {
             bool? result = null;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -562,7 +564,7 @@ namespace InnoVault.GameSystem
         /// <param name="item"></param>
         /// <param name="player"></param>
         /// <returns></returns>
-        public bool? OnUseItemHook(On_UseItem_Delegate orig, Item item, Player player) {
+        public static bool? OnUseItemHook(On_UseItem_Delegate orig, Item item, Player player) {
             bool? result = null;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -576,8 +578,20 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 提前于TML的方法执行，这样继承重写<br/><see cref="ItemOverride.On_Shoot"/><br/>便拥有可以阻断TML后续方法运行的能力，用于进行一些高级修改
         /// </summary>
-        public bool OnShootHook(On_Shoot_Dalegate orig, Item item, Player player, EntitySource_ItemUse_WithAmmo source
+        public static bool OnShootHook(On_Shoot_Dalegate orig, Item item, Player player, EntitySource_ItemUse_WithAmmo source
             , Vector2 position, Vector2 velocity, int type, int damage, float knockback, bool defaultResult) {
+
+            if (item.type > ItemID.None) {
+                bool? eventResult = PreShootEvent?.Invoke(item, player, source, position, velocity, type, damage, knockback, defaultResult);
+                if (eventResult.HasValue) {
+                    if (eventResult.Value) {
+                        return orig.Invoke(item, player, source, position, velocity, type, damage, knockback);
+                    }
+                    else {
+                        return false;
+                    }
+                }
+            }
 
             bool? result = null;
 
@@ -601,7 +615,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 提前于TML的方法执行，这样继承重写<br/><see cref="ItemOverride.On_ModifyShootStats(Item, Player, ref Vector2, ref Vector2, ref int, ref int, ref float)"/><br/>便拥有可以阻断TML后续方法运行的能力，用于进行一些高级修改
         /// </summary>
-        public void OnModifyShootStatsHook(On_ModifyShootStats_Delegate orig, Item item, Player player, ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockback) {//
+        public static void OnModifyShootStatsHook(On_ModifyShootStats_Delegate orig, Item item, Player player, ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockback) {//
             bool? result = null;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -625,7 +639,7 @@ namespace InnoVault.GameSystem
         /// 提前于TML的方法执行，这个钩子可以用来做到<see cref="GlobalItem.CanUseItem"/>无法做到的修改效果，比如让一些原本不可使用的物品可以使用，
         /// <br/>继承重写<see cref="ItemOverride.On_CanUseItem(Item, Player)"/>来达到这些目的，用于进行一些高级修改
         /// </summary>
-        public bool OnCanUseItemHook(On_CanUseItem_Delegate orig, Item item, Player player) {
+        public static bool OnCanUseItemHook(On_CanUseItem_Delegate orig, Item item, Player player) {
             bool? result = null;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -643,7 +657,7 @@ namespace InnoVault.GameSystem
         /// 提前于TML的方法执行，这个钩子可以用来做到<see cref="GlobalItem.ConsumeItem"/>无法做到的修改效果，比如让一些原本不可使用的物品可以使用，
         /// <br/>继承重写<see cref="ItemOverride.On_ConsumeItem(Item, Player)"/>来达到这些目的，用于进行一些高级修改
         /// </summary>
-        public bool OnConsumeItemHook(On_CanUseItem_Delegate orig, Item item, Player player) {
+        public static bool OnConsumeItemHook(On_CanUseItem_Delegate orig, Item item, Player player) {
             bool? result = null;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -658,7 +672,7 @@ namespace InnoVault.GameSystem
             return orig.Invoke(item, player);
         }
 
-        public void OnHitNPCHook(On_HitNPC_Delegate orig, Item item, Player player, NPC target, in NPC.HitInfo hit, int damageDone) {
+        public static void OnHitNPCHook(On_HitNPC_Delegate orig, Item item, Player player, NPC target, in NPC.HitInfo hit, int damageDone) {
             bool result = true;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -673,7 +687,7 @@ namespace InnoVault.GameSystem
             orig.Invoke(item, player, target, hit, damageDone);
         }
 
-        public void OnHitPvpHook(On_HitPvp_Delegate orig, Item item, Player player, Player target, Player.HurtInfo hurtInfo) {
+        public static void OnHitPvpHook(On_HitPvp_Delegate orig, Item item, Player player, Player target, Player.HurtInfo hurtInfo) {
             bool result = true;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -688,7 +702,7 @@ namespace InnoVault.GameSystem
             orig.Invoke(item, player, target, hurtInfo);
         }
 
-        public void OnModifyHitNPCHook(On_ModifyHitNPC_Delegate orig, Item item, Player player, NPC target, ref NPC.HitModifiers modifiers) {
+        public static void OnModifyHitNPCHook(On_ModifyHitNPC_Delegate orig, Item item, Player player, NPC target, ref NPC.HitModifiers modifiers) {
             bool? result = null;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -710,7 +724,7 @@ namespace InnoVault.GameSystem
             orig.Invoke(item, player, target, ref modifiers);
         }
 
-        public bool OnPreDrawInInventoryHook(On_PreDrawInInventory_Delegate orig, Item item, SpriteBatch spriteBatch
+        public static bool OnPreDrawInInventoryHook(On_PreDrawInInventory_Delegate orig, Item item, SpriteBatch spriteBatch
             , Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale) {
             bool? result = null;
 

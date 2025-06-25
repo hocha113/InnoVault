@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.GameSystem;
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -104,8 +105,7 @@ namespace InnoVault.TileProcessors
             }
 
             onTile_KillMultiTile_Method = typeof(TileLoader).GetMethod("KillMultiTile", BindingFlags.Public | BindingFlags.Static);
-            //实际上我并不信任MonoModHook, 但考虑到稳定性和代码必要性，外加这个钩子如果突然失效并不致命，我选择再次使用MonoModHook，祈祷它不会再让钩子被回收
-            MonoModHooks.Add(onTile_KillMultiTile_Method, OnKillMultiTileHook);
+            VaultHook.Add(onTile_KillMultiTile_Method, OnKillMultiTileHook);
 
             WorldGen.Hooks.OnWorldLoad += LoadWorldTileProcessor;
             On_Main.DrawBackgroundBlackFill += On_TileDrawing_DrawHook;
