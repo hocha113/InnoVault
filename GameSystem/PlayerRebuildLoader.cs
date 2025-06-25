@@ -57,7 +57,7 @@ namespace InnoVault.GameSystem
             onModifyHitNPCWithProjMethod = null;
         }
 
-        private static void Player_Update_Hook(ILContext il) {
+        private void Player_Update_Hook(ILContext il) {
             ILCursor c = new ILCursor(il);
             ILLabel LabelKey = null;
             Type playerType = typeof(Player);
@@ -116,7 +116,10 @@ namespace InnoVault.GameSystem
             bool? result = null;
             if (TryFetchByPlayer(player, out var values)) {
                 foreach (var value in values.Values) {
-                    result = value.CanSwitchWeapon();
+                    bool? result2 = value.CanSwitchWeapon();
+                    if (result2.HasValue) {
+                        result = result2;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
@@ -130,7 +133,10 @@ namespace InnoVault.GameSystem
 
             if (ItemOverride.TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values2)) {
                 foreach (var value in values2.Values) {
-                    result = value.CanSwitchWeapon(item, player);
+                    bool? result2 = value.CanSwitchWeapon(item, player);
+                    if (result2.HasValue) {
+                        result = result2;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
