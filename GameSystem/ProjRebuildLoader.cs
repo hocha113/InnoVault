@@ -16,9 +16,11 @@ namespace InnoVault.GameSystem
     public class ProjRebuildLoader : GlobalProjectile, IVaultLoader
     {
 #pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
-        public delegate void On_ProjectileAI_Delegate(Projectile proj);
+        public delegate void On_Projectile_Void_Delegate(Projectile proj);
         public delegate bool On_PreDraw_Delegate(Projectile projectile, ref Color lightColor);
         public delegate void On_PostDraw_Delegate(Projectile projectile, Color lightColor);
+        public static event On_Projectile_Void_Delegate PreSetDefaultsEvent;
+        public static event On_Projectile_Void_Delegate PostSetDefaultsEvent;
         public static MethodInfo onProjectileAI_Method;
         public static MethodInfo onPreDraw_Method;
         public static MethodInfo onPostDraw_Method;
@@ -35,6 +37,8 @@ namespace InnoVault.GameSystem
         }
 
         void IVaultLoader.UnLoadData() {
+            PreSetDefaultsEvent = null;
+            PostSetDefaultsEvent = null;
             onProjectileAI_Method = null;
             onPreDraw_Method = null;
             onPostDraw_Method = null;
@@ -47,6 +51,16 @@ namespace InnoVault.GameSystem
         }
 
         public override bool AppliesToEntity(Projectile entity, bool lateInstantiation) => lateInstantiation && ByID.ContainsKey(entity.type);
+
+        public override void SetDefaults(Projectile entity) {
+            if (entity.Alives()) {
+                PreSetDefaultsEvent?.Invoke(entity);
+            }
+            ProjOverride.SetDefaults(entity);
+            if (entity.Alives()) {
+                PostSetDefaultsEvent?.Invoke(entity);
+            }
+        }
 
         public override void OnSpawn(Projectile proj, IEntitySource source) {
             if (proj.TryGetOverride(out var values)) {
@@ -93,7 +107,7 @@ namespace InnoVault.GameSystem
             }
         }
 
-        public static void OnProjectileAIHook(On_ProjectileAI_Delegate orig, Projectile proj) {
+        public static void OnProjectileAIHook(On_Projectile_Void_Delegate orig, Projectile proj) {
             if (proj.TryGetOverride(out var values)) {
                 bool result = true;
                 foreach (var value in values.Values) {

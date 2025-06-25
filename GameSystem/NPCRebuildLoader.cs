@@ -10,6 +10,7 @@ using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.WorldBuilding;
 using static InnoVault.GameSystem.NPCOverride;
+using static InnoVault.GameSystem.ProjRebuildLoader;
 
 namespace InnoVault.GameSystem
 {
@@ -27,6 +28,8 @@ namespace InnoVault.GameSystem
         public delegate void On_OnHitByProjectileDelegate(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone);
         public delegate void On_ModifyIncomingHitDelegate(NPC npc, ref NPC.HitModifiers modifiers);
         public delegate void On_NPCSetDefaultDelegate();
+        public static event On_NPCDelegate PreSetDefaultsEvent;
+        public static event On_NPCDelegate PostSetDefaultsEvent;
         public static Type npcLoaderType;
         public static MethodInfo onHitByProjectile_Method;
         public static MethodInfo modifyIncomingHit_Method;
@@ -49,7 +52,8 @@ namespace InnoVault.GameSystem
         void IVaultLoader.UnLoadData() {
             Instances?.Clear();
             ByID?.Clear();
-
+            PreSetDefaultsEvent = null;
+            PostSetDefaultsEvent = null;
             npcLoaderType = null;
             onHitByProjectile_Method = null;
             modifyIncomingHit_Method = null;
@@ -68,7 +72,15 @@ namespace InnoVault.GameSystem
 
         public override bool AppliesToEntity(NPC entity, bool lateInstantiation) => lateInstantiation && ByID.ContainsKey(entity.type);
 
-        public override void SetDefaults(NPC npc) => NPCOverride.SetDefaults(npc);
+        public override void SetDefaults(NPC npc) {
+            if (npc.Alives()) {
+                PreSetDefaultsEvent?.Invoke(npc);
+            }
+            NPCOverride.SetDefaults(npc);
+            if (npc.Alives()) {
+                PostSetDefaultsEvent?.Invoke(npc);
+            }
+        }
 
         public override void ModifyHitByItem(NPC npc, Player player, Item item, ref NPC.HitModifiers modifiers) {
             if (npc.TryGetOverride(out var values)) {

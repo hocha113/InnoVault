@@ -20,6 +20,7 @@ using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.Core;
+using Terraria.ModLoader.Default;
 using Terraria.ObjectData;
 using Terraria.Social;
 
@@ -1198,7 +1199,12 @@ namespace InnoVault
             }
             else {
                 string[] fruits = fullName.Split('/');
-                return ModLoader.GetMod(fruits[0]).Find<ModItem>(fruits[1]).Type;
+                if (ModLoader.TryGetMod(fruits[0], out Mod mod) 
+                    && mod.TryFind(fruits[1], out ModItem modItem)) {
+                    return modItem.Type;
+                }
+                
+                return ItemID.None;
             }
         }
 
