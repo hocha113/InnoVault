@@ -574,7 +574,7 @@ namespace InnoVault.GameSystem
         /// <param name="damage"></param>
         /// <param name="knockback"></param>
         public virtual bool? On_ModifyShootStats(Item item, Player player, ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockback) {
-            return true;
+            return null;
         }
         /// <summary>
         /// 这个物品射击前进行一些属性修改，比如调整伤害
