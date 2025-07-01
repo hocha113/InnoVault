@@ -1,4 +1,5 @@
-﻿using System;
+﻿using InnoVault.GameSystem;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -34,7 +35,9 @@ namespace InnoVault
             foreach (var loader in Loaders) {
                 loader.LoadData();
             }
+            VaultLoad.LoadData();
         }
+
         /// <inheritdoc/>
         public override void PostSetupContent() {
             foreach (var loader in Loaders) {
@@ -50,16 +53,19 @@ namespace InnoVault
             ModTypeSetCache?.Clear();
             AnyModCodeType = null;
         }
+
         /// <inheritdoc/>
         public override void Unload() {
             foreach (var loader in Loaders) {
                 loader.UnLoadData();
             }
             Loaders.Clear();
+            VaultLoad.UnLoadData();
             VaultLoad.UnLoadAsset();
             ModTypeSetCache?.Clear();
             AnyModCodeType = null;
         }
+
         /// <inheritdoc/>
         public override void HandlePacket(BinaryReader reader, int whoAmI) => VaultNetWork.HandlePacket(this, reader, whoAmI);
     }

@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework.Graphics;
+﻿using InnoVault.GameSystem;
+using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
 using System.Linq;
@@ -100,6 +101,35 @@ namespace InnoVault
     /// </summary>
     public static class VaultLoad
     {
+        /// <summary>
+        /// 在绝大部分内容加载完成后被设置为<see langword="true"/>
+        /// </summary>
+        public static bool LoadenCountent { get; private set; } = false;
+        /// <summary>
+        /// 一个非常靠后的加载钩子，此时本地化、配方修改、菜单排序等内容以及设置完成
+        /// </summary>
+        public static event Action EndLoadenEvent;
+
+        internal static void LoadData() {
+            try {//BossBarLoader的GotoSavedStyle是非常靠后的加载调用
+                VaultHook.Add(typeof(BossBarLoader).GetMethod("GotoSavedStyle"
+                , BindingFlags.NonPublic | BindingFlags.Static), EndLoaden);
+            } catch {
+
+            }
+        }
+
+        internal static void UnLoadData() {
+            EndLoadenEvent = null;
+            LoadenCountent = false;
+        }
+
+        private static void EndLoaden(Action orig) {
+            orig.Invoke();
+            EndLoadenEvent?.Invoke();
+            LoadenCountent = true;
+        }
+
         internal static void LoadAsset() {
             foreach (var t in VaultUtils.GetAnyModCodeType()) {
                 ProcessClassAssets(t, load: true);
