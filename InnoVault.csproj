@@ -12,6 +12,15 @@
 	  <None Remove="localization\zh-Hans_Mods.InnoVault.hjson" />
 	  <None Remove="Trails\SpecialThanks.txt" />
 	</ItemGroup>
+	<ItemGroup>
+	  <PackageReference Include="FFMediaToolkit" Version="4.6.0" />
+	  <PackageReference Include="FFmpeg.AutoGen" Version="7.1.1" />
+	</ItemGroup>
+	<ItemGroup>
+	  <Reference Include="FFMediaToolkit">
+	    <HintPath>lib\FFMediaToolkit.dll</HintPath>
+	  </Reference>
+	</ItemGroup>
 
 	<!-- References -->
 
