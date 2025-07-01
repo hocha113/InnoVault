@@ -32,15 +32,27 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static Dictionary<int, Dictionary<Type, ItemOverride>> ByID { get; internal set; } = [];
         /// <summary>
-        /// 如果不为<see langword="null"/>，则强行接收所有前缀
+        /// 控制指定物品类型是否允许任意前缀<br/>
+        /// 该属性只在游戏加载阶段生效，应当在<see cref="ModType.SetStaticDefaults"/>或者其他调用时机合适的函数中修改<br/>
+        /// 值为 <see langword="true"/>：强制允许所有前缀<br/>
+        /// 值为 <see langword="false"/>：强制禁止所有前缀<br/>
+        /// 值为 <see langword="null"/>：使用默认逻辑
         /// </summary>
         public static Dictionary<int, bool?> ItemAllowPrefixDic { get; set; } = [];
         /// <summary>
-        /// 如果不为<see langword="null"/>，则强行接收所有近战前缀
+        /// 控制指定物品类型是否允许近战前缀<br/>
+        /// 该属性只在游戏加载阶段生效，应当在<see cref="ModType.SetStaticDefaults"/>或者其他调用时机合适的函数中修改<br/>
+        /// 值为 <see langword="true"/>：强制允许所有近战前缀<br/>
+        /// 值为 <see langword="false"/>：强制禁止所有近战前缀<br/>
+        /// 值为 <see langword="null"/>：使用默认逻辑
         /// </summary>
         public static Dictionary<int, bool?> ItemMeleePrefixDic { get; set; } = [];
         /// <summary>
-        /// 如果不为<see langword="null"/>，则强行接收所有远程前缀
+        /// 控制指定物品类型是否允许远程前缀<br/>
+        /// 该属性只在游戏加载阶段生效，应当在<see cref="ModType.SetStaticDefaults"/>或者其他调用时机合适的函数中修改<br/>
+        /// 值为 <see langword="true"/>：强制允许所有远程前缀<br/>
+        /// 值为 <see langword="false"/>：强制禁止所有远程前缀<br/>
+        /// 值为 <see langword="null"/>：使用默认逻辑
         /// </summary>
         public static Dictionary<int, bool?> ItemRangedPrefixDic { get; set; } = [];
         /// <summary>
