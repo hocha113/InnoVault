@@ -20,6 +20,9 @@
 	  <Reference Include="FFMediaToolkit">
 	    <HintPath>lib\FFMediaToolkit.dll</HintPath>
 	  </Reference>
+	  <Reference Include="FFmpeg.AutoGen">
+	    <HintPath>lib\FFmpeg.AutoGen.dll</HintPath>
+	  </Reference>
 	</ItemGroup>
 
 	<!-- References -->

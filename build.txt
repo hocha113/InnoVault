@@ -1,5 +1,5 @@
 ﻿displayName = InnoVault
-dllReferences = FFMediaToolkit
+dllReferences = FFMediaToolkit, FFmpeg.AutoGen
 author = HoCha113
 homepage = https://github.com/hocha113/InnoVault/wiki
 version = 1.9.32

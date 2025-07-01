@@ -31,6 +31,7 @@ namespace InnoVault
         internal static Type[] AnyModCodeType = null;
         /// <inheritdoc/>
         public override void Load() {
+            VideoUtils.PrepareFFmpegDlls();
             Loaders = VaultUtils.GetSubInterface<IVaultLoader>();
             foreach (var loader in Loaders) {
                 loader.LoadData();
