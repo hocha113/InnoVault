@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Steamworks;
 using System;
 using System.Collections.Generic;
 using Terraria;
@@ -167,16 +168,28 @@ namespace InnoVault.GameSystem
         /// 否则返回 <see langword="false"/>
         /// </returns>
         public static bool TryFetchByID(int id, out Dictionary<Type, ItemOverride> itemOverrides) {
-            if (!ByID.TryGetValue(id, out itemOverrides)) {
-                return false;//通过ID查找ItemOverride，如果未找到，直接返回
+            itemOverrides = null;
+
+            if (!ByID.TryGetValue(id, out var itemResults)) {
+                return false;
             }
 
-            bool result = true;//调用该ItemOverride的CanOverride方法，判断是否允许覆盖
-            foreach (var item in itemOverrides.Values) {
-                result = item.CanOverride();
+            Dictionary<Type, ItemOverride> result = null;
+
+            foreach (var item in itemResults.Values) {
+                if (!item.CanOverride()) {
+                    continue;
+                }
+                result ??= [];
+                result[item.GetType()] = item;
             }
 
-            return result;
+            if (result is null) {
+                return false;
+            }
+
+            itemOverrides = result;
+            return true;
         }
 
         /// <summary>

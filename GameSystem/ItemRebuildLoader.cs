@@ -311,6 +311,10 @@ namespace InnoVault.GameSystem
         /// <br>直观来讲，一个负责改变UI上显示的名字(OnAffixNameHook)，一个负责改变逻辑数据，使其在搜索框之类的功能中能够被以新名字检索到(OnAffixNameHook)</br> 
         /// </summary>
         public static string On_Name_Get_Hook(On_GetItemName_get_Delegate orig, Item item) {
+            if (Main.gameMenu) {
+                return orig.Invoke(item);
+            }
+
             if (!TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
                 return orig.Invoke(item);
             }
@@ -331,8 +335,11 @@ namespace InnoVault.GameSystem
         }
 
         public static string OnAffixNameHook(On_GetItemName_get_Delegate orig, Item item) {
-            bool onOverd = false;
+            if (Main.gameMenu) {
+                return orig.Invoke(item);
+            }
 
+            bool onOverd = false;
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
                 string result = string.Empty;
                 foreach (var value in values.Values) {

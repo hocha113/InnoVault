@@ -130,17 +130,25 @@ namespace InnoVault.GameSystem
             npcOverrides = null;
 
             if (!ByID.TryGetValue(id, out Dictionary<Type, NPCOverride> npcResults)) {
-                return false;//通过ID查找NPCOverride，如果未找到，直接返回
+                return false;
             }
 
-            npcOverrides = [];
+            Dictionary<Type, NPCOverride> result = null;
+
             foreach (var npcOverrideInstance in npcResults.Values) {
-                if (npcOverrideInstance.CanOverride()) {
-                    npcOverrides[npcOverrideInstance.GetType()] = npcOverrideInstance.Clone();
+                if (!npcOverrideInstance.CanOverride()) {
+                    continue;
                 }
+                result ??= [];
+                result[npcOverrideInstance.GetType()] = npcOverrideInstance.Clone();
             }
 
-            return npcOverrides.Count > 0;
+            if (result == null) {
+                return false;
+            }
+
+            npcOverrides = result;
+            return true;
         }
         /// <summary>
         /// 加载并初始化重制节点到对应的NPC实例上
