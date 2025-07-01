@@ -12,7 +12,7 @@ namespace InnoVault.GameSystem
     /// 玩家行为覆盖
     /// 该基类以单实例形式存在
     /// </summary>
-    public abstract class PlayerOverride : ModType
+    public abstract class PlayerOverride : VaultType
     {
         /// <summary>
         /// 所有修改的实例集合
@@ -44,12 +44,6 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 是否要将这个实例加载进列表，默认为<see langword="true"/>
-        /// </summary>
-        /// <returns></returns>
-        public virtual bool CanLoad() => true;
-
-        /// <summary>
         /// 加载内容
         /// </summary>
         public sealed override void SetupContent() {
@@ -58,14 +52,6 @@ namespace InnoVault.GameSystem
             }
 
             SetStaticDefaults();
-        }
-
-        /// <summary>
-        /// 决定是否覆盖当前玩家
-        /// </summary>
-        /// <returns></returns>
-        public virtual bool CanOverride() {
-            return true;
         }
 
         /// <summary>

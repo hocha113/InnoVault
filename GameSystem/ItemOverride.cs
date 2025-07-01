@@ -16,7 +16,7 @@ namespace InnoVault.GameSystem
     /// 物品行为覆盖
     /// 该基类以单实例形式存在
     /// </summary>
-    public abstract class ItemOverride : ModType, ILocalizedModType
+    public abstract class ItemOverride : VaultType, ILocalizedModType
     {
         #region Data
         /// <summary>
@@ -132,12 +132,6 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 是否要将这个实例加载进列表，默认为<see langword="true"/>
-        /// </summary>
-        /// <returns></returns>
-        public virtual bool CanLoad() => true;
-
-        /// <summary>
         /// 加载内容
         /// </summary>
         public sealed override void SetupContent() {
@@ -170,7 +164,6 @@ namespace InnoVault.GameSystem
 
         /// <summary>
         /// 尝试通过物品 ID 获取所有已注册的 <see cref="ItemOverride"/> 实例
-        /// 会优先调用每个实例的 <see cref="CanOverride"/> 方法，判断是否允许应用该覆盖器
         /// 如果所有实例的 <c>CanOverride()</c> 均返回 <c>null</c>，则默认返回 <see langword="true"/>
         /// </summary>
         /// <param name="id">目标物品的类型 ID</param>
@@ -206,7 +199,6 @@ namespace InnoVault.GameSystem
 
         /// <summary>
         /// 尝试通过物品 ID 获取一个可用的 <see cref="ItemOverride"/> 实例
-        /// 会遍历该 ID 下的所有覆盖器，并调用其 <see cref="CanOverride"/> 方法决定适配性
         /// 若多个覆盖器存在，返回最后一个通过验证的实例
         /// 如果所有 <c>CanOverride()</c> 都为 <c>null</c>，则默认接受，返回最后一个注册的实例
         /// </summary>
@@ -228,14 +220,6 @@ namespace InnoVault.GameSystem
             }
 
             return reset ?? true;
-        }
-
-        /// <summary>
-        /// 判断当前<see cref="ItemOverride"/>是否能够进行覆盖默认实现返回null，子类可以重写此方法以实现具体的覆盖逻辑
-        /// </summary>
-        /// <returns>如果可以覆盖，返回<see langword="true"/>；如果不可以覆盖，返回<see langword="false"/></returns>
-        public virtual bool CanOverride() {
-            return true;
         }
 
         /// <summary>

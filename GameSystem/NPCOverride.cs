@@ -13,7 +13,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 提供一个强行覆盖目标NPC行为性质的基类，通过On钩子为基础运行
     /// </summary>
-    public class NPCOverride : ModType
+    public class NPCOverride : VaultType
     {
         #region Data
         /// <summary>
@@ -90,18 +90,6 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <returns></returns>
         public NPCOverride Clone() => (NPCOverride)Activator.CreateInstance(GetType());
-        /// <summary>
-        /// 是否加载这个实例，默认返回<see langword="true"/>
-        /// </summary>
-        /// <returns></returns>
-        public virtual bool CanLoad() { return true; }
-        /// <summary>
-        /// 是否修改该npc
-        /// </summary>
-        /// <returns></returns>
-        public virtual bool CanOverride() {
-            return true;
-        }
         /// <summary>
         /// 加载内容
         /// </summary>

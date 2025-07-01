@@ -11,7 +11,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 提供一个强行覆盖目标弹幕行为性质的基类，通过On钩子为基础运行
     /// </summary>
-    public abstract class ProjOverride : ModType
+    public abstract class ProjOverride : VaultType
     {
         /// <summary>
         /// 所有修改的实例集合
@@ -45,18 +45,6 @@ namespace InnoVault.GameSystem
         /// <returns></returns>
         public ProjOverride Clone() => (ProjOverride)Activator.CreateInstance(GetType());
         /// <summary>
-        /// 是否加载这个实例，默认返回<see langword="true"/>
-        /// </summary>
-        /// <returns></returns>
-        public virtual bool CanLoad() { return true; }
-        /// <summary>
-        /// 是否修改该npc
-        /// </summary>
-        /// <returns></returns>
-        public virtual bool CanOverride() {
-            return true;
-        }
-        /// <summary>
         /// 加载内容
         /// </summary>
         public override void SetupContent() {
@@ -83,18 +71,26 @@ namespace InnoVault.GameSystem
         public static bool TryFetchByID(int id, out Dictionary<Type, ProjOverride> projOverrides) {
             projOverrides = null;
 
-            if (!ByID.TryGetValue(id, out Dictionary<Type, ProjOverride> projResults)) {
+            if (!ByID.TryGetValue(id, out var projResults) || projResults.Count == 0) {
                 return false;
             }
 
-            projOverrides = [];
+            Dictionary<Type, ProjOverride> result = null;
+
             foreach (var projOverrideInstance in projResults.Values) {
-                if (projOverrideInstance.CanOverride()) {
-                    projOverrides[projOverrideInstance.GetType()] = projOverrideInstance.Clone();
+                if (!projOverrideInstance.CanOverride()) {
+                    continue;
                 }
+                result ??= [];
+                result[projOverrideInstance.GetType()] = projOverrideInstance.Clone();
             }
 
-            return projOverrides.Count > 0;
+            if (result == null) {
+                return false;
+            }
+
+            projOverrides = result;
+            return true;
         }
 
         /// <summary>

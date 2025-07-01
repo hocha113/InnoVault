@@ -1,4 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.Reflection;
 using Terraria;
 using static InnoVault.GameSystem.MenuOverride;
@@ -28,16 +30,42 @@ namespace InnoVault.GameSystem
                     if (!inds.CanOverride()) {
                         continue;
                     }
-                    result = inds.DrawMenu(gameTime);
-                } catch {
+                    bool? newResult = inds.DrawMenu(gameTime);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                } catch (Exception ex) {
                     inds.ignoreBug = 600;
                     inds.errorCount++;
+                    VaultMod.Instance.Logger.Error($"{inds} encountered an error {inds.errorCount} times: {ex}");
                 }
             }
 
             if (result) {
                 orig.Invoke(main, gameTime);
-                return;
+            }
+            else {
+                Main.spriteBatch.End();
+            }
+
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend
+                , SamplerState.LinearClamp, DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
+
+            foreach (var inds in Instances) {
+                if (inds.ignoreBug > 0) {
+                    inds.ignoreBug--;
+                    continue;
+                }
+                try {
+                    if (!inds.CanOverride()) {
+                        continue;
+                    }
+                    inds.PostDrawMenu(gameTime);
+                } catch (Exception ex) {
+                    inds.ignoreBug = 600;
+                    inds.errorCount++;
+                    VaultMod.Instance.Logger.Error($"{inds} encountered an error {inds.errorCount} times: {ex}");
+                }
             }
 
             Main.spriteBatch.End();
