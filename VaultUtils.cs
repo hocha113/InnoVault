@@ -2912,6 +2912,13 @@ namespace InnoVault
 
         #region Video
 
+        /// <summary>
+        /// 将 FFMediaToolkit 解码得到的图像帧数据转换为 Texture2D
+        /// 注意：默认格式为 RGB24 需要手动转换为 RGBA 并进行 BGR 调整
+        /// </summary>
+        /// <param name="graphicsDevice">用于创建 Texture2D 的图形设备</param>
+        /// <param name="image">包含帧像素数据的 ImageData 对象</param>
+        /// <returns>转换后的 Texture2D 图像帧</returns>
         public static Texture2D ImageDataToTexture2D(GraphicsDevice graphicsDevice, ImageData image) {
             int width = image.ImageSize.Width;
             int height = image.ImageSize.Height;
@@ -2919,15 +2926,13 @@ namespace InnoVault
             byte[] rgbData = image.Data.ToArray();
             byte[] rgbaData = new byte[width * height * 4];
 
-            int rgbLength = rgbData.Length;
-            int rgbaLength = rgbaData.Length;
+            int pixelCount = Math.Min(rgbData.Length / 3, rgbaData.Length / 4);
 
-            int pixelCount = Math.Min(rgbLength / 3, rgbaLength / 4);
-
+            // 转换 RGB24 -> RGBA32 并将颜色通道由 BGR 调整为 RGB 顺序
             for (int i = 0, j = 0, p = 0; p < pixelCount; p++, i += 3, j += 4) {
-                rgbaData[j + 0] = rgbData[i + 0]; // R
-                rgbaData[j + 1] = rgbData[i + 1]; // G
-                rgbaData[j + 2] = rgbData[i + 2]; // B
+                rgbaData[j + 0] = rgbData[i + 2]; // R <- B
+                rgbaData[j + 1] = rgbData[i + 1]; // G <- G
+                rgbaData[j + 2] = rgbData[i + 0]; // B <- R
                 rgbaData[j + 3] = 255;            // A
             }
 
@@ -2936,7 +2941,12 @@ namespace InnoVault
             return texture;
         }
 
-        public static List<Texture2D> GetVideoFrameT2Ds(string path) {
+        /// <summary>
+        /// 从视频文件路径中提取所有视频帧并转换为 Texture2D 列表
+        /// </summary>
+        /// <param name="path">视频文件的绝对路径</param>
+        /// <returns>所有帧对应的 Texture2D 列表</returns>
+        public static List<Texture2D> GetTexturesFromVideo(string path) {
             FFmpegLoader.FFmpegPath = VaultLoad.FFmpegPath;
             List<Texture2D> result = [];
             var file = MediaFile.Open(path);
@@ -2946,7 +2956,13 @@ namespace InnoVault
             return result;
         }
 
-        public static List<Texture2D> GetVideoFrameT2Ds(Stream stream) {
+        /// <summary>
+        /// 从视频流中提取所有视频帧并转换为 Texture2D 列表
+        /// 通常用于读取嵌入式资源或内存视频流
+        /// </summary>
+        /// <param name="stream">包含视频数据的 Stream 流</param>
+        /// <returns>所有帧对应的 Texture2D 列表</returns>
+        public static List<Texture2D> GetTexturesFromVideo(Stream stream) {
             FFmpegLoader.FFmpegPath = VaultLoad.FFmpegPath;
             List<Texture2D> result = [];
             var file = MediaFile.Open(stream);
@@ -2956,6 +2972,14 @@ namespace InnoVault
             return result;
         }
 
+        /// <summary>
+        /// 将模组中内置的视频数据流写入临时路径用于 FFMediaToolkit 读取
+        /// 文件路径为 SaveVideos/mod名称/生成文件名
+        /// </summary>
+        /// <param name="mod">当前模组实例</param>
+        /// <param name="videoStream">待写入的视频数据流</param>
+        /// <param name="fileName">可选的目标文件名 若为空将使用哈希自动生成</param>
+        /// <returns>生成的临时视频文件路径</returns>
         public static string WriteModVideo(Mod mod, Stream videoStream, string fileName = "") {
             if (fileName == string.Empty) {
                 fileName = videoStream.GetHashCode().ToString() + "_VideoFile";
