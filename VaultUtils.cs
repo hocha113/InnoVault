@@ -2951,6 +2951,9 @@ namespace InnoVault
             List<Texture2D> result = [];
             var file = MediaFile.Open(path);
             while (file.Video.TryGetNextFrame(out var imageData)) {
+                if (imageData.ImageSize.Width == 0 || imageData.ImageSize.Height == 0) {
+                    break; // 防止空帧被处理
+                }
                 result.Add(ImageDataToTexture2D(Main.instance.GraphicsDevice, imageData));
             }
             return result;
@@ -2967,6 +2970,9 @@ namespace InnoVault
             List<Texture2D> result = [];
             var file = MediaFile.Open(stream);
             while (file.Video.TryGetNextFrame(out var imageData)) {
+                if (imageData.ImageSize.Width == 0 || imageData.ImageSize.Height == 0) {
+                    break; // 防止空帧被处理
+                }
                 result.Add(ImageDataToTexture2D(Main.instance.GraphicsDevice, imageData));
             }
             return result;
