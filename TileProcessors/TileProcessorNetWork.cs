@@ -244,7 +244,7 @@ namespace InnoVault.TileProcessors
                         //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
                         modPacket.Write((byte)(tp.Width / 16));
                         modPacket.Write((byte)(tp.Height / 16));
-                        // 发送TileProcessor数据
+                        //发送TileProcessor数据
                         tp.SendData(modPacket);
                     }
 
@@ -260,7 +260,7 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
-            // 数据量未超上限，直接发送一个完整包
+            //数据量未超上限，直接发送一个完整包
             ModPacket fullPacket = VaultMod.Instance.GetPacket();
             fullPacket.Write((byte)MessageType.Handle_TPData_Receive);
             fullPacket.Write(InitializeWorld);
@@ -283,7 +283,7 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
-            fullPacket.Send(whoAmI);// 将数据包发送给客户端
+            fullPacket.Send(whoAmI);//将数据包发送给客户端
             InitializeWorld = false;
         }
         /// <summary>
@@ -298,14 +298,14 @@ namespace InnoVault.TileProcessors
 
             int tpCount = reader.ReadInt32(); // 读取 TP 数量
             if (tpCount < 0 || tpCount > MaxTPInWorldCount) {
-                "TileProcessorLoader-ClientRequest_TPData_Receive: Received invalid TP count, terminating read".LoggerDomp(VaultMod.Instance);
+                VaultMod.Instance.Logger.Warn("TileProcessorLoader-ClientRequest_TPData_Receive: Received invalid TP count, terminating read");
                 return;
             }
 
             for (int i = 0; i < tpCount; i++) {
-                // 确保是合法的标记
+                //确保是合法的标记
                 if (reader.ReadUInt32() != TP_START_MARKER) {
-                    $"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid markID: {i}, skipping to the next node".LoggerDomp(VaultMod.Instance);
+                    VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid markID: {i}, skipping to the next node");
                     SkipToNextMarker(reader);
                     continue;
                 }
@@ -315,26 +315,26 @@ namespace InnoVault.TileProcessors
                 byte widthByTile = reader.ReadByte();
                 byte heightByTile = reader.ReadByte();
 
-                // 先检查字典中是否已有该 TileProcessor
+                //先检查字典中是否已有该 TileProcessor
                 if (ByPositionGetTP(loadenName, position, out TileProcessor tp)) {
                     TileProcessorInstanceDoReceiveData(tp, reader, -1);
                     continue;
                 }
 
-                // 通过 name 获取 TP ID
+                //通过 name 获取 TP ID
                 if (!TryGetTpID(loadenName, out int tpID)) {
                     DompTPinstanceNotFound(loadenName, position);
                     SkipToNextMarker(reader);
                     continue;
                 }
 
-                // 先尝试从现有的 TileProcessor 列表中查找
+                //先尝试从现有的 TileProcessor 列表中查找
                 if (ByPositionGetTP(tpID, position.X, position.Y, out TileProcessor existingTP)) {
                     TileProcessorInstanceDoReceiveData(existingTP, reader, -1);
                     continue;
                 }
 
-                // 如果找不到，尝试新建
+                //如果找不到，尝试新建
                 if (TP_ID_To_Instance.TryGetValue(tpID, out TileProcessor template)) {
                     TileProcessor newTP = AddInWorld(template.TargetTileID, position, null);
                     if (newTP != null) {
@@ -346,7 +346,7 @@ namespace InnoVault.TileProcessors
                     }
                 }
 
-                // 仍然失败，则记录日志并跳过
+                //仍然失败，则记录日志并跳过
                 DompTPinstanceNotFound(loadenName, position);
                 SkipToNextMarker(reader);
             }
@@ -355,22 +355,37 @@ namespace InnoVault.TileProcessors
         }
 
         private static void HandlerPackMeltingAway(ModPacket modPacket) {
-            $"ServerRecovery_TPData: Packet too large ({modPacket.BaseStream.Length}), aborting".LoggerDomp(VaultMod.Instance);
+            VaultMod.Instance.Logger.Warn($"ServerRecovery_TPData: Packet too large ({modPacket.BaseStream.Length}), aborting");
             modPacket.Dispose();
         }
 
         private static void DompTPinstanceNotFound(string name, Point16 position)
-            => $"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip".LoggerDomp(VaultMod.Instance);
+            => VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip");
 
         /// <summary>
         /// 跳到下一个标记节点
         /// </summary>
         private static void SkipToNextMarker(BinaryReader reader) {
+            byte[] markerBytes = BitConverter.GetBytes(TP_START_MARKER);
+            int matchIndex = 0;
+            int safeNum = 0;
+
             while (reader.BaseStream.Position < reader.BaseStream.Length) {
-                uint marker = reader.ReadUInt32();
-                if (marker == TP_START_MARKER) {
-                    // 回退以便下一个处理块能够正确读取标记
-                    reader.BaseStream.Position -= 4;
+                byte currentByte = reader.ReadByte();
+                if (currentByte == markerBytes[matchIndex]) {
+                    matchIndex++;
+                    if (matchIndex == markerBytes.Length) {
+                        //找到了完整的 marker，回退到 marker 起始处
+                        reader.BaseStream.Position -= markerBytes.Length;
+                        break;
+                    }
+                }
+                else {
+                    //部分匹配失败，重置匹配状态
+                    matchIndex = 0;
+                }
+                //包的大小不可能大于MaxStreamSize，在这里进行一次额外检查防止死循环
+                if (++safeNum > MaxStreamSize) {
                     break;
                 }
             }
