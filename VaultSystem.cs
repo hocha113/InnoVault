@@ -8,6 +8,18 @@ namespace InnoVault
 {
     internal class VaultSystem : ModSystem
     {
+        public override void OnModLoad() {
+            if (VaultUtils.isServer) {
+                return;
+            }
+
+            Main.QueueMainThreadAction(() => {
+                foreach (var loader in VaultMod.Loaders) {
+                    loader.LoadImage();
+                }
+            });
+        }
+
         public override void PostAddRecipes() {
             foreach (var loader in VaultMod.Loaders) {
                 loader.AddRecipesData();

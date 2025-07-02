@@ -31,12 +31,11 @@ namespace InnoVault
         internal static Type[] AnyModCodeType = null;
         /// <inheritdoc/>
         public override void Load() {
-            VideoUtils.PrepareFFmpegDlls();
+            VaultLoad.LoadData();
             Loaders = VaultUtils.GetSubInterface<IVaultLoader>();
             foreach (var loader in Loaders) {
                 loader.LoadData();
             }
-            VaultLoad.LoadData();
         }
 
         /// <inheritdoc/>

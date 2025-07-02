@@ -1,9 +1,12 @@
-﻿using InnoVault.GameSystem;
+﻿using FFMediaToolkit;
+using InnoVault.GameSystem;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
+using System.IO;
 using System.Linq;
 using System.Reflection;
+using Terraria;
 using Terraria.Audio;
 using Terraria.Graphics.Effects;
 using Terraria.Graphics.Shaders;
@@ -97,21 +100,27 @@ namespace InnoVault
     }
 
     /// <summary>
-    /// 管理资源
+    /// 管理资源和核心数据的加载与卸载
     /// </summary>
     public static class VaultLoad
     {
         /// <summary>
         /// 在绝大部分内容加载完成后被设置为<see langword="true"/>
         /// </summary>
-        public static bool LoadenCountent { get; private set; } = false;
+        public static bool LoadenContent { get; private set; } = false;
         /// <summary>
         /// 一个非常靠后的加载钩子，此时本地化、配方修改、菜单排序等内容以及设置完成
         /// </summary>
         public static event Action EndLoadenEvent;
+        /// <summary>
+        /// 模组会将FFmpeg的执行文件导出到该路径下
+        /// </summary>
+        public static string FFmpegPath => Path.Combine(Main.SavePath, "VaultModFFmpeg");
 
         internal static void LoadData() {
-            try {//BossBarLoader的GotoSavedStyle是非常靠后的加载调用
+            try {
+                PrepareFFmpegDlls();
+                //BossBarLoader的GotoSavedStyle是非常靠后的加载调用
                 VaultHook.Add(typeof(BossBarLoader).GetMethod("GotoSavedStyle"
                 , BindingFlags.NonPublic | BindingFlags.Static), EndLoaden);
             } catch {
@@ -121,13 +130,13 @@ namespace InnoVault
 
         internal static void UnLoadData() {
             EndLoadenEvent = null;
-            LoadenCountent = false;
+            LoadenContent = false;
         }
 
         private static void EndLoaden(Action orig) {
             orig.Invoke();
             EndLoadenEvent?.Invoke();
-            LoadenCountent = true;
+            LoadenContent = true;
         }
 
         internal static void LoadAsset() {
@@ -135,6 +144,35 @@ namespace InnoVault
                 ProcessClassAssets(t, load: true);
                 ProcessTypeAssets(t, load: true);
             }
+        }
+
+        private static void PrepareFFmpegDlls() {
+            Directory.CreateDirectory(FFmpegPath);
+
+            // 映射源路径和目标路径
+            ExtractIfNotExists("lib/avcodec-61.dll", "avcodec-61.dll");
+            ExtractIfNotExists("lib/avdevice-61.dll", "avdevice-61.dll");
+            ExtractIfNotExists("lib/avfilter-10.dll", "avfilter-10.dll");
+            ExtractIfNotExists("lib/avformat-61.dll", "avformat-61.dll");
+            ExtractIfNotExists("lib/avutil-59.dll", "avutil-59.dll");
+            ExtractIfNotExists("lib/postproc-58.dll", "postproc-58.dll");
+            ExtractIfNotExists("lib/swresample-5.dll", "swresample-5.dll");
+            ExtractIfNotExists("lib/swscale-8.dll", "swscale-8.dll");
+            ExtractIfNotExists("lib/FFMediaToolkit.dll", "FFMediaToolkit.dll");
+
+            // 设置路径给 FFMediaToolkit
+            FFmpegLoader.FFmpegPath = FFmpegPath;
+        }
+
+        private static void ExtractIfNotExists(string modPath, string fileName) {
+            string outputPath = Path.Combine(FFmpegPath, fileName);
+            if (File.Exists(outputPath)) {
+                return;
+            }
+
+            using var input = VaultMod.Instance.GetFileStream(modPath);
+            using var output = File.Create(outputPath);
+            input.CopyTo(output);
         }
 
         internal static void UnLoadAsset() {

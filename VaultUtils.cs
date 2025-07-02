@@ -1,4 +1,7 @@
-﻿using InnoVault.GameSystem;
+﻿using FFMediaToolkit.Decoding;
+using FFMediaToolkit.Graphics;
+using FFMediaToolkit;
+using InnoVault.GameSystem;
 using InnoVault.TileProcessors;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -2903,6 +2906,65 @@ namespace InnoVault
             Vector2 remainingBarPos = drawPos + Vector2.UnitX * (progress - 0.5f) * barWidth;
             spriteBatch.Draw(pixel, remainingBarPos, new Rectangle(0, 0, 1, 1), Color.Black * size
                 , 0f, Vector2.UnitY * 0.5f, new Vector2(barWidth * (1f - progress), 8) * size, SpriteEffects.None, 0f);
+        }
+
+        #endregion
+
+        #region Video
+
+        public static Texture2D ImageDataToTexture2D(GraphicsDevice graphicsDevice, ImageData image) {
+            int width = image.ImageSize.Width;
+            int height = image.ImageSize.Height;
+
+            byte[] rgbData = image.Data.ToArray();
+            byte[] rgbaData = new byte[width * height * 4];
+
+            int rgbLength = rgbData.Length;
+            int rgbaLength = rgbaData.Length;
+
+            int pixelCount = Math.Min(rgbLength / 3, rgbaLength / 4);
+
+            for (int i = 0, j = 0, p = 0; p < pixelCount; p++, i += 3, j += 4) {
+                rgbaData[j + 0] = rgbData[i + 0]; // R
+                rgbaData[j + 1] = rgbData[i + 1]; // G
+                rgbaData[j + 2] = rgbData[i + 2]; // B
+                rgbaData[j + 3] = 255;            // A
+            }
+
+            var texture = new Texture2D(graphicsDevice, width, height, false, SurfaceFormat.Color);
+            texture.SetData(rgbaData);
+            return texture;
+        }
+
+        public static List<Texture2D> GetVideoFrameT2Ds(string path) {
+            FFmpegLoader.FFmpegPath = VaultLoad.FFmpegPath;
+            List<Texture2D> result = [];
+            var file = MediaFile.Open(path);
+            while (file.Video.TryGetNextFrame(out var imageData)) {
+                result.Add(ImageDataToTexture2D(Main.instance.GraphicsDevice, imageData));
+            }
+            return result;
+        }
+
+        public static List<Texture2D> GetVideoFrameT2Ds(Stream stream) {
+            FFmpegLoader.FFmpegPath = VaultLoad.FFmpegPath;
+            List<Texture2D> result = [];
+            var file = MediaFile.Open(stream);
+            while (file.Video.TryGetNextFrame(out var imageData)) {
+                result.Add(ImageDataToTexture2D(Main.instance.GraphicsDevice, imageData));
+            }
+            return result;
+        }
+
+        public static string WriteModVideo(Mod mod, Stream videoStream, string fileName = "") {
+            if (fileName == string.Empty) {
+                fileName = videoStream.GetHashCode().ToString() + "_VideoFile";
+            }
+            string tempPath = Path.Combine(Main.SavePath, "SaveVideos", mod.Name, fileName);
+            using (var fs = new FileStream(tempPath, FileMode.Create, FileAccess.Write)) {
+                videoStream.CopyTo(fs);
+            }
+            return tempPath;
         }
 
         #endregion
