@@ -6,7 +6,7 @@ The following versions of InnoVault are actively supported with security updates
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.9.32   | :white_check_mark: |
+| 1.9.33   | :white_check_mark: |
 
 Older versions are not supported and users are encouraged to always use the latest version of the API for maximum security and functionality.
 

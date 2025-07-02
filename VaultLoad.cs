@@ -104,7 +104,7 @@ namespace InnoVault
         /// <summary>
         /// 在绝大部分内容加载完成后被设置为<see langword="true"/>
         /// </summary>
-        public static bool LoadenCountent { get; private set; } = false;
+        public static bool LoadenContent { get; private set; } = false;
         /// <summary>
         /// 一个非常靠后的加载钩子，此时本地化、配方修改、菜单排序等内容以及设置完成
         /// </summary>
@@ -121,13 +121,13 @@ namespace InnoVault
 
         internal static void UnLoadData() {
             EndLoadenEvent = null;
-            LoadenCountent = false;
+            LoadenContent = false;
         }
 
         private static void EndLoaden(Action orig) {
             orig.Invoke();
             EndLoadenEvent?.Invoke();
-            LoadenCountent = true;
+            LoadenContent = true;
         }
 
         internal static void LoadAsset() {
