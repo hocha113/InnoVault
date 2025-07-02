@@ -106,7 +106,7 @@ namespace InnoVault
         /// </summary>
         public static bool LoadenContent { get; private set; } = false;
         /// <summary>
-        /// 一个非常靠后的加载钩子，此时本地化、配方修改、菜单排序等内容以及设置完成
+        /// 一个非常靠后的加载钩子，此时本地化、配方修改、菜单排序等内容已经设置完成
         /// </summary>
         public static event Action EndLoadenEvent;
 
