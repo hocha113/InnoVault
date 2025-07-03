@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using Terraria;
-using Terraria.ModLoader;
 
 namespace InnoVault.GameSystem
 {
@@ -44,7 +43,7 @@ namespace InnoVault.GameSystem
         /// <param name="gameTime"></param>
         /// <returns></returns>
         public virtual void PostDrawMenu(GameTime gameTime) {
-            
+
         }
     }
 }
