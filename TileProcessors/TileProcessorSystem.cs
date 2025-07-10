@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Linq;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.ModLoader;
@@ -12,12 +13,6 @@ namespace InnoVault.TileProcessors
     /// </summary>
     public sealed class TileProcessorSystem : ModSystem
     {
-        //首先我们要明白一点，在多人模式的情况下，只有服务器会加载这两个钩子，其他客户端并不会正常运行
-        //所以，如果想数据正常加载，就需要发一个巨大的数据包来让其他的端同步，Save的时候要保证世界数据同步，而Load的时候要保证其他端也被加载
-        /// <inheritdoc/>
-        public override void SaveWorldData(TagCompound tag) => TileProcessorLoader.SaveWorldData(tag);
-        /// <inheritdoc/>
-        public override void LoadWorldData(TagCompound tag) => TileProcessorLoader.ActiveWorldTagData = tag;
         /// <inheritdoc/>
         public override void OnWorldUnload() {
             foreach (TileProcessor tpInds in TileProcessorLoader.TP_InWorld) {
@@ -127,7 +122,10 @@ namespace InnoVault.TileProcessors
             }
 
             Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);//在这里缓存鼠标的矩形，避免在下面的遍历中多次构造矩形
-            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+            //这里故意使用for来避免更新中途的删加情况，虽然中途进行移除元素的操作仍旧有可能出问题，但尽量不要当混蛋这么写
+            //另一个选择是使用快照遍历，但那个开销在理论上很大，因为这个集合的元素数量往往会很多
+            for (int i = 0; i < TileProcessorLoader.TP_InWorld.Count; i++) {
+                TileProcessor tileProcessor = TileProcessorLoader.TP_InWorld[i];
                 if (!tileProcessor.Active) {
                     continue;
                 }
@@ -148,7 +146,7 @@ namespace InnoVault.TileProcessors
                 TileProcessorUpdate(tileProcessor);
             }
 
-            foreach (TileProcessor tpInds in TileProcessorLoader.TP_Instances) {
+            foreach (TileProcessor tpInds in TileProcessorLoader.TP_Instances.ToList()) {
                 if (tpInds.GetInWorldHasNum() > 0) {
                     tpInds.SingleInstanceUpdate();
                 }

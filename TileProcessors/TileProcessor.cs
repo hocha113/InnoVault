@@ -77,7 +77,7 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public int SendpacketCount;
         /// <summary>
-        /// //发包峰值，默认为10
+        /// 发包峰值，默认为10
         /// </summary>
         public int SendpacketPeak = 10;
         /// <summary>
@@ -178,6 +178,9 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 这个函数在跟随的物块被挖掘或者消失时自动调用一次，
         /// 调用这个函数，将会让模块变得不活跃，同时运行<see cref="OnKill"/>设置死亡事件
+        /// 在大多数情况下，并不推荐自行调用该函数来杀死TP实体，而是应该摧毁该TP实体依赖的物块
+        /// 该函数并不自带网络适配逻辑，也不会运行<see cref="GlobalTileProcessor"/>的钩子，
+        /// 如果有必要，你应该调用<see cref="TileProcessorSystem.TileProcessorIsDead(TileProcessor)"/>而不是调用这个
         /// </summary>
         public void Kill() {
             OnKill();

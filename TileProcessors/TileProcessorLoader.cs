@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
@@ -310,6 +311,34 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
+        /// 保存世界中所有TP实体的数据，在退出世界时调用
+        /// </summary>
+        /// <param name="tag"></param>
+        internal static void SaveWorldData(TagCompound tag) {
+            List<TagCompound> list = new List<TagCompound>();
+            TagCompound saveData = new TagCompound();
+            foreach (TileProcessor tp in TP_InWorld) {
+                if (tp == null || !tp.Active) {
+                    continue;
+                }
+                tp.SaveData(saveData);
+                TagCompound thisTag = new TagCompound {
+                    ["mod"] = tp?.Mod.Name,
+                    ["name"] = tp?.GetType().Name,
+                    ["X"] = tp.Position.X,
+                    ["Y"] = tp.Position.Y
+                };
+                if (saveData.Count != 0) {
+                    thisTag["data"] = saveData;
+                    saveData = new TagCompound();
+                }
+                list.Add(thisTag);
+            }
+            tag[key_TPData_TagList] = list;
+            ActiveWorldTagData = tag;
+        }
+
+        /// <summary>
         /// 载入世界所有TP实体的存档数据
         /// </summary>
         /// <param name="tag"></param>
@@ -334,35 +363,6 @@ namespace InnoVault.TileProcessors
                     tp.LoadData(thisTag.GetCompound("data"));
                 }
             }
-        }
-
-        /// <summary>
-        /// 保存世界中所有TP实体的数据，在退出世界时调用
-        /// </summary>
-        /// <param name="tag"></param>
-        internal static void SaveWorldData(TagCompound tag) {
-            List<TagCompound> list = new List<TagCompound>();
-            TagCompound saveData = new TagCompound();
-            //VaultMod.Instance.Logger.Info(TP_InWorld.ToString() + " Save Count: " + TP_InWorld.Count);
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (tp == null || !tp.Active) {
-                    continue;
-                }
-                tp.SaveData(saveData);
-                TagCompound thisTag = new TagCompound {
-                    ["mod"] = tp?.Mod.Name,
-                    ["name"] = tp?.GetType().Name,
-                    ["X"] = tp.Position.X,
-                    ["Y"] = tp.Position.Y
-                };
-                if (saveData.Count != 0) {
-                    thisTag["data"] = saveData;
-                    saveData = new TagCompound();
-                }
-                list.Add(thisTag);
-            }
-            tag[key_TPData_TagList] = list;
-            ActiveWorldTagData = tag;
         }
 
         #region Utils
