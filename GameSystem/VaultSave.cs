@@ -17,16 +17,17 @@ namespace InnoVault.GameSystem
         //首先我们要明白一点，在多人模式的情况下，只有服务器会加载这两个钩子，其他客户端并不会正常运行
         //所以，如果想数据正常加载，就需要发一个巨大的数据包来让其他的端同步，Save的时候要保证世界数据同步，而Load的时候要保证其他端也被加载
         public override void SaveWorldData(TagCompound tag) {
-            //先尝试寻找nbt存档，如果没有存档的话就利用tag保存以此写入到原版存档位置中，以便下一次加载时读取进NBT
-            if (!File.Exists(SaveTPDataPath)) {
-                TileProcessorLoader.SaveWorldData(tag);
-            }
             DoSaveWorld();
         }
 
         public override void LoadWorldData(TagCompound tag) {
-            DoLoadWorld();
+            //如果不存在对应的NBT存档数据，说明是第一次进行有效加载，
+            //那么就按找老版本去读取.twd的内容将老存档的数据加载进游戏的TP实体，以便保存时可以成功将老存档的数据保存进NBT
+            if (!File.Exists(SaveTPDataPath)) {
+                TileProcessorLoader.LoadWorldData(tag);
+            }
             TileProcessorLoader.ActiveWorldTagData = tag;
+            DoLoadWorld();
         }
 
         public static void DoSaveWorld() {
@@ -42,7 +43,8 @@ namespace InnoVault.GameSystem
 
                 TagCompound modTag = new TagCompound();
                 foreach (var save in saves) {
-                    save.SaveData(modTag); // 将数据写入 modTag
+                    modTag[$"SaveWorld:{save.Name}"] = new TagCompound();
+                    save.SaveData(modTag.Get<TagCompound>($"SaveWorld:{save.Name}"));
                 }
 
                 rootTag[$"mod:{mod.Name}"] = modTag;
@@ -81,8 +83,13 @@ namespace InnoVault.GameSystem
                 TagCompound modTag = rootTag.Get<TagCompound>($"mod:{mod.Name}");
 
                 foreach (var save in saves) {
-                    save.LoadData(modTag);
+                    save.LoadData(modTag.Get<TagCompound>($"SaveWorld:{save.Name}"));
                 }
+            }
+
+            if (File.Exists(SaveTPDataPath)) {
+                TileProcessorLoader.ActiveWorldTagData = LoadRootTag(SaveTPDataPath);
+                TileProcessorLoader.LoadWorldData(TileProcessorLoader.ActiveWorldTagData);
             }
         }
 
