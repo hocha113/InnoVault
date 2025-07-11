@@ -23,11 +23,16 @@ namespace InnoVault.GameSystem
         public static string RootPath => Path.Combine(Main.SavePath, RootFilesName);
         //首先我们要明白一点，在多人模式的情况下，只有服务器会加载这两个钩子，其他客户端并不会正常运行
         //所以，如果想数据正常加载，就需要发一个巨大的数据包来让其他的端同步，Save的时候要保证世界数据同步，而Load的时候要保证其他端也被加载
-        /// <inheritdoc/>
-        public override void ClearWorld() => DoSaveWorld();
-        //这个钩子的调用顺序先与LoadData，可以错开加载压力，同时不会因为没有存储数据就不会调用，ClearWorld的使用理由类似
+        //这个钩子的调用顺序先与LoadData，可以错开加载压力，同时不会因为没有存储数据就不会调用
         /// <inheritdoc/>
         public override void OnWorldLoad() => DoLoadWorld();
+        /// <inheritdoc/>
+        public override void SaveWorldData(TagCompound tag) {
+            tag["root:worldData"] = "";
+            DoSaveWorld();
+        }
+        /// <inheritdoc/>
+        public override void LoadWorldData(TagCompound tag) => tag.TryGet("root:worldData", out string _);
         //统一保存世界相关数据
         private static void DoSaveWorld() {
             TryDo(SaveWorld.DoSave, "[SaveWorld] Failed to save world data");

@@ -16,6 +16,12 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static List<T> SaveContents { get; private set; } = [];
         /// <summary>
+        /// 获取泛型参数T对应类型的单实例，仅当直接使用该泛型类型时有效，
+        /// 若在子类或多级继承中使用，该属性可能返回基类的实例，
+        /// 不一定是当前具体子类的实例
+        /// </summary>
+        public static T Instance => TypeToInstance[typeof(T)];
+        /// <summary>
         /// 从类型映射到对应的实例
         /// </summary>
         public static Dictionary<Type, T> TypeToInstance { get; private set; } = [];
@@ -120,14 +126,13 @@ namespace InnoVault.GameSystem
 
             TagCompound rootTag = [];
 
-            string prefix = Instance.SavePrefix;
             foreach (var (mod, saves) in ModToSaves) {
                 TagCompound modTag = [];
 
                 foreach (var save in saves) {
                     TagCompound saveTag = [];
                     save.SaveData(saveTag);
-                    modTag[$"{prefix}:{save.Name}"] = saveTag;
+                    modTag[$"{save.SavePrefix}:{save.Name}"] = saveTag;
                 }
 
                 rootTag[$"mod:{mod.Name}"] = modTag;
@@ -143,14 +148,13 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            string prefix = Instance.SavePrefix;
             foreach (var (mod, saves) in ModToSaves) {
                 if (!rootTag.TryGet($"mod:{mod.Name}", out TagCompound modTag)) {
                     continue;
                 }
 
                 foreach (var save in saves) {
-                    if (modTag.TryGet($"{prefix}:{save.Name}", out TagCompound saveTag)) {
+                    if (modTag.TryGet($"{save.SavePrefix}:{save.Name}", out TagCompound saveTag)) {
                         save.LoadData(saveTag);
                     }
                 }

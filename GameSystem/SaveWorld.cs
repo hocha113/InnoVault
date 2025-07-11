@@ -6,7 +6,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 用于将世界数据加载或者保存到NBT文件中
     /// </summary>
-    public abstract class SaveWorld : SaveContent<SaveWorld>
+    public class SaveWorld : SaveContent<SaveWorld>
     {
         /// <summary>
         /// 获取世界的内部文件名
