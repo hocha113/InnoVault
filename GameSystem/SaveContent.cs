@@ -62,8 +62,8 @@ namespace InnoVault.GameSystem
         /// 获取这个类型的单实例
         /// </summary>
         /// <returns></returns>
-        public static TargetType GetInstance<TargetType>()
-            => (TargetType)(object)TypeToInstance[typeof(TargetType)]; 
+        public static TTarget GetInstance<TTarget>() where TTarget : SaveContent<T>
+            => (TTarget)(object)TypeToInstance[typeof(TTarget)]; 
         /// <summary>
         /// 尝试从指定路径读取并反序列化出 <see cref="TagCompound"/> 数据
         /// 如果文件不存在则返回 <see langword="false"/> 并输出 <see langword="null"/>
@@ -141,6 +141,30 @@ namespace InnoVault.GameSystem
             SaveTagToFile(rootTag, Instance.SavePath);
         }
         /// <summary>
+        /// 执行指定类型的保存任务（避免覆盖其他数据）
+        /// </summary>
+        public static void DoSave<TTarget>() where TTarget : SaveContent<T> {
+            TTarget save = GetInstance<TTarget>();
+
+            if (!TryLoadRootTag(save.SavePath, out TagCompound rootTag)) {
+                rootTag = [];
+            }
+
+            //尝试获取原有 modTag,避免全覆盖
+            if (!rootTag.TryGet($"mod:{save.Mod.Name}", out TagCompound modTag)) {
+                modTag = [];
+            }
+
+            TagCompound saveTag = [];
+            save.SaveData(saveTag);
+
+            //更新当前实例的内容,不影响其他
+            modTag[$"{save.SavePrefix}:{save.Name}"] = saveTag;
+            rootTag[$"mod:{save.Mod.Name}"] = modTag;
+
+            SaveTagToFile(rootTag, save.SavePath);
+        }
+        /// <summary>
         /// 统一执行所有加载任务
         /// </summary>
         public static void DoLoad() {
@@ -159,6 +183,27 @@ namespace InnoVault.GameSystem
                     }
                 }
             }
+        }
+        /// <summary>
+        /// 执行指定类型的加载任务
+        /// </summary>
+        public static void DoLoad<TTarget>() where TTarget : SaveContent<T> {
+            TTarget save = GetInstance<TTarget>();
+
+            if (!TryLoadRootTag(save.SavePath, out TagCompound rootTag)) {
+                rootTag = [];
+            }
+
+            //尝试获取原有 modTag
+            if (!rootTag.TryGet($"mod:{save.Mod.Name}", out TagCompound modTag)) {
+                return;
+            }
+
+            if (!modTag.TryGet($"{save.SavePrefix}:{save.Name}", out TagCompound saveTag)) {
+                return;
+            }
+
+            save.LoadData(saveTag);
         }
         /// <summary>
         /// 保存数据
