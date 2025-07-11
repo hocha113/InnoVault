@@ -1,51 +1,24 @@
-﻿using System.Collections.Generic;
-using Terraria.ModLoader;
-using Terraria.ModLoader.IO;
+﻿using System.IO;
+using Terraria;
 
 namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 用于将世界数据加载或者保存到NBT文件中
     /// </summary>
-    public abstract class SaveWorld : VaultType
+    public abstract class SaveWorld : SaveContent<SaveWorld>
     {
         /// <summary>
-        /// 所有实例以单例形式存储于此
+        /// 获取世界的内部文件名
         /// </summary>
-        public static List<SaveWorld> SaveWorlds { get; private set; } = [];
+        public static string WorldFullName => Path.GetFileNameWithoutExtension(Main.worldPathName) ?? Main.worldName + Main.worldID;
         /// <summary>
-        /// 从模组映射到对应的实例列表
+        /// 保存世界TP实体数据的路径，包含文件名，使用世界存档名字作为关键字
         /// </summary>
-        public static Dictionary<Mod, List<SaveWorld>> ModToSaves { get; private set; } = [];
-        /// <inheritdoc/>
-        protected override void Register() {
-            if (!CanLoad()) {
-                return;
-            }
-            SaveWorlds.Add(this);
-        }
-        /// <inheritdoc/>
-        public override void SetupContent() {
-            if (!CanLoad()) {
-                return;
-            }
-            ModToSaves.TryAdd(Mod, []);
-            ModToSaves[Mod].Add(this);
-            SetStaticDefaults();
-        }
+        public static string SaveTPDataPath => Path.Combine(VaultSave.RootPath, "TPDatas", $"tp_{Path.GetFileNameWithoutExtension(WorldFullName)}.nbt");
         /// <summary>
-        /// 保存世界数据
+        /// 保存世界数据的路径，包含文件名，使用世界存档名字作为关键字
         /// </summary>
-        /// <param name="tag"></param>
-        public virtual void SaveData(TagCompound tag) {
-
-        }
-        /// <summary>
-        /// 加载世界数据
-        /// </summary>
-        /// <param name="tag"></param>
-        public virtual void LoadData(TagCompound tag) {
-
-        }
+        public override string SavePath => Path.Combine(VaultSave.RootPath, "WorldDatas", $"world_{WorldFullName}.nbt");
     }
 }

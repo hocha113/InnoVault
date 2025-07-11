@@ -24,7 +24,7 @@ namespace InnoVault.TileProcessors
             tag.TryGet("root:worldData", out string _);
             //如果不存在对应的NBT存档数据，说明是第一次进行有效加载，
             //那么就按找老版本去读取.twd的内容将老存档的数据加载进游戏的TP实体，以便保存时可以成功将老存档的数据保存进NBT
-            if (!File.Exists(VaultSave.SaveTPDataPath)) {
+            if (!File.Exists(SaveWorld.SaveTPDataPath)) {
                 TileProcessorLoader.ActiveWorldTagData = tag;
             }
         }
