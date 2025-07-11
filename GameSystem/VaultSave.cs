@@ -121,18 +121,10 @@ namespace InnoVault.GameSystem
         //首先我们要明白一点，在多人模式的情况下，只有服务器会加载这两个钩子，其他客户端并不会正常运行
         //所以，如果想数据正常加载，就需要发一个巨大的数据包来让其他的端同步，Save的时候要保证世界数据同步，而Load的时候要保证其他端也被加载
         /// <inheritdoc/>
-        public override void SaveWorldData(TagCompound tag) {
-            tag["root:worldData"] = "";
-            DoSaveWorld();
-        }
+        public override void ClearWorld() => DoSaveWorld();
+        //这个钩子的调用顺序先与LoadData，可以错开加载压力，同时不会因为没有存储数据就不会调用，ClearWorld的使用理由类似
         /// <inheritdoc/>
-        public override void LoadWorldData(TagCompound tag) {
-            tag.TryGet("root:worldData", out string _);
-            //如果不存在对应的NBT存档数据，说明是第一次进行有效加载，
-            //那么就按找老版本去读取.twd的内容将老存档的数据加载进游戏的TP实体，以便保存时可以成功将老存档的数据保存进NBT
-            TileProcessorLoader.ActiveWorldTagData = tag;
-            DoLoadWorld();
-        }
+        public override void OnWorldLoad() => DoLoadWorld();
         //统一保存世界相关数据
         private static void DoSaveWorld() {
             TryDo(SaveModWorlds, "[SaveWorld] Failed to save world data");
@@ -236,8 +228,9 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static bool TryLoadRootTag(string path, out TagCompound tag) {
             tag = null!;
-            if (!File.Exists(path))
+            if (!File.Exists(path)) {
                 return false;
+            }
 
             try {
                 using FileStream stream = File.OpenRead(path);

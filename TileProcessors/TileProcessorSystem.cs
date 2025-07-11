@@ -1,5 +1,7 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.GameSystem;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.IO;
 using System.Linq;
 using Terraria;
 using Terraria.GameContent;
@@ -13,6 +15,20 @@ namespace InnoVault.TileProcessors
     /// </summary>
     public sealed class TileProcessorSystem : ModSystem
     {
+        /// <inheritdoc/>
+        public override void SaveWorldData(TagCompound tag) {
+            tag["root:worldData"] = "";
+        }
+        /// <inheritdoc/>
+        public override void LoadWorldData(TagCompound tag) {
+            tag.TryGet("root:worldData", out string _);
+            //如果不存在对应的NBT存档数据，说明是第一次进行有效加载，
+            //那么就按找老版本去读取.twd的内容将老存档的数据加载进游戏的TP实体，以便保存时可以成功将老存档的数据保存进NBT
+            if (!File.Exists(VaultSave.SaveTPDataPath)) {
+                TileProcessorLoader.ActiveWorldTagData = tag;
+            }
+        }
+
         /// <inheritdoc/>
         public override void OnWorldUnload() {
             foreach (TileProcessor tpInds in TileProcessorLoader.TP_InWorld) {
