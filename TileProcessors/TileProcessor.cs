@@ -304,14 +304,14 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 保存这个实体的数据
+        /// 保存这个实体的数据，对应的需要重写<see cref="LoadData"/>来接受对应的数据
         /// </summary>
         public virtual void SaveData(TagCompound tag) {
 
         }
 
         /// <summary>
-        /// 加载这个实体的数据
+        /// 加载这个实体的数据，如果<see cref="SaveData"/>没有存入任何数据，该函数就不会被调用
         /// </summary>
         public virtual void LoadData(TagCompound tag) {
 

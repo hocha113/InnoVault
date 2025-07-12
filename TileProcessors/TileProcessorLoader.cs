@@ -315,22 +315,27 @@ namespace InnoVault.TileProcessors
         /// <param name="tag"></param>
         internal static void SaveWorldData(TagCompound tag) {
             List<TagCompound> list = new List<TagCompound>();
-            TagCompound saveData = new TagCompound();
+            TagCompound saveData = [];
             foreach (TileProcessor tp in TP_InWorld) {
                 if (tp == null || !tp.Active) {
                     continue;
                 }
+
                 tp.SaveData(saveData);
+                if (saveData.Count == 0) {
+                    saveData = [];
+                    continue;
+                }
+
                 TagCompound thisTag = new TagCompound {
                     ["mod"] = tp?.Mod.Name,
                     ["name"] = tp?.GetType().Name,
                     ["X"] = tp.Position.X,
-                    ["Y"] = tp.Position.Y
+                    ["Y"] = tp.Position.Y,
+                    ["data"] = saveData
                 };
-                if (saveData.Count != 0) {
-                    thisTag["data"] = saveData;
-                    saveData = new TagCompound();
-                }
+                saveData = [];
+
                 list.Add(thisTag);
             }
             tag[key_TPData_TagList] = list;
@@ -350,16 +355,18 @@ namespace InnoVault.TileProcessors
 
             // 遍历标签列表并在字典中查找匹配的 TileProcessor
             foreach (TagCompound thisTag in list) {
-                if (!thisTag.ContainsKey("data")) {
+                if (!thisTag.TryGet("data", out TagCompound data) || data.Count == 0) {
                     continue;
                 }
+
                 string modName = thisTag.GetString("mod");
                 string name = thisTag.GetString("name");
                 string loadenName = modName + ":" + name;
                 Point16 point = new Point16(thisTag.GetShort("X"), thisTag.GetShort("Y"));
+
                 // 从字典中查找匹配项
                 if (TP_NameAndPoint_To_Instance.TryGetValue((loadenName, point), out TileProcessor tp)) {
-                    tp.LoadData(thisTag.GetCompound("data"));
+                    tp.LoadData(data);
                 }
             }
         }

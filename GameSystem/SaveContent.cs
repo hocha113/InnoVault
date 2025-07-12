@@ -93,6 +93,35 @@ namespace InnoVault.GameSystem
     }
 
     /// <summary>
+    /// 一个基本的保存接口
+    /// </summary>
+    public interface ISaveContent
+    {
+        /// <summary>
+        /// 启用强制刷新
+        /// </summary>
+        bool ForceReload => false;
+        /// <summary>
+        /// 内部装载名
+        /// </summary>
+        abstract string LoadenName { get; }
+        /// <summary>
+        /// 保存路径
+        /// </summary>
+        abstract string SavePath { get; }
+        /// <summary>
+        /// 保存数据，在<see cref="LoadData"/>中编写接收数据的逻辑
+        /// </summary>
+        /// <param name="tag"></param>
+        abstract void SaveData(TagCompound tag);
+        /// <summary>
+        /// 加载数据，如果<see cref="SaveData"/>没有存入数据，该函数就不会被调用
+        /// </summary>
+        /// <param name="tag"></param>
+        abstract void LoadData(TagCompound tag);
+    }
+
+    /// <summary>
     /// 用于基本保存内容的基类
     /// </summary>
     public abstract class SaveContent<T> : VaultType where T : SaveContent<T>
@@ -119,6 +148,10 @@ namespace InnoVault.GameSystem
         /// 保存时用作标记的前缀，默认返回父类的名字
         /// </summary>
         public virtual string SavePrefix => GetType().BaseType?.Name?.Split('`')[0] ?? "Unknown";
+        /// <summary>
+        /// 内部装载名
+        /// </summary>
+        public virtual string LoadenName => $"{SavePrefix}:{Name}";
         /// <summary>
         /// 保存路径，默认为 VaultSave.RootPath + content_{nameof(T)}.nbt;
         /// </summary>
@@ -233,13 +266,46 @@ namespace InnoVault.GameSystem
                 foreach (var save in saves) {
                     TagCompound saveTag = [];
                     save.SaveData(saveTag);
-                    modTag[$"{save.SavePrefix}:{save.Name}"] = saveTag;
+                    if (saveTag.Count == 0) {
+                        continue;
+                    }
+
+                    modTag[save.LoadenName] = saveTag;
+                }
+
+                if (modTag.Count == 0) {
+                    continue;
                 }
 
                 rootTag[$"mod:{mod.Name}"] = modTag;
             }
 
+            if (rootTag.Count == 0) {
+                return;
+            }
+
             SaveTagToFile(rootTag, GenericInstance.SavePath);
+        }
+        /// <summary>
+        /// 统一执行所有加载任务
+        /// </summary>
+        public static void DoLoad(bool forceReload = false) {
+            if (!TryGetRootTag(out var rootTag, forceReload)) {
+                return;
+            }
+
+            foreach (var (mod, saves) in ModToSaves) {
+                if (!rootTag.TryGet($"mod:{mod.Name}", out TagCompound modTag) || modTag.Count == 0) {
+                    continue;
+                }
+
+                foreach (var save in saves) {
+                    if (!modTag.TryGet(save.LoadenName, out TagCompound saveTag) || saveTag.Count == 0) {
+                        continue;
+                    }
+                    save.LoadData(saveTag);
+                }
+            }
         }
         /// <summary>
         /// 执行指定类型的保存任务（避免覆盖其他数据）
@@ -258,32 +324,15 @@ namespace InnoVault.GameSystem
 
             TagCompound saveTag = [];
             save.SaveData(saveTag);
-
-            //更新当前实例的内容,不影响其他
-            modTag[$"{save.SavePrefix}:{save.Name}"] = saveTag;
-            rootTag[$"mod:{save.Mod.Name}"] = modTag;
-
-            SaveTagToFile(rootTag, save.SavePath);
-        }
-        /// <summary>
-        /// 统一执行所有加载任务
-        /// </summary>
-        public static void DoLoad(bool forceReload = false) {
-            if (!TryGetRootTag(out var rootTag, forceReload)) {
+            if (saveTag.Count == 0) {
                 return;
             }
 
-            foreach (var (mod, saves) in ModToSaves) {
-                if (!rootTag.TryGet($"mod:{mod.Name}", out TagCompound modTag)) {
-                    continue;
-                }
+            //更新当前实例的内容,不影响其他
+            modTag[save.LoadenName] = saveTag;
+            rootTag[$"mod:{save.Mod.Name}"] = modTag;
 
-                foreach (var save in saves) {
-                    if (modTag.TryGet($"{save.SavePrefix}:{save.Name}", out TagCompound saveTag)) {
-                        save.LoadData(saveTag);
-                    }
-                }
-            }
+            SaveTagToFile(rootTag, save.SavePath);
         }
         /// <summary>
         /// 执行指定类型的加载任务
@@ -291,30 +340,63 @@ namespace InnoVault.GameSystem
         public static void DoLoad<TTarget>(bool forceReload = false) where TTarget : SaveContent<T> {
             TTarget save = GetInstance<TTarget>();
 
-            if (!TryLoadRootTag(save.SavePath, out TagCompound rootTag, forceReload)) {
-                rootTag = [];
-            }
-
-            //尝试获取原有 modTag
-            if (!rootTag.TryGet($"mod:{save.Mod.Name}", out TagCompound modTag)) {
+            if (!TryLoadRootTag(save.SavePath, out TagCompound rootTag, forceReload) || rootTag.Count == 0) {
                 return;
             }
 
-            if (!modTag.TryGet($"{save.SavePrefix}:{save.Name}", out TagCompound saveTag)) {
+            //尝试获取原有 modTag
+            if (!rootTag.TryGet($"mod:{save.Mod.Name}", out TagCompound modTag) || modTag.Count == 0) {
+                return;
+            }
+
+            if (!modTag.TryGet(save.LoadenName, out TagCompound saveTag) || saveTag.Count == 0) {
                 return;
             }
 
             save.LoadData(saveTag);
         }
         /// <summary>
-        /// 保存数据
+        /// 保存指定接口实例提供的数据
+        /// </summary>
+        /// <param name="saveContent"></param>
+        public static void DoSave(ISaveContent saveContent) {
+            if (!TryLoadRootTag(saveContent.SavePath, out TagCompound rootTag, saveContent.ForceReload)) {
+                rootTag = [];
+            }
+
+            TagCompound saveTag = [];
+            saveContent.SaveData(saveTag);
+            if (saveTag.Count == 0) {
+                return;
+            }
+
+            rootTag[saveContent.LoadenName] = saveTag;
+            SaveTagToFile(rootTag, saveContent.SavePath);
+        }
+        /// <summary>
+        /// 接收指定接口实例提供的数据
+        /// </summary>
+        /// <param name="saveContent"></param>
+        public static void DoLoad(ISaveContent saveContent) {
+            if (!TryLoadRootTag(saveContent.SavePath, out TagCompound rootTag, saveContent.ForceReload) || rootTag.Count == 0) {
+                return;
+            }
+
+            if (rootTag.TryGet(saveContent.LoadenName, out TagCompound saveTag) || saveTag.Count == 0) {
+                return;
+            }
+
+            saveContent.LoadData(saveTag);
+        }
+        /// <summary>
+        /// 保存数据，在<see cref="LoadData"/>中编写接收数据的逻辑
         /// </summary>
         /// <param name="tag"></param>
         public virtual void SaveData(TagCompound tag) {
 
         }
         /// <summary>
-        /// 加载数据
+        /// 加载数据，如果<see cref="SaveData"/>没有存入数据，该函数就不会被调用
         /// </summary>
         /// <param name="tag"></param>
         public virtual void LoadData(TagCompound tag) {
