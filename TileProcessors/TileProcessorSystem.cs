@@ -129,7 +129,7 @@ namespace InnoVault.TileProcessors
 
         /// <inheritdoc/>
         public override void PostUpdateEverything() {
-            if (TileProcessorLoader.TP_InWorld.Count <= 0) {
+            if (!TileProcessorLoader.CanRunByWorld()) {
                 return;
             }
 
@@ -205,22 +205,22 @@ namespace InnoVault.TileProcessors
 
         /// <inheritdoc/>
         public static void PreDrawTiles() {
-            if (TileProcessorLoader.TP_InWorld.Count <= 0) {
+            if (!TileProcessorLoader.CanRunByWorld()) {
                 return;
             }
 
-            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+            for (int i = 0; i < TileProcessorLoader.TP_InWorld.Count; i++) {
+                TileProcessor tileProcessor = TileProcessorLoader.TP_InWorld[i];
                 if (!tileProcessor.Active) {
                     continue;
                 }
-
                 TileProcessorPreTileDraw(tileProcessor);
             }
         }
 
         /// <inheritdoc/>
         public override void PostDrawTiles() {
-            if (TileProcessorLoader.TP_InWorld.Count <= 0) {
+            if (!TileProcessorLoader.CanRunByWorld()) {
                 return;
             }
 

@@ -1,4 +1,4 @@
-Configs: {
+﻿Configs: {
 	VaultClientConfig: {
 		DisplayName: InnoVault Client Config
 
@@ -11,5 +11,13 @@ Configs: {
 				开启后，TileProcessor会在世界中绘制出自身的碰撞箱体、类型名等数据
 				'''
 		}
+	}
+}
+
+Loadings: {
+	WorldLoadingText: {
+		Text1: 正在加载世界
+		Text2: 正在读取存档数据
+		Text3: 正在加载物块处理器
 	}
 }

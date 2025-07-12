@@ -1,4 +1,4 @@
-Configs: {
+﻿Configs: {
 	VaultClientConfig: {
 		DisplayName: InnoVault Client Config
 
@@ -11,5 +11,13 @@ Configs: {
 				When enabled, TileProcessor will draw its bounding boxes, type names, and other data in the world.
 				'''
 		}
+	}
+}
+
+Loadings: {
+	WorldLoadingText: {
+		Text1: Loading The World
+		Text2: Loading Save Data
+		Text3: Loading Tile Processor
 	}
 }

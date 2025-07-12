@@ -3,6 +3,8 @@ using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
+using System.Threading;
+using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
@@ -23,6 +25,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public const int MaxTPInWorldCount = 20000;
         /// <summary>
+        /// 是否加载好了TP实体到世界中
+        /// </summary>
+        public static bool LoadenTP { get; private set; }
+        /// <summary>
         /// 当前世界的数据
         /// </summary>
         public static TagCompound ActiveWorldTagData { get; internal set; }
@@ -31,7 +37,9 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static List<TileProcessor> TP_Instances { get; private set; } = [];
         /// <summary>
-        /// 当前世界中的TP实体列表此列表在世界加载和操作时动态更新
+        /// 当前世界中的TP实体列表，此列表在世界加载和操作时动态更新<br/>
+        /// 访问该列表时应当谨慎，因为该列表可能在运行时遭到修改，避免使用foreach等方式直接遍历访问<br/>
+        /// 安全起见，应当使用for配合倒序遍历，或者使用.ToList克隆该集合的快照副本进行访问
         /// </summary>
         public static List<TileProcessor> TP_InWorld { get; internal set; } = [];
         /// <summary>
@@ -185,6 +193,12 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
+        /// 是否在世界中运行TP实体的逻辑
+        /// </summary>
+        /// <returns></returns>
+        public static bool CanRunByWorld() => LoadenTP && TP_InWorld.Count > 0;
+
+        /// <summary>
         /// 向世界中的模块列表添加一个新的 TileProcessor
         /// </summary>
         /// <param name="tileID">要添加的 Tile 的 ID</param>
@@ -280,6 +294,16 @@ namespace InnoVault.TileProcessors
                 TP_Point_To_Instance.Clear();
             }
 
+            Task.Run(async () => {
+                LoadenTP = false;
+                await WaitUntilAsync(() => VaultSave.LoadenWorld);
+                LoadWorldTileProcessorInterior();
+                LoadenTP = true;
+            }
+            );
+        }
+
+        private static void LoadWorldTileProcessorInterior() {
             for (int x = 0; x < Main.tile.Width; x++) {
                 for (int y = 0; y < Main.tile.Height; y++) {
                     Tile tile = Main.tile[x, y];
@@ -306,6 +330,16 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
                 tp.LoadInWorld();
+            }
+        }
+
+        private static async Task WaitUntilAsync(Func<bool> condition, int checkIntervalMs = 50, int timeoutMs = Timeout.Infinite) {
+            var cancellationTokenSource = new CancellationTokenSource();
+            if (timeoutMs != Timeout.Infinite)
+                cancellationTokenSource.CancelAfter(timeoutMs);
+
+            while (!condition()) {
+                await Task.Delay(checkIntervalMs, cancellationTokenSource.Token);
             }
         }
 

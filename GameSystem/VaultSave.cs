@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using Terraria;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -14,6 +15,10 @@ namespace InnoVault.GameSystem
     public sealed class VaultSave : ModSystem
     {
         /// <summary>
+        /// 是否正在加载好了世界相关
+        /// </summary>
+        public static bool LoadenWorld { get; set; } = false;
+        /// <summary>
         /// 存档的根节点文件名
         /// </summary>
         public const string RootFilesName = nameof(VaultSave);
@@ -25,7 +30,14 @@ namespace InnoVault.GameSystem
         //所以，如果想数据正常加载，就需要发一个巨大的数据包来让其他的端同步，Save的时候要保证世界数据同步，而Load的时候要保证其他端也被加载
         //这个钩子的调用顺序先与LoadData，可以错开加载压力，同时不会因为没有存储数据就不会调用
         /// <inheritdoc/>
-        public override void OnWorldLoad() => DoLoadWorld();
+        public override void OnWorldLoad() {
+            Task.Run(() => {
+                LoadenWorld = false;
+                DoLoadWorld();
+                LoadenWorld = true;
+                }
+            );
+        }
         /// <inheritdoc/>
         public override void SaveWorldData(TagCompound tag) {
             tag["root:worldData"] = "";

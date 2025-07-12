@@ -1,4 +1,5 @@
 ﻿using InnoVault.GameSystem;
+using InnoVault.TileProcessors;
 using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
@@ -522,8 +523,8 @@ namespace InnoVault.UIHandles
                 }
 
                 layers.Insert(index, new LegacyGameInterfaceLayer("UIHander: " + layerName, delegate {
-                    foreach (var hander in Handers) {
-                        UIHanderElementUpdate(hander);
+                    for (int i = 0; i < Handers.Count; i++) {
+                        UIHanderElementUpdate(Handers[i]);
                     }
                     return true;
                 }, InterfaceScaleType.UI));
@@ -561,8 +562,8 @@ namespace InnoVault.UIHandles
                 spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp
                     , DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
                 UpdateKeyState();
-                foreach (var hander in UIHandles_Mod_MenuLoad) {
-                    UIHanderElementUpdate(hander);
+                for (int i = 0; i < UIHandles_Mod_MenuLoad.Count; i++) {
+                    UIHanderElementUpdate(UIHandles_Mod_MenuLoad[i]);
                 }
                 foreach (var global in UIHandleGlobalHooks) {
                     global.PostUpdataInUIEverything();
@@ -577,8 +578,8 @@ namespace InnoVault.UIHandles
             orig.Invoke(instance, spriteBatch);
             if (Main.gameMenu && UIHandles_Mod_UIModItem != null && UIHandles_Mod_UIModItem.Count > 0) {
                 UpdateKeyState();
-                foreach (var hander in UIHandles_Mod_UIModItem) {
-                    UIHanderElementUpdate(hander);
+                for (int i = 0; i < UIHandles_Mod_UIModItem.Count; i++) {
+                    UIHanderElementUpdate(UIHandles_Mod_UIModItem[i]);
                 }
                 foreach (var global in UIHandleGlobalHooks) {
                     global.PostUpdataInUIEverything();
