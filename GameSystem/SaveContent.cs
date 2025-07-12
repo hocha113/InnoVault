@@ -11,7 +11,7 @@ namespace InnoVault.GameSystem
     /// 提供对 NBT 数据的路径映射缓存，用于避免重复的磁盘 I/O 操作
     /// </summary>
     /// <remarks>
-    /// 此类为内部工具类，仅供框架保存系统使用通过维护路径与 <see cref="TagCompound"/> 的映射，
+    /// 此类仅供框架保存系统使用通过维护路径与 <see cref="TagCompound"/> 的映射，
     /// 可显著提升读取性能，尤其是在频繁访问相同存档文件时<br/>
     /// <br/>
     /// ⚠注意事项：<br/>
