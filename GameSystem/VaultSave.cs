@@ -40,7 +40,7 @@ namespace InnoVault.GameSystem
         }
         //统一加载世界相关数据
         private static void DoLoadWorld() {
-            TryDo(SaveWorld.DoLoad, "[LoadWorld] Failed to load world data");
+            TryDo(() => SaveWorld.DoLoad(), "[LoadWorld] Failed to load world data");
             TryDo(LoadTPDataByNBT, "[LoadWorld] Failed to load TileProcessor data");
         }
         //将TP数据保存进对应的NBT文件中

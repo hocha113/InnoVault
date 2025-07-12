@@ -26,12 +26,30 @@ namespace InnoVault.GameSystem
         /// 内部缓存字典，键为文件路径，值为对应的 <see cref="TagCompound"/> 数据快照
         /// </summary>
         private static readonly ConcurrentDictionary<string, TagCompound> _cache = [];
+        private static readonly Queue<string> _order = new();//记录插入顺序
+        private const int maxCapacity = 12;//最大缓存标签数量
         /// <summary>
         /// 将指定路径的数据写入缓存（如已存在则覆盖）
         /// </summary>
         /// <param name="path">对应的存储路径（通常为 NBT 文件路径）</param>
         /// <param name="tag">要缓存的 <see cref="TagCompound"/> 实例</param>
-        public static void Set(string path, TagCompound tag) => _cache[path] = tag;
+        public static void Set(string path, TagCompound tag) {
+            if (_cache.ContainsKey(path)) {
+                //已经存在，更新内容，不改变顺序
+                _cache[path] = tag;
+                return;
+            }
+
+            //新增缓存
+            _cache[path] = tag;
+            _order.Enqueue(path);
+
+            //如果超过容量，移除最早缓存
+            if (_cache.Count > maxCapacity) {
+                string oldest = _order.Dequeue();
+                _cache.TryRemove(oldest, out _);
+            }
+        }
         /// <summary>
         /// 尝试获取指定路径下的缓存内容
         /// </summary>
@@ -43,7 +61,35 @@ namespace InnoVault.GameSystem
         /// 使指定路径的缓存失效，从字典中移除对应项
         /// </summary>
         /// <param name="path">需要清除缓存的文件路径</param>
-        public static void Invalidate(string path) => _cache.TryRemove(path, out _);
+        public static void Invalidate(string path) {
+            if (!_cache.TryRemove(path, out _)) {
+                return;
+            }
+
+            // 如果移除成功，需要同步从队列里删除
+            // 由于队列不支持直接删除中间项，这里重建队列
+            var newOrder = new Queue<string>(_order.Count);
+            foreach (var p in _order) {
+                if (p == path) {
+                    continue;
+                }
+                newOrder.Enqueue(p);
+            }
+
+            while (_order.Count > 0) {
+                _order.Dequeue();
+            }
+            foreach (var p in newOrder) {
+                _order.Enqueue(p);
+            }
+        }
+        /// <summary>
+        /// 清理所有缓存
+        /// </summary>
+        public static void Clear() {
+            _cache.Clear();
+            _order.Clear();
+        }
     }
 
     /// <summary>
@@ -98,12 +144,18 @@ namespace InnoVault.GameSystem
             ModToSaves[Mod].Add((T)(object)this);
             SetStaticDefaults();
         }
+        /// <inheritdoc/>
+        public override void Unload() {
+            SaveContents.Clear();
+            ModToSaves.Clear();
+            TypeToInstance.Clear();
+        }
         /// <summary>
         /// 获取这个类型的单实例
         /// </summary>
         /// <returns></returns>
         public static TTarget GetInstance<TTarget>() where TTarget : SaveContent<T>
-            => (TTarget)(object)TypeToInstance[typeof(TTarget)]; 
+            => (TTarget)(object)TypeToInstance[typeof(TTarget)];
         /// <summary>
         /// 尝试从指定路径读取并反序列化出 <see cref="TagCompound"/> 数据
         /// 如果文件不存在则返回 <see langword="false"/> 并输出 <see langword="null"/>

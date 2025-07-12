@@ -1,4 +1,5 @@
-﻿using System;
+﻿using InnoVault.GameSystem;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -61,6 +62,7 @@ namespace InnoVault
             Loaders.Clear();
             VaultLoad.UnLoadData();
             VaultLoad.UnLoadAsset();
+            TagCache.Clear();
             ModTypeSetCache?.Clear();
             AnyModCodeType = null;
         }
