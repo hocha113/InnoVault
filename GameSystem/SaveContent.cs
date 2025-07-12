@@ -382,7 +382,7 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            if (rootTag.TryGet(saveContent.LoadenName, out TagCompound saveTag) || saveTag.Count == 0) {
+            if (!rootTag.TryGet(saveContent.LoadenName, out TagCompound saveTag) || saveTag.Count == 0) {
                 return;
             }
 
