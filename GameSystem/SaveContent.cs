@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using Terraria.ModLoader;
@@ -6,6 +7,45 @@ using Terraria.ModLoader.IO;
 
 namespace InnoVault.GameSystem
 {
+    /// <summary>
+    /// 提供对 NBT 数据的路径映射缓存，用于避免重复的磁盘 I/O 操作
+    /// </summary>
+    /// <remarks>
+    /// 此类为内部工具类，仅供框架保存系统使用通过维护路径与 <see cref="TagCompound"/> 的映射，
+    /// 可显著提升读取性能，尤其是在频繁访问相同存档文件时<br/>
+    /// <br/>
+    /// ⚠注意事项：<br/>
+    /// 缓存内容为加载时的快照，不会自动同步磁盘变更；<br/>
+    /// 调用 <see cref="Invalidate"/> 方法可手动清除指定路径的缓存；<br/>
+    /// 所有通过 <see cref="SaveContent{T}.SaveTagToFile"/> 写入的内容应同时调用 <see cref="Set"/> 更新缓存；<br/>
+    /// 读取路径应优先使用<see cref = "TryGet" /> 检查缓存是否存在，避免不必要的磁盘访问
+    /// </remarks>
+    public static class TagCache
+    {
+        /// <summary>
+        /// 内部缓存字典，键为文件路径，值为对应的 <see cref="TagCompound"/> 数据快照
+        /// </summary>
+        private static readonly ConcurrentDictionary<string, TagCompound> _cache = [];
+        /// <summary>
+        /// 将指定路径的数据写入缓存（如已存在则覆盖）
+        /// </summary>
+        /// <param name="path">对应的存储路径（通常为 NBT 文件路径）</param>
+        /// <param name="tag">要缓存的 <see cref="TagCompound"/> 实例</param>
+        public static void Set(string path, TagCompound tag) => _cache[path] = tag;
+        /// <summary>
+        /// 尝试获取指定路径下的缓存内容
+        /// </summary>
+        /// <param name="path">存储路径</param>
+        /// <param name="tag">若缓存存在，输出对应的 <see cref="TagCompound"/> 实例</param>
+        /// <returns>若缓存存在，返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
+        public static bool TryGet(string path, out TagCompound tag) => _cache.TryGetValue(path, out tag);
+        /// <summary>
+        /// 使指定路径的缓存失效，从字典中移除对应项
+        /// </summary>
+        /// <param name="path">需要清除缓存的文件路径</param>
+        public static void Invalidate(string path) => _cache.TryRemove(path, out _);
+    }
+
     /// <summary>
     /// 用于基本保存内容的基类
     /// </summary>
@@ -20,7 +60,7 @@ namespace InnoVault.GameSystem
         /// 若在子类或多级继承中使用，该属性可能返回基类的实例，
         /// 不一定是当前具体子类的实例
         /// </summary>
-        public static T Instance => TypeToInstance[typeof(T)];
+        public static T GenericInstance => TypeToInstance[typeof(T)];
         /// <summary>
         /// 从类型映射到对应的实例
         /// </summary>
@@ -70,15 +110,21 @@ namespace InnoVault.GameSystem
         /// 若读取或反序列化失败则返回 <see langword="false"/> 并记录警告日志
         /// 使用 <see cref="TagIO.FromStream"/> 从压缩 NBT 文件中加载
         /// </summary>
-        public static bool TryLoadRootTag(string path, out TagCompound tag) {
+        public static bool TryLoadRootTag(string path, out TagCompound tag, bool forceReload = false) {
             tag = null!;
             if (!File.Exists(path)) {
+                TagCache.Invalidate(path);
                 return false;
             }
 
             try {
+                if (!forceReload && TagCache.TryGet(path, out tag)) {
+                    return true;
+                }
+
                 using FileStream stream = File.OpenRead(path);
                 tag = TagIO.FromStream(stream);
+                TagCache.Set(path, tag);
                 return true;
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Warn($"[TryLoadRootTag] Failed to load NBT file at {path}: {ex}");
@@ -100,6 +146,8 @@ namespace InnoVault.GameSystem
 
                 using FileStream stream = File.Create(path);
                 TagIO.ToStream(tag, stream);
+
+                TagCache.Set(path, tag);
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"[SaveTagToFile] Failed to save NBT: {ex}");
             }
@@ -108,13 +156,14 @@ namespace InnoVault.GameSystem
         /// 获取该存储对象所拥有的根标签，用于表达NBT存储内容
         /// </summary>
         /// <param name="rootTag"></param>
+        /// <param name="forceReload"></param>
         /// <returns></returns>
-        public static bool TryGetRootTag(out TagCompound rootTag) {
+        public static bool TryGetRootTag(out TagCompound rootTag, bool forceReload = false) {
             if (ModToSaves.Count == 0) {
                 rootTag = null;
                 return false;
             }
-            return TryLoadRootTag(Instance.SavePath, out rootTag);
+            return TryLoadRootTag(GenericInstance.SavePath, out rootTag, forceReload);
         }
         /// <summary>
         /// 统一执行所有保存任务
@@ -138,15 +187,15 @@ namespace InnoVault.GameSystem
                 rootTag[$"mod:{mod.Name}"] = modTag;
             }
 
-            SaveTagToFile(rootTag, Instance.SavePath);
+            SaveTagToFile(rootTag, GenericInstance.SavePath);
         }
         /// <summary>
         /// 执行指定类型的保存任务（避免覆盖其他数据）
         /// </summary>
-        public static void DoSave<TTarget>() where TTarget : SaveContent<T> {
+        public static void DoSave<TTarget>(bool forceReload = false) where TTarget : SaveContent<T> {
             TTarget save = GetInstance<TTarget>();
 
-            if (!TryLoadRootTag(save.SavePath, out TagCompound rootTag)) {
+            if (!TryLoadRootTag(save.SavePath, out TagCompound rootTag, forceReload)) {
                 rootTag = [];
             }
 
@@ -167,8 +216,8 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 统一执行所有加载任务
         /// </summary>
-        public static void DoLoad() {
-            if (!TryGetRootTag(out var rootTag)) {
+        public static void DoLoad(bool forceReload = false) {
+            if (!TryGetRootTag(out var rootTag, forceReload)) {
                 return;
             }
 
@@ -187,10 +236,10 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 执行指定类型的加载任务
         /// </summary>
-        public static void DoLoad<TTarget>() where TTarget : SaveContent<T> {
+        public static void DoLoad<TTarget>(bool forceReload = false) where TTarget : SaveContent<T> {
             TTarget save = GetInstance<TTarget>();
 
-            if (!TryLoadRootTag(save.SavePath, out TagCompound rootTag)) {
+            if (!TryLoadRootTag(save.SavePath, out TagCompound rootTag, forceReload)) {
                 rootTag = [];
             }
 
