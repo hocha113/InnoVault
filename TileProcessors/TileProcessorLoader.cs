@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Reflection;
 using System.Threading;
 using System.Threading.Tasks;
@@ -19,7 +20,7 @@ namespace InnoVault.TileProcessors
     {
         #region Data
         private static readonly string key_TPData_TagList = "TPData_TagList";
-
+        private static readonly object lockObject = new object();
         /// <summary>
         /// 在世界中的TP实体的最大存在数量
         /// </summary>
@@ -41,7 +42,7 @@ namespace InnoVault.TileProcessors
         /// 访问该列表时应当谨慎，因为该列表可能在运行时遭到修改，避免使用foreach等方式直接遍历访问<br/>
         /// 安全起见，应当使用for配合倒序遍历，或者使用.ToList克隆该集合的快照副本进行访问
         /// </summary>
-        public static List<TileProcessor> TP_InWorld { get; internal set; } = [];
+        public static List<TileProcessor> TP_InWorld { get; private set; } = [];
         /// <summary>
         /// 当使用<see cref="AddInWorld(int, Point16, Item)"/>函数时更新这个字典，用于快速查询对应的TP实体以节省性能
         /// </summary>
@@ -142,9 +143,7 @@ namespace InnoVault.TileProcessors
                 try {
                     module.SetStaticProperty();
                 } catch {
-                    string errorText = nameof(module) + ": 在进行 SetStaticProperty 时发生了错误，但被跳过";
-                    string errorText2 = nameof(module) + ": An error occurred while performing SetStaticProperty, but it was skipped";
-                    VaultMod.Instance.Logger.Info(VaultUtils.Translation(errorText, errorText2));
+                    VaultMod.Instance.Logger.Info(nameof(module) + ": An error occurred while performing SetStaticProperty, but it was skipped");
                 }
             }
             TargetTileTypes = [.. TargetTile_To_TPInstance.Keys];
@@ -216,38 +215,41 @@ namespace InnoVault.TileProcessors
 
             TileProcessor reset = null;
 
-            if (!TargetTile_To_TPInstance.TryGetValue(tileID, out List<TileProcessor> processorList)) {
-                return reset;
-            }
-
-            foreach (var processor in processorList) {
-                TileProcessor newProcessor = processor.Clone();
-                newProcessor.Position = position;
-                newProcessor.TrackItem = item;
-                newProcessor.Active = true;
-                newProcessor.LoadenTile();
-                newProcessor.SetProperty();
-
-                //在这里实体已经被设置好了，更新一下Map
-                TP_IDAndPoint_To_Instance[(newProcessor.ID, newProcessor.Position)] = newProcessor;//如果实体重叠，那么就会进行覆盖
-                TP_NameAndPoint_To_Instance[(newProcessor.LoadenName, newProcessor.Position)] = newProcessor;
-                TP_Point_To_Instance[newProcessor.Position] = newProcessor;
-
-                bool add = true;
-                for (int i = 0; i < TP_InWorld.Count; i++) {
-                    if (TP_InWorld[i].Active) {
-                        continue;//如果目标的实体槽位是活跃的就跳过
-                    }
-
-                    newProcessor.WhoAmI = TP_InWorld[i].WhoAmI;
-                    TP_InWorld[i] = newProcessor;
-                    add = false;
-                    reset = newProcessor;
-                    break;
+            lock (lockObject) {
+                if (!TargetTile_To_TPInstance.TryGetValue(tileID, out List<TileProcessor> processorList)) {
+                    return reset;
                 }
 
-                //如果便利至末尾也没能找到空闲槽位插入实体，就进行扩容
-                if (add) {
+                foreach (var processor in processorList) {
+                    TileProcessor newProcessor = processor.Clone();
+                    newProcessor.Position = position;
+                    newProcessor.TrackItem = item;
+                    newProcessor.Active = true;
+                    newProcessor.LoadenTile();
+                    newProcessor.SetProperty();
+
+                    //在这里实体已经被设置好了，更新一下Map
+                    TP_IDAndPoint_To_Instance[(newProcessor.ID, newProcessor.Position)] = newProcessor;//如果实体重叠，那么就会进行覆盖
+                    TP_NameAndPoint_To_Instance[(newProcessor.LoadenName, newProcessor.Position)] = newProcessor;
+                    TP_Point_To_Instance[newProcessor.Position] = newProcessor;
+
+                    bool add = true;
+                    for (int i = 0; i < TP_InWorld.Count; i++) {
+                        if (TP_InWorld[i].Active) {
+                            continue;//如果目标的实体槽位是活跃的就跳过
+                        }
+
+                        newProcessor.WhoAmI = TP_InWorld[i].WhoAmI;
+                        TP_InWorld[i] = newProcessor;
+                        add = false;
+                        reset = newProcessor;
+                        break;
+                    }
+
+                    if (!add) {//如果遍历至末尾也没能找到空闲槽位插入实体，就进行扩容
+                        continue;
+                    }
+
                     newProcessor.WhoAmI = TP_InWorld.Count;
                     reset = newProcessor;
                     TP_InWorld.Add(newProcessor);
@@ -296,14 +298,25 @@ namespace InnoVault.TileProcessors
 
             Task.Run(async () => {
                 LoadenTP = false;
-                await WaitUntilAsync(() => VaultSave.LoadenWorld);
-                LoadWorldTileProcessorInterior();
-                LoadenTP = true;
-            }
-            );
+                try {
+                    await VaultUtils.WaitUntilAsync(() => VaultSave.LoadenWorld, 50, 10000);//最多等10秒
+                } catch (TaskCanceledException) {
+                    VaultMod.Instance.Logger.Error("The waiting for VaultSave.LoadenWorld to complete has timed out.");
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"An exception occurred while waiting for VaultSave.LoadenWorld: {ex.Message}");
+                }
+
+                try {
+                    LoadWorldTileProcessorInner();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"An error occurred while executing LoadWorldTileProcessorInner: {ex.Message}");
+                } finally {
+                    LoadenTP = true;
+                }
+            });
         }
 
-        private static void LoadWorldTileProcessorInterior() {
+        private static void LoadWorldTileProcessorInner() {
             for (int x = 0; x < Main.tile.Width; x++) {
                 for (int y = 0; y < Main.tile.Height; y++) {
                     Tile tile = Main.tile[x, y];
@@ -325,21 +338,11 @@ namespace InnoVault.TileProcessors
                 LoadWorldData(ActiveWorldTagData);
             }
 
-            foreach (TileProcessor tp in TP_InWorld) {
+            foreach (TileProcessor tp in TP_InWorld.ToList()) {
                 if (!tp.Active) {
                     continue;
                 }
                 tp.LoadInWorld();
-            }
-        }
-
-        private static async Task WaitUntilAsync(Func<bool> condition, int checkIntervalMs = 50, int timeoutMs = Timeout.Infinite) {
-            var cancellationTokenSource = new CancellationTokenSource();
-            if (timeoutMs != Timeout.Infinite)
-                cancellationTokenSource.CancelAfter(timeoutMs);
-
-            while (!condition()) {
-                await Task.Delay(checkIntervalMs, cancellationTokenSource.Token);
             }
         }
 

@@ -9,6 +9,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Threading;
+using System.Threading.Tasks;
 using Terraria;
 using Terraria.Audio;
 using Terraria.Chat;
@@ -531,6 +533,24 @@ namespace InnoVault
             }
 
             return subInterface;
+        }
+
+        /// <summary>
+        /// 异步等待直到指定条件返回真或超时，期间以固定时间间隔检查条件状态<br/>
+        /// 超时则通过取消令牌触发任务取消，适用于非阻塞等待某个状态的场景
+        /// </summary>
+        /// <param name="condition">判断是否满足等待结束的条件委托</param>
+        /// <param name="checkIntervalMs">检查条件的时间间隔，单位毫秒，默认50毫秒</param>
+        /// <param name="timeoutMs">等待的最大超时时间，单位毫秒，默认无限等待</param>
+        public static async Task WaitUntilAsync(Func<bool> condition, int checkIntervalMs = 50, int timeoutMs = Timeout.Infinite) {
+            var cancellationTokenSource = new CancellationTokenSource();
+            if (timeoutMs != Timeout.Infinite) {
+                cancellationTokenSource.CancelAfter(timeoutMs);
+            }
+
+            while (!condition()) {
+                await Task.Delay(checkIntervalMs, cancellationTokenSource.Token);
+            }
         }
 
         #endregion

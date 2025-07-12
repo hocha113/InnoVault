@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
@@ -30,7 +32,10 @@ namespace InnoVault.TileProcessors
         /// 当前是否正在进行初始化世界的网络工作
         /// </summary>
         public static bool InitializeWorld { get; private set; }
-
+        /// <summary>
+        /// 是否已经完成了TP实体的网络加载
+        /// </summary>
+        public static bool LoadenTPByNetWork { get; private set; }
         /// <summary>
         /// 发送放置一个TP实体到世界中的消息
         /// </summary>
@@ -150,6 +155,7 @@ namespace InnoVault.TileProcessors
             if (!VaultUtils.isServer) {
                 return;
             }
+
             ModPacket modPacket = VaultMod.Instance.GetPacket();
             modPacket.Write((byte)MessageType.ServerTPDeathVerify);
             modPacket.Write(tileProcessor.ID);
@@ -186,11 +192,27 @@ namespace InnoVault.TileProcessors
             if (!VaultUtils.isClient) {
                 return;
             }
-            //$"TileProcessorLoader-ClientRequest_TPData:玩家{Main.LocalPlayer.name}/客户端id{Main.myPlayer}正在请求服务端TP数据链".LoggerDomp();
-            ModPacket modPacket = VaultMod.Instance.GetPacket();
-            modPacket.Write((byte)MessageType.ClientRequest_TPData_Send);
-            modPacket.Write(initializeWorld);
-            modPacket.Send();
+
+            LoadenTPByNetWork = false;//标记为false，表示开始网络加载
+
+            Task.Run(async () => {
+                try {//开启一个子线程，在客户端的TP加载好了后再发送数据链请求
+                    await VaultUtils.WaitUntilAsync(() => LoadenTP, 50, 10000);//最多等10秒
+                } catch (TaskCanceledException) {
+                    VaultMod.Instance.Logger.Error("The waiting for VaultSave.LoadenWorld to complete has timed out.");
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"An exception occurred while waiting for VaultSave.LoadenWorld: {ex.Message}");
+                }
+
+                try {
+                    ModPacket modPacket = VaultMod.Instance.GetPacket();
+                    modPacket.Write((byte)MessageType.ClientRequest_TPData_Send);
+                    modPacket.Write(initializeWorld);
+                    modPacket.Send();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"An error occurred while executing ClientRequest_TPData_SendInner: {ex.Message}");
+                }
+            });
         }
 
         //另一个需要注意的概念是，世界数据存储在服务端上，退出世界、进入世界的相关钩子如OnWorldLoad和OnWorldUnLoad不会在客户端上运行
@@ -209,7 +231,7 @@ namespace InnoVault.TileProcessors
 
             List<TileProcessor> activeTPs = [];//建立一个临时的活跃实体列表用于后续的遍历发包
             // 统计活跃的TP数量
-            foreach (TileProcessor tp in TP_InWorld) {
+            foreach (TileProcessor tp in TP_InWorld.ToList()) {
                 if (!tp.Active || !tp.LoadenWorldSendData) {
                     continue;
                 }
@@ -285,6 +307,7 @@ namespace InnoVault.TileProcessors
 
             fullPacket.Send(whoAmI);//将数据包发送给客户端
             InitializeWorld = false;
+
         }
         /// <summary>
         /// 服务端响应TP数据链的请求后，接收数据
@@ -352,6 +375,7 @@ namespace InnoVault.TileProcessors
             }
 
             InitializeWorld = false;
+            LoadenTPByNetWork = true;//标记为true，表明网络加载完成
         }
 
         private static void HandlerPackMeltingAway(ModPacket modPacket) {
