@@ -30,6 +30,14 @@ namespace InnoVault.GameSystem
         /// 存档的根路径
         /// </summary>
         public static string RootPath => Path.Combine(Main.SavePath, RootFilesName);
+        /// <summary>
+        /// 在加载世界时被调用，运行在TP实体加载完成后
+        /// </summary>
+        public static event Action LoadWorldEvent;
+        /// <summary>
+        /// 在保存世界时被调用，运行在主要NBT数据保存完成后
+        /// </summary>
+        public static event Action SaveWorldEvent;
         //首先我们要明白一点，在多人模式的情况下，只有服务器会加载这两个钩子，其他客户端并不会正常运行
         //所以，如果想数据正常加载，就需要发一个巨大的数据包来让其他的端同步，Save的时候要保证世界数据同步，而Load的时候要保证其他端也被加载
         //这个钩子的调用顺序先与LoadData，可以错开加载压力，同时不会因为没有存储数据就不会调用
@@ -38,6 +46,7 @@ namespace InnoVault.GameSystem
             Task.Run(() => {
                 LoadenWorld = false;
                 DoLoadWorld();
+                LoadWorldEvent?.Invoke();
                 LoadenWorld = true;
                 }
             );
@@ -47,12 +56,23 @@ namespace InnoVault.GameSystem
             tag["root:worldData"] = "";
             Task.Run(() => {
                 SavedWorld = false;
-                DoSaveWorld();
-                SavedWorld = true;
+                try {
+                    DoSaveWorld();
+                    SaveWorldEvent?.Invoke();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"An error occurred while saving the world:{ex.Message}");
+                } finally {
+                    SavedWorld = true;
+                }
             });
         }
         /// <inheritdoc/>
         public override void LoadWorldData(TagCompound tag) => tag.TryGet("root:worldData", out string _);
+        /// <inheritdoc/>
+        public override void Unload() {
+            LoadWorldEvent = null;
+            SaveWorldEvent = null;
+        }
         //统一保存世界相关数据
         private static void DoSaveWorld() {
             TryDo(SaveWorld.DoSave, "[SaveWorld] Failed to save world data");
