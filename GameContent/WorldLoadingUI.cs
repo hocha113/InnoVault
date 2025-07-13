@@ -18,12 +18,14 @@ namespace InnoVault.GameContent
         public static LocalizedText Text1 { get; private set; }
         public static LocalizedText Text2 { get; private set; }
         public static LocalizedText Text3 { get; private set; }
+        public static LocalizedText Text4 { get; private set; }
         protected override void Register() => Instance = this;
         public override void SetupContent() => SetStaticDefaults();
         public override void SetStaticDefaults() {
             Text1 = this.GetLocalization(nameof(Text1), () => "Loading The World");
             Text2 = this.GetLocalization(nameof(Text2), () => "Loading Save Data");
             Text3 = this.GetLocalization(nameof(Text3), () => "Loading Tile Processor");
+            Text4 = this.GetLocalization(nameof(Text4), () => "Receive Network Data");
         }
     }
 
@@ -76,7 +78,11 @@ namespace InnoVault.GameContent
             string dots = new string('.', (dotCounter / 20) % 4); // 0~3 个点
             // 文本内容
             string text1 = WorldLoadingText.Text1.Value + dots;
-            string text2 = VaultSave.LoadenWorld ? WorldLoadingText.Text3.Value + dots : WorldLoadingText.Text2.Value + dots;
+            string text2 = VaultSave.LoadenWorld ? WorldLoadingText.Text3.Value : WorldLoadingText.Text2.Value;
+            if (VaultUtils.isClient) {
+                text2 = WorldLoadingText.Text4.Value;
+            }
+            text2 += dots;
             // 绘制第一行文本
             Vector2 drawPos = new Vector2(0f, VaultAsset.GearWheel.Value.Height * 1.5f);
             DrawText(spriteBatch, text1, opacity, drawPos);

@@ -1,4 +1,4 @@
-﻿Configs: {
+Configs: {
 	VaultClientConfig: {
 		DisplayName: InnoVault Client Config
 
@@ -19,5 +19,6 @@ Loadings: {
 		Text1: 正在加载世界
 		Text2: 正在读取存档数据
 		Text3: 正在加载物块处理器
+		// Text4: Receive Network Data
 	}
 }

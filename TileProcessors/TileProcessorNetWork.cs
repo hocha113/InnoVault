@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection.PortableExecutable;
 using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
@@ -199,9 +200,9 @@ namespace InnoVault.TileProcessors
                 try {//开启一个子线程，在客户端的TP加载好了后再发送数据链请求
                     await VaultUtils.WaitUntilAsync(() => LoadenTP, 50, 10000);//最多等10秒
                 } catch (TaskCanceledException) {
-                    VaultMod.Instance.Logger.Error("The waiting for VaultSave.LoadenWorld to complete has timed out.");
+                    VaultMod.Instance.Logger.Error("The waiting for TileProcessorLoader.LoadenTP to complete has timed out.");
                 } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"An exception occurred while waiting for VaultSave.LoadenWorld: {ex.Message}");
+                    VaultMod.Instance.Logger.Error($"An exception occurred while waiting for TileProcessorLoader.LoadenTP: {ex.Message}");
                 }
 
                 try {
@@ -229,6 +230,25 @@ namespace InnoVault.TileProcessors
 
             InitializeWorld = reader.ReadBoolean();
 
+            Task.Run(async () => {
+                try {//开启一个子线程，在服务端的TP加载好了后再发送数据链
+                    await VaultUtils.WaitUntilAsync(() => LoadenTP, 50, 10000);//最多等10秒
+                } catch (TaskCanceledException) {
+                    VaultMod.Instance.Logger.Error("The waiting for TileProcessorLoader.LoadenTP to complete has timed out.");
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"An exception occurred while waiting for TileProcessorLoader.LoadenTP: {ex.Message}");
+                }
+
+                try {
+                    ServerRecovery_TPDataInner(whoAmI);
+                    InitializeWorld = false;
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"An error occurred while executing ServerRecovery_TPDataInner: {ex.Message}");
+                }
+            });
+        }
+
+        private static void ServerRecovery_TPDataInner(int whoAmI) {
             List<TileProcessor> activeTPs = [];//建立一个临时的活跃实体列表用于后续的遍历发包
             // 统计活跃的TP数量
             foreach (TileProcessor tp in TP_InWorld.ToList()) {
@@ -240,7 +260,6 @@ namespace InnoVault.TileProcessors
 
             int sendTPCount = activeTPs.Count;
             if (sendTPCount <= 0) {//如果没有可使用的TP实体就不用发送相关的数据了，虽然一般不会这样
-                InitializeWorld = false;
                 return;
             }
 
@@ -278,7 +297,6 @@ namespace InnoVault.TileProcessors
                     modPacket.Send(whoAmI); // 将数据包发送给客户端
                 }
 
-                InitializeWorld = false;
                 return;
             }
 
@@ -301,14 +319,12 @@ namespace InnoVault.TileProcessors
 
             if (fullPacket.BaseStream.Length > MaxStreamSize) {
                 HandlerPackMeltingAway(fullPacket);
-                InitializeWorld = false;
                 return;
             }
 
             fullPacket.Send(whoAmI);//将数据包发送给客户端
-            InitializeWorld = false;
-
         }
+
         /// <summary>
         /// 服务端响应TP数据链的请求后，接收数据
         /// </summary>
@@ -319,6 +335,12 @@ namespace InnoVault.TileProcessors
 
             InitializeWorld = reader.ReadBoolean();
 
+            Handle_TPData_ReceiveInner(reader);
+            InitializeWorld = false;
+            LoadenTPByNetWork = true;//标记为true，表明网络加载完成
+        }
+
+        private static void Handle_TPData_ReceiveInner(BinaryReader reader) {
             int tpCount = reader.ReadInt32(); // 读取 TP 数量
             if (tpCount < 0 || tpCount > MaxTPInWorldCount) {
                 VaultMod.Instance.Logger.Warn("TileProcessorLoader-ClientRequest_TPData_Receive: Received invalid TP count, terminating read");
@@ -373,9 +395,6 @@ namespace InnoVault.TileProcessors
                 DompTPinstanceNotFound(loadenName, position);
                 SkipToNextMarker(reader);
             }
-
-            InitializeWorld = false;
-            LoadenTPByNetWork = true;//标记为true，表明网络加载完成
         }
 
         private static void HandlerPackMeltingAway(ModPacket modPacket) {

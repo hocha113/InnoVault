@@ -1,4 +1,4 @@
-﻿Configs: {
+Configs: {
 	VaultClientConfig: {
 		DisplayName: InnoVault Client Config
 
@@ -19,5 +19,6 @@ Loadings: {
 		Text1: Loading The World
 		Text2: Loading Save Data
 		Text3: Loading Tile Processor
+		Text4: Receive Network Data
 	}
 }
