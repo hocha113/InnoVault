@@ -1,6 +1,15 @@
-Configs: {
+﻿Configs: {
 	VaultClientConfig: {
-		DisplayName: InnoVault Client Config
+		DisplayName: Client Config
+
+		HideWorldLoadingScreen: {
+			Label: Hide World Loading Screen
+			Tooltip:
+				'''
+				Hides the loading UI when entering a world
+				Disabled by default — enable to load the world silently in the background
+				'''
+		}
 
 		TileProcessorBoxSizeDraw: {
 			Label: Tile Processor Bounding Box Draw [c/06e33f:(Developer Option)]

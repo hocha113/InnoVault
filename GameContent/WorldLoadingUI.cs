@@ -33,6 +33,9 @@ namespace InnoVault.GameContent
     {
         private static bool DoActive {
             get {
+                if (VaultClientConfig.Instance.HideWorldLoadingScreen) {
+                    return false;
+                }
                 if (VaultUtils.isClient) {
                     return !TileProcessorNetWork.LoadenTPByNetWork;
                 }
@@ -46,7 +49,7 @@ namespace InnoVault.GameContent
         private int dotCounter;
         public override void Draw(SpriteBatch spriteBatch) {
             // 更新透明度
-            float opacity = DoActive ? 1f : Math.Max(sengs - 0.1f, 0f); // 防止透明度为负
+            sengs = DoActive ? 1f : Math.Max(sengs - 0.1f, 0f); // 防止透明度为负
 
             // 更新旋转角度
             time++;
@@ -54,13 +57,13 @@ namespace InnoVault.GameContent
 
             // 绘制背景
             Rectangle rectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
-            spriteBatch.Draw(VaultAsset.placeholder2.Value, rectangle, Color.Black * 0.8f * opacity);
+            spriteBatch.Draw(VaultAsset.placeholder2.Value, rectangle, Color.Black * 0.8f * sengs);
 
             // 绘制齿轮
-            DrawGear(spriteBatch, opacity);
+            DrawGear(spriteBatch, sengs);
 
             // 绘制动态文本
-            DrawDynamicText(spriteBatch, opacity);
+            DrawDynamicText(spriteBatch, sengs);
         }
 
         private void DrawGear(SpriteBatch spriteBatch, float opacity) {

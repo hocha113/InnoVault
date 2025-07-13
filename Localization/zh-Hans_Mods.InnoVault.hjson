@@ -1,6 +1,15 @@
-Configs: {
+﻿Configs: {
 	VaultClientConfig: {
-		DisplayName: InnoVault Client Config
+		DisplayName: 客户端设置
+
+		HideWorldLoadingScreen: {
+			Label: 隐藏世界加载缓冲屏幕
+			Tooltip:
+				'''
+				进入世界的加载阶段将不再显示缓冲UI
+				默认关闭，开启后将让加载隐形进行
+				'''
+		}
 
 		TileProcessorBoxSizeDraw: {
 			Label: 物块处理器箱体绘制[c/06e33f:(开发者选项)]
@@ -19,6 +28,6 @@ Loadings: {
 		Text1: 正在加载世界
 		Text2: 正在读取存档数据
 		Text3: 正在加载物块处理器
-		// Text4: Receive Network Data
+		Text4: 正在接收网络数据
 	}
 }

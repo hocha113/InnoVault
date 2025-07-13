@@ -11,7 +11,10 @@ namespace InnoVault
 
         public override void OnLoaded() => Instance = this;
 
-        [BackgroundColor(45, 175, 225, 255)]
+        [BackgroundColor(60, 130, 180, 155)]
+        [DefaultValue(false)]
+        public bool HideWorldLoadingScreen { get; set; }
+        [BackgroundColor(60, 130, 180, 155)]
         [DefaultValue(false)]
         public bool TileProcessorBoxSizeDraw { get; set; }
     }
