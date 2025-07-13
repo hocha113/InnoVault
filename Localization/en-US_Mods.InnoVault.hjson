@@ -1,4 +1,4 @@
-﻿Configs: {
+Configs: {
 	VaultClientConfig: {
 		DisplayName: Client Config
 
@@ -29,5 +29,6 @@ Loadings: {
 		Text2: Loading Save Data
 		Text3: Loading Tile Processor
 		Text4: Receive Network Data
+		Text5: Save World
 	}
 }

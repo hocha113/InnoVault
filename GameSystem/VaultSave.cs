@@ -19,6 +19,10 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static bool LoadenWorld { get; set; } = false;
         /// <summary>
+        /// 是否正在保存好了世界相关
+        /// </summary>
+        public static bool SavedWorld { get; set; } = true;
+        /// <summary>
         /// 存档的根节点文件名
         /// </summary>
         public const string RootFilesName = nameof(VaultSave);
@@ -41,7 +45,11 @@ namespace InnoVault.GameSystem
         /// <inheritdoc/>
         public override void SaveWorldData(TagCompound tag) {
             tag["root:worldData"] = "";
-            DoSaveWorld();
+            Task.Run(() => {
+                SavedWorld = false;
+                DoSaveWorld();
+                SavedWorld = true;
+            });
         }
         /// <inheritdoc/>
         public override void LoadWorldData(TagCompound tag) => tag.TryGet("root:worldData", out string _);
