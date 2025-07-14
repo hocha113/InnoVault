@@ -1,23 +1,23 @@
 Configs: {
 	VaultClientConfig: {
-		DisplayName: Impostazioni client
+		DisplayName: Configuración del cliente
 
 		HideWorldLoadingScreen: {
-			Label: Nascondi schermata di caricamento del mondo
+			Label: Ocultar pantalla de carga del mundo
 			Tooltip:
 				'''
-				La fase di caricamento del mondo non mostrerà più l'interfaccia utente di caricamento.
-				Disattivato per impostazione predefinita. Se attivato, il caricamento avverrà in modo invisibile.
+				La etapa de carga al entrar al mundo ya no mostrará la interfaz de carga.
+				Desactivado por defecto. Al activarlo, la carga se realizará de forma invisible.
 				'''
 		}
 
 		TileProcessorBoxSizeDraw: {
-			Label: Visualizzazione box TileProcessor [c/06e33f:(opzione sviluppatore)]
+			Label: Dibujo del contorno del TileProcessor [c/06e33f:(opción de desarrollador)]
 			Tooltip:
 				'''
-				[c/c20909:Sconsigliato per chi non è sviluppatore]
-				Utilizzato per il debug e l’osservazione della struttura di collisione del TileProcessor.
-				Se attivato, TileProcessor mostrerà nel mondo i propri box di collisione, nome del tipo e altri dati.
+				[c/c20909:No se recomienda activar si no eres desarrollador]
+				Se utiliza para depurar y observar la estructura de colisión del TileProcessor.
+				Al activarlo, el TileProcessor mostrará en el mundo sus cajas de colisión, nombre de tipo y otros datos.
 				'''
 		}
 	}
@@ -25,10 +25,10 @@ Configs: {
 
 Loadings: {
 	WorldLoadingText: {
-		Text1: Caricamento del mondo
-		Text2: Lettura dei dati di salvataggio
-		Text3: Caricamento del processore di blocchi
-		Text4: Ricezione dei dati di rete
-		Text5: Salvataggio del mondo
+		Text1: Cargando el mundo
+		Text2: Leyendo datos guardados
+		Text3: Cargando el procesador de bloques
+		Text4: Recibiendo datos de red
+		Text5: Guardando el mundo
 	}
 }
