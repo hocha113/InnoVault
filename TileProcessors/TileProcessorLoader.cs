@@ -301,15 +301,15 @@ namespace InnoVault.TileProcessors
                 try {
                     await VaultUtils.WaitUntilAsync(() => VaultSave.LoadenWorld, 50, 10000);//最多等10秒
                 } catch (TaskCanceledException) {
-                    VaultMod.Instance.Logger.Error("The waiting for VaultSave.LoadenWorld to complete has timed out.");
+                    VaultMod.Instance.Logger.Error("[LoadWorldTileProcessor] The waiting for VaultSave.LoadenWorld to complete has timed out.");
                 } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"An exception occurred while waiting for VaultSave.LoadenWorld: {ex.Message}");
+                    VaultMod.Instance.Logger.Error($"[LoadWorldTileProcessor] An exception occurred while waiting for VaultSave.LoadenWorld: {ex.Message}");
                 }
 
                 try {
                     LoadWorldTileProcessorInner();
                 } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"An error occurred while executing LoadWorldTileProcessorInner: {ex.Message}");
+                    VaultMod.Instance.Logger.Error($"[LoadWorldTileProcessor] An error occurred while executing: {ex.Message}");
                 } finally {
                     LoadenTP = true;
                 }

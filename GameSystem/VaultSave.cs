@@ -43,13 +43,15 @@ namespace InnoVault.GameSystem
         //这个钩子的调用顺序先与LoadData，可以错开加载压力，同时不会因为没有存储数据就不会调用
         /// <inheritdoc/>
         public override void OnWorldLoad() {
-            Task.Run(() => {
-                LoadenWorld = false;
-                DoLoadWorld();
-                LoadWorldEvent?.Invoke();
+            if (VaultUtils.isClient) {
+                //在多人模式中，客户端不需要加载世界存档数据，因为存档文件只被服务器管理
+                //所以允许客户端直接把世界加载标签设置为true
                 LoadenWorld = true;
-                }
-            );
+            }
+        }
+        /// <inheritdoc/>
+        public override void OnWorldUnload() {
+            LoadenWorld = false;
         }
         /// <inheritdoc/>
         public override void SaveWorldData(TagCompound tag) {
@@ -67,7 +69,16 @@ namespace InnoVault.GameSystem
             });
         }
         /// <inheritdoc/>
-        public override void LoadWorldData(TagCompound tag) => tag.TryGet("root:worldData", out string _);
+        public override void LoadWorldData(TagCompound tag) {
+            tag.TryGet("root:worldData", out string _);
+            Task.Run(() => {
+                LoadenWorld = false;
+                DoLoadWorld();
+                LoadWorldEvent?.Invoke();
+                LoadenWorld = true;
+            }
+            );
+        }
         /// <inheritdoc/>
         public override void Unload() {
             LoadWorldEvent = null;

@@ -200,9 +200,9 @@ namespace InnoVault.TileProcessors
                 try {//开启一个子线程，在客户端的TP加载好了后再发送数据链请求
                     await VaultUtils.WaitUntilAsync(() => LoadenTP, 50, 10000);//最多等10秒
                 } catch (TaskCanceledException) {
-                    VaultMod.Instance.Logger.Error("The waiting for TileProcessorLoader.LoadenTP to complete has timed out.");
+                    VaultMod.Instance.Logger.Error("[ClientRequest_TPData_Send] The waiting for TileProcessorLoader.LoadenTP to complete has timed out.");
                 } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"An exception occurred while waiting for TileProcessorLoader.LoadenTP: {ex.Message}");
+                    VaultMod.Instance.Logger.Error($"[ClientRequest_TPData_Send] An exception occurred while waiting for TileProcessorLoader.LoadenTP: {ex.Message}");
                 }
 
                 try {
@@ -211,7 +211,7 @@ namespace InnoVault.TileProcessors
                     modPacket.Write(initializeWorld);
                     modPacket.Send();
                 } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"An error occurred while executing ClientRequest_TPData_SendInner: {ex.Message}");
+                    VaultMod.Instance.Logger.Error($"[ClientRequest_TPData_Send] An error occurred while executing: {ex.Message}");
                 }
             });
         }
