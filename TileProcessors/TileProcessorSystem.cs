@@ -129,6 +129,10 @@ namespace InnoVault.TileProcessors
 
         /// <inheritdoc/>
         public override void PostUpdateEverything() {
+            if (!VaultUtils.isSinglePlayer) {
+                TileProcessorNetWork.UpdateNetworkStatusWatchdog();
+            }
+
             if (!TileProcessorLoader.CanRunByWorld()) {
                 return;
             }

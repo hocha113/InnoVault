@@ -1,4 +1,6 @@
-﻿using System;
+﻿using InnoVault.GameContent;
+using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -37,6 +39,14 @@ namespace InnoVault.TileProcessors
         /// 是否已经完成了TP实体的网络加载
         /// </summary>
         public static bool LoadenTPByNetWork { get; private set; }
+        //记录InitializeWorld属性的开启帧
+        private static int initializeWorldTickCounter;
+        //记录LoadenTPByNetWork属性的关闭帧
+        private static int loadTPNetworkTickCounter;
+        /// <summary>
+        /// 网络缓冲加载的最大等待时间刻
+        /// </summary>
+        public const int MaxBufferWaitingTimeMark = 900;
         /// <summary>
         /// 发送放置一个TP实体到世界中的消息
         /// </summary>
@@ -394,6 +404,29 @@ namespace InnoVault.TileProcessors
                 //仍然失败，则记录日志并跳过
                 DompTPinstanceNotFound(loadenName, position);
                 SkipToNextMarker(reader);
+            }
+        }
+
+        /// <summary>
+        /// 网络加载状态检测器：定期检查关键网络加载状态是否卡住，如果超过指定 tick 时间未完成，则强制清除并记录错误
+        /// </summary>
+        internal static void UpdateNetworkStatusWatchdog() {
+            //网络初始化阶段超时检测
+            if (InitializeWorld && ++initializeWorldTickCounter > MaxBufferWaitingTimeMark) {
+                initializeWorldTickCounter = 0;
+                InitializeWorld = false;
+                string timeoutMsg = WorldLoadingText.NetWaringTimeoutMsg.Value;
+                Main.NewText(timeoutMsg, Color.Red);
+                VaultMod.Instance.Logger.Warn(timeoutMsg);
+            }
+
+            //TP数据网络加载超时检测
+            if (!LoadenTPByNetWork && ++loadTPNetworkTickCounter > MaxBufferWaitingTimeMark) {
+                loadTPNetworkTickCounter = 0;
+                LoadenTPByNetWork = true;
+                string timeoutMsg = WorldLoadingText.NetWaringTimeoutMsg.Value;
+                Main.NewText(timeoutMsg, Color.Red);
+                VaultMod.Instance.Logger.Warn(timeoutMsg);
             }
         }
 

@@ -37,5 +37,9 @@ namespace InnoVault
         /// 扳手纹理
         /// </summary>
         public static Asset<Texture2D> Spanner { get; set; }
+        /// <summary>
+        /// 感叹号纹理
+        /// </summary>
+        public static Asset<Texture2D> AxclamationPoint { get; set; }
     }
 }

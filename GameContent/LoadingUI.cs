@@ -20,6 +20,7 @@ namespace InnoVault.GameContent
         public static LocalizedText Text3 { get; private set; }
         public static LocalizedText Text4 { get; private set; }
         public static LocalizedText Text5 { get; private set; }
+        public static LocalizedText NetWaringTimeoutMsg { get; private set; }
         protected override void Register() => Instance = this;
         public override void SetupContent() => SetStaticDefaults();
         public override void SetStaticDefaults() {
@@ -28,6 +29,7 @@ namespace InnoVault.GameContent
             Text3 = this.GetLocalization(nameof(Text3), () => "Loading Tile Processor");
             Text4 = this.GetLocalization(nameof(Text4), () => "Receive Network Data");
             Text5 = this.GetLocalization(nameof(Text5), () => "Save World");
+            NetWaringTimeoutMsg = this.GetLocalization(nameof(NetWaringTimeoutMsg), () => "");
         }
     }
 
@@ -49,6 +51,10 @@ namespace InnoVault.GameContent
         /// </summary>
         protected int time;
         /// <summary>
+        /// 网络状态下的计时器
+        /// </summary>
+        protected int netTime;
+        /// <summary>
         /// 渐进值
         /// </summary>
         protected float sengs;
@@ -61,6 +67,11 @@ namespace InnoVault.GameContent
         /// </summary>
         protected int dotCounter;
         /// <inheritdoc/>
+        public override void OnEnterWorld() {
+            netTime = 0;
+        }
+
+        /// <inheritdoc/>
         public override void Draw(SpriteBatch spriteBatch) {
             UpdateSengs();
 
@@ -70,10 +81,10 @@ namespace InnoVault.GameContent
 
             DrawBack(spriteBatch);
 
-            // 绘制齿轮
             DrawGear(spriteBatch, sengs);
 
-            // 绘制动态文本
+            DrawAxclamation(spriteBatch, sengs);
+
             DrawDynamicText(spriteBatch, sengs);
         }
 
@@ -99,11 +110,44 @@ namespace InnoVault.GameContent
         /// <param name="opacity"></param>
         protected virtual void DrawGear(SpriteBatch spriteBatch, float opacity) {
             Texture2D gear = VaultAsset.GearWheel.Value;
+            
             Vector2 drawPos = new Vector2(Main.screenWidth / 2f, Main.screenHeight * 0.7f);
             Vector2 origin = gear.Size() / 2f;
 
             spriteBatch.Draw(gear, drawPos, null, Color.White * opacity
                 , rotation, origin, 2f * opacity, SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// 绘制感叹号
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        /// <param name="opacity"></param>
+        protected virtual void DrawAxclamation(SpriteBatch spriteBatch, float opacity) {
+            if (!VaultUtils.isClient) {
+                return;
+            }
+
+            // 延迟一段时间再显示感叹号
+            if (++netTime < TileProcessorNetWork.MaxBufferWaitingTimeMark * 2 / 3) {
+                return;
+            }
+
+            Texture2D axclamation = VaultAsset.AxclamationPoint.Value;
+            Vector2 basePos = new Vector2(Main.screenWidth / 2f + 28, Main.screenHeight * 0.7f - 28);
+            Vector2 origin = axclamation.Size() / 2f;
+
+            // 动画效果
+            float bounceOffset = (float)Math.Sin(time / 3f) * 4f;//垂直跳动
+            float alphaPulse = 0.5f + 0.5f * (float)Math.Sin(time * 0.5f);//闪烁透明度
+            float scalePulse = 1f + 0.05f * (float)Math.Sin(time * 0.4f);//轻微缩放
+
+            Vector2 drawPos = basePos + new Vector2(0, bounceOffset);
+            float finalOpacity = opacity * (0.6f + 0.4f * alphaPulse);//更柔和的透明度闪烁
+            float finalScale = opacity * scalePulse * 2;//缩放跟随整体透明度变化
+
+            spriteBatch.Draw(axclamation, drawPos, null, Color.White * finalOpacity
+                , 0f, origin, finalScale, SpriteEffects.None, 0f);
         }
 
         /// <summary>
@@ -129,7 +173,7 @@ namespace InnoVault.GameContent
             }
         }
 
-        private void DrawText(SpriteBatch spriteBatch, string text, float opacity, Vector2 offset) {
+        private static void DrawText(SpriteBatch spriteBatch, string text, float opacity, Vector2 offset) {
             Vector2 textSize = FontAssets.MouseText.Value.MeasureString(text);
             Vector2 textOrigin = textSize / 2f;
             Vector2 drawPos = new Vector2(Main.screenWidth / 2f, Main.screenHeight * 0.7f) + offset;

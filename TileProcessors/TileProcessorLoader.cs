@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Threading;
 using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
@@ -24,7 +23,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 在世界中的TP实体的最大存在数量
         /// </summary>
-        public const int MaxTPInWorldCount = 20000;
+        public const int MaxTPInWorldCount = 32767;
         /// <summary>
         /// 是否加载好了TP实体到世界中
         /// </summary>
