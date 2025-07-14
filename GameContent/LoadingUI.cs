@@ -68,9 +68,7 @@ namespace InnoVault.GameContent
             time++;
             rotation += 0.03f + 0.03f * (float)Math.Sin(time / 3f); // 平滑变速旋转
 
-            // 绘制背景
-            Rectangle rectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
-            spriteBatch.Draw(VaultAsset.placeholder2.Value, rectangle, Color.Black * 0.8f * sengs);
+            DrawBack(spriteBatch);
 
             // 绘制齿轮
             DrawGear(spriteBatch, sengs);
@@ -84,12 +82,27 @@ namespace InnoVault.GameContent
         /// </summary>
         protected virtual void UpdateSengs() => sengs = DoActive ? 1f : Math.Max(sengs - 0.1f, 0f); // 防止透明度为负
 
-        private void DrawGear(SpriteBatch spriteBatch, float opacity) {
+        /// <summary>
+        /// 绘制背景遮罩
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        protected virtual void DrawBack(SpriteBatch spriteBatch) {
+            // 绘制背景
+            Rectangle rectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
+            spriteBatch.Draw(VaultAsset.placeholder2.Value, rectangle, Color.Black * 0.6f * sengs);
+        }
+
+        /// <summary>
+        /// 绘制齿轮动画
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        /// <param name="opacity"></param>
+        protected virtual void DrawGear(SpriteBatch spriteBatch, float opacity) {
             Texture2D gear = VaultAsset.GearWheel.Value;
             Vector2 drawPos = new Vector2(Main.screenWidth / 2f, Main.screenHeight * 0.7f);
             Vector2 origin = gear.Size() / 2f;
 
-            spriteBatch.Draw(gear, drawPos, null, Color.White * 0.9f * opacity
+            spriteBatch.Draw(gear, drawPos, null, Color.White * opacity
                 , rotation, origin, 2f * opacity, SpriteEffects.None, 0f);
         }
 
