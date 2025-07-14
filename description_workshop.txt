@@ -1,4 +1,4 @@
-InnoVault 是一个API模组，它为开发者提供一些代码支持，如UI、Tile Processor、Particle等基本API支持
+﻿InnoVault 是一个API模组，它为开发者提供一些代码支持，如UI、Tile Processor、Particle、自定义NBT保存加载等基本API支持
 
 如果您想了解更多，请访问 [url=https://github.com/hocha113/InnoVault] InnoVault 开源库 [/url]，在此您可以下载InnoVault的源代码
 
