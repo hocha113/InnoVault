@@ -1,0 +1,34 @@
+Configs: {
+	VaultClientConfig: {
+		DisplayName: Clienteinstellungen
+
+		HideWorldLoadingScreen: {
+			Label: Ladebildschirm der Welt ausblenden
+			Tooltip:
+				'''
+				Die Ladephase beim Betreten der Welt zeigt kein Lade-UI mehr an.
+				Standardmäßig deaktiviert. Bei Aktivierung erfolgt das Laden unsichtbar.
+				'''
+		}
+
+		TileProcessorBoxSizeDraw: {
+			Label: TileProcessor-Gehäuseanzeige [c/06e33f:(Entwickleroption)]
+			Tooltip:
+				'''
+				[c/c20909:Nicht empfohlen für Nicht-Entwickler]
+				Dient zum Debuggen und Beobachten der Kollisionsstruktur des TileProcessors.
+				Bei Aktivierung werden Kollisionsboxen, Typnamen und weitere Daten im Spiel angezeigt.
+				'''
+		}
+	}
+}
+
+Loadings: {
+	WorldLoadingText: {
+		Text1: Welt wird geladen
+		Text2: Speicherdateien werden gelesen
+		Text3: Blockprozessor wird geladen
+		Text4: Netzwerkdaten werden empfangen
+		Text5: Welt wird gespeichert
+	}
+}
