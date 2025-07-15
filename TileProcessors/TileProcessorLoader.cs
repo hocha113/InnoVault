@@ -194,7 +194,12 @@ namespace InnoVault.TileProcessors
         /// 是否在世界中运行TP实体的逻辑
         /// </summary>
         /// <returns></returns>
-        public static bool CanRunByWorld() => LoadenTP && TP_InWorld.Count > 0;
+        public static bool CanRunByWorld() {
+            if (VaultUtils.isClient && !TileProcessorNetWork.LoadenTPByNetWork) {
+                return false;
+            }
+            return LoadenTP && TP_InWorld.Count > 0;
+        }
 
         /// <summary>
         /// 向世界中的模块列表添加一个新的 TileProcessor

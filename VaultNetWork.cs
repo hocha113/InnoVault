@@ -16,6 +16,12 @@ namespace InnoVault
             ServerTPDeathVerify,
             NPCOverrideAI,
             NPCOverrideOtherAI,
+            SendToClient_TPDataChunk,
+            SendToClient_TPDataSchedule,
+            SendToClient_MaxTPDataChunkCount,
+            GetSever_TPDataChunk,
+            GetSever_TPDataSchedule,
+            GetSever_MaxTPDataChunkCount,
         }
 
         public static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
@@ -41,6 +47,24 @@ namespace InnoVault
             }
             else if (type == MessageType.NPCOverrideOtherAI) {
                 NPCOverride.OtherNetWorkReceiveHander(reader);
+            }
+            else if (type == MessageType.SendToClient_TPDataChunk) {
+                TileProcessorNetWork.SendToClient_TPDataChunk(reader, whoAmI);
+            }
+            else if (type == MessageType.SendToClient_TPDataSchedule) {
+                TileProcessorNetWork.SendToClient_TPDataSchedule(whoAmI);
+            }
+            else if (type == MessageType.SendToClient_MaxTPDataChunkCount) {
+                TileProcessorNetWork.SendToClient_MaxTPDataChunkCount(whoAmI);
+            }
+            else if (type == MessageType.GetSever_TPDataChunk) {
+                TileProcessorNetWork.GetSever_TPDataChunk(reader);
+            }
+            else if (type == MessageType.GetSever_TPDataSchedule) {
+                TileProcessorNetWork.GetSever_TPDataSchedule(reader);
+            }
+            else if (type == MessageType.GetSever_MaxTPDataChunkCount) {
+                TileProcessorNetWork.GetSever_MaxTPDataChunkCount(reader);
             }
         }
     }

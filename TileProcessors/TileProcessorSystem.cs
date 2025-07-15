@@ -1,6 +1,7 @@
 ﻿using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Terraria;
@@ -125,6 +126,12 @@ namespace InnoVault.TileProcessors
                     tileProcessor.SendpacketCount = 0;
                 }
             }
+        }
+
+        /// <inheritdoc/>
+        public override void OnWorldLoad() {
+            TileProcessorNetWork.initializeWorldTickCounter = 0;
+            TileProcessorNetWork.loadTPNetworkTickCounter = 0;
         }
 
         /// <inheritdoc/>

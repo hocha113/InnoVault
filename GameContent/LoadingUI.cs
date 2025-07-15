@@ -3,7 +3,9 @@ using InnoVault.TileProcessors;
 using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using ReLogic.Content;
 using System;
+using System.Globalization;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.Localization;
@@ -51,10 +53,6 @@ namespace InnoVault.GameContent
         /// </summary>
         protected int time;
         /// <summary>
-        /// 网络状态下的计时器
-        /// </summary>
-        protected int netTime;
-        /// <summary>
         /// 渐进值
         /// </summary>
         protected float sengs;
@@ -67,11 +65,6 @@ namespace InnoVault.GameContent
         /// </summary>
         protected int dotCounter;
         /// <inheritdoc/>
-        public override void OnEnterWorld() {
-            netTime = 0;
-        }
-
-        /// <inheritdoc/>
         public override void Draw(SpriteBatch spriteBatch) {
             UpdateSengs();
 
@@ -82,8 +75,6 @@ namespace InnoVault.GameContent
             DrawBack(spriteBatch);
 
             DrawGear(spriteBatch, sengs);
-
-            DrawAxclamation(spriteBatch, sengs);
 
             DrawDynamicText(spriteBatch, sengs);
         }
@@ -119,44 +110,17 @@ namespace InnoVault.GameContent
         }
 
         /// <summary>
-        /// 绘制感叹号
-        /// </summary>
-        /// <param name="spriteBatch"></param>
-        /// <param name="opacity"></param>
-        protected virtual void DrawAxclamation(SpriteBatch spriteBatch, float opacity) {
-            if (!VaultUtils.isClient) {
-                return;
-            }
-
-            // 延迟一段时间再显示感叹号
-            if (++netTime < TileProcessorNetWork.MaxBufferWaitingTimeMark * 2 / 3) {
-                return;
-            }
-
-            Texture2D axclamation = VaultAsset.AxclamationPoint.Value;
-            Vector2 basePos = new Vector2(Main.screenWidth / 2f + 28, Main.screenHeight * 0.7f - 28);
-            Vector2 origin = axclamation.Size() / 2f;
-
-            // 动画效果
-            float bounceOffset = (float)Math.Sin(time / 3f) * 4f;//垂直跳动
-            float alphaPulse = 0.5f + 0.5f * (float)Math.Sin(time * 0.5f);//闪烁透明度
-            float scalePulse = 1f + 0.05f * (float)Math.Sin(time * 0.4f);//轻微缩放
-
-            Vector2 drawPos = basePos + new Vector2(0, bounceOffset);
-            float finalOpacity = opacity * (0.6f + 0.4f * alphaPulse);//更柔和的透明度闪烁
-            float finalScale = opacity * scalePulse * 2;//缩放跟随整体透明度变化
-
-            spriteBatch.Draw(axclamation, drawPos, null, Color.White * finalOpacity
-                , 0f, origin, finalScale, SpriteEffects.None, 0f);
-        }
-
-        /// <summary>
         /// 重写函数，用于获取描述文本
         /// </summary>
         /// <returns></returns>
         protected virtual (string, string) GetDynamicText() => (string.Empty, string.Empty);
 
-        private void DrawDynamicText(SpriteBatch spriteBatch, float opacity) {
+        /// <summary>
+        /// 绘制文字
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        /// <param name="opacity"></param>
+        protected virtual void DrawDynamicText(SpriteBatch spriteBatch, float opacity) {
             (string text1, string text2) = GetDynamicText();
             
             Vector2 drawPos = new Vector2(0f, VaultAsset.GearWheel.Value.Height * 1.5f);
@@ -173,7 +137,14 @@ namespace InnoVault.GameContent
             }
         }
 
-        private static void DrawText(SpriteBatch spriteBatch, string text, float opacity, Vector2 offset) {
+        /// <summary>
+        /// 绘制文字
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        /// <param name="text"></param>
+        /// <param name="opacity"></param>
+        /// <param name="offset"></param>
+        protected static void DrawText(SpriteBatch spriteBatch, string text, float opacity, Vector2 offset) {
             Vector2 textSize = FontAssets.MouseText.Value.MeasureString(text);
             Vector2 textOrigin = textSize / 2f;
             Vector2 drawPos = new Vector2(Main.screenWidth / 2f, Main.screenHeight * 0.7f) + offset;
@@ -198,6 +169,8 @@ namespace InnoVault.GameContent
 
     internal class WorldLoadingUI : LoadingUI
     {
+        [VaultLoaden("InnoVault/Effects/")]
+        private static Asset<Effect> GearProgress { get; set; }
         public override LayersModeEnum LayersMode => LayersModeEnum.Vanilla_Mouse_Text;
         public override bool DoActive {
             get {
@@ -208,6 +181,20 @@ namespace InnoVault.GameContent
                     return !TileProcessorNetWork.LoadenTPByNetWork;
                 }
                 return !TileProcessorLoader.LoadenTP;
+            }
+        }
+        private float percentage;
+        private int idleTime;
+        public override void OnEnterWorld() {
+            percentage = 0f;
+            idleTime = VaultUtils.isClient ? 30 : 0;
+        }
+        protected override void UpdateSengs() {
+            if (DoActive) {
+                sengs = 1f;
+            }
+            else if (--idleTime < 0 && sengs > 0f) {
+                sengs -= 0.1f;
             }
         }
         protected override (string, string) GetDynamicText() {
@@ -222,6 +209,72 @@ namespace InnoVault.GameContent
             }
             text2 += dots;
             return (text1, text2);
+        }
+        protected override void DrawGear(SpriteBatch spriteBatch, float opacity) {
+            if (VaultUtils.isSinglePlayer) {
+                base.DrawGear(spriteBatch, opacity);
+                return;
+            }
+
+            Texture2D gear = VaultAsset.GearWheel.Value;
+
+            Vector2 drawPos = new Vector2(Main.screenWidth / 2f, Main.screenHeight * 0.7f);
+            Vector2 origin = gear.Size() / 2f;
+
+            GearProgress.Value.Parameters["Progress"].SetValue(percentage / 100f);
+            GearProgress.Value.Parameters["Rotation"].SetValue(-MathHelper.WrapAngle(rotation) - MathHelper.PiOver2);
+
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(0, BlendState.AlphaBlend, null, null, null, GearProgress.Value, Main.UIScaleMatrix);
+
+            spriteBatch.Draw(gear, drawPos, null, Color.White * opacity,
+                rotation, origin, 2f * opacity, SpriteEffects.None, 0f);
+
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(0, BlendState.AlphaBlend, null, null, null, null, Main.UIScaleMatrix);
+
+            // 延迟一段时间再显示感叹号
+            if (++TileProcessorNetWork.loadTPNetworkTickCounter < TileProcessorNetWork.MaxBufferWaitingTimeMark * 2 / 3) {
+                return;
+            }
+
+            Texture2D axclamation = VaultAsset.AxclamationPoint.Value;
+            Vector2 basePos = new Vector2(Main.screenWidth / 2f + 28, Main.screenHeight * 0.7f - 28);
+            origin = axclamation.Size() / 2f;
+
+            // 动画效果
+            float bounceOffset = (float)Math.Sin(time / 3f) * 4f;//垂直跳动
+            float alphaPulse = 0.5f + 0.5f * (float)Math.Sin(time * 0.5f);//闪烁透明度
+            float scalePulse = 1f + 0.05f * (float)Math.Sin(time * 0.4f);//轻微缩放
+
+            drawPos = basePos + new Vector2(0, bounceOffset);
+            float finalOpacity = opacity * (0.6f + 0.4f * alphaPulse);//更柔和的透明度闪烁
+            float finalScale = opacity * scalePulse * 2;//缩放跟随整体透明度变化
+
+            spriteBatch.Draw(axclamation, drawPos, null, Color.White * finalOpacity
+                , 0f, origin, finalScale, SpriteEffects.None, 0f);
+        }
+        protected override void DrawDynamicText(SpriteBatch spriteBatch, float opacity) {
+            base.DrawDynamicText(spriteBatch, opacity);
+            if (!VaultUtils.isClient) {
+                return;
+            }
+
+            float target = MathHelper.Clamp(TileProcessorNetWork.NetPercentage, 0f, 100f);
+
+            if (target > percentage) {
+                percentage = MathHelper.Lerp(percentage, target, 0.1f);
+            }
+
+            // 如果 UI 即将退出，就强行拉到 100%
+            if (!DoActive && sengs > 0f) {
+                percentage = 100f;
+            }
+
+            string percentageMag = (percentage / 100f).ToString("P1", CultureInfo.InvariantCulture);
+            Vector2 textSize = FontAssets.MouseText.Value.MeasureString(percentageMag);
+            Vector2 drawPos = new Vector2(0f, VaultAsset.GearWheel.Value.Height / -2f + textSize.Y / 2);
+            DrawText(spriteBatch, percentageMag, opacity, drawPos);
         }
     }
 }
