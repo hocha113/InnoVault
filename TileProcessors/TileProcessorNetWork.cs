@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
@@ -48,7 +47,54 @@ namespace InnoVault.TileProcessors
         /// 网络缓冲加载的最大等待时间刻
         /// </summary>
         public const int MaxBufferWaitingTimeMark = 900;
+        internal enum TPDataScheduleEnum
+        {
+            Begin,
+            GetChunk,
+            End,
+        }
+
+        internal static Dictionary<int, TPDataScheduleEnum> TPDataSchedule = new();
+        internal static TPDataScheduleEnum LocalTPDataSchedule {
+            get => TPDataSchedule[Main.myPlayer];
+            set => TPDataSchedule[Main.myPlayer] = value;
+        }
+
+        internal static Dictionary<int, List<byte[]>> TPDataChunks = [];
+        internal static List<byte[]> LocalTPDataChunks {
+            get => TPDataChunks[Main.myPlayer];
+            set => TPDataChunks[Main.myPlayer] = value;
+        }
+
+        internal static Dictionary<int, Dictionary<ushort, byte[]>> TPDataChunks_IndexToChunks = [];
+        internal static Dictionary<ushort, byte[]> LocalTPDataChunks_IndexToChunks {
+            get => TPDataChunks_IndexToChunks[Main.myPlayer];
+            set => TPDataChunks_IndexToChunks[Main.myPlayer] = value;
+        }
+
+        internal static volatile float NetPercentage;
+        internal static int NetChunkIdleTime;
+        internal static int MaxTPDataChunkCount = -1;
+        internal static long TPDataChunkPacketStartPos = -1;
+
         #endregion
+
+        void IVaultLoader.LoadData() {
+            for (int i = 0; i < 255; i++) {
+                TPDataSchedule[i] = TPDataScheduleEnum.Begin;
+                TPDataChunks[i] = [];
+                TPDataChunks_IndexToChunks[i] = [];
+            }
+        }
+
+        void IVaultLoader.UnLoadData() {
+            MaxTPDataChunkCount = -1;
+            InitializeWorld = false;
+            LoadenTPByNetWork = true;//标记为true，表明网络加载完成
+            TPDataSchedule.Clear();
+            TPDataChunks.Clear();
+            TPDataChunks_IndexToChunks.Clear();
+        }
 
         #region InWorldNet
         /// <summary>
@@ -240,7 +286,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 向指定客户端发送一个完整的TP数据链
         /// </summary>
-        public static void ServerRecovery_TPData(BinaryReader reader, int whoAmI) {
+        public static void ServerRecovery_TPData(int whoAmI) {
             if (!Main.dedServ) {
                 return;
             }
@@ -265,50 +311,6 @@ namespace InnoVault.TileProcessors
             });
         }
 
-        internal enum TPDataScheduleEnum
-        {
-            Begin,
-            GetChunk,
-            End,
-        }
-
-        internal static Dictionary<int, TPDataScheduleEnum> TPDataSchedule = new();
-        internal static TPDataScheduleEnum LocalTPDataSchedule {
-            get => TPDataSchedule[Main.myPlayer];
-            set => TPDataSchedule[Main.myPlayer] = value;
-        }
-
-        internal static Dictionary<int, List<byte[]>> TPDataChunks = [];
-        internal static List<byte[]> LocalTPDataChunks {
-            get => TPDataChunks[Main.myPlayer];
-            set => TPDataChunks[Main.myPlayer] = value;
-        }
-
-        internal static Dictionary<int, Dictionary<ushort, byte[]>> TPDataChunks_IndexToChunks = [];
-        internal static Dictionary<ushort, byte[]> LocalTPDataChunks_IndexToChunks {
-            get => TPDataChunks_IndexToChunks[Main.myPlayer];
-            set => TPDataChunks_IndexToChunks[Main.myPlayer] = value;
-        }
-
-        internal static volatile float NetPercentage;
-
-        void IVaultLoader.LoadData() {
-            for (int i = 0; i < 255; i++) {
-                TPDataSchedule[i] = TPDataScheduleEnum.Begin;
-                TPDataChunks[i] = [];
-                TPDataChunks_IndexToChunks[i] = [];
-            }
-        }
-
-        void IVaultLoader.UnLoadData() {
-            MaxTPDataChunkCount = -1;
-            InitializeWorld = false;
-            LoadenTPByNetWork = true;//标记为true，表明网络加载完成
-            TPDataSchedule.Clear();
-            TPDataChunks.Clear();
-            TPDataChunks_IndexToChunks.Clear();
-        }
-
         private static void ServerRecovery_TPDataInner(int whoAmI) {
             if (!VaultUtils.isServer) {
                 return;
@@ -324,7 +326,10 @@ namespace InnoVault.TileProcessors
             ModPacket fullPacket = VaultMod.Instance.GetPacket();
             //fullPacket.Write((byte)MessageType.Handle_TPData_Receive);
             //fullPacket.Write(InitializeWorld);
-            VaultMod.Instance.Logger.Debug($"服务器初始数据包指针位置:{fullPacket.BaseStream.Position}");
+            long packStartPos = fullPacket.BaseStream.Position;
+            SendToClient_TPDataChunkPacketStartPos(whoAmI, packStartPos);
+
+            VaultMod.Instance.Logger.Debug($"服务器初始数据包指针位置:{packStartPos}");
             fullPacket.Write(sendTPCount);
 
             foreach (TileProcessor tp in activeTPs) {
@@ -349,6 +354,16 @@ namespace InnoVault.TileProcessors
             SendToClient_TPDataSchedule(whoAmI);
 
             SendToClient_MaxTPDataChunkCount(whoAmI);
+        }
+
+        internal static void SendToClient_TPDataChunkPacketStartPos(int whoAmI, long pos) {
+            if (!VaultUtils.isServer) {
+                return;
+            }
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.GetSever_TPDataChunkPacketStartPos);
+            modPacket.Write(pos);
+            modPacket.Send(whoAmI);
         }
 
         //向客户端发送一次拼图总数
@@ -401,14 +416,21 @@ namespace InnoVault.TileProcessors
             modPacket.Send(whoAmI);
         }
 
-        internal static int MaxTPDataChunkCount = -1;
+        internal static void GetSever_TPDataChunkPacketStartPos(BinaryReader reader) {
+            if (!VaultUtils.isClient) {
+                return;
+            }
+
+            TPDataChunkPacketStartPos = reader.ReadInt64();
+        }
+
         //客户端接收拼图总数，为后续逐一请求拼图做准备
         internal static void GetSever_MaxTPDataChunkCount(BinaryReader reader) {
             if (!VaultUtils.isClient) {
                 return;
             }
 
-            MaxTPDataChunkCount = (ushort)reader.ReadUInt16();
+            MaxTPDataChunkCount = reader.ReadUInt16();
             NetPercentage = 10f;
             //下面将开始请求第一块拼图
             ModPacket modPacket = VaultMod.Instance.GetPacket();
@@ -439,21 +461,33 @@ namespace InnoVault.TileProcessors
             ushort index = reader.ReadUInt16();
             int count = reader.ReadInt32();
             byte[] data = reader.ReadBytes(count);
+
+            if (LocalTPDataChunks_IndexToChunks.TryGetValue(index, out var bytes) && bytes?.Length > 0) {
+                if (LocalTPDataChunks_IndexToChunks.Count >= MaxTPDataChunkCount) {
+                    VaultMod.Instance.Logger.Debug($"客户端收集拼图完成，进行处理");
+                    Handle_TPDataChunks();
+                }
+                return;
+            }
+
             LocalTPDataChunks.Add(data);
             LocalTPDataChunks_IndexToChunks[index] = data;
             if (MaxTPDataChunkCount == -1) {
                 throw new Exception("错误，拼图总数没有正确初始化");
             }
+
             if (LocalTPDataChunks_IndexToChunks.Count >= MaxTPDataChunkCount) {
                 VaultMod.Instance.Logger.Debug($"客户端收集拼图完成，进行处理");
                 Handle_TPDataChunks();
                 return;
             }
+
             ModPacket modPacket = VaultMod.Instance.GetPacket();
             modPacket.Write((byte)MessageType.SendToClient_TPDataChunk);
             modPacket.Write((ushort)LocalTPDataChunks.Count);
             modPacket.Send();//写入当前数量，作为下一个拼图的序号发送给服务器继续请求拼图
 
+            NetChunkIdleTime = 0;
             NetPercentage = 10f + (MaxTPDataChunkCount / (float)LocalTPDataChunks_IndexToChunks.Count) * 80f;
             VaultMod.Instance.Logger.Debug($"客户端请求下一块第{index + 1}块拼图中");
         }
@@ -475,7 +509,7 @@ namespace InnoVault.TileProcessors
                     }
                     
                     using BinaryReader reader = new BinaryReader(combinedStream);
-                    reader.BaseStream.Position = 4;
+                    reader.BaseStream.Position = TPDataChunkPacketStartPos;
                     NetPercentage = 99f;
                     VaultMod.Instance.Logger.Debug($"客户端开始合并数据流，得到数据流长度{combinedStream.Length}，比特数组长度:{count}，数据包长度{reader.BaseStream.Length}，数据包起点:{reader.BaseStream.Position}");
                     Handle_TPData_ReceiveInner(reader);
@@ -489,13 +523,16 @@ namespace InnoVault.TileProcessors
 
         private static void ResetTPDataChunkNet(int whoAmI = -1) {
             VaultMod.Instance.Logger.Debug($"初始化网络状态");
+            if (whoAmI == -1) {
+                whoAmI = Main.myPlayer;
+            }
+
+            NetChunkIdleTime = 0;
             NetPercentage = 0f;
             MaxTPDataChunkCount = -1;
             InitializeWorld = false;
             LoadenTPByNetWork = true;//标记为true，表明网络加载完成
-            if (whoAmI == -1) {
-                whoAmI = Main.myPlayer;
-            }
+            
             TPDataSchedule[whoAmI] = TPDataScheduleEnum.Begin;
             TPDataChunks[whoAmI].Clear();
             TPDataChunks_IndexToChunks[whoAmI].Clear();
@@ -518,35 +555,21 @@ namespace InnoVault.TileProcessors
             return chunks;
         }
 
-        /// <summary>
-        /// 服务端响应TP数据链的请求后，接收数据
-        /// </summary>
-        [Obsolete("弃用的，保留于此作为占位符")]
-        public static void Handle_TPData_Receive(BinaryReader reader) {
-            //if (!VaultUtils.isClient) {
-            //    return;
-            //}
-
-            //InitializeWorld = reader.ReadBoolean();
-
-            //Handle_TPData_ReceiveInner(reader);
-            //InitializeWorld = false;
-            //LoadenTPByNetWork = true;//标记为true，表明网络加载完成
-        }
-
         private static void Handle_TPData_ReceiveInner(BinaryReader reader) {
             NetPercentage = 100f;
             VaultMod.Instance.Logger.Debug($"开始读取数据，得到数据流长度{reader.BaseStream.Length}");
-            int tpCount = reader.ReadInt32(); // 读取 TP 数量
+            int tpCount = reader.ReadInt32(); //读取 TP 数量
             if (tpCount < 0 || tpCount > MaxTPInWorldCount) {
-                VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: Received invalid TP count:{tpCount}, terminating read");
+                VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
+                    $"Received invalid TP count:{tpCount}, terminating read");
                 return;
             }
 
             for (int i = 0; i < tpCount; i++) {
                 //确保是合法的标记
                 if (reader.ReadUInt32() != TP_START_MARKER) {
-                    VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid markID: {i}, skipping to the next node");
+                    VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
+                        $"Invalid markID: {i}, skipping to the next node");
                     SkipToNextMarker(reader);
                     continue;
                 }
@@ -614,10 +637,21 @@ namespace InnoVault.TileProcessors
                 Main.NewText(timeoutMsg, Color.Red);
                 VaultMod.Instance.Logger.Warn(timeoutMsg);
             }
+
+            if (VaultUtils.isClient && ++NetChunkIdleTime > 120) {
+                NetChunkIdleTime = 0;
+                //重新申请
+                VaultMod.Instance.Logger.Debug($"第{LocalTPDataChunks.Count}块拼图响应时间超时，重新申请");
+                ModPacket modPacket = VaultMod.Instance.GetPacket();
+                modPacket.Write((byte)MessageType.SendToClient_TPDataChunk);
+                modPacket.Write((ushort)LocalTPDataChunks.Count);
+                modPacket.Send();
+            }
         }
 
         private static void DompTPinstanceNotFound(string name, Point16 position)
-            => VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {name}-position[{position}]，Skip");
+            => VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
+                $"No corresponding TileProcessor instance found: {name}-position[{position}]，Skip");
 
         /// <summary>
         /// 跳到下一个标记节点

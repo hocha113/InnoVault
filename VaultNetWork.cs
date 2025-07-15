@@ -7,7 +7,7 @@ namespace InnoVault
 {
     internal class VaultNetWork : IVaultLoader
     {
-        public enum MessageType : byte
+        internal enum MessageType : byte
         {
             PlaceInWorldSync,
             TPNetWork,
@@ -22,9 +22,10 @@ namespace InnoVault
             GetSever_TPDataChunk,
             GetSever_TPDataSchedule,
             GetSever_MaxTPDataChunkCount,
+            GetSever_TPDataChunkPacketStartPos,
         }
 
-        public static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
+        internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
             MessageType type = (MessageType)reader.ReadByte();
 
             if (type == MessageType.PlaceInWorldSync) {
@@ -34,10 +35,10 @@ namespace InnoVault
                 TileProcessorNetWork.TileProcessorReceiveData(reader, whoAmI);
             }
             else if (type == MessageType.ClientRequest_TPData_Send) {
-                TileProcessorNetWork.ServerRecovery_TPData(reader, whoAmI);
+                TileProcessorNetWork.ServerRecovery_TPData(whoAmI);
             }
             else if (type == MessageType.Handle_TPData_Receive) {
-                TileProcessorNetWork.Handle_TPData_Receive(reader);
+                //暂时空缺
             }
             else if (type == MessageType.ServerTPDeathVerify) {
                 TileProcessorNetWork.HandlerTPDeathByClient(reader);
@@ -65,6 +66,9 @@ namespace InnoVault
             }
             else if (type == MessageType.GetSever_MaxTPDataChunkCount) {
                 TileProcessorNetWork.GetSever_MaxTPDataChunkCount(reader);
+            }
+            else if (type == MessageType.GetSever_TPDataChunkPacketStartPos) {
+                TileProcessorNetWork.GetSever_TPDataChunkPacketStartPos(reader);
             }
         }
     }
