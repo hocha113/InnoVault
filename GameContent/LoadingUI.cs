@@ -260,7 +260,7 @@ namespace InnoVault.GameContent
                 return;
             }
 
-            float target = MathHelper.Clamp(TileProcessorNetWork.NetPercentage, 0f, 100f);
+            float target = MathHelper.Clamp(TileProcessorNetWork.NetLoadenPercentage, 0f, 100f);
 
             if (target > percentage) {
                 percentage = MathHelper.Lerp(percentage, target, 0.1f);

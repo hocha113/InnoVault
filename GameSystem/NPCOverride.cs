@@ -398,6 +398,15 @@ namespace InnoVault.GameSystem
             }
         }
 
+        internal static void HandlePacket(MessageType type, BinaryReader reader) {
+            if (type == MessageType.NPCOverrideAI) {
+                NetAIReceive(reader);
+            }
+            else if (type == MessageType.NPCOverrideOtherAI) {
+                OtherNetWorkReceiveHander(reader);
+            }
+        }
+
         #endregion
     }
 }

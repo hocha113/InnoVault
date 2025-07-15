@@ -348,6 +348,29 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 将比特数组按给定大小进行分割
+        /// </summary>
+        /// <param name="fullBytes"></param>
+        /// <param name="maxChunkSize"></param>
+        /// <returns></returns>
+        public static List<byte[]> SplitBytes(byte[] fullBytes, int maxChunkSize) {
+            List<byte[]> chunks = new();
+
+            int totalLength = fullBytes.Length;
+            int offset = 0;
+
+            while (offset < totalLength) {
+                int chunkSize = Math.Min(maxChunkSize, totalLength - offset);
+                byte[] chunk = new byte[chunkSize];
+                Array.Copy(fullBytes, offset, chunk, 0, chunkSize);
+                chunks.Add(chunk);
+                offset += chunkSize;
+            }
+
+            return chunks;
+        }
+
+        /// <summary>
         /// 按照给定的进度逐步显示文本的一部分
         /// </summary>
         /// <param name="text">要显示的完整文本</param>
