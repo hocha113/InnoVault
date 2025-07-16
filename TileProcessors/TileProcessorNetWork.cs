@@ -367,7 +367,6 @@ namespace InnoVault.TileProcessors
             long packStartPos = fullPacket.BaseStream.Position;
             SendToClient_TPDataChunkPacketStartPos(whoAmI, packStartPos);
 
-            VaultMod.Instance.Logger.Debug($"服务器初始数据包指针位置:{packStartPos}");
             fullPacket.Write(sendTPCount);
 
             foreach (TileProcessor tp in activeTPs) {
@@ -385,7 +384,6 @@ namespace InnoVault.TileProcessors
             byte[] fullBytes = stream.ToArray();
             TPDataChunks[whoAmI] = VaultUtils.SplitBytes(fullBytes, MaxStreamSize);
 
-            VaultMod.Instance.Logger.Debug($"开始向客户端发送数据流，得到数据流长度{fullPacket.BaseStream.Length}，转化后的fullBytes长度:{fullBytes.Length}");
 
             SendToClient_MaxTPDataChunkCount(whoAmI);
         }
@@ -405,7 +403,7 @@ namespace InnoVault.TileProcessors
             if (!VaultUtils.isServer) {
                 return;
             }
-            VaultMod.Instance.Logger.Debug("向客户端发送一次拼图总数");
+
             ModPacket modPacket = VaultMod.Instance.GetPacket();
             modPacket.Write((byte)MessageType.GetSever_MaxTPDataChunkCount);
             modPacket.Write((ushort)TPDataChunks[whoAmI].Count);
@@ -426,10 +424,7 @@ namespace InnoVault.TileProcessors
             modPacket.Write(TPDataChunks[whoAmI][index]);
             modPacket.Send(whoAmI);
 
-            VaultMod.Instance.Logger.Debug($"这里需要接收客户端发来的拼图请求将对应的拼图发送过去，这是第{index}块拼图");
-
             if (index == TPDataChunks[whoAmI].Count - 1) {
-                VaultMod.Instance.Logger.Debug($"总共{index}块拼图发送完成，终止数据流");
                 ResetTPDataChunkNet(whoAmI);
             }
         }
@@ -455,8 +450,6 @@ namespace InnoVault.TileProcessors
             modPacket.Write((byte)MessageType.SendToClient_TPDataChunk);
             modPacket.Write((ushort)LocalTPDataChunks.Count);
             modPacket.Send();//写入当前数量，作为下一个拼图的序号发送给服务器继续请求拼图
-
-            VaultMod.Instance.Logger.Debug($"客户端接收到拼图总数{MaxTPDataChunkCount}，开始链式请求拼图");
         }
 
         //客户端接收拼图
@@ -471,7 +464,6 @@ namespace InnoVault.TileProcessors
 
             if (LocalTPDataChunks_IndexToChunks.TryGetValue(index, out var bytes) && bytes?.Length > 0) {
                 if (LocalTPDataChunks_IndexToChunks.Count >= MaxTPDataChunkCount) {
-                    VaultMod.Instance.Logger.Debug($"客户端收集拼图完成，进行处理");
                     Handle_TPDataChunks();
                 }
                 return;
@@ -486,7 +478,6 @@ namespace InnoVault.TileProcessors
             }
 
             if (LocalTPDataChunks_IndexToChunks.Count >= MaxTPDataChunkCount) {
-                VaultMod.Instance.Logger.Debug($"客户端收集拼图完成，进行处理");
                 Handle_TPDataChunks();
                 return;
             }
@@ -498,7 +489,6 @@ namespace InnoVault.TileProcessors
 
             NetChunkIdleTime = 0;
             NetLoadenPercentage = 10f + (MaxTPDataChunkCount / (float)LocalTPDataChunks_IndexToChunks.Count) * 80f;
-            VaultMod.Instance.Logger.Debug($"客户端请求下一块第{index + 1}块拼图中");
         }
 
         //客户端在收集完拼图后，将其进行处理
@@ -523,7 +513,6 @@ namespace InnoVault.TileProcessors
                     }
                     reader.BaseStream.Position = TPDataChunkPacketStartPos;
                     NetLoadenPercentage = 99f;
-                    VaultMod.Instance.Logger.Debug($"客户端开始合并数据流，得到数据流长度{combinedStream.Length}，数据包长度{reader.BaseStream.Length}，数据包起点:{reader.BaseStream.Position}");
                     Handle_TPData_ReceiveInner(reader);
                 } catch (InvalidOperationException ex) {
                     VaultMod.Instance.Logger.Error($"The puzzle data failed to start the merging process: {ex.Message}");
@@ -536,7 +525,6 @@ namespace InnoVault.TileProcessors
         }
 
         private static void ResetTPDataChunkNet(int whoAmI = -1) {
-            VaultMod.Instance.Logger.Debug($"初始化网络状态");
             if (whoAmI == -1) {
                 whoAmI = Main.myPlayer;
             }
@@ -554,7 +542,7 @@ namespace InnoVault.TileProcessors
 
         private static void Handle_TPData_ReceiveInner(BinaryReader reader) {
             NetLoadenPercentage = 100f;
-            VaultMod.Instance.Logger.Debug($"开始读取数据，得到数据流长度{reader.BaseStream.Length}");
+
             int tpCount = reader.ReadInt32(); //读取 TP 数量
             if (tpCount < 0 || tpCount > MaxTPInWorldCount) {
                 VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
@@ -641,7 +629,6 @@ namespace InnoVault.TileProcessors
                 && MaxTPDataChunkCount > 0 && ++NetChunkIdleTime > 120) {
                 NetChunkIdleTime = 0;
                 //重新申请
-                VaultMod.Instance.Logger.Debug($"第{LocalTPDataChunks.Count}块拼图响应时间超时，重新申请");
                 ModPacket modPacket = VaultMod.Instance.GetPacket();
                 modPacket.Write((byte)MessageType.SendToClient_TPDataChunk);
                 modPacket.Write((ushort)LocalTPDataChunks.Count);
@@ -678,6 +665,7 @@ namespace InnoVault.TileProcessors
             }
         }
 
+        //网络数据流的交汇点，网络钩子集中在此处
         internal static void HandlePacket(MessageType type, Mod mod, BinaryReader reader, int whoAmI) {
             if (type == MessageType.Handler_PlaceInWorld) {
                 Handler_PlaceInWorld(mod, reader, whoAmI);

@@ -290,38 +290,46 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 发送实体的网络数据，和<see cref="ReceiveData"/>配合使用<br/>
-        /// 在有客户端进入世界时也会调用该网络钩子，正确的收发逻辑决定该实体能否在进入世界后初始化自身的内容<br/>
-        /// <see cref="SaveData"/>在多人模式的客户端上并不会发挥作用，在其中保存的数据需要以合适的形式借助网络钩子由服务器发送至客户端<br/>
-        /// 服务器初始化世界的网络调用时，<see cref="TileProcessorNetWork.InitializeWorld"/>
-        /// 为<see langword="true"/>，可以以此进行特化的初始化网络数据发送
+        /// 向客户端发送当前实体的网络数据，需与 <see cref="ReceiveData"/> 配套使用<br/>
+        /// 在新的客户端加入世界时，服务器会主动调用此方法以同步实体状态，
+        /// 因此其正确实现对于实体的初始化和同步至关重要<br/>
+        /// 请注意：<see cref="SaveData"/> 在客户端不会生效，如需持久化数据在客户端可见，
+        /// 应通过此方法主动将所需数据封装进 <see cref="ModPacket"/> 发送<br/>
+        /// 若当前处于世界初始化阶段（即 <see cref="TileProcessorNetWork.InitializeWorld"/> 为 <see langword="true"/>），
+        /// 可执行特化逻辑以确保实体初始状态正确同步
         /// </summary>
         public virtual void SendData(ModPacket data) {
 
         }
 
         /// <summary>
-        /// 接收数据，和<see cref="SendData(ModPacket)"/>配合使用<br/>
-        /// 在有客户端进入世界时也会调用该网络钩子，正确的收发逻辑决定该实体能否在进入世界后初始化自身的内容<br/>
-        /// <see cref="LoadData(TagCompound)"/>在多人模式的客户端上并不会发挥作用，在其中接收的数据需要以合适的形式借助网络钩子由服务器发送至客户端<br/>
-        /// 服务器初始化世界的网络调用时，<see cref="TileProcessorNetWork.InitializeWorld"/>
-        /// 为<see langword="true"/>，可以以此进行特化的初始化网络数据接收
+        /// 接收来自服务器的网络数据，需与 <see cref="SendData(ModPacket)"/> 配套使用<br/>
+        /// 客户端在加入世界后将调用该方法以初始化实体状态，
+        /// 该逻辑若实现不当，可能导致实体处于未初始化或错误状态<br/>
+        /// 与 <see cref="LoadData(TagCompound)"/> 不同，该方法适用于运行时同步（尤其是多人游戏场景），
+        /// 用于接收服务器通过网络传来的实体状态数据<br/>
+        /// 若当前处于世界初始化阶段（即 <see cref="TileProcessorNetWork.InitializeWorld"/> 为 <see langword="true"/>），
+        /// 可执行特化处理以完整恢复实体状态
         /// </summary>
         public virtual void ReceiveData(BinaryReader reader, int whoAmI) {
 
         }
 
         /// <summary>
-        /// 保存这个实体的数据，对应的需要重写<see cref="LoadData"/>来接受对应的数据
-        /// 此函数不会在客户端上调用，如果希望客户端能正确接收世界的存档数据，使用<see cref="SendData(ModPacket)"/>发送初始化数据
+        /// 保存该实体的本地持久化数据（例如存档用），用于世界保存流程中<br/>
+        /// 此方法仅在服务器端调用，客户端不会触发<br/>
+        /// 若需要使客户端在进入世界时获取这些持久化数据，应在 <see cref="SendData(ModPacket)"/> 中显式发送<br/>
+        /// 需要配合 <see cref="LoadData(TagCompound)"/> 进行数据读取，以实现完整的本地存取逻辑
         /// </summary>
         public virtual void SaveData(TagCompound tag) {
 
         }
 
         /// <summary>
-        /// 加载这个实体的数据，如果<see cref="SaveData"/>没有存入任何数据，该函数就不会被调用
-        /// 此函数不会在客户端上调用，如果希望客户端能正确接收世界的存档数据，使用<see cref="ReceiveData"/>发送初始化数据
+        /// 加载该实体的本地持久化数据，需与 <see cref="SaveData"/> 搭配使用<br/>
+        /// 仅在服务器端世界加载流程中调用，客户端不会触发此方法<br/>
+        /// 若希望客户端在进入世界后恢复相关状态，应通过 <see cref="ReceiveData"/> 接收服务器发送的初始化数据<br/>
+        /// 注意：如果 <see cref="SaveData"/> 中未保存任何数据，此方法将不会被调用
         /// </summary>
         public virtual void LoadData(TagCompound tag) {
 
