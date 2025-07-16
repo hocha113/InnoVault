@@ -1,5 +1,6 @@
 ﻿using InnoVault.GameContent;
 using Microsoft.Xna.Framework;
+using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -162,8 +163,23 @@ namespace InnoVault.TileProcessors
             modPacket.Write((byte)MessageType.Handler_TileProcessorIndsData);
             modPacket.Write(tp.LoadenName);
             modPacket.WritePoint16(tp.Position);
-            tp.SendData(modPacket);
+            TileProcessorInstanceDoSendData(tp, modPacket);
             modPacket.Send();
+        }
+
+        /// <summary>
+        /// 该函数是对发送逻辑的二次封装，用于在让TP实体发送数据时进行通用的额外处理
+        /// </summary>
+        /// <param name="tileProcessor"></param>
+        /// <param name="modPacket"></param>
+        public static void TileProcessorInstanceDoSendData(TileProcessor tileProcessor, ModPacket modPacket) {
+            try {
+                tileProcessor.SendData(modPacket);
+            } catch (Exception ex) {
+                tileProcessor.SendCooldownTicks = 60;
+                string msg = $"TileProcessorInstanceDoSendData-Data Send Failure: {ex.Message}\n{ex.StackTrace}";
+                VaultMod.LoggerError($"{tileProcessor.LoadenName}:NullRef@SemdData", msg);
+            }
         }
 
         /// <summary>
@@ -172,13 +188,13 @@ namespace InnoVault.TileProcessors
         /// <param name="tileProcessor"></param>
         /// <param name="reader"></param>
         /// <param name="whoAmI"></param>
-        private static void TileProcessorInstanceDoReceiveData(TileProcessor tileProcessor, BinaryReader reader, int whoAmI) {
+        public static void TileProcessorInstanceDoReceiveData(TileProcessor tileProcessor, BinaryReader reader, int whoAmI) {
             try {
                 tileProcessor.ReceiveData(reader, whoAmI);
             } catch (Exception ex) {
-                string msg = $"TileProcessorInstanceDoReceiveData-Data Reception Failure: {ex.Message}\n{ex.StackTrace}";
-                VaultMod.Instance.Logger.Error(msg);
                 tileProcessor.SendCooldownTicks = 60;
+                string msg = $"TileProcessorInstanceDoReceiveData-Data Reception Failure: {ex.Message}\n{ex.StackTrace}";
+                VaultMod.LoggerError($"{tileProcessor.LoadenName}:NullRef@ReceiveData", msg);
             }
         }
 
@@ -216,7 +232,7 @@ namespace InnoVault.TileProcessors
                 modPacket.Write((byte)MessageType.Handler_TileProcessorIndsData);
                 modPacket.Write(loadenName);
                 modPacket.WritePoint16(position);
-                tileProcessor.SendData(modPacket);
+                TileProcessorInstanceDoSendData(tileProcessor, modPacket);
                 modPacket.Send(-1, whoAmI);
             }
         }

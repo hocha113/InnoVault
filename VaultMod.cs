@@ -29,6 +29,14 @@ namespace InnoVault
         /// 用于模组总程序集查找的性能优化，在加载完成后会立即释放
         /// </summary>
         internal static Type[] AnyModCodeType = null;
+        /// <summary>
+        /// 存储模组内报错时间戳
+        /// </summary>
+        internal static readonly Dictionary<string, DateTime> lastErrorByKey = [];
+        /// <summary>
+        /// 报错节流冷却间隔
+        /// </summary>
+        internal const int LogCooldownSeconds = 5;
         /// <inheritdoc/>
         public override void Load() {
             Loaders = VaultUtils.GetSubInterface<IVaultLoader>();
@@ -65,6 +73,16 @@ namespace InnoVault
             TagCache.Clear();
             ModTypeSetCache?.Clear();
             AnyModCodeType = null;
+            lastErrorByKey?.Clear();
+        }
+
+        internal static void LoggerError(string key, string msg) {
+            if (lastErrorByKey.TryGetValue(key, out var time)
+                && (DateTime.UtcNow - time).TotalSeconds < LogCooldownSeconds) {
+                return; //同类错误短时间内忽略
+            }
+            Instance.Logger.Error(msg);
+            lastErrorByKey[key] = DateTime.UtcNow;
         }
 
         /// <inheritdoc/>

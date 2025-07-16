@@ -77,7 +77,7 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public int SendpacketCount;
         /// <summary>
-        /// 发包峰值，默认为10
+        /// 一秒内发包峰值，默认为10
         /// </summary>
         public int SendpacketPeak = 10;
         /// <summary>
@@ -290,14 +290,22 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 发送数据
+        /// 发送实体的网络数据，和<see cref="ReceiveData"/>配合使用<br/>
+        /// 在有客户端进入世界时也会调用该网络钩子，正确的收发逻辑决定该实体能否在进入世界后初始化自身的内容<br/>
+        /// <see cref="SaveData"/>在多人模式的客户端上并不会发挥作用，在其中保存的数据需要以合适的形式借助网络钩子由服务器发送至客户端<br/>
+        /// 服务器初始化世界的网络调用时，<see cref="TileProcessorNetWork.InitializeWorld"/>
+        /// 为<see langword="true"/>，可以以此进行特化的初始化网络数据发送
         /// </summary>
         public virtual void SendData(ModPacket data) {
 
         }
 
         /// <summary>
-        /// 接收数据
+        /// 接收数据，和<see cref="SendData(ModPacket)"/>配合使用<br/>
+        /// 在有客户端进入世界时也会调用该网络钩子，正确的收发逻辑决定该实体能否在进入世界后初始化自身的内容<br/>
+        /// <see cref="LoadData(TagCompound)"/>在多人模式的客户端上并不会发挥作用，在其中接收的数据需要以合适的形式借助网络钩子由服务器发送至客户端<br/>
+        /// 服务器初始化世界的网络调用时，<see cref="TileProcessorNetWork.InitializeWorld"/>
+        /// 为<see langword="true"/>，可以以此进行特化的初始化网络数据接收
         /// </summary>
         public virtual void ReceiveData(BinaryReader reader, int whoAmI) {
 
@@ -305,6 +313,7 @@ namespace InnoVault.TileProcessors
 
         /// <summary>
         /// 保存这个实体的数据，对应的需要重写<see cref="LoadData"/>来接受对应的数据
+        /// 此函数不会在客户端上调用，如果希望客户端能正确接收世界的存档数据，使用<see cref="SendData(ModPacket)"/>发送初始化数据
         /// </summary>
         public virtual void SaveData(TagCompound tag) {
 
@@ -312,6 +321,7 @@ namespace InnoVault.TileProcessors
 
         /// <summary>
         /// 加载这个实体的数据，如果<see cref="SaveData"/>没有存入任何数据，该函数就不会被调用
+        /// 此函数不会在客户端上调用，如果希望客户端能正确接收世界的存档数据，使用<see cref="ReceiveData"/>发送初始化数据
         /// </summary>
         public virtual void LoadData(TagCompound tag) {
 
