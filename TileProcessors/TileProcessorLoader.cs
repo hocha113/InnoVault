@@ -94,8 +94,14 @@ namespace InnoVault.TileProcessors
         /// 所有的<see cref="GlobalTileProcessor"/>实例在此处储存
         /// </summary>
         internal static List<GlobalTileProcessor> TPGlobalHooks { get; private set; } = [];
-
+        /// <summary>
+        /// 世界TP加载进度百分比，范围 0~100用于 UI 显示传输进度
+        /// 线程安全字段，可能被后台线程更新
+        /// </summary>
+        internal static volatile float WorldLoadenPercentage;
+        //反射KillMultiTile存储的方法对象
         private static MethodBase onTile_KillMultiTile_Method;
+        //用于挂载KillMultiTile的委托类型
         private delegate void On_Tile_KillMultiTile_Dalegate(int i, int j, int frameX, int frameY, int type);
         #endregion
 
@@ -300,6 +306,8 @@ namespace InnoVault.TileProcessors
                 TP_Point_To_Instance.Clear();
             }
 
+            WorldLoadenPercentage = 0;
+
             Task.Run(async () => {
                 LoadenTP = false;
                 try {
@@ -309,6 +317,8 @@ namespace InnoVault.TileProcessors
                 } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error($"[LoadWorldTileProcessor] An exception occurred while waiting for VaultSave.LoadenWorld: {ex.Message}");
                 }
+
+                WorldLoadenPercentage = 10;
 
                 try {
                     LoadWorldTileProcessorInner();
@@ -321,8 +331,15 @@ namespace InnoVault.TileProcessors
         }
 
         private static void LoadWorldTileProcessorInner() {
+            uint tileCount = (uint)(Main.tile.Width * Main.tile.Height);
+            uint tileNum = 0;
+
             for (int x = 0; x < Main.tile.Width; x++) {
                 for (int y = 0; y < Main.tile.Height; y++) {
+                    if ((++tileNum & 0xFFF) == 0) {//每处理4096个tile更新一次
+                        WorldLoadenPercentage = 10 + (80 * tileNum) / tileCount;
+                    }
+
                     Tile tile = Main.tile[x, y];
                     if (tile == null || !tile.HasTile) {
                         continue;
@@ -342,8 +359,11 @@ namespace InnoVault.TileProcessors
                 LoadWorldData(ActiveWorldTagData);
             }
 
-            foreach (TileProcessor tp in TP_InWorld.ToList()) {
-                if (!tp.Active) {
+            WorldLoadenPercentage = 100;
+
+            for (int i = 0; i < TP_InWorld.Count; i++) {
+                var tp = TP_InWorld[i];
+                if (tp == null || !tp.Active) {
                     continue;
                 }
                 tp.LoadInWorld();

@@ -158,13 +158,14 @@ namespace InnoVault.GameContent
     {
         public override LayersModeEnum LayersMode => LayersModeEnum.Mod_MenuLoad;
         public override bool DoActive => !VaultClientConfig.Instance.HideWorldLoadingScreen && !VaultSave.SavedWorld;
+        protected override float Fadeout => 0.04f;
         protected override (string, string) GetDynamicText() {
             // 动态省略号
             dotCounter++;
             string dots = new string('.', (dotCounter / 20) % 4); // 0~3 个点
             return (WorldLoadingText.Text5.Value + dots, string.Empty);
         }
-        protected override void UpdateSengs() => sengs = DoActive ? 1f : Math.Max(sengs - 0.04f, 0f); // 防止透明度为负
+        protected override void UpdatePercentage() => percentage = 100f;
     }
 
     internal class WorldLoadingUI : LoadingUI
@@ -183,25 +184,27 @@ namespace InnoVault.GameContent
                 return !TileProcessorLoader.LoadenTP;
             }
         }
-        private float percentage;
-        private int idleTime;
+        protected float percentage;
+        protected int idleTime;
+        protected virtual float Fadeout => 0.1f;
         public override void OnEnterWorld() {
             percentage = 0f;
             idleTime = VaultUtils.isClient ? 30 : 0;
         }
-        protected override void UpdateSengs() {
+        protected sealed override void UpdateSengs() {
             if (DoActive) {
                 sengs = 1f;
             }
             else if (--idleTime < 0 && sengs > 0f) {
-                sengs -= 0.1f;
+                sengs = Math.Max(sengs - Fadeout, 0f);
             }
+            UpdatePercentage();
         }
         protected override (string, string) GetDynamicText() {
-            // 动态省略号
+            //动态省略号
             dotCounter++;
-            string dots = new string('.', (dotCounter / 20) % 4); // 0~3 个点
-            // 文本内容
+            string dots = new string('.', (dotCounter / 20) % 4); //0~3 个点
+            //文本内容
             string text1 = WorldLoadingText.Text1.Value + dots;
             string text2 = VaultSave.LoadenWorld ? WorldLoadingText.Text3.Value : WorldLoadingText.Text2.Value;
             if (VaultUtils.isClient) {
@@ -210,12 +213,23 @@ namespace InnoVault.GameContent
             text2 += dots;
             return (text1, text2);
         }
-        protected override void DrawGear(SpriteBatch spriteBatch, float opacity) {
-            if (VaultUtils.isSinglePlayer) {
-                base.DrawGear(spriteBatch, opacity);
-                return;
+        protected virtual void UpdatePercentage() {
+            float origTarget = TileProcessorLoader.WorldLoadenPercentage;
+            if (VaultUtils.isClient) {
+                origTarget = origTarget * 0.4f + TileProcessorNetWork.NetLoadenPercentage * 0.6f;
+            }
+            float target = MathHelper.Clamp(origTarget, 0f, 100f);
+
+            if (target > percentage) {
+                percentage = MathHelper.Lerp(percentage, target, 0.1f);
             }
 
+            //如果 UI 即将退出，就强行拉到 100%
+            if (!DoActive && sengs > 0f) {
+                percentage = 100f;
+            }
+        }
+        protected override void DrawGear(SpriteBatch spriteBatch, float opacity) {
             Texture2D gear = VaultAsset.GearWheel.Value;
 
             Vector2 drawPos = new Vector2(Main.screenWidth / 2f, Main.screenHeight * 0.7f);
@@ -233,8 +247,9 @@ namespace InnoVault.GameContent
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(0, BlendState.AlphaBlend, null, null, null, null, Main.UIScaleMatrix);
 
-            // 延迟一段时间再显示感叹号
-            if (++TileProcessorNetWork.loadTPNetworkTickCounter < TileProcessorNetWork.MaxBufferWaitingTimeMark * 2 / 3) {
+            //延迟一段时间再显示感叹号
+            if (VaultUtils.isSinglePlayer ||
+                TileProcessorNetWork.loadTPNetworkTickCounter < TileProcessorNetWork.MaxBufferWaitingTimeMark * 2 / 3) {
                 return;
             }
 
@@ -242,7 +257,7 @@ namespace InnoVault.GameContent
             Vector2 basePos = new Vector2(Main.screenWidth / 2f + 28, Main.screenHeight * 0.7f - 28);
             origin = axclamation.Size() / 2f;
 
-            // 动画效果
+            //动画效果
             float bounceOffset = (float)Math.Sin(time / 3f) * 4f;//垂直跳动
             float alphaPulse = 0.5f + 0.5f * (float)Math.Sin(time * 0.5f);//闪烁透明度
             float scalePulse = 1f + 0.05f * (float)Math.Sin(time * 0.4f);//轻微缩放
@@ -258,17 +273,6 @@ namespace InnoVault.GameContent
             base.DrawDynamicText(spriteBatch, opacity);
             if (!VaultUtils.isClient) {
                 return;
-            }
-
-            float target = MathHelper.Clamp(TileProcessorNetWork.NetLoadenPercentage, 0f, 100f);
-
-            if (target > percentage) {
-                percentage = MathHelper.Lerp(percentage, target, 0.1f);
-            }
-
-            // 如果 UI 即将退出，就强行拉到 100%
-            if (!DoActive && sengs > 0f) {
-                percentage = 100f;
             }
 
             string percentageMag = (percentage / 100f).ToString("P1", CultureInfo.InvariantCulture);
