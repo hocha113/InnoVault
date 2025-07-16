@@ -98,7 +98,7 @@ namespace InnoVault.TileProcessors
         /// 世界TP加载进度百分比，范围 0~100用于 UI 显示传输进度
         /// 线程安全字段，可能被后台线程更新
         /// </summary>
-        internal static volatile float WorldLoadenPercentage;
+        internal static volatile float WorldLoadProgress;
         //反射KillMultiTile存储的方法对象
         private static MethodBase onTile_KillMultiTile_Method;
         //用于挂载KillMultiTile的委托类型
@@ -306,7 +306,7 @@ namespace InnoVault.TileProcessors
                 TP_Point_To_Instance.Clear();
             }
 
-            WorldLoadenPercentage = 0;
+            WorldLoadProgress = 0;
 
             Task.Run(async () => {
                 LoadenTP = false;
@@ -318,7 +318,7 @@ namespace InnoVault.TileProcessors
                     VaultMod.Instance.Logger.Error($"[LoadWorldTileProcessor] An exception occurred while waiting for VaultSave.LoadenWorld: {ex.Message}");
                 }
 
-                WorldLoadenPercentage = 10;
+                WorldLoadProgress = 10;
 
                 try {
                     LoadWorldTileProcessorInner();
@@ -331,15 +331,10 @@ namespace InnoVault.TileProcessors
         }
 
         private static void LoadWorldTileProcessorInner() {
-            uint tileCount = (uint)(Main.tile.Width * Main.tile.Height);
-            uint tileNum = 0;
+            List<(ushort, ushort, ushort) > collectedDatas = new();
 
-            for (int x = 0; x < Main.tile.Width; x++) {
-                for (int y = 0; y < Main.tile.Height; y++) {
-                    if ((++tileNum & 0xFFF) == 0) {//每处理4096个tile更新一次
-                        WorldLoadenPercentage = 10 + (80 * tileNum) / tileCount;
-                    }
-
+            for (ushort x = 0; x < Main.tile.Width; x++) {
+                for (ushort y = 0; y < Main.tile.Height; y++) {
                     Tile tile = Main.tile[x, y];
                     if (tile == null || !tile.HasTile) {
                         continue;
@@ -349,9 +344,18 @@ namespace InnoVault.TileProcessors
                         continue;
                     }
 
-                    if (TileProcessorIsTopLeft(x, y, out Point16 point)) {
-                        AddInWorld(tile.TileType, point, null);
-                    }
+                    collectedDatas.Add((x, y, tile.TileType));
+                }
+            }
+
+            WorldLoadProgress = 15;
+
+            int count = collectedDatas.Count;
+            for (int i = 0; i < count; i++) {
+                var data = collectedDatas[i];
+                if (TileProcessorIsTopLeft(data.Item1, data.Item2, out Point16 point)) {
+                    AddInWorld(data.Item3, point, null);
+                    WorldLoadProgress = 15 + i * 75 / count;
                 }
             }
 
@@ -359,7 +363,7 @@ namespace InnoVault.TileProcessors
                 LoadWorldData(ActiveWorldTagData);
             }
 
-            WorldLoadenPercentage = 100;
+            WorldLoadProgress = 100;
 
             for (int i = 0; i < TP_InWorld.Count; i++) {
                 var tp = TP_InWorld[i];

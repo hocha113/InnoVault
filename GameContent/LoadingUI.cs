@@ -189,7 +189,7 @@ namespace InnoVault.GameContent
         protected virtual float Fadeout => 0.1f;
         public override void OnEnterWorld() {
             percentage = 0f;
-            idleTime = VaultUtils.isClient ? 30 : 0;
+            idleTime = 20;//防止在极短加载情况下UI一闪而过造成不适，20tick刚好够人眼看清
         }
         protected sealed override void UpdateSengs() {
             if (DoActive) {
@@ -214,9 +214,9 @@ namespace InnoVault.GameContent
             return (text1, text2);
         }
         protected virtual void UpdatePercentage() {
-            float origTarget = TileProcessorLoader.WorldLoadenPercentage;
+            float origTarget = TileProcessorLoader.WorldLoadProgress;
             if (VaultUtils.isClient) {
-                origTarget = origTarget * 0.4f + TileProcessorNetWork.NetLoadenPercentage * 0.6f;
+                origTarget = origTarget * 0.4f + TileProcessorNetWork.NetworkLoadProgress * 0.6f;
             }
             float target = MathHelper.Clamp(origTarget, 0f, 100f);
 
@@ -271,10 +271,6 @@ namespace InnoVault.GameContent
         }
         protected override void DrawDynamicText(SpriteBatch spriteBatch, float opacity) {
             base.DrawDynamicText(spriteBatch, opacity);
-            if (!VaultUtils.isClient) {
-                return;
-            }
-
             string percentageMag = (percentage / 100f).ToString("P1", CultureInfo.InvariantCulture);
             Vector2 textSize = FontAssets.MouseText.Value.MeasureString(percentageMag);
             Vector2 drawPos = new Vector2(0f, VaultAsset.GearWheel.Value.Height / -2f + textSize.Y / 2);

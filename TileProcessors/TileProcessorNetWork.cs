@@ -78,7 +78,7 @@ namespace InnoVault.TileProcessors
         /// 网络加载进度百分比，范围 0~100用于 UI 显示传输进度
         /// 线程安全字段，可能被后台线程更新
         /// </summary>
-        internal static volatile float NetLoadenPercentage;
+        internal static volatile float NetworkLoadProgress;
         /// <summary>
         /// 拼图链式数据流中无响应的 tick 计数器用于判断是否触发超时重传或终止当前数据流
         /// 单位：游戏帧数（tick）
@@ -105,7 +105,7 @@ namespace InnoVault.TileProcessors
         }
 
         void IVaultLoader.UnLoadData() {
-            NetLoadenPercentage = 0;
+            NetworkLoadProgress = 0;
             NetChunkIdleTime = 0;
             MaxTPDataChunkCount = -1;
             TPDataChunkPacketStartPos = -1;
@@ -293,7 +293,7 @@ namespace InnoVault.TileProcessors
             initializeWorldTickCounter = 0;
             loadTPNetworkTickCounter = 0;
             LoadenTPByNetWork = false;//标记为false，表示开始网络加载
-            NetLoadenPercentage = 0f;
+            NetworkLoadProgress = 0f;
 
             Task.Run(async () => {
                 try {//开启一个子线程，在客户端的TP加载好了后再发送数据链请求
@@ -305,7 +305,7 @@ namespace InnoVault.TileProcessors
                 }
 
                 try {
-                    NetLoadenPercentage = 2f;
+                    NetworkLoadProgress = 2f;
                     ModPacket modPacket = VaultMod.Instance.GetPacket();
                     modPacket.Write((byte)MessageType.SendToClient_TPData);
                     modPacket.Send();
@@ -444,7 +444,7 @@ namespace InnoVault.TileProcessors
             }
 
             MaxTPDataChunkCount = reader.ReadUInt16();
-            NetLoadenPercentage = 10f;
+            NetworkLoadProgress = 10f;
             //下面将开始请求第一块拼图
             ModPacket modPacket = VaultMod.Instance.GetPacket();
             modPacket.Write((byte)MessageType.SendToClient_TPDataChunk);
@@ -488,7 +488,7 @@ namespace InnoVault.TileProcessors
             modPacket.Send();//写入当前数量，作为下一个拼图的序号发送给服务器继续请求拼图
 
             NetChunkIdleTime = 0;
-            NetLoadenPercentage = 10f + (MaxTPDataChunkCount / (float)LocalTPDataChunks_IndexToChunks.Count) * 80f;
+            NetworkLoadProgress = 10f + (MaxTPDataChunkCount / (float)LocalTPDataChunks_IndexToChunks.Count) * 80f;
         }
 
         //客户端在收集完拼图后，将其进行处理
@@ -512,7 +512,7 @@ namespace InnoVault.TileProcessors
                         throw new InvalidOperationException("TPDataChunkPacketStartPos is not initialized. Puzzle data merge cannot proceed.");
                     }
                     reader.BaseStream.Position = TPDataChunkPacketStartPos;
-                    NetLoadenPercentage = 99f;
+                    NetworkLoadProgress = 99f;
                     Handle_TPData_ReceiveInner(reader);
                 } catch (InvalidOperationException ex) {
                     VaultMod.Instance.Logger.Error($"The puzzle data failed to start the merging process: {ex.Message}");
@@ -530,7 +530,7 @@ namespace InnoVault.TileProcessors
             }
 
             NetChunkIdleTime = 0;
-            NetLoadenPercentage = 0f;
+            NetworkLoadProgress = 0f;
             MaxTPDataChunkCount = -1;
             TPDataChunkPacketStartPos = -1;
             InitializeWorld = false;
@@ -541,7 +541,7 @@ namespace InnoVault.TileProcessors
         }
 
         private static void Handle_TPData_ReceiveInner(BinaryReader reader) {
-            NetLoadenPercentage = 100f;
+            NetworkLoadProgress = 100f;
 
             int tpCount = reader.ReadInt32(); //读取 TP 数量
             if (tpCount < 0 || tpCount > MaxTPInWorldCount) {
