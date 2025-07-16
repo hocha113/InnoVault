@@ -91,7 +91,7 @@ namespace InnoVault.GameContent
         protected virtual void DrawBack(SpriteBatch spriteBatch) {
             // 绘制背景
             Rectangle rectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
-            spriteBatch.Draw(VaultAsset.placeholder2.Value, rectangle, Color.Black * 0.6f * sengs);
+            spriteBatch.Draw(VaultAsset.placeholder2.Value, rectangle, Color.Black * 0.4f * sengs);
         }
 
         /// <summary>

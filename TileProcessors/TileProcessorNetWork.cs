@@ -34,11 +34,11 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 当前是否正在进行初始化世界的网络工作
         /// </summary>
-        public static bool InitializeWorld { get; private set; }
+        public static bool InitializeWorld { get; private set; } = false;
         /// <summary>
         /// 是否已经完成了TP实体的网络加载
         /// </summary>
-        public static bool LoadenTPByNetWork { get; private set; }
+        public static bool LoadenTPByNetWork { get; private set; } = true;
         //记录InitializeWorld属性的开启帧
         internal static int initializeWorldTickCounter;
         //记录LoadenTPByNetWork属性的关闭帧
@@ -47,24 +47,53 @@ namespace InnoVault.TileProcessors
         /// 网络缓冲加载的最大等待时间刻
         /// </summary>
         public const int MaxBufferWaitingTimeMark = 900;
-
+        /// <summary>
+        /// 存储所有玩家从服务端接收到的拼图数据块列表，按玩家WhoAmI组织
+        /// 仅服务端用于管理每个客户端的接收状态
+        /// </summary>
         internal static Dictionary<int, List<byte[]>> TPDataChunks = [];
+        /// <summary>
+        /// 当前客户端本地接收到的拼图数据块列表，映射到 <see cref="TPDataChunks"/> 中当前玩家的数据
+        /// 用于顺序合并完整拼图数据
+        /// </summary>
         internal static List<byte[]> LocalTPDataChunks {
             get => TPDataChunks[Main.myPlayer];
             set => TPDataChunks[Main.myPlayer] = value;
         }
-
+        /// <summary>
+        /// 服务端维护的每位客户端拼图块索引映射，方便按序号访问或重传某个数据块
+        /// key: 玩家 ID，value: (块索引 → 数据)
+        /// </summary>
         internal static Dictionary<int, Dictionary<ushort, byte[]>> TPDataChunks_IndexToChunks = [];
+        /// <summary>
+        /// 当前客户端本地记录的拼图数据块索引映射，映射到 <see cref="TPDataChunks_IndexToChunks"/> 中当前玩家的数据
+        /// 主要用于按 index 访问具体某一块数据，便于重组或重传判断
+        /// </summary>
         internal static Dictionary<ushort, byte[]> LocalTPDataChunks_IndexToChunks {
             get => TPDataChunks_IndexToChunks[Main.myPlayer];
             set => TPDataChunks_IndexToChunks[Main.myPlayer] = value;
         }
-
+        /// <summary>
+        /// 网络加载进度百分比，范围 0~100用于 UI 显示传输进度
+        /// 线程安全字段，可能被后台线程更新
+        /// </summary>
         internal static volatile float NetLoadenPercentage;
+        /// <summary>
+        /// 拼图链式数据流中无响应的 tick 计数器用于判断是否触发超时重传或终止当前数据流
+        /// 单位：游戏帧数（tick）
+        /// </summary>
         internal static int NetChunkIdleTime;
+        /// <summary>
+        /// 本次拼图传输中服务端发送或客户端预期接收的拼图块总数
+        /// 初始化为 -1 表示未开始任何拼图传输
+        /// </summary>
         internal static int MaxTPDataChunkCount = -1;
+        /// <summary>
+        /// 拼图数据在合并数据流时的起始偏移，用于跳过前置协议包头部分，读取有效内容
+        /// 如果为 -1，表示尚未初始化，合并处理将失败
+        /// 单位：字节（stream.Position）
+        /// </summary>
         internal static long TPDataChunkPacketStartPos = -1;
-
         #endregion
 
         void IVaultLoader.LoadData() {
@@ -75,9 +104,12 @@ namespace InnoVault.TileProcessors
         }
 
         void IVaultLoader.UnLoadData() {
+            NetLoadenPercentage = 0;
+            NetChunkIdleTime = 0;
             MaxTPDataChunkCount = -1;
+            TPDataChunkPacketStartPos = -1;
             InitializeWorld = false;
-            LoadenTPByNetWork = true;//标记为true，表明网络加载完成
+            LoadenTPByNetWork = true;
             TPDataChunks.Clear();
             TPDataChunks_IndexToChunks.Clear();
         }
@@ -242,6 +274,8 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
+            initializeWorldTickCounter = 0;
+            loadTPNetworkTickCounter = 0;
             LoadenTPByNetWork = false;//标记为false，表示开始网络加载
             NetLoadenPercentage = 0f;
 
@@ -277,6 +311,8 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
+            initializeWorldTickCounter = 0;
+            loadTPNetworkTickCounter = 0;
             InitializeWorld = true;
 
             Task.Run(async () => {
@@ -428,7 +464,9 @@ namespace InnoVault.TileProcessors
             LocalTPDataChunks.Add(data);
             LocalTPDataChunks_IndexToChunks[index] = data;
             if (MaxTPDataChunkCount == -1) {
-                throw new Exception("错误，拼图总数没有正确初始化");
+                VaultMod.Instance.Logger.Error("Error: The total number of puzzles was not correctly initialized.");
+                ResetTPDataChunkNet();
+                return;
             }
 
             if (LocalTPDataChunks_IndexToChunks.Count >= MaxTPDataChunkCount) {
@@ -453,21 +491,26 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
+            InitializeWorld = true;
+
             Task.Run(() => {
                 try {
                     using MemoryStream combinedStream = new();
-                    int count = 0;
                     for (ushort i = 0; i < MaxTPDataChunkCount; i++) {
                         byte[] data = LocalTPDataChunks_IndexToChunks[i];
-                        count += data.Length;
                         combinedStream.Write(data, 0, data.Length);
                     }
-                    
+
                     using BinaryReader reader = new BinaryReader(combinedStream);
+                    if (TPDataChunkPacketStartPos == -1) {
+                        throw new InvalidOperationException("TPDataChunkPacketStartPos is not initialized. Puzzle data merge cannot proceed.");
+                    }
                     reader.BaseStream.Position = TPDataChunkPacketStartPos;
                     NetLoadenPercentage = 99f;
-                    VaultMod.Instance.Logger.Debug($"客户端开始合并数据流，得到数据流长度{combinedStream.Length}，比特数组长度:{count}，数据包长度{reader.BaseStream.Length}，数据包起点:{reader.BaseStream.Position}");
+                    VaultMod.Instance.Logger.Debug($"客户端开始合并数据流，得到数据流长度{combinedStream.Length}，数据包长度{reader.BaseStream.Length}，数据包起点:{reader.BaseStream.Position}");
                     Handle_TPData_ReceiveInner(reader);
+                } catch (InvalidOperationException ex) {
+                    VaultMod.Instance.Logger.Error($"The puzzle data failed to start the merging process: {ex.Message}");
                 } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error($"An error occurred while executing ServerRecovery_TPDataInner: {ex.Message}");
                 } finally {
@@ -485,6 +528,7 @@ namespace InnoVault.TileProcessors
             NetChunkIdleTime = 0;
             NetLoadenPercentage = 0f;
             MaxTPDataChunkCount = -1;
+            TPDataChunkPacketStartPos = -1;
             InitializeWorld = false;
             LoadenTPByNetWork = true;//标记为true，表明网络加载完成
             
@@ -524,7 +568,8 @@ namespace InnoVault.TileProcessors
 
                 //通过 name 获取 TP ID
                 if (!TryGetTpID(loadenName, out int tpID)) {
-                    DompTPinstanceNotFound(loadenName, position);
+                    VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
+                    $"No corresponding TileProcessor instance found: {loadenName}-position[{position}]，Skip");
                     SkipToNextMarker(reader);
                     continue;
                 }
@@ -548,7 +593,8 @@ namespace InnoVault.TileProcessors
                 }
 
                 //仍然失败，则记录日志并跳过
-                DompTPinstanceNotFound(loadenName, position);
+                VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
+                    $"No corresponding TileProcessor instance found: {loadenName}-position[{position}]，Skip");
                 SkipToNextMarker(reader);
             }
         }
@@ -586,10 +632,6 @@ namespace InnoVault.TileProcessors
                 modPacket.Send();
             }
         }
-
-        private static void DompTPinstanceNotFound(string name, Point16 position)
-            => VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
-                $"No corresponding TileProcessor instance found: {name}-position[{position}]，Skip");
 
         /// <summary>
         /// 跳到下一个标记节点

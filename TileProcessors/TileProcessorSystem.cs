@@ -129,12 +129,6 @@ namespace InnoVault.TileProcessors
         }
 
         /// <inheritdoc/>
-        public override void OnWorldLoad() {
-            TileProcessorNetWork.initializeWorldTickCounter = 0;
-            TileProcessorNetWork.loadTPNetworkTickCounter = 0;
-        }
-
-        /// <inheritdoc/>
         public override void PostUpdateEverything() {
             if (!VaultUtils.isSinglePlayer) {
                 TileProcessorNetWork.UpdateNetworkStatusWatchdog();
