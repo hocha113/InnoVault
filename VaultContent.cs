@@ -39,7 +39,6 @@ namespace InnoVault
         public static T FindTP<T>(this Mod _) where T : TileProcessor => TileProcessorLoader.TP_Instances[TileProcessorLoader.GetModuleID<T>()] as T;
         /// <summary>
         /// 通过类型名称和关联模组查找粒子实例（<see cref="BasePRT"/>）
-        /// 遍历类型到模组的映射，匹配模组和类型名称，然后通过 ID 映射解析实例
         /// </summary>
         /// <param name="mod">拥有该粒子类型的模组实例</param>
         /// <param name="name">粒子类型的名称（通常为 <see cref="BasePRT"/> 子类的类名）</param>
@@ -59,7 +58,6 @@ namespace InnoVault
         }
         /// <summary>
         /// 通过类型名称和关联模组查找 UI 句柄实例（<see cref="UIHandle"/>）
-        /// 遍历类型到模组的映射，匹配模组和类型名称，然后通过 ID 映射解析实例
         /// </summary>
         /// <param name="mod">拥有该 UI 句柄类型的模组实例</param>
         /// <param name="name">UI 句柄类型的名称（通常为 <see cref="UIHandle"/> 子类的类名）</param>
@@ -78,11 +76,10 @@ namespace InnoVault
             return null;
         }
         /// <summary>
-        /// 通过类型名称和关联模组查找瓦片处理器实例（<see cref="TileProcessor"/>）
-        /// 遍历类型到模组的映射，匹配模组和类型名称，然后通过 ID 映射解析实例
+        /// 通过类型名称和关联模组查找<see cref="TileProcessor"/>实例
         /// </summary>
-        /// <param name="mod">拥有该瓦片处理器类型的模组实例</param>
-        /// <param name="name">瓦片处理器类型的名称（通常为 <see cref="TileProcessor"/> 子类的类名）</param>
+        /// <param name="mod">拥有该<see cref="TileProcessor"/>类型的模组实例</param>
+        /// <param name="name"><see cref="TileProcessor"/>的名称</param>
         /// <returns>匹配模组和名称的 <see cref="TileProcessor"/> 实例，若未找到则返回 <see langword="null"/></returns>
         /// <exception cref="System.Collections.Generic.KeyNotFoundException">若类型或 ID 在 <see cref="TileProcessorLoader.TP_Type_To_ID"/> 或 <see cref="TileProcessorLoader.TP_ID_To_Instance"/> 中不存在，可能抛出此异常</exception>
         public static TileProcessor FindTP(this Mod mod, string name) {

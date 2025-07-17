@@ -12,7 +12,7 @@ namespace InnoVault.GameContent.BaseEntity
     /// <summary>
     /// 设定一个基本的手持弹幕类，包含了手持弹幕所需要的基本行为和工具，并自动处理必要的网络同步
     /// </summary>
-    public abstract class BaseHeldProj : ModProjectile
+    public abstract class BaseHeldProj : ModProjectile, ITetheredPlayer
     {
         #region Data
         private bool _initialize;
@@ -28,14 +28,6 @@ namespace InnoVault.GameContent.BaseEntity
         /// </summary>
         public virtual Texture2D TextureValue => TextureAssets.Projectile[Type].Value;
         /// <summary>
-        /// 玩家左键控制
-        /// </summary>
-        public bool DownLeft { get; private set; }
-        /// <summary>
-        /// 玩家右键控制
-        /// </summary>
-        public bool DownRight { get; private set; }
-        /// <summary>
         /// 一般情况下我们默认该弹幕的玩家作为弹幕主人，因此，弹幕的<see cref="Projectile.owner"/>属性需要被正确设置
         /// </summary>
         public virtual Player Owner => Main.player[Projectile.owner];
@@ -44,6 +36,30 @@ namespace InnoVault.GameContent.BaseEntity
         /// </summary>
         public Item Item => Owner.GetItem();
         /// <summary>
+        /// 玩家左键控制
+        /// </summary>
+        public bool DownLeft { get; set; }
+        /// <summary>
+        /// 玩家右键控制
+        /// </summary>
+        public bool DownRight { get; set; }
+        /// <summary>
+        /// 获取玩家到鼠标的向量
+        /// </summary>
+        public virtual Vector2 ToMouse { get; set; }
+        /// <summary>
+        /// 获取玩家鼠标的位置
+        /// </summary>
+        public virtual Vector2 InMousePos { get; set; }
+        /// <summary>
+        /// 获取玩家到鼠标的角度
+        /// </summary>
+        public virtual float ToMouseA { get; set; }
+        /// <summary>
+        /// 获取玩家鼠标的单位向量
+        /// </summary>
+        public virtual Vector2 UnitToMouseV { get; set; }
+        /// <summary>
         /// 安全的获取一个重力倒转值
         /// </summary>
         public int SafeGravDir => Math.Sign(Owner.gravDir);
@@ -51,22 +67,6 @@ namespace InnoVault.GameContent.BaseEntity
         /// 弹幕的理论朝向
         /// </summary>
         public virtual int DirSign => Owner.direction * SafeGravDir;
-        /// <summary>
-        /// 获取玩家到鼠标的向量
-        /// </summary>
-        public virtual Vector2 ToMouse { get; protected set; }
-        /// <summary>
-        /// 获取玩家鼠标的位置
-        /// </summary>
-        public virtual Vector2 InMousePos { get; protected set; }
-        /// <summary>
-        /// 获取玩家到鼠标的角度
-        /// </summary>
-        public virtual float ToMouseA { get; protected set; }
-        /// <summary>
-        /// 获取玩家鼠标的单位向量
-        /// </summary>
-        public virtual Vector2 UnitToMouseV { get; protected set; }
         /// <summary>
         /// 是否处于开火时间，默认为<see langword="true"/>
         /// </summary>

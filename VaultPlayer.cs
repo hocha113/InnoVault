@@ -5,7 +5,7 @@ using Terraria.ModLoader.IO;
 
 namespace InnoVault
 {
-    internal class VaultPlayer : ModPlayer
+    internal sealed class VaultPlayer : ModPlayer
     {
         public override void OnEnterWorld() {
             UIHandleLoader.OnEnterWorld();
