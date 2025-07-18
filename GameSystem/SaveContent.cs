@@ -27,27 +27,26 @@ namespace InnoVault.GameSystem
         /// </summary>
         private static readonly ConcurrentDictionary<string, TagCompound> _cache = [];
         private static readonly Queue<string> _order = new();//记录插入顺序
+        private static readonly object _lock = new();
         private const int maxCapacity = 12;//最大缓存标签数量
         /// <summary>
         /// 将指定路径的数据写入缓存（如已存在则覆盖）
         /// </summary>
-        /// <param name="path">对应的存储路径（通常为 NBT 文件路径）</param>
+        /// <param name="path">对应的存储路径</param>
         /// <param name="tag">要缓存的 <see cref="TagCompound"/> 实例</param>
         public static void Set(string path, TagCompound tag) {
-            if (_cache.ContainsKey(path)) {
-                //已经存在，更新内容，不改变顺序
-                _cache[path] = tag;
-                return;
-            }
+            _cache[path] = tag;//插入或更新值
 
-            //新增缓存
-            _cache[path] = tag;
-            _order.Enqueue(path);
+            lock (_lock) {
+                if (_order.Contains(path)) {
+                    return;//已存在，顺序不变
+                }
 
-            //如果超过容量，移除最早缓存
-            if (_cache.Count > maxCapacity) {
-                string oldest = _order.Dequeue();
-                _cache.TryRemove(oldest, out _);
+                _order.Enqueue(path);
+                if (_order.Count > maxCapacity) {
+                    string oldest = _order.Dequeue();
+                    _cache.TryRemove(oldest, out _);
+                }
             }
         }
         /// <summary>
@@ -66,21 +65,19 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            // 如果移除成功，需要同步从队列里删除
-            // 由于队列不支持直接删除中间项，这里重建队列
-            var newOrder = new Queue<string>(_order.Count);
-            foreach (var p in _order) {
-                if (p == path) {
-                    continue;
+            lock (_lock) {
+                var newOrder = new Queue<string>(_order.Count);
+                foreach (var p in _order) {
+                    if (p == path) {
+                        continue;
+                    }
+                    newOrder.Enqueue(p);
                 }
-                newOrder.Enqueue(p);
-            }
 
-            while (_order.Count > 0) {
-                _order.Dequeue();
-            }
-            foreach (var p in newOrder) {
-                _order.Enqueue(p);
+                _order.Clear();
+                foreach (var p in newOrder) {
+                    _order.Enqueue(p);
+                }
             }
         }
         /// <summary>
@@ -88,7 +85,9 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static void Clear() {
             _cache.Clear();
-            _order.Clear();
+            lock (_lock) {
+                _order.Clear();
+            }
         }
     }
 
@@ -210,25 +209,6 @@ namespace InnoVault.GameSystem
                 using FileStream stream = File.OpenRead(path);
                 tag = TagIO.FromStream(stream);
                 TagCache.Set(path, tag);
-                return true;
-            } catch (Exception ex) {
-                VaultMod.Instance.Logger.Warn($"[TryLoadRootTag] Failed to load NBT file at {path}: {ex}");
-                return false;
-            }
-        }
-
-        public static bool TryLoadRootTag(Stream stream, string path, out TagCompound tag, bool forceReload = false, bool tagCache = true) {
-            tag = null!;
-            path = "@stream:" + path;
-            try {
-                if (!forceReload && TagCache.TryGet(path, out tag)) {
-                    return true;
-                }
-
-                tag = TagIO.FromStream(stream);
-                if (tagCache) {
-                    TagCache.Set(path, tag);
-                }
                 return true;
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Warn($"[TryLoadRootTag] Failed to load NBT file at {path}: {ex}");
@@ -410,6 +390,8 @@ namespace InnoVault.GameSystem
         }
         /// <summary>
         /// 保存数据，在<see cref="LoadData"/>中编写接收数据的逻辑
+        /// 不要直接通过实例访问调用该函数，除非清楚自己在干什么，
+        /// 如果需要针对类型的保存应该使用<see cref="DoSave{TTarget}(bool)"/>
         /// </summary>
         /// <param name="tag"></param>
         public virtual void SaveData(TagCompound tag) {
@@ -417,6 +399,8 @@ namespace InnoVault.GameSystem
         }
         /// <summary>
         /// 加载数据，如果<see cref="SaveData"/>没有存入数据，该函数就不会被调用
+        /// 不要直接通过实例访问调用该函数，除非清楚自己在干什么，
+        /// 如果需要针对类型的加载应该使用<see cref="DoLoad{TTarget}(bool)"/>
         /// </summary>
         /// <param name="tag"></param>
         public virtual void LoadData(TagCompound tag) {

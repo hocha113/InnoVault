@@ -576,6 +576,36 @@ namespace InnoVault
             }
         }
 
+        /// <summary>
+        /// 如果目标文件不存在，则从指定Mod的内部资源复制文件到目标路径
+        /// </summary>
+        /// <param name="mod">模组实例</param>
+        /// <param name="resourcePath">模组内资源路径</param>
+        /// <param name="targetPath">最终要保存的绝对路径</param>
+        public static void EnsureFileFromMod(this Mod mod, string resourcePath, string targetPath) {
+            if (File.Exists(targetPath)) {
+                return;
+            }
+
+            string directory = Path.GetDirectoryName(targetPath);
+            if (!string.IsNullOrEmpty(directory)) {
+                Directory.CreateDirectory(directory);
+            }
+
+            using Stream modStream = mod.GetFileStream(resourcePath, true);
+            using FileStream outputStream = File.Create(targetPath);
+            modStream.CopyTo(outputStream);
+        }
+
+        /// <summary>
+        /// 如果目标文件不存在，则从指定Mod的内部资源复制文件到目标路径
+        /// </summary>
+        /// <param name="modName">模组内部名</param>
+        /// <param name="resourcePath">模组内资源路径</param>
+        /// <param name="targetPath">最终要保存的绝对路径</param>
+        public static void EnsureFileFromMod(string modName, string resourcePath, string targetPath) 
+            => ModLoader.GetMod(modName).EnsureFileFromMod(resourcePath, targetPath);
+
         #endregion
 
         #region AI
