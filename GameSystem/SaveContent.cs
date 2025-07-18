@@ -216,6 +216,26 @@ namespace InnoVault.GameSystem
                 return false;
             }
         }
+
+        public static bool TryLoadRootTag(Stream stream, string path, out TagCompound tag, bool forceReload = false, bool tagCache = true) {
+            tag = null!;
+            path = "@stream:" + path;
+            try {
+                if (!forceReload && TagCache.TryGet(path, out tag)) {
+                    return true;
+                }
+
+                tag = TagIO.FromStream(stream);
+                if (tagCache) {
+                    TagCache.Set(path, tag);
+                }
+                return true;
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"[TryLoadRootTag] Failed to load NBT file at {path}: {ex}");
+                return false;
+            }
+        }
+
         /// <summary>
         /// 将传入的 <see cref="TagCompound"/> 数据写入指定路径的 NBT 文件
         /// 如果路径所处的目录不存在则自动创建
