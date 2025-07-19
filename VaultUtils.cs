@@ -9,6 +9,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
+using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using Terraria;
@@ -578,33 +579,119 @@ namespace InnoVault
 
         /// <summary>
         /// 如果目标文件不存在，则从指定Mod的内部资源复制文件到目标路径
-        /// </summary>
-        /// <param name="mod">模组实例</param>
-        /// <param name="resourcePath">模组内资源路径</param>
-        /// <param name="targetPath">最终要保存的绝对路径</param>
-        public static void EnsureFileFromMod(this Mod mod, string resourcePath, string targetPath) {
-            if (File.Exists(targetPath)) {
-                return;
-            }
-
-            string directory = Path.GetDirectoryName(targetPath);
-            if (!string.IsNullOrEmpty(directory)) {
-                Directory.CreateDirectory(directory);
-            }
-
-            using Stream modStream = mod.GetFileStream(resourcePath, true);
-            using FileStream outputStream = File.Create(targetPath);
-            modStream.CopyTo(outputStream);
-        }
-
-        /// <summary>
-        /// 如果目标文件不存在，则从指定Mod的内部资源复制文件到目标路径
+        /// 同时会删除旧版本文件，包括无版本号视为 v0 的旧文件
         /// </summary>
         /// <param name="modName">模组内部名</param>
         /// <param name="resourcePath">模组内资源路径</param>
         /// <param name="targetPath">最终要保存的绝对路径</param>
-        public static void EnsureFileFromMod(string modName, string resourcePath, string targetPath) 
-            => ModLoader.GetMod(modName).EnsureFileFromMod(resourcePath, targetPath);
+        public static void EnsureFileFromMod(string modName, string resourcePath, string targetPath) {
+            if (string.IsNullOrEmpty(modName)) {
+                throw new ArgumentNullException(nameof(modName), "Mod name cannot be null or empty.");
+            }   
+            if (string.IsNullOrEmpty(resourcePath)) {
+                throw new ArgumentNullException(nameof(resourcePath), "Resource path cannot be null or empty.");
+            } 
+            if (string.IsNullOrEmpty(targetPath)) {
+                throw new ArgumentNullException(nameof(targetPath), "Target path cannot be null or empty.");
+            } 
+
+            var mod = ModLoader.GetMod(modName) ?? throw new ArgumentException($"Mod '{modName}' not found.", nameof(modName));
+            mod.EnsureFileFromMod(resourcePath, targetPath);
+        }
+
+        /// <summary>
+        /// 如果目标文件不存在，则从指定Mod的内部资源复制文件到目标路径
+        /// 同时会删除旧版本文件，包括无版本号视为 v0 的旧文件
+        /// </summary>
+        public static void EnsureFileFromMod(this Mod mod, string resourcePath, string targetPath) {
+            if (mod == null) {
+                throw new ArgumentNullException(nameof(mod), "Mod cannot be null.");
+            }
+            if (string.IsNullOrEmpty(resourcePath)) {
+                throw new ArgumentNullException(nameof(resourcePath), "Resource path cannot be null or empty.");
+            }
+            if (string.IsNullOrEmpty(targetPath)) {
+                throw new ArgumentNullException(nameof(targetPath), "Target path cannot be null or empty.");
+            }
+
+            try {
+                if (!File.Exists(targetPath)) {
+                    string directory = Path.GetDirectoryName(targetPath);
+                    if (!string.IsNullOrEmpty(directory)) {
+                        Directory.CreateDirectory(directory);
+                    }
+
+                    TryDeleteOldVersionFiles(targetPath);
+
+                    using Stream modStream = mod.GetFileStream(resourcePath, true)
+                        ?? throw new FileNotFoundException($"Resource '{resourcePath}' not found in mod '{mod.Name}'.");
+                    using FileStream outputStream = File.Create(targetPath);
+                    modStream.CopyTo(outputStream);
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance?.Logger?.Error($"Failed to ensure file from mod: {targetPath}\n{ex}");
+                throw;
+            }
+        }
+
+        /// <summary>
+        /// 删除旧版本的同类文件，当前文件保留，其它旧版（包括无版本号视作v0）自动删除
+        /// </summary>
+        public static void TryDeleteOldVersionFiles(string targetPath) {
+            try {
+                string directory = Path.GetDirectoryName(targetPath);
+                if (!Directory.Exists(directory)) {
+                    VaultMod.Instance?.Logger?.Warn($"Directory does not exist: {directory}");
+                    return;
+                }
+
+                string fileName = Path.GetFileNameWithoutExtension(targetPath);
+                string extension = Path.GetExtension(targetPath);
+
+                var match = Regex.Match(fileName, @"^(.+?)_v(\d+)$", RegexOptions.IgnoreCase);
+                if (!match.Success) {
+                    return;
+                }
+
+                string baseName = match.Groups[1].Value;
+                if (!int.TryParse(match.Groups[2].Value, out int currentVersion)) {
+                    VaultMod.Instance?.Logger?.Warn($"Invalid version number in file: {targetPath}");
+                    return;
+                }
+
+                string[] files = Directory.GetFiles(directory, $"{baseName}*{extension}");
+                foreach (string file in files) {
+                    string otherName = Path.GetFileNameWithoutExtension(file);
+                    if (file.Equals(targetPath, StringComparison.OrdinalIgnoreCase)) {
+                        continue;
+                    }
+
+                    var otherMatch = Regex.Match(otherName, @$"^{Regex.Escape(baseName)}_v(\d+)$", RegexOptions.IgnoreCase);
+                    if (otherMatch.Success) {
+                        if (int.TryParse(otherMatch.Groups[1].Value, out int version) && version < currentVersion) {
+                            TryDelete(file);
+                        }
+                    }
+                    else if (otherName == baseName) {
+                        TryDelete(file);
+                    }
+                }
+            } catch (Exception ex) {
+                VaultMod.LoggerError("@TryDeleteOldVersionFiles:Exception", $"Failed to delete old version files for: {targetPath}\n{ex}");
+            }
+        }
+
+        private static void TryDelete(string filePath) {
+            try {
+                File.Delete(filePath);
+            } catch (UnauthorizedAccessException) {
+                VaultMod.LoggerError("@TryDelete:UnauthorizedAccessException", $"Access denied when deleting file: {filePath}");
+            } catch (IOException ex) {
+                VaultMod.LoggerError("@TryDelete:IOException", $"IO error when deleting file: {filePath}. It may be in use.\n{ex}");
+            } catch (Exception ex) {
+                VaultMod.LoggerError("@TryDelete:Exception", $"Unexpected error when deleting file: {filePath}\n{ex}");
+            }
+        }
 
         #endregion
 
