@@ -356,7 +356,11 @@ namespace InnoVault.TileProcessors
             List<TileProcessor> activeTPs = TP_InWorld.ToList().FindAll(tp => tp.Active && tp.LoadenWorldSendData);
             int sendTPCount = activeTPs.Count;
             if (sendTPCount <= 0) {//如果没有可使用的TP实体就不用发送相关的数据了，虽然一般不会这样
-                ResetTPDataChunkNet(whoAmI);//这里的总断是在服务器上的单方面重制，需要发包告诉客户端
+                ResetTPDataChunkNet(whoAmI);
+                //这里的总断是在服务器上的单方面重置，需要发包告诉客户端
+                ModPacket modPacket = VaultMod.Instance.GetPacket();
+                modPacket.Write((byte)MessageType.GetSever_ResetTPDataChunkNet);
+                modPacket.Send(whoAmI);
                 return;
             }
 
@@ -541,12 +545,6 @@ namespace InnoVault.TileProcessors
             
             TPDataChunks[whoAmI].Clear();
             TPDataChunks_IndexToChunks[whoAmI].Clear();
-
-            if (VaultUtils.isServer) {//如果重置网络状态的行为发生在服务器上，就需要告诉对应客户端这件事
-                ModPacket modPacket = VaultMod.Instance.GetPacket();
-                modPacket.Write((byte)MessageType.GetSever_ResetTPDataChunkNet);
-                modPacket.Send(whoAmI);
-            }
         }
 
         private static void Handle_TPData_ReceiveInner(BinaryReader reader) {
