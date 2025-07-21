@@ -25,6 +25,7 @@ namespace InnoVault
             GetSever_TPDataChunk,
             GetSever_MaxTPDataChunkCount,
             GetSever_TPDataChunkPacketStartPos,
+            GetSever_ResetTPDataChunkNet,
         }
 
         internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {

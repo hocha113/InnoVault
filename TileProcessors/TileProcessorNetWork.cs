@@ -1,6 +1,5 @@
 ﻿using InnoVault.GameContent;
 using Microsoft.Xna.Framework;
-using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -357,7 +356,7 @@ namespace InnoVault.TileProcessors
             List<TileProcessor> activeTPs = TP_InWorld.ToList().FindAll(tp => tp.Active && tp.LoadenWorldSendData);
             int sendTPCount = activeTPs.Count;
             if (sendTPCount <= 0) {//如果没有可使用的TP实体就不用发送相关的数据了，虽然一般不会这样
-                ResetTPDataChunkNet(whoAmI);
+                ResetTPDataChunkNet(whoAmI);//这里的总断是在服务器上的单方面重制，需要发包告诉客户端
                 return;
             }
 
@@ -383,7 +382,6 @@ namespace InnoVault.TileProcessors
             using MemoryStream stream = fullPacket.BaseStream as MemoryStream;
             byte[] fullBytes = stream.ToArray();
             TPDataChunks[whoAmI] = VaultUtils.SplitBytes(fullBytes, MaxStreamSize);
-
 
             SendToClient_MaxTPDataChunkCount(whoAmI);
         }
@@ -529,6 +527,11 @@ namespace InnoVault.TileProcessors
                 whoAmI = Main.myPlayer;
             }
 
+            if (whoAmI < 0 || whoAmI >= Main.maxPlayers) {
+                VaultMod.Instance.Logger.Warn($"[ResetTPDataChunkNet] Invalid whoAmI: {whoAmI}");
+                return;
+            }
+
             NetChunkIdleTime = 0;
             NetworkLoadProgress = 0f;
             MaxTPDataChunkCount = -1;
@@ -538,6 +541,12 @@ namespace InnoVault.TileProcessors
             
             TPDataChunks[whoAmI].Clear();
             TPDataChunks_IndexToChunks[whoAmI].Clear();
+
+            if (VaultUtils.isServer) {//如果重置网络状态的行为发生在服务器上，就需要告诉对应客户端这件事
+                ModPacket modPacket = VaultMod.Instance.GetPacket();
+                modPacket.Write((byte)MessageType.GetSever_ResetTPDataChunkNet);
+                modPacket.Send(whoAmI);
+            }
         }
 
         private static void Handle_TPData_ReceiveInner(BinaryReader reader) {
@@ -633,6 +642,10 @@ namespace InnoVault.TileProcessors
                 modPacket.Write((byte)MessageType.SendToClient_TPDataChunk);
                 modPacket.Write((ushort)LocalTPDataChunks.Count);
                 modPacket.Send();
+
+                VaultMod.Instance.Logger.Warn($"[UpdateNetworkStatusWatchdog]:The transmission of the " +
+                    $"{LocalTPDataChunks.Count}th puzzle chunk in the chain-based outsourcing has timed out. " +
+                    $"The request is being retried.");
             }
         }
 
@@ -693,6 +706,9 @@ namespace InnoVault.TileProcessors
             }
             else if (type == MessageType.GetSever_TPDataChunkPacketStartPos) {
                 GetSever_TPDataChunkPacketStartPos(reader);
+            }
+            else if (type == MessageType.GetSever_ResetTPDataChunkNet && VaultUtils.isClient) {
+                ResetTPDataChunkNet();//这个消息由服务器单方面发送，只由客户端来接收处理
             }
         }
     }
