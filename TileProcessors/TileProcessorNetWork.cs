@@ -514,7 +514,7 @@ namespace InnoVault.TileProcessors
                         throw new InvalidOperationException("TPDataChunkPacketStartPos is not initialized. Puzzle data merge cannot proceed.");
                     }
                     reader.BaseStream.Position = TPDataChunkPacketStartPos;
-                    NetworkLoadProgress = 99f;
+                    NetworkLoadProgress = 96f;
                     Handle_TPData_ReceiveInner(reader);
                 } catch (InvalidOperationException ex) {
                     VaultMod.Instance.Logger.Error($"The puzzle data failed to start the merging process: {ex.Message}");
@@ -548,8 +548,6 @@ namespace InnoVault.TileProcessors
         }
 
         private static void Handle_TPData_ReceiveInner(BinaryReader reader) {
-            NetworkLoadProgress = 100f;
-
             int tpCount = reader.ReadInt32(); //读取 TP 数量
             if (tpCount < 0 || tpCount > MaxTPInWorldCount) {
                 VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
@@ -558,6 +556,8 @@ namespace InnoVault.TileProcessors
             }
 
             for (int i = 0; i < tpCount; i++) {
+                NetworkLoadProgress = 96f + (i * 4f / tpCount);
+
                 //确保是合法的标记
                 if (reader.ReadUInt32() != TP_START_MARKER) {
                     VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +

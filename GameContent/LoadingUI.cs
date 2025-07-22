@@ -214,7 +214,12 @@ namespace InnoVault.GameContent
             return (text1, text2);
         }
         protected virtual void UpdatePercentage() {
+            if (!VaultSave.LoadenWorld && TileProcessorLoader.WorldLoadProgress < 10f) {
+                TileProcessorLoader.WorldLoadProgress = MathHelper.Lerp(TileProcessorLoader.WorldLoadProgress, 10f, 0.01f);
+            }
+
             float origTarget = TileProcessorLoader.WorldLoadProgress;
+            
             if (VaultUtils.isClient) {
                 origTarget = origTarget * 0.4f + TileProcessorNetWork.NetworkLoadProgress * 0.6f;
             }
