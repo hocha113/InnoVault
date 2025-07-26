@@ -154,6 +154,16 @@ namespace InnoVault.GameSystem
         }
     }
 
+    internal class StaticImmunityPlayer : ModPlayer
+    {
+        public override bool CanHitNPC(NPC target) {
+            if (target.HasStaticImmunity(Player.whoAmI)) {
+                return false;
+            }
+            return true;
+        }
+    }
+
     internal class StaticImmunityGlobalNPC : GlobalNPC
     {
         public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone) {
@@ -186,12 +196,5 @@ namespace InnoVault.GameSystem
 
         public override bool? CanBeHitByProjectile(NPC npc, Projectile projectile) 
             => npc.HasStaticImmunity(projectile.owner) ? false : null;
-
-        public override void ModifyIncomingHit(NPC npc, ref NPC.HitModifiers modifiers) {
-            if (npc.HasStaticImmunity(Main.myPlayer)) {
-                modifiers.DisableCrit();
-                modifiers.SetMaxDamage(0);
-            }
-        }
     }
 }
