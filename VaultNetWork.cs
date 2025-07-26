@@ -16,6 +16,8 @@ namespace InnoVault
             TetheredPlayer_DownLeft,
             TetheredPlayer_DownRight,
             TetheredPlayer_InMousePos,
+            AddStaticImmunity,
+            SetStaticImmunity,
             Handler_PlaceInWorld,
             Handler_TileProcessorIndsData,
             Handler_TPDeathByClient,
@@ -31,6 +33,7 @@ namespace InnoVault
         internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
             MessageType type = (MessageType)reader.ReadByte();
             NPCOverride.HandlePacket(type, reader);
+            StaticImmunitySystem.HandlePacket(type, reader, whoAmI);
             TetheredPlayer.HandlePacket(type, reader, whoAmI);
             TileProcessorNetWork.HandlePacket(type, mod, reader, whoAmI);
         }

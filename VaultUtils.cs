@@ -25,6 +25,8 @@ using Terraria.ModLoader;
 using Terraria.ModLoader.Core;
 using Terraria.ObjectData;
 using Terraria.Social;
+using static InnoVault.GameSystem.StaticImmunitySystem;
+using static InnoVault.VaultNetWork;
 
 namespace InnoVault
 {
@@ -1133,6 +1135,178 @@ namespace InnoVault
                 return new EntitySource_WorldEvent($"{point.X}:{point.Y}");
             }
             return new EntitySource_Parent(Main.LocalPlayer, "NullSource");
+        }
+
+        /// <summary>
+        /// 判断指定 NPC 当前是否对指定玩家拥有静态免疫状态
+        /// 静态免疫状态意味着该 NPC 会暂时无视来自该玩家的重复伤害
+        /// </summary>
+        /// <param name="npc">目标 NPC 实例</param>
+        /// <param name="whoAmI">玩家索引</param>
+        /// <returns>若该玩家对该 NPC 处于静态免疫中，返回 true</returns>
+        public static bool HasStaticImmunity(this NPC npc, int whoAmI) => HasStaticImmunity(npc.type, whoAmI);
+
+        /// <summary>
+        /// 判断指定 NPC 类型是否对指定玩家拥有静态免疫状态
+        /// 通过静态 ID 查表方式确认免疫状态是否生效
+        /// </summary>
+        /// <param name="npcID">目标 NPC 的类型 ID</param>
+        /// <param name="whoAmI">玩家索引</param>
+        /// <returns>若该玩家对该 NPC 处于静态免疫中，返回 true</returns>
+        public static bool HasStaticImmunity(int npcID, int whoAmI) {
+            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                whoAmI = 0;
+            }
+
+            if (NPCID_To_SourceID[npcID] == -1) {
+                return false;
+            }
+
+            if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
+                return false;
+            }
+
+            return immuneTicks[whoAmI] > 0;
+        }
+
+        /// <summary>
+        /// 设置指定玩家（whoAmI）对指定类型 NPC（npcID）的静态免疫冷却时间（单位为帧）
+        /// </summary>
+        /// <param name="npcID">目标 NPC 的类型 ID</param>
+        /// <param name="whoAmI">玩家的索引，表示要设置免疫冷却的来源玩家</param>
+        /// <param name="immunity">设置的冷却时间（以帧为单位），期间该 NPC 不会再次受到该玩家的攻击</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
+        public static void SetStaticImmunity(int npcID, int whoAmI, int immunity, bool netUpdate = true) {
+            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                whoAmI = 0;
+            }
+
+            if (NPCID_To_SourceID[npcID] == -1) {
+                return;
+            }
+
+            if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
+                return;
+            }
+
+            immuneTicks[whoAmI] = immunity;
+
+            if (isSinglePlayer) {
+                return;
+            }
+
+            if (netUpdate) {
+                SendSetStaticImmunityData(npcID, whoAmI, immunity);
+            }
+        }
+
+        /// <summary>
+        /// 为指定 NPC 实例添加对指定玩家的静态免疫冷却计时
+        /// 实际行为将委托给类型 ID 版本的方法
+        /// </summary>
+        /// <param name="npc">目标 NPC 实例</param>
+        /// <param name="whoAmI">玩家索引</param>
+        public static void AddStaticImmunity(this NPC npc, int whoAmI) => AddStaticImmunity(npc.type, whoAmI);
+
+        /// <summary>
+        /// 为指定 NPC 类型添加对指定玩家的静态免疫冷却计时
+        /// </summary>
+        /// <param name="npcID">目标 NPC 的类型 ID</param>
+        /// <param name="whoAmI">玩家索引</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
+        public static void AddStaticImmunity(int npcID, int whoAmI, bool netUpdate = true) {
+            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                whoAmI = 0;
+            }
+
+            int sourceID = NPCID_To_SourceID[npcID];
+            if (sourceID == -1) {
+                return;
+            }
+
+            if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(sourceID, out int[] value)) {
+                return;
+            }
+
+            if (!NPCID_To_StaticImmunityCooldown.TryGetValue(npcID, out int cooldown)) {
+                return;
+            }
+
+            value[whoAmI] = cooldown;
+
+            if (isSinglePlayer) {
+                return;
+            }
+
+            if (netUpdate) {
+                SendAddStaticImmunityData(npcID, whoAmI);
+            }
+        }
+
+        /// <summary>
+        /// 向客户端广播某个 NPC 对某位玩家新增静态免疫状态
+        /// 仅在多人模式中使用，用于保持服务器与客户端之间的免疫状态同步
+        /// </summary>
+        /// <param name="npcID">目标 NPC 类型 ID</param>
+        /// <param name="whoAmI">目标玩家索引</param>
+        public static void SendAddStaticImmunityData(int npcID, int whoAmI) {
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.AddStaticImmunity);
+            modPacket.Write(npcID);
+            modPacket.Write(whoAmI); // TODO: 可进一步评估是否有必要同步玩家索引
+            modPacket.Send();
+        }
+
+        /// <summary>
+        /// 发送设置后的静态免疫状态
+        /// </summary>
+        /// <param name="npcID"></param>
+        /// <param name="whoAmI"></param>
+        /// <param name="immunity"></param>
+        public static void SendSetStaticImmunityData(int npcID, int whoAmI, int immunity) {
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.SetStaticImmunity);
+            modPacket.Write(npcID);
+            modPacket.Write(whoAmI); // TODO: 可进一步评估是否有必要同步玩家索引
+            modPacket.Write(immunity);
+            modPacket.Send();
+        }
+
+        /// <summary>
+        /// 初始化指定 NPC 的静态免疫数据
+        /// 通常在 Mod 加载阶段调用
+        /// </summary>
+        /// <param name="npcID">目标 NPC 类型 ID</param>
+        /// <param name="npcSourceID">该 NPC 对应的源行为 ID，用于复用免疫状态</param>
+        /// <param name="staticImmuneCool">静态免疫冷却时间（单位为帧）, 默认为0</param>
+        public static void LoadenNPCStaticImmunityData(int npcID, int npcSourceID, int staticImmuneCool = 0) {
+            NPCID_To_SourceID[npcID] = npcSourceID;
+            NPCID_To_StaticImmunityCooldown[npcID] = staticImmuneCool;
+            NPCSourceID_To_PlayerCooldowns[npcSourceID] = [.. Enumerable.Range(0, Main.maxPlayers)];
+        }
+
+        /// <summary>
+        /// 同步所有具有相同源 NPC ID 的 NPC，其静态免疫冷却时间为该组中的最大值
+        /// 用于统一设置派生 NPC 的冷却时间，确保不被覆盖为 0 或较小值
+        /// </summary>
+        public static void NormalizeStaticImmunityCooldowns() {
+            foreach (var group in NPCID_To_SourceID.GroupBy(pair => pair.Value)) {
+                int sourceID = group.Key;
+
+                if (sourceID == -1) {
+                    continue;
+                }
+
+                // 获取该组中最大的冷却时间
+                int maxCooldown = group
+                    .Select(pair => NPCID_To_StaticImmunityCooldown.TryGetValue(pair.Key, out int cool) ? cool : 0)
+                    .Max();
+
+                // 同步该值给组内所有成员
+                foreach (var npcID in group.Select(pair => pair.Key)) {
+                    NPCID_To_StaticImmunityCooldown[npcID] = maxCooldown;
+                }
+            }
         }
 
         /// <summary>
