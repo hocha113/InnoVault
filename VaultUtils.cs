@@ -1138,7 +1138,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 判断指定 NPC 当前是否对指定玩家拥有静态免疫状态
+        /// 判断指定 NPC 当前是否对指定玩家拥有静态免疫状态<br/>
         /// 静态免疫状态意味着该 NPC 会暂时无视来自该玩家的重复伤害
         /// </summary>
         /// <param name="npc">目标 NPC 实例</param>
@@ -1147,7 +1147,7 @@ namespace InnoVault
         public static bool HasStaticImmunity(this NPC npc, int whoAmI) => HasStaticImmunity(npc.type, whoAmI);
 
         /// <summary>
-        /// 判断指定 NPC 类型是否对指定玩家拥有静态免疫状态
+        /// 判断指定 NPC 类型是否对指定玩家拥有静态免疫状态<br/>
         /// 通过静态 ID 查表方式确认免疫状态是否生效
         /// </summary>
         /// <param name="npcID">目标 NPC 的类型 ID</param>
@@ -1165,7 +1165,7 @@ namespace InnoVault
             if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
                 return false;
             }
-
+            
             return immuneTicks[whoAmI] > 0;
         }
 
@@ -1201,7 +1201,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 为指定 NPC 实例添加对指定玩家的静态免疫冷却计时
+        /// 为指定 NPC 实例添加对指定玩家的静态免疫冷却计时<br/>
         /// 实际行为将委托给类型 ID 版本的方法
         /// </summary>
         /// <param name="npc">目标 NPC 实例</param>
@@ -1244,7 +1244,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 为指定 NPC 实例添加对指定玩家的静态免疫冷却计时
+        /// 为指定 NPC 实例添加对指定玩家的静态免疫冷却计时<br/>
         /// 实际行为将委托给类型 ID 版本的方法
         /// </summary>
         /// <param name="npc">目标 NPC 实例</param>
@@ -1294,7 +1294,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 向客户端广播某个 NPC 对某位玩家新增静态免疫状态
+        /// 向客户端广播某个 NPC 对某位玩家新增静态免疫状态<br/>
         /// 仅在多人模式中使用，用于保持服务器与客户端之间的免疫状态同步
         /// </summary>
         /// <param name="npcID">目标 NPC 类型 ID</param>
@@ -1325,20 +1325,9 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 初始化指定 NPC 的静态免疫数据
-        /// 通常在 Mod 加载阶段调用
-        /// </summary>
-        /// <param name="npcSourceID">该 NPC 对应的源行为 ID，用于复用免疫状态</param>
-        /// <param name="staticImmuneCool">静态免疫冷却时间（单位为帧）, 默认为0</param>
-        public static void LoadenNPCStaticImmunityData(int npcSourceID, int staticImmuneCool = 0) {
-            NPCID_To_SourceID[npcSourceID] = npcSourceID;
-            NPCID_To_StaticImmunityCooldown[npcSourceID] = staticImmuneCool;
-            NPCSourceID_To_PlayerCooldowns[npcSourceID] = [.. Enumerable.Range(0, Main.maxPlayers)];
-        }
-
-        /// <summary>
-        /// 初始化指定 NPC 的静态免疫数据
-        /// 通常在 Mod 加载阶段调用
+        /// 初始化指定 NPC 的静态免疫数据<br/>
+        /// 通常在 Mod 加载阶段调用，如<see cref="ModType.SetStaticDefaults"/><br/>
+        /// 如果需要手动注册，应当使用 <see cref="LoadenNPCStaticImmunityData(int, IEnumerable{int}, int)"/>
         /// </summary>
         /// <param name="npcID">目标 NPC 类型 ID</param>
         /// <param name="npcSourceID">该 NPC 对应的源行为 ID，用于复用免疫状态</param>
@@ -1350,8 +1339,8 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 批量初始化多个 NPC 的静态免疫数据，并统一指定其源行为 NPC 和默认冷却时间
-        /// 通常在 Mod 加载阶段调用
+        /// 批量初始化多个 NPC 的静态免疫数据，并统一指定其源行为 NPC 和默认冷却时间<br/>
+        /// 通常在 Mod 加载阶段调用，如<see cref="ModType.SetStaticDefaults"/>
         /// </summary>
         /// <param name="npcSourceID">源 NPC 类型 ID，用于定义免疫状态行为的来源</param>
         /// <param name="npcIDs">所有需要复用该源 NPC 静态免疫逻辑的 NPC 类型 ID</param>
@@ -1373,17 +1362,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 批量初始化多个 NPC 的静态免疫数据，并统一指定其源行为 NPC 和默认冷却时间
-        /// 通常在 Mod 加载阶段调用
-        /// </summary>
-        /// <param name="npcSourceID">源 NPC 类型 ID，用于定义免疫状态行为的来源</param>
-        /// <param name="npcIDs">所有需要复用该源 NPC 静态免疫逻辑的 NPC 类型 ID</param>
-        /// <param name="staticImmuneCool">静态免疫冷却时间（单位为帧），默认值为 0</param>
-        public static void LoadenNPCStaticImmunityData(int npcSourceID, int staticImmuneCool = 0, params int[] npcIDs) 
-            => LoadenNPCStaticImmunityData(npcSourceID, npcIDs, staticImmuneCool);
-
-        /// <summary>
-        /// 同步所有具有相同源 NPC ID 的 NPC，其静态免疫冷却时间为该组中的最大值
+        /// 同步所有具有相同源 NPC ID 的 NPC，其静态免疫冷却时间为该组中的最大值<br/>
         /// 用于统一设置派生 NPC 的冷却时间，确保不被覆盖为 0 或较小值
         /// </summary>
         public static void NormalizeStaticImmunityCooldowns() {

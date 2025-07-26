@@ -8,6 +8,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.WorldBuilding;
 using static InnoVault.GameSystem.PlayerOverride;
 
 namespace InnoVault.GameSystem
@@ -20,9 +21,11 @@ namespace InnoVault.GameSystem
 #pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
         public delegate void On_ModifyHitNPCWithItem_Dalegate(Player player, Item item, NPC target, ref NPC.HitModifiers modifiers);
         public delegate void On_ModifyHitNPCWithProj_Dalegate(Player player, Projectile proj, NPC target, ref NPC.HitModifiers modifiers);
+        public delegate bool On_CanHitNPC_Dalegate(Player player, NPC target);
         public static Type playerLoaderType;
         public static MethodBase onModifyHitNPCWithItemMethod;
         public static MethodBase onModifyHitNPCWithProjMethod;
+        public static MethodBase onCanHitNPCMethod;
         void IVaultLoader.LoadData() {
             Instances ??= [];
             TypeToInstance ??= [];
@@ -35,12 +38,16 @@ namespace InnoVault.GameSystem
 
             onModifyHitNPCWithItemMethod = getPublicStaticMethod("ModifyHitNPCWithItem");
             onModifyHitNPCWithProjMethod = getPublicStaticMethod("ModifyHitNPCWithProj");
+            onCanHitNPCMethod = getPublicStaticMethod("CanHitNPC");
 
             if (onModifyHitNPCWithItemMethod != null) {
                 VaultHook.Add(onModifyHitNPCWithItemMethod, OnModifyHitNPCWithItemHook);
             }
             if (onModifyHitNPCWithProjMethod != null) {
                 VaultHook.Add(onModifyHitNPCWithProjMethod, OnModifyHitNPCWithProjHook);
+            }
+            if (onCanHitNPCMethod != null) {
+                VaultHook.Add(onCanHitNPCMethod, OnCanHitNPCHook);
             }
         }
 
@@ -169,6 +176,19 @@ namespace InnoVault.GameSystem
                 }
             }
             orig.Invoke(player, proj, target, ref modifiers);
+        }
+
+        private static bool OnCanHitNPCHook(On_CanHitNPC_Dalegate orig, Player player, NPC target) {
+            if (TryFetchByPlayer(player, out var values)) {
+                bool? result = null;
+                foreach (var value in values.Values) {
+                    result = value.On_CanHitNPC(target);
+                }
+                if (result.HasValue) {
+                    return result.Value;
+                }
+            }
+            return orig.Invoke(player, target);
         }
 
         public override bool Shoot(Item item, EntitySource_ItemUse_WithAmmo source

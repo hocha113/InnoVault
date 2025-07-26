@@ -103,6 +103,15 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
+        /// 修改玩家是否可以击中NPC
+        /// </summary>
+        /// <param name="target"></param>
+        /// <returns></returns>
+        public virtual bool? On_CanHitNPC(NPC target) {
+            return null;
+        }
+
+        /// <summary>
         /// 玩家是否可以切换物品，默认返回<see langword="null"/>，即不进行拦截
         /// 返回有效值可以阻止或者允许玩家切换物品，优先级大于<see cref="ItemOverride.CanSwitchWeapon"/>
         /// </summary>

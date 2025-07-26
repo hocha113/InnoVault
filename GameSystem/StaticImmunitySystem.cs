@@ -44,7 +44,7 @@ namespace InnoVault.GameSystem
         public int StaticImmunityCooldown { get; set; } = staticImmunityCooldown;
     }
 
-    internal class StaticImmunitySystem : ModSystem
+    internal sealed class StaticImmunitySystem : ModSystem
     {
         internal static readonly Dictionary<int, int> NPCID_To_SourceID = [];
         internal static readonly Dictionary<int, int> NPCID_To_StaticImmunityCooldown = [];
@@ -154,17 +154,17 @@ namespace InnoVault.GameSystem
         }
     }
 
-    internal class StaticImmunityPlayer : ModPlayer
+    internal sealed class StaticImmunityPlayer : PlayerOverride
     {
-        public override bool CanHitNPC(NPC target) {
+        public override bool? On_CanHitNPC(NPC target) {
             if (target.HasStaticImmunity(Player.whoAmI)) {
                 return false;
             }
-            return true;
+            return null;
         }
     }
 
-    internal class StaticImmunityGlobalNPC : GlobalNPC
+    internal sealed class StaticImmunityGlobalNPC : GlobalNPC
     {
         public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone) {
             if (npc.AddStaticImmunity(player.whoAmI)) {
