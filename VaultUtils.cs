@@ -589,13 +589,13 @@ namespace InnoVault
         public static void EnsureFileFromMod(string modName, string resourcePath, string targetPath) {
             if (string.IsNullOrEmpty(modName)) {
                 throw new ArgumentNullException(nameof(modName), "Mod name cannot be null or empty.");
-            }   
+            }
             if (string.IsNullOrEmpty(resourcePath)) {
                 throw new ArgumentNullException(nameof(resourcePath), "Resource path cannot be null or empty.");
-            } 
+            }
             if (string.IsNullOrEmpty(targetPath)) {
                 throw new ArgumentNullException(nameof(targetPath), "Target path cannot be null or empty.");
-            } 
+            }
 
             var mod = ModLoader.GetMod(modName) ?? throw new ArgumentException($"Mod '{modName}' not found.", nameof(modName));
             mod.EnsureFileFromMod(resourcePath, targetPath);
@@ -1165,7 +1165,7 @@ namespace InnoVault
             if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
                 return false;
             }
-            
+
             return immuneTicks[whoAmI] > 0;
         }
 
@@ -1207,7 +1207,7 @@ namespace InnoVault
         /// <param name="npc">目标 NPC 实例</param>
         /// <param name="whoAmI">玩家索引</param>
         /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        public static bool AddStaticImmunity(this NPC npc, int whoAmI, bool netUpdate = true) 
+        public static bool AddStaticImmunity(this NPC npc, int whoAmI, bool netUpdate = true)
             => AddStaticImmunity(npc.type, whoAmI, netUpdate);
 
         /// <summary>
@@ -1251,7 +1251,7 @@ namespace InnoVault
         /// <param name="whoAmI">玩家索引</param>
         /// <param name="localNPCHitCooldown">局部无敌帧</param>
         /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        public static bool AddStaticImmunity(this NPC npc, int whoAmI, short localNPCHitCooldown, bool netUpdate = true) 
+        public static bool AddStaticImmunity(this NPC npc, int whoAmI, short localNPCHitCooldown, bool netUpdate = true)
             => AddStaticImmunity(npc.type, whoAmI, localNPCHitCooldown, netUpdate);
 
         /// <summary>

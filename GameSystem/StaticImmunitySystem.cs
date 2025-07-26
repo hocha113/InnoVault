@@ -170,7 +170,7 @@ namespace InnoVault.GameSystem
             if (npc.AddStaticImmunity(player.whoAmI)) {
                 npc.immune[player.whoAmI] = 0;
             }
-        } 
+        }
 
         public override void OnHitByProjectile(NPC npc, Projectile projectile, NPC.HitInfo hit, int damageDone) {
             short localNPCHitCooldown = -2;
@@ -191,10 +191,10 @@ namespace InnoVault.GameSystem
             }
         }
 
-        public override bool? CanBeHitByItem(NPC npc, Player player, Item item) 
+        public override bool? CanBeHitByItem(NPC npc, Player player, Item item)
             => npc.HasStaticImmunity(player.whoAmI) ? false : null;
 
-        public override bool? CanBeHitByProjectile(NPC npc, Projectile projectile) 
+        public override bool? CanBeHitByProjectile(NPC npc, Projectile projectile)
             => npc.HasStaticImmunity(projectile.owner) ? false : null;
     }
 }

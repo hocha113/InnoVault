@@ -331,7 +331,7 @@ namespace InnoVault.TileProcessors
         }
 
         private static void LoadWorldTileProcessorInner() {
-            List<(ushort, ushort, ushort) > collectedDatas = new();
+            List<(ushort, ushort, ushort)> collectedDatas = new();
 
             for (ushort x = 0; x < Main.tile.Width; x++) {
                 for (ushort y = 0; y < Main.tile.Height; y++) {

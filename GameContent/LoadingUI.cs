@@ -101,7 +101,7 @@ namespace InnoVault.GameContent
         /// <param name="opacity"></param>
         protected virtual void DrawGear(SpriteBatch spriteBatch, float opacity) {
             Texture2D gear = VaultAsset.GearWheel.Value;
-            
+
             Vector2 drawPos = new Vector2(Main.screenWidth / 2f, Main.screenHeight * 0.7f);
             Vector2 origin = gear.Size() / 2f;
 
@@ -122,7 +122,7 @@ namespace InnoVault.GameContent
         /// <param name="opacity"></param>
         protected virtual void DrawDynamicText(SpriteBatch spriteBatch, float opacity) {
             (string text1, string text2) = GetDynamicText();
-            
+
             Vector2 drawPos = new Vector2(0f, VaultAsset.GearWheel.Value.Height * 1.5f);
 
             // 绘制第一行文本
@@ -219,7 +219,7 @@ namespace InnoVault.GameContent
             }
 
             float origTarget = TileProcessorLoader.WorldLoadProgress;
-            
+
             if (VaultUtils.isClient) {
                 origTarget = origTarget * 0.4f + TileProcessorNetWork.NetworkLoadProgress * 0.6f;
             }

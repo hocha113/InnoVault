@@ -542,7 +542,7 @@ namespace InnoVault.TileProcessors
             TPDataChunkPacketStartPos = -1;
             InitializeWorld = false;
             LoadenTPByNetWork = true;//标记为true，表明网络加载完成
-            
+
             TPDataChunks[whoAmI].Clear();
             TPDataChunks_IndexToChunks[whoAmI].Clear();
         }
@@ -632,7 +632,7 @@ namespace InnoVault.TileProcessors
                 VaultMod.Instance.Logger.Warn(timeoutMsg);
             }
 
-            if (VaultUtils.isClient && !LoadenTPByNetWork && LocalTPDataChunks.Count < MaxTPDataChunkCount 
+            if (VaultUtils.isClient && !LoadenTPByNetWork && LocalTPDataChunks.Count < MaxTPDataChunkCount
                 && MaxTPDataChunkCount > 0 && ++NetChunkIdleTime > 120) {
                 NetChunkIdleTime = 0;
                 //重新申请
