@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -53,13 +54,15 @@ namespace InnoVault.GameSystem
             if (type == MessageType.AddStaticImmunity) {
                 int npcID = reader.ReadInt32();
                 int playerWhoAmI = reader.ReadInt32();
-                VaultUtils.AddStaticImmunity(npcID, playerWhoAmI, false);
+                short localNPCHitCooldown = reader.ReadInt16();
+                VaultUtils.AddStaticImmunity(npcID, playerWhoAmI, localNPCHitCooldown, false);
 
                 if (VaultUtils.isServer) {
                     ModPacket modPacket = VaultMod.Instance.GetPacket();
                     modPacket.Write((byte)MessageType.AddStaticImmunity);
                     modPacket.Write(npcID);
-                    modPacket.Write(playerWhoAmI);//TODO:有必要再考量一下，这里的玩家索引是否真的有必要发送
+                    modPacket.Write(playerWhoAmI);
+                    modPacket.Write(localNPCHitCooldown);
                     modPacket.Send(-1, whoAmI);
                 }
             }
@@ -138,7 +141,7 @@ namespace InnoVault.GameSystem
             VaultUtils.NormalizeStaticImmunityCooldowns();
         }
 
-        public override void PostUpdateNPCs() {
+        public override void PostUpdateEverything() {
             foreach (var key in NPCSourceID_To_PlayerCooldowns.Keys) {
                 for (int whoAmI = 0; whoAmI < Main.maxPlayers; whoAmI++) {
                     if (NPCSourceID_To_PlayerCooldowns[key][whoAmI] <= 0) {
@@ -153,16 +156,42 @@ namespace InnoVault.GameSystem
 
     internal class StaticImmunityGlobalNPC : GlobalNPC
     {
-        public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone) 
-            => npc.AddStaticImmunity(player.whoAmI);
+        public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone) {
+            if (npc.AddStaticImmunity(player.whoAmI)) {
+                npc.immune[player.whoAmI] = 0;
+            }
+        } 
 
-        public override void OnHitByProjectile(NPC npc, Projectile projectile, NPC.HitInfo hit, int damageDone) 
-            => npc.AddStaticImmunity(projectile.owner);
+        public override void OnHitByProjectile(NPC npc, Projectile projectile, NPC.HitInfo hit, int damageDone) {
+            short localNPCHitCooldown = -2;
+
+            if (projectile.usesLocalNPCImmunity) {
+                localNPCHitCooldown = (short)Math.Clamp(projectile.localNPCHitCooldown, short.MinValue, short.MaxValue);
+            }
+            else if (projectile.usesIDStaticNPCImmunity) {
+                localNPCHitCooldown = (short)Math.Clamp(projectile.idStaticNPCHitCooldown, short.MinValue, short.MaxValue);
+            }
+
+            if (npc.AddStaticImmunity(projectile.owner, localNPCHitCooldown)) {
+                int whoAmI = projectile.owner;
+                if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                    whoAmI = 0;
+                }
+                npc.immune[whoAmI] = 0;
+            }
+        }
 
         public override bool? CanBeHitByItem(NPC npc, Player player, Item item) 
             => npc.HasStaticImmunity(player.whoAmI) ? false : null;
 
         public override bool? CanBeHitByProjectile(NPC npc, Projectile projectile) 
             => npc.HasStaticImmunity(projectile.owner) ? false : null;
+
+        public override void ModifyIncomingHit(NPC npc, ref NPC.HitModifiers modifiers) {
+            if (npc.HasStaticImmunity(Main.myPlayer)) {
+                modifiers.DisableCrit();
+                modifiers.SetMaxDamage(0);
+            }
+        }
     }
 }
