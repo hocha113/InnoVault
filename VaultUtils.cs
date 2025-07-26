@@ -1328,14 +1328,59 @@ namespace InnoVault
         /// 初始化指定 NPC 的静态免疫数据
         /// 通常在 Mod 加载阶段调用
         /// </summary>
+        /// <param name="npcSourceID">该 NPC 对应的源行为 ID，用于复用免疫状态</param>
+        /// <param name="staticImmuneCool">静态免疫冷却时间（单位为帧）, 默认为0</param>
+        public static void LoadenNPCStaticImmunityData(int npcSourceID, int staticImmuneCool = 0) {
+            NPCID_To_SourceID[npcSourceID] = npcSourceID;
+            NPCID_To_StaticImmunityCooldown[npcSourceID] = staticImmuneCool;
+            NPCSourceID_To_PlayerCooldowns[npcSourceID] = [.. Enumerable.Range(0, Main.maxPlayers)];
+        }
+
+        /// <summary>
+        /// 初始化指定 NPC 的静态免疫数据
+        /// 通常在 Mod 加载阶段调用
+        /// </summary>
         /// <param name="npcID">目标 NPC 类型 ID</param>
         /// <param name="npcSourceID">该 NPC 对应的源行为 ID，用于复用免疫状态</param>
         /// <param name="staticImmuneCool">静态免疫冷却时间（单位为帧）, 默认为0</param>
-        public static void LoadenNPCStaticImmunityData(int npcID, int npcSourceID, int staticImmuneCool = 0) {
+        public static void LoadenNPCStaticImmunityData(int npcSourceID, int npcID, int staticImmuneCool = 0) {
             NPCID_To_SourceID[npcID] = npcSourceID;
             NPCID_To_StaticImmunityCooldown[npcID] = staticImmuneCool;
             NPCSourceID_To_PlayerCooldowns[npcSourceID] = [.. Enumerable.Range(0, Main.maxPlayers)];
         }
+
+        /// <summary>
+        /// 批量初始化多个 NPC 的静态免疫数据，并统一指定其源行为 NPC 和默认冷却时间
+        /// 通常在 Mod 加载阶段调用
+        /// </summary>
+        /// <param name="npcSourceID">源 NPC 类型 ID，用于定义免疫状态行为的来源</param>
+        /// <param name="npcIDs">所有需要复用该源 NPC 静态免疫逻辑的 NPC 类型 ID</param>
+        /// <param name="staticImmuneCool">静态免疫冷却时间（单位为帧），默认值为 0</param>
+        public static void LoadenNPCStaticImmunityData(int npcSourceID, IEnumerable<int> npcIDs, int staticImmuneCool = 0) {
+            //源自身也可以使用（如果没包含在 npcIDs 中）
+            NPCID_To_SourceID[npcSourceID] = npcSourceID;
+            NPCID_To_StaticImmunityCooldown[npcSourceID] = staticImmuneCool;
+
+            //初始化冷却数组（只初始化一次）
+            if (!NPCSourceID_To_PlayerCooldowns.ContainsKey(npcSourceID)) {
+                NPCSourceID_To_PlayerCooldowns[npcSourceID] = [.. Enumerable.Range(0, Main.maxPlayers)];
+            }
+
+            foreach (int npcID in npcIDs) {
+                NPCID_To_SourceID[npcID] = npcSourceID;
+                NPCID_To_StaticImmunityCooldown[npcID] = staticImmuneCool;
+            }
+        }
+
+        /// <summary>
+        /// 批量初始化多个 NPC 的静态免疫数据，并统一指定其源行为 NPC 和默认冷却时间
+        /// 通常在 Mod 加载阶段调用
+        /// </summary>
+        /// <param name="npcSourceID">源 NPC 类型 ID，用于定义免疫状态行为的来源</param>
+        /// <param name="npcIDs">所有需要复用该源 NPC 静态免疫逻辑的 NPC 类型 ID</param>
+        /// <param name="staticImmuneCool">静态免疫冷却时间（单位为帧），默认值为 0</param>
+        public static void LoadenNPCStaticImmunityData(int npcSourceID, int staticImmuneCool = 0, params int[] npcIDs) 
+            => LoadenNPCStaticImmunityData(npcSourceID, npcIDs, staticImmuneCool);
 
         /// <summary>
         /// 同步所有具有相同源 NPC ID 的 NPC，其静态免疫冷却时间为该组中的最大值

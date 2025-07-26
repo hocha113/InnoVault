@@ -132,7 +132,7 @@ namespace InnoVault.GameSystem
                 try {
                     int npcID = (int)npcTypeMethod.MakeGenericMethod(type).Invoke(null, null);
                     int npcSourceID = (int)npcTypeMethod.MakeGenericMethod(attribute.SourceNPC).Invoke(null, null);
-                    VaultUtils.LoadenNPCStaticImmunityData(npcID, npcSourceID, attribute.StaticImmunityCooldown);
+                    VaultUtils.LoadenNPCStaticImmunityData(npcSourceID, npcID, attribute.StaticImmunityCooldown);
                 } catch (Exception ex) {
                     VaultMod.Instance.Logger.Warn($"Failed to load immunity data for {type.FullName}: {ex.Message}");
                 }
