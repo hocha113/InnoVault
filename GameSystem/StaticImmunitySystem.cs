@@ -1,5 +1,4 @@
-﻿using Microsoft.Xna.Framework;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -10,17 +9,18 @@ using static InnoVault.VaultNetWork;
 namespace InnoVault.GameSystem
 {
     /// <summary>
-    /// 为 NPC 类型声明其静态免疫行为的属性标签
-    /// 如果让sourceNPC保持默认值，则会再加载时自动匹配为当前 NPC 类型，即源 NPC，只有源 NPC 所设置的 staticImmunityCooldown 才会被载入
+    /// 为 NPC 类型声明其静态免疫行为的属性标签<br/>
+    /// 如果让sourceNPC保持默认值，则会再加载时自动匹配为当前 NPC 类型，即源 NPC，<br/>
+    /// 只有源 NPC 所设置的 staticImmunityCooldown 才会被载入
     /// </summary>
     /// <param name="sourceNPC">
-    /// 该 NPC 的免疫逻辑来源 NPC 类型
-    /// 用于将当前 NPC 的静态免疫逻辑映射到另一个 NPC，共享无敌帧
+    /// 该 NPC 的免疫逻辑来源 NPC 类型<br/>
+    /// 用于将当前 NPC 的静态免疫逻辑映射到另一个 NPC，共享无敌帧<br/>
     /// 若为 <see langword="null"/>，则默认为自身（即使用当前类本身作为来源）
     /// </param>
     /// <param name="staticImmunityCooldown">
-    /// 静态免疫冷却时间，单位为帧（ticks）
-    /// 冷却期间该 NPC 将不会再次受到来自同一玩家的伤害
+    /// 静态免疫冷却时间，单位为帧（ticks）<br/>
+    /// 冷却期间该 NPC 将不会再次受到来自同一玩家的伤害<br/>
     /// 默认值为 0
     /// </param>
     /// <remarks>
@@ -30,14 +30,14 @@ namespace InnoVault.GameSystem
     public sealed class StaticImmunityAttribute(Type sourceNPC = null, int staticImmunityCooldown = 0) : Attribute
     {
         /// <summary>
-        /// 该 NPC 的免疫逻辑来源 NPC 类型
-        /// 用于将当前 NPC 的静态免疫逻辑映射到另一个 NPC，共享无敌帧
+        /// 该 NPC 的免疫逻辑来源 NPC 类型<br/>
+        /// 用于将当前 NPC 的静态免疫逻辑映射到另一个 NPC，共享无敌帧<br/>
         /// 若为 <see langword="null"/>，则默认为自身（即使用当前类本身作为来源）
         /// </summary>
         public Type SourceNPC { get; set; } = sourceNPC;
 
         /// <summary>
-        /// 静态免疫冷却时间，单位为帧（ticks）
+        /// 静态免疫冷却时间，单位为帧（ticks）<br/>
         /// 冷却期间该 NPC 将不会再次受到来自同一玩家的伤害
         /// 默认值为 0
         /// </summary>
@@ -46,6 +46,8 @@ namespace InnoVault.GameSystem
 
     internal sealed class StaticImmunitySystem : ModSystem
     {
+        //这里的数据不应该对外暴露，而是使用封装好的接口进行访问操纵，直接修改这里的字典可能造成系统不稳定，写在这里提醒自己
+        internal static readonly Dictionary<int, bool> NPCID_To_UseStaticImmunity = [];
         internal static readonly Dictionary<int, int> NPCID_To_SourceID = [];
         internal static readonly Dictionary<int, int> NPCID_To_StaticImmunityCooldown = [];
         internal static readonly Dictionary<int, int[]> NPCSourceID_To_PlayerCooldowns = [];
@@ -84,6 +86,7 @@ namespace InnoVault.GameSystem
         }
 
         public override void Unload() {
+            NPCID_To_UseStaticImmunity?.Clear();
             NPCID_To_SourceID?.Clear();
             NPCID_To_StaticImmunityCooldown?.Clear();
             NPCSourceID_To_PlayerCooldowns?.Clear();
@@ -99,6 +102,7 @@ namespace InnoVault.GameSystem
 
         private static void LoadImmunityData() {
             for (int i = 0; i < NPCLoader.NPCCount; i++) {
+                NPCID_To_UseStaticImmunity.TryAdd(i, true);
                 NPCID_To_SourceID.TryAdd(i, -1);//确保不会覆盖前面已经设置好的项
             }
 

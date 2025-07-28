@@ -1154,16 +1154,16 @@ namespace InnoVault
         /// <param name="whoAmI">玩家索引</param>
         /// <returns>若该玩家对该 NPC 处于静态免疫中，返回 true</returns>
         public static bool HasStaticImmunity(int npcID, int whoAmI) {
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                whoAmI = isServer ? 0 : Main.myPlayer;
-            }
-
-            if (NPCID_To_SourceID[npcID] == -1) {
+            if (NPCID_To_SourceID[npcID] == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
                 return false;
             }
 
             if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
                 return false;
+            }
+
+            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                whoAmI = isServer ? 0 : Main.myPlayer;
             }
 
             return immuneTicks[whoAmI] > 0;
@@ -1177,16 +1177,16 @@ namespace InnoVault
         /// <param name="immunity">设置的冷却时间（以帧为单位），期间该 NPC 不会再次受到该玩家的攻击</param>
         /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
         public static void SetStaticImmunity(int npcID, int whoAmI, int immunity, bool netUpdate = true) {
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                whoAmI = isServer ? 0 : Main.myPlayer;
-            }
-
-            if (NPCID_To_SourceID[npcID] == -1) {
+            if (NPCID_To_SourceID[npcID] == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
                 return;
             }
 
             if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
                 return;
+            }
+
+            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                whoAmI = isServer ? 0 : Main.myPlayer;
             }
 
             immuneTicks[whoAmI] = immunity;
@@ -1198,6 +1198,46 @@ namespace InnoVault
             if (netUpdate) {
                 SendSetStaticImmunityData(npcID, whoAmI, immunity);
             }
+        }
+
+        /// <summary>
+        /// 启用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// </summary>
+        /// <param name="npc">目标 NPC 实例</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void EnableStaticImmunity(this NPC npc) => EnableStaticImmunity(npc.type);
+
+        /// <summary>
+        /// 启用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// </summary>
+        /// <param name="npcID">NPC 类型 ID</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void EnableStaticImmunity(int npcID) {
+            if (!NPCID_To_SourceID.TryGetValue(npcID, out int sourceID) || sourceID == -1) {
+                throw new InvalidOperationException($"No static immunity data found for NPC type {npcID}. " +
+                    $"Make sure to register it using LoadenNPCStaticImmunityData().");
+            }
+            NPCID_To_UseStaticImmunity[npcID] = true;
+        }
+
+        /// <summary>
+        /// 禁用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// </summary>
+        /// <param name="npc">目标 NPC 实例</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void DisableStaticImmunity(this NPC npc) => DisableStaticImmunity(npc.type);
+
+        /// <summary>
+        /// 禁用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// </summary>
+        /// <param name="npcID">NPC 类型 ID</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void DisableStaticImmunity(int npcID) {
+            if (!NPCID_To_SourceID.TryGetValue(npcID, out int sourceID) || sourceID == -1) {
+                throw new InvalidOperationException($"No static immunity data found for NPC type {npcID}. " +
+                    $"Make sure to register it using LoadenNPCStaticImmunityData().");
+            }
+            NPCID_To_UseStaticImmunity[npcID] = false;
         }
 
         /// <summary>
@@ -1217,12 +1257,8 @@ namespace InnoVault
         /// <param name="whoAmI">玩家索引</param>
         /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
         public static bool AddStaticImmunity(int npcID, int whoAmI, bool netUpdate = true) {
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                whoAmI = isServer ? 0 : Main.myPlayer;
-            }
-
             int sourceID = NPCID_To_SourceID[npcID];
-            if (sourceID == -1) {
+            if (sourceID == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
                 return false;
             }
 
@@ -1232,6 +1268,10 @@ namespace InnoVault
 
             if (!NPCID_To_StaticImmunityCooldown.TryGetValue(npcID, out int cooldown)) {
                 return false;
+            }
+
+            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                whoAmI = isServer ? 0 : Main.myPlayer;
             }
 
             value[whoAmI] = cooldown;
@@ -1262,12 +1302,8 @@ namespace InnoVault
         /// <param name="localNPCHitCooldown">局部无敌帧</param>
         /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
         public static bool AddStaticImmunity(int npcID, int whoAmI, short localNPCHitCooldown, bool netUpdate = true) {
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                whoAmI = isServer ? 0 : Main.myPlayer;
-            }
-
             int sourceID = NPCID_To_SourceID[npcID];
-            if (sourceID == -1) {
+            if (sourceID == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
                 return false;
             }
 
@@ -1282,6 +1318,10 @@ namespace InnoVault
             //考虑到全局无敌帧带来的负收益已经够多了，这里避免一些武器的设置带来更大的负收益
             if (localNPCHitCooldown >= 0 && localNPCHitCooldown < cooldown) {//启用局部无敌帧覆盖
                 cooldown = localNPCHitCooldown;
+            }
+
+            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                whoAmI = isServer ? 0 : Main.myPlayer;
             }
 
             value[whoAmI] = cooldown;
