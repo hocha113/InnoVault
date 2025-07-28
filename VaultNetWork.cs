@@ -18,6 +18,7 @@ namespace InnoVault
             TetheredPlayer_InMousePos,
             AddStaticImmunity,
             SetStaticImmunity,
+            UseStaticImmunity,
             Handler_PlaceInWorld,
             Handler_TileProcessorIndsData,
             Handler_TPDeathByClient,

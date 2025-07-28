@@ -1204,40 +1204,60 @@ namespace InnoVault
         /// 启用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
         /// </summary>
         /// <param name="npc">目标 NPC 实例</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
         /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void EnableStaticImmunity(this NPC npc) => EnableStaticImmunity(npc.type);
+        public static void EnableStaticImmunity(this NPC npc, bool netUpdate = true) => EnableStaticImmunity(npc.type, netUpdate);
 
         /// <summary>
         /// 启用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
         /// </summary>
         /// <param name="npcID">NPC 类型 ID</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
         /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void EnableStaticImmunity(int npcID) {
-            if (!NPCID_To_SourceID.TryGetValue(npcID, out int sourceID) || sourceID == -1) {
-                throw new InvalidOperationException($"No static immunity data found for NPC type {npcID}. " +
-                    $"Make sure to register it using LoadenNPCStaticImmunityData().");
-            }
-            NPCID_To_UseStaticImmunity[npcID] = true;
-        }
+        public static void EnableStaticImmunity(int npcID, bool netUpdate = true) => ConfigureStaticImmunityUsage(npcID, true, netUpdate);
 
         /// <summary>
         /// 禁用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
         /// </summary>
         /// <param name="npc">目标 NPC 实例</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
         /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void DisableStaticImmunity(this NPC npc) => DisableStaticImmunity(npc.type);
+        public static void DisableStaticImmunity(this NPC npc, bool netUpdate = true) => DisableStaticImmunity(npc.type, netUpdate);
 
         /// <summary>
         /// 禁用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
         /// </summary>
         /// <param name="npcID">NPC 类型 ID</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
         /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void DisableStaticImmunity(int npcID) {
+        public static void DisableStaticImmunity(int npcID, bool netUpdate = true) => ConfigureStaticImmunityUsage(npcID, false, netUpdate);
+
+        /// <summary>
+        /// 设置指定类型的 NPC 是否启用静态无敌帧逻辑
+        /// </summary>
+        /// <param name="npcID">NPC 类型 ID</param>
+        /// <param name="enabled">是否启用</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void ConfigureStaticImmunityUsage(int npcID, bool enabled, bool netUpdate = true) {
             if (!NPCID_To_SourceID.TryGetValue(npcID, out int sourceID) || sourceID == -1) {
                 throw new InvalidOperationException($"No static immunity data found for NPC type {npcID}. " +
                     $"Make sure to register it using LoadenNPCStaticImmunityData().");
             }
-            NPCID_To_UseStaticImmunity[npcID] = false;
+
+            foreach (var key in NPCID_To_UseStaticImmunity.Keys) {
+                if (NPCID_To_SourceID[key] == sourceID) {
+                    NPCID_To_UseStaticImmunity[key] = enabled;
+                }
+            }
+
+            if (!isSinglePlayer && netUpdate) {
+                ModPacket modPacket = VaultMod.Instance.GetPacket();
+                modPacket.Write((byte)MessageType.UseStaticImmunity);
+                modPacket.Write(npcID);
+                modPacket.Write(enabled);
+                modPacket.Send();
+            }
         }
 
         /// <summary>

@@ -83,6 +83,19 @@ namespace InnoVault.GameSystem
                     modPacket.Send(-1, whoAmI);
                 }
             }
+            else if (type == MessageType.UseStaticImmunity) {
+                int npcID = reader.ReadInt32();
+                bool enabled = reader.ReadBoolean();
+                VaultUtils.ConfigureStaticImmunityUsage(npcID, enabled, false);
+
+                if (VaultUtils.isServer) {
+                    ModPacket modPacket = VaultMod.Instance.GetPacket();
+                    modPacket.Write((byte)MessageType.UseStaticImmunity);
+                    modPacket.Write(npcID);
+                    modPacket.Write(enabled);
+                    modPacket.Send(-1, whoAmI);
+                }
+            }
         }
 
         public override void Unload() {
