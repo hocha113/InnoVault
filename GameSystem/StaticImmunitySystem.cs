@@ -142,7 +142,7 @@ namespace InnoVault.GameSystem
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
-        public static bool operator == (HitByHitData left, HitByHitData right)
+        public static bool operator ==(HitByHitData left, HitByHitData right)
             => left.Equals(right);
 
         /// <summary>
@@ -151,7 +151,7 @@ namespace InnoVault.GameSystem
         /// <param name="left"></param>
         /// <param name="right"></param>
         /// <returns></returns>
-        public static bool operator != (HitByHitData left, HitByHitData right)
+        public static bool operator !=(HitByHitData left, HitByHitData right)
             => !(left == right);
     }
 

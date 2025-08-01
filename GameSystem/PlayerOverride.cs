@@ -123,6 +123,14 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
+        /// 运行在<see cref="Player.GiveImmuneTimeForCollisionAttack"/>之前
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool On_GiveImmuneTimeForCollisionAttack(int time) {
+            return true;
+        }
+
+        /// <summary>
         /// 玩家是否可以切换物品，默认返回<see langword="null"/>，即不进行拦截
         /// 返回有效值可以阻止或者允许玩家切换物品，优先级大于<see cref="ItemOverride.CanSwitchWeapon"/>
         /// </summary>

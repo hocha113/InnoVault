@@ -1138,6 +1138,29 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 获取源 NPC ID
+        /// </summary>
+        /// <param name="npcID"></param>
+        /// <returns></returns>
+        public static int GetSourceNPC(int npcID) => NPCID_To_SourceID[npcID];
+
+        /// <summary>
+        /// 根据源 NPC 来获取所有更迭的附属 NPC
+        /// </summary>
+        /// <param name="npcID"></param>
+        /// <returns></returns>
+        public static int[] SourceNPCByHoverNPC(int npcID) {
+            int sourceID = NPCID_To_SourceID[npcID];
+            List<int> hovers = [];
+            foreach (var key in NPCID_To_SourceID.Keys) {
+                if (NPCID_To_SourceID[key] == sourceID) {
+                    hovers.Add(key);
+                }
+            }
+            return [.. hovers];
+        }
+
+        /// <summary>
         /// 是否注册有无敌帧数据
         /// </summary>
         /// <param name="npcID"></param>

@@ -25,11 +25,13 @@ namespace InnoVault.GameSystem
         public delegate void On_ModifyHitNPCWithProj_Dalegate(Player player, Projectile proj, NPC target, ref NPC.HitModifiers modifiers);
         public delegate bool On_CanHitNPC_Dalegate(Player player, NPC target);
         public delegate void On_OnHitNPC_Dalegate(Player player, NPC target, in NPC.HitInfo hit, int damageDone);
+        public delegate void On_GiveImmuneTimeForCollisionAttack_Dalegate(Player player, int time);
         public static Type playerLoaderType;
         public static MethodBase onModifyHitNPCWithItemMethod;
         public static MethodBase onModifyHitNPCWithProjMethod;
         public static MethodBase onCanHitNPCMethod;
         public static MethodBase onOnHitNPCMethod;
+        public static MethodBase onGiveImmuneTimeForCollisionAttackMethod;
         void IVaultLoader.LoadData() {
             Instances ??= [];
             TypeToInstance ??= [];
@@ -44,6 +46,7 @@ namespace InnoVault.GameSystem
             onModifyHitNPCWithProjMethod = getPublicStaticMethod("ModifyHitNPCWithProj");
             onCanHitNPCMethod = getPublicStaticMethod("CanHitNPC");
             onOnHitNPCMethod = getPublicStaticMethod("OnHitNPC");
+            onGiveImmuneTimeForCollisionAttackMethod = typeof(Player).GetMethod("GiveImmuneTimeForCollisionAttack", BindingFlags.Public | BindingFlags.Instance);
 
             if (onModifyHitNPCWithItemMethod != null) {
                 VaultHook.Add(onModifyHitNPCWithItemMethod, OnModifyHitNPCWithItemHook);
@@ -56,6 +59,9 @@ namespace InnoVault.GameSystem
             }
             if (onOnHitNPCMethod != null) {
                 VaultHook.Add(onOnHitNPCMethod, On_OnHitNPCHook);
+            }
+            if (onGiveImmuneTimeForCollisionAttackMethod != null) {
+                VaultHook.Add(onGiveImmuneTimeForCollisionAttackMethod, On_GiveImmuneTimeForCollisionAttackHook);
             }
         }
 
@@ -205,7 +211,7 @@ namespace InnoVault.GameSystem
                     return result.Value;
                 }
             }
-            
+
             return orig.Invoke(player, target);
         }
 
@@ -223,6 +229,22 @@ namespace InnoVault.GameSystem
                 }
             }
             orig.Invoke(player, target, hit, damageDone);
+        }
+
+        private static void On_GiveImmuneTimeForCollisionAttackHook(On_GiveImmuneTimeForCollisionAttack_Dalegate orig, Player player, int time) {
+            if (TryFetchByPlayer(player, out var values)) {
+                bool result = true;
+                foreach (var value in values.Values) {
+                    bool? newResult = value.On_GiveImmuneTimeForCollisionAttack(time);
+                    if (newResult == false) {
+                        result = false;
+                    }
+                }
+                if (!result) {
+                    return;
+                }
+            }
+            orig.Invoke(player, time);
         }
 
         public override bool Shoot(Item item, EntitySource_ItemUse_WithAmmo source
