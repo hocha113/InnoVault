@@ -17,6 +17,8 @@ namespace InnoVault
             TetheredPlayer_DownRight,
             TetheredPlayer_InMousePos,
             AddStaticImmunity,
+            AddStaticImmunityByProj,
+            AddStaticImmunityByItem,
             SetStaticImmunity,
             UseStaticImmunity,
             Handler_PlaceInWorld,

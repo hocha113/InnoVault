@@ -1,12 +1,12 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Reflection;
 using Terraria;
 using Terraria.ModLoader;
-using static InnoVault.VaultNetWork;
 using static InnoVault.GameSystem.StaticImmunitySystem;
-using Terraria.ID;
+using static InnoVault.VaultNetWork;
 
 namespace InnoVault.GameSystem
 {
@@ -46,6 +46,115 @@ namespace InnoVault.GameSystem
         public int StaticImmunityCooldown { get; set; } = staticImmunityCooldown;
     }
 
+    /// <summary>
+    /// 用于唯一标识一次击中事件的结构体<br/>
+    /// 主要应用于静态伤害免疫机制中的击中冷却追踪<br/>
+    /// 可用作字典键值以支持查找和更新击中状态
+    /// </summary>
+    public struct HitByHitData
+    {
+        /// <summary>
+        /// 被击中的 NPC 类型 ID
+        /// 用于识别具体的 NPC 类别
+        /// </summary>
+        public int npcID;
+
+        /// <summary>
+        /// 造成伤害的道具或弹幕的类型 ID
+        /// 表示击中来源
+        /// </summary>
+        public int hitID;
+
+        /// <summary>
+        /// 造成击中的玩家编号
+        /// 范围为 0 到 Main.maxPlayers - 1
+        /// </summary>
+        public byte whoAmI;
+
+        /// <summary>
+        /// 用于弹幕击中构造唯一击中标识
+        /// </summary>
+        public HitByHitData(NPC npc, Projectile projectile, Player player) {
+            npcID = npc.type;
+            hitID = projectile.type;
+            whoAmI = (byte)player.whoAmI;
+        }
+
+        /// <summary>
+        /// 用于物品击中构造唯一击中标识
+        /// </summary>
+        public HitByHitData(NPC npc, Item item, Player player) {
+            npcID = npc.type;
+            hitID = item.type;
+            whoAmI = (byte)player.whoAmI;
+        }
+
+        /// <summary>
+        /// 通用构造函数 传入三个基础字段
+        /// 一般用于网络同步或手动构建结构
+        /// </summary>
+        public HitByHitData(int npcID, int hitID, byte whoAmI) {
+            this.npcID = npcID;
+            this.hitID = hitID;
+            this.whoAmI = whoAmI;
+        }
+
+        /// <summary>
+        /// 将结构体写入二进制流 用于网络传输
+        /// 顺序为 npcID → hitID → whoAmI
+        /// </summary>
+        public void Write(BinaryWriter writer) {
+            writer.Write(npcID);
+            writer.Write(hitID);
+            writer.Write(whoAmI);
+        }
+
+        /// <summary>
+        /// 从二进制流读取数据并构造结构体
+        /// 需保证读取顺序与写入一致
+        /// </summary>
+        public static HitByHitData Read(BinaryReader reader)
+            => new HitByHitData(reader.ReadInt32(), reader.ReadInt32(), reader.ReadByte());
+
+        /// <summary>
+        /// 判断两个 HitByHitData 是否完全相等
+        /// 逐字段比较
+        /// </summary>
+        public readonly bool Equals(HitByHitData other)
+            => npcID == other.npcID && hitID == other.hitID && whoAmI == other.whoAmI;
+
+        /// <summary>
+        /// 重写 object.Equals 支持字典键比较
+        /// </summary>
+        public readonly override bool Equals(object obj)
+            => obj is HitByHitData other && Equals(other);
+
+        /// <summary>
+        /// 生成哈希值用于哈希容器支持
+        /// 基于三个字段组合计算
+        /// </summary>
+        public readonly override int GetHashCode()
+            => HashCode.Combine(npcID, hitID, whoAmI);
+
+        /// <summary>
+        /// 判断是否相等，比较<see cref="npcID"/>与<see cref="hitID"/>与<see cref="whoAmI"/>
+        /// </summary>
+        /// <param name="left"></param>
+        /// <param name="right"></param>
+        /// <returns></returns>
+        public static bool operator == (HitByHitData left, HitByHitData right)
+            => left.Equals(right);
+
+        /// <summary>
+        /// 判断是否不相等，比较<see cref="npcID"/>与<see cref="hitID"/>与<see cref="whoAmI"/>
+        /// </summary>
+        /// <param name="left"></param>
+        /// <param name="right"></param>
+        /// <returns></returns>
+        public static bool operator != (HitByHitData left, HitByHitData right)
+            => !(left == right);
+    }
+
     internal sealed class StaticImmunitySystem : ModSystem
     {
         internal enum HitType : byte
@@ -54,13 +163,18 @@ namespace InnoVault.GameSystem
             Item,
             Projectile,
         }
+
+        internal static readonly int[] normalWhoAmIs = [.. Enumerable.Range(0, Main.maxPlayers)];
         //这里的数据不应该对外暴露，而是使用封装好的接口进行访问操纵，直接修改这里的字典可能造成系统不稳定，写在这里提醒自己
         internal static readonly Dictionary<int, bool> NPCID_To_UseStaticImmunity = [];
         internal static readonly Dictionary<int, int> NPCID_To_SourceID = [];
         internal static readonly Dictionary<int, HitType> NPCID_To_HitType = [];
         internal static readonly Dictionary<int, int> NPCID_To_StaticImmunityCooldown = [];
-        internal static readonly Dictionary<int, int> NPCID_To_StaticImmunityCooldown_ByPlayer = [];
         internal static readonly Dictionary<int, int[]> NPCSourceID_To_PlayerCooldowns = [];
+        //(NPC.type, Item.type, Player.whoAmI)
+        internal static readonly Dictionary<HitByHitData, int[]> NPCSourceID_To_ByItemCooldowns = [];
+        //(NPC.type, Projectile.type, Player.whoAmI)
+        internal static readonly Dictionary<HitByHitData, int[]> NPCSourceID_To_ByProjectileCooldowns = [];
 
         internal static void HandlePacket(MessageType type, BinaryReader reader, int whoAmI) {
             if (type == MessageType.AddStaticImmunity) {
@@ -75,6 +189,28 @@ namespace InnoVault.GameSystem
                     modPacket.Write(npcID);
                     modPacket.Write(playerWhoAmI);
                     modPacket.Write(localNPCHitCooldown);
+                    modPacket.Send(-1, whoAmI);
+                }
+            }
+            if (type == MessageType.AddStaticImmunityByProj) {
+                HitByHitData hitByHitData = HitByHitData.Read(reader);
+                int customCooldown = reader.ReadInt32();
+                VaultUtils.AddStaticImmunity(NPCSourceID_To_ByProjectileCooldowns, hitByHitData.npcID, hitByHitData.whoAmI, hitByHitData.hitID, customCooldown, false);
+                if (VaultUtils.isServer) {
+                    ModPacket modPacket = VaultMod.Instance.GetPacket();
+                    modPacket.Write((byte)MessageType.AddStaticImmunityByProj);
+                    hitByHitData.Write(modPacket);
+                    modPacket.Send(-1, whoAmI);
+                }
+            }
+            if (type == MessageType.AddStaticImmunityByItem) {
+                HitByHitData hitByHitData = HitByHitData.Read(reader);
+                int customCooldown = reader.ReadInt32();
+                VaultUtils.AddStaticImmunity(NPCSourceID_To_ByItemCooldowns, hitByHitData.npcID, hitByHitData.whoAmI, hitByHitData.hitID, customCooldown, false);
+                if (VaultUtils.isServer) {
+                    ModPacket modPacket = VaultMod.Instance.GetPacket();
+                    modPacket.Write((byte)MessageType.AddStaticImmunityByItem);
+                    hitByHitData.Write(modPacket);
                     modPacket.Send(-1, whoAmI);
                 }
             }
@@ -114,6 +250,8 @@ namespace InnoVault.GameSystem
             NPCID_To_HitType?.Clear();
             NPCID_To_StaticImmunityCooldown?.Clear();
             NPCSourceID_To_PlayerCooldowns?.Clear();
+            NPCSourceID_To_ByItemCooldowns?.Clear();
+            NPCSourceID_To_ByProjectileCooldowns?.Clear();
         }
 
         public override void PostSetupContent() {
@@ -180,6 +318,35 @@ namespace InnoVault.GameSystem
                     NPCSourceID_To_PlayerCooldowns[key][whoAmI]--;
                 }
             }
+
+            foreach (var key in NPCSourceID_To_ByItemCooldowns.Keys) {
+                int has = 0;
+                for (int whoAmI = 0; whoAmI < Main.maxPlayers; whoAmI++) {
+                    if (NPCSourceID_To_ByItemCooldowns[key][whoAmI] <= 0) {
+                        continue;
+                    }
+
+                    has++;
+                    NPCSourceID_To_ByItemCooldowns[key][whoAmI]--;
+                }
+                if (has == 0) {
+                    NPCSourceID_To_ByItemCooldowns.Remove(key);
+                }
+            }
+
+            foreach (var key in NPCSourceID_To_ByProjectileCooldowns.Keys) {
+                int has = 0;
+                for (int whoAmI = 0; whoAmI < Main.maxPlayers; whoAmI++) {
+                    if (NPCSourceID_To_ByProjectileCooldowns[key][whoAmI] <= 0) {
+                        continue;
+                    }
+                    has++;
+                    NPCSourceID_To_ByProjectileCooldowns[key][whoAmI]--;
+                }
+                if (has == 0) {
+                    NPCSourceID_To_ByProjectileCooldowns.Remove(key);
+                }
+            }
         }
     }
 
@@ -213,36 +380,31 @@ namespace InnoVault.GameSystem
     internal sealed class StaticImmunityGlobalNPC : GlobalNPC
     {
         public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone) {
-            if (npc.AddStaticImmunity(player.whoAmI)) {
+            if (VaultUtils.AddStaticImmunity(npc, player, item)) {
                 npc.immune[player.whoAmI] = 0;
                 NPCID_To_HitType[npc.type] = HitType.Item;
             }
         }
 
         public override void OnHitByProjectile(NPC npc, Projectile projectile, NPC.HitInfo hit, int damageDone) {
-            short localNPCHitCooldown = -2;
-
-            if (projectile.usesLocalNPCImmunity) {
-                localNPCHitCooldown = (short)Math.Clamp(projectile.localNPCHitCooldown, short.MinValue, short.MaxValue);
+            if (projectile.owner == -1 && projectile.owner >= Main.maxPlayers) {
+                return;
             }
-            else if (projectile.usesIDStaticNPCImmunity) {
-                localNPCHitCooldown = (short)Math.Clamp(projectile.idStaticNPCHitCooldown, short.MinValue, short.MaxValue);
-            }
-
-            if (npc.AddStaticImmunity(projectile.owner, localNPCHitCooldown)) {
-                int whoAmI = projectile.owner;
-                if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                    whoAmI = 0;
-                }
-                npc.immune[whoAmI] = 0;
+            if (VaultUtils.AddStaticImmunity(npc, Main.player[projectile.owner], projectile)) {
+                npc.immune[projectile.owner] = 0;
                 NPCID_To_HitType[npc.type] = HitType.Projectile;
             }
         }
 
-        public override bool? CanBeHitByItem(NPC npc, Player player, Item item)
-            => npc.HasStaticImmunity(player.whoAmI) ? false : null;
+        public override bool? CanBeHitByItem(NPC npc, Player player, Item item) {
+            return VaultUtils.HasStaticImmunity(npc, player, item) ? false : null;
+        }
 
-        public override bool? CanBeHitByProjectile(NPC npc, Projectile projectile)
-            => npc.HasStaticImmunity(projectile.owner) ? false : null;
+        public override bool? CanBeHitByProjectile(NPC npc, Projectile projectile) {
+            if (projectile.owner == -1 && projectile.owner >= Main.maxPlayers) {
+                return null;
+            }
+            return VaultUtils.HasStaticImmunity(npc, Main.player[projectile.owner], projectile) ? false : null;
+        }
     }
 }

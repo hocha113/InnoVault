@@ -1138,6 +1138,13 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 是否注册有无敌帧数据
+        /// </summary>
+        /// <param name="npcID"></param>
+        /// <returns></returns>
+        public static bool HasStaticImmunity(int npcID) => NPCID_To_SourceID[npcID] > NPCID.None && NPCID_To_UseStaticImmunity[npcID];
+
+        /// <summary>
         /// 判断指定 NPC 当前是否对指定玩家拥有静态免疫状态<br/>
         /// 静态免疫状态意味着该 NPC 会暂时无视来自该玩家的重复伤害
         /// </summary>
@@ -1170,94 +1177,114 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 设置指定玩家（whoAmI）对指定类型 NPC（npcID）的静态免疫冷却时间（单位为帧）
+        /// 判断指定 NPC 是否对玩家使用的物品具有静态免疫状态
+        /// 查询基于命中记录字典中对应值是否大于零
         /// </summary>
-        /// <param name="npcID">目标 NPC 的类型 ID</param>
-        /// <param name="whoAmI">玩家的索引，表示要设置免疫冷却的来源玩家</param>
-        /// <param name="immunity">设置的冷却时间（以帧为单位），期间该 NPC 不会再次受到该玩家的攻击</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        public static void SetStaticImmunity(int npcID, int whoAmI, int immunity, bool netUpdate = true) {
-            if (NPCID_To_SourceID[npcID] == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
-                return;
+        public static bool HasStaticImmunity(NPC npc, Player player, Item item) {
+            if (!HasStaticImmunity(npc.type)) {
+                return false;
             }
 
-            if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
-                return;
+            if (!NPCSourceID_To_ByItemCooldowns.TryGetValue(new HitByHitData(npc.type, item.type, (byte)player.whoAmI), out int[] immuneTicks)) {
+                return false;
             }
 
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                whoAmI = isServer ? 0 : Main.myPlayer;
-            }
-
-            immuneTicks[whoAmI] = immunity;
-
-            if (isSinglePlayer) {
-                return;
-            }
-
-            if (netUpdate) {
-                SendSetStaticImmunityData(npcID, whoAmI, immunity);
-            }
+            return immuneTicks[player.whoAmI] > 0;
         }
 
         /// <summary>
-        /// 启用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// 判断指定 NPC 是否对玩家使用的弹幕具有静态免疫状态
+        /// 查询基于命中记录字典中对应值是否大于零
         /// </summary>
-        /// <param name="npc">目标 NPC 实例</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void EnableStaticImmunity(this NPC npc, bool netUpdate = true) => EnableStaticImmunity(npc.type, netUpdate);
-
-        /// <summary>
-        /// 启用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
-        /// </summary>
-        /// <param name="npcID">NPC 类型 ID</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void EnableStaticImmunity(int npcID, bool netUpdate = true) => ConfigureStaticImmunityUsage(npcID, true, netUpdate);
-
-        /// <summary>
-        /// 禁用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
-        /// </summary>
-        /// <param name="npc">目标 NPC 实例</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void DisableStaticImmunity(this NPC npc, bool netUpdate = true) => DisableStaticImmunity(npc.type, netUpdate);
-
-        /// <summary>
-        /// 禁用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
-        /// </summary>
-        /// <param name="npcID">NPC 类型 ID</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void DisableStaticImmunity(int npcID, bool netUpdate = true) => ConfigureStaticImmunityUsage(npcID, false, netUpdate);
-
-        /// <summary>
-        /// 设置指定类型的 NPC 是否启用静态无敌帧逻辑
-        /// </summary>
-        /// <param name="npcID">NPC 类型 ID</param>
-        /// <param name="enabled">是否启用</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void ConfigureStaticImmunityUsage(int npcID, bool enabled, bool netUpdate = true) {
-            if (!NPCID_To_SourceID.TryGetValue(npcID, out int sourceID) || sourceID == -1) {
-                throw new InvalidOperationException($"No static immunity data found for NPC type {npcID}. " +
-                    $"Make sure to register it using LoadenNPCStaticImmunityData().");
+        public static bool HasStaticImmunity(NPC npc, Player player, Projectile projectile) {
+            if (!HasStaticImmunity(npc.type)) {
+                return false;
             }
 
-            foreach (var key in NPCID_To_UseStaticImmunity.Keys) {
-                if (NPCID_To_SourceID[key] == sourceID) {
-                    NPCID_To_UseStaticImmunity[key] = enabled;
-                }
+            if (!NPCSourceID_To_ByProjectileCooldowns.TryGetValue(new HitByHitData(npc.type, projectile.type, (byte)player.whoAmI), out int[] immuneTicks)) {
+                return false;
             }
 
-            if (!isSinglePlayer && netUpdate) {
+            return immuneTicks[player.whoAmI] > 0;
+        }
+
+        /// <summary>
+        /// 为指定弹幕命中注册静态免疫冷却
+        /// 支持使用弹幕本身的局部冷却时间作为自定义冷却
+        /// 支持网络同步可选
+        /// </summary>
+        public static bool AddStaticImmunity(NPC npc, Player player, Projectile projectile, int customCooldowns = -2, bool netUpdate = true) {
+            if (customCooldowns == -2 && projectile.usesLocalNPCImmunity
+                && NPCID_To_StaticImmunityCooldown.TryGetValue(npc.type, out int cooldown)
+                && projectile.localNPCHitCooldown > 0 && projectile.localNPCHitCooldown < cooldown) {
+                customCooldowns = projectile.localNPCHitCooldown;
+            }
+
+            return AddStaticImmunity(
+                NPCSourceID_To_ByProjectileCooldowns,
+                npc.type,
+                player.whoAmI,
+                projectile.type,
+                customCooldowns,
+                netUpdate,
+                (byte)MessageType.AddStaticImmunityByProj
+            );
+        }
+
+        /// <summary>
+        /// 为指定物品命中注册静态免疫冷却
+        /// 支持自定义冷却时间和网络同步
+        /// </summary>
+        public static bool AddStaticImmunity(NPC npc, Player player, Item item, int customCooldowns = -2, bool netUpdate = true)
+            => AddStaticImmunity(
+                NPCSourceID_To_ByItemCooldowns,
+                npc.type,
+                player.whoAmI,
+                item.type,
+                customCooldowns,
+                netUpdate,
+                (byte)MessageType.AddStaticImmunityByItem
+            );
+
+        /// <summary>
+        /// 静态免疫注册主函数
+        /// 允许注册到任意指定数据表
+        /// 可指定自定义冷却时间
+        /// 可启用远程同步通过 ModPacket 通信实现
+        /// </summary>
+        public static bool AddStaticImmunity(Dictionary<HitByHitData, int[]> data, int npcID, int whoAmI
+            , int hitID, int customCooldowns = -2, bool netUpdate = true, byte messageType = default) {
+
+            if (!HasStaticImmunity(npcID)) {
+                return false;
+            }
+
+            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                return false;
+            }
+
+            HitByHitData hitByHitData = new HitByHitData(npcID, hitID, (byte)whoAmI);
+
+            if (!data.TryGetValue(hitByHitData, out int[] value)) {
+                value = [.. normalWhoAmIs]; //复制默认玩家冷却数组以初始化
+                data[hitByHitData] = value;
+            }
+
+            if (!NPCID_To_StaticImmunityCooldown.TryGetValue(npcID, out int cooldown)) {
+                return false;
+            }
+
+            value[whoAmI] = customCooldowns > 0 ? customCooldowns : cooldown;
+
+            if (!isSinglePlayer && netUpdate && messageType != default) {
                 ModPacket modPacket = VaultMod.Instance.GetPacket();
-                modPacket.Write((byte)MessageType.UseStaticImmunity);
-                modPacket.Write(npcID);
-                modPacket.Write(enabled);
-                modPacket.Send();
+                modPacket.Write(messageType);           //写入消息类型用于同步标识
+                hitByHitData.Write(modPacket);          //写入命中标识数据
+                modPacket.Write(customCooldowns);       //写入自定义冷却时间
+                modPacket.Send();                       //发送数据包到服务器或其他客户端
             }
+
+            return true;
         }
 
         /// <summary>
@@ -1379,7 +1406,7 @@ namespace InnoVault
             ModPacket modPacket = VaultMod.Instance.GetPacket();
             modPacket.Write((byte)MessageType.SetStaticImmunity);
             modPacket.Write(npcID);
-            modPacket.Write(whoAmI); // TODO: 可进一步评估是否有必要同步玩家索引
+            modPacket.Write(whoAmI);
             modPacket.Write(immunity);
             modPacket.Send();
         }
@@ -1442,6 +1469,97 @@ namespace InnoVault
                 foreach (var npcID in group.Select(pair => pair.Key)) {
                     NPCID_To_StaticImmunityCooldown[npcID] = maxCooldown;
                 }
+            }
+        }
+
+        /// <summary>
+        /// 设置指定玩家（whoAmI）对指定类型 NPC（npcID）的静态免疫冷却时间（单位为帧）
+        /// </summary>
+        /// <param name="npcID">目标 NPC 的类型 ID</param>
+        /// <param name="whoAmI">玩家的索引，表示要设置免疫冷却的来源玩家</param>
+        /// <param name="immunity">设置的冷却时间（以帧为单位），期间该 NPC 不会再次受到该玩家的攻击</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
+        public static void SetStaticImmunity(int npcID, int whoAmI, int immunity, bool netUpdate = true) {
+            if (NPCID_To_SourceID[npcID] == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
+                return;
+            }
+
+            if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
+                return;
+            }
+
+            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
+                whoAmI = isServer ? 0 : Main.myPlayer;
+            }
+
+            immuneTicks[whoAmI] = immunity;
+
+            if (isSinglePlayer) {
+                return;
+            }
+
+            if (netUpdate) {
+                SendSetStaticImmunityData(npcID, whoAmI, immunity);
+            }
+        }
+
+        /// <summary>
+        /// 启用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// </summary>
+        /// <param name="npc">目标 NPC 实例</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void EnableStaticImmunity(this NPC npc, bool netUpdate = true) => EnableStaticImmunity(npc.type, netUpdate);
+
+        /// <summary>
+        /// 启用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// </summary>
+        /// <param name="npcID">NPC 类型 ID</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void EnableStaticImmunity(int npcID, bool netUpdate = true) => ConfigureStaticImmunityUsage(npcID, true, netUpdate);
+
+        /// <summary>
+        /// 禁用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// </summary>
+        /// <param name="npc">目标 NPC 实例</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void DisableStaticImmunity(this NPC npc, bool netUpdate = true) => DisableStaticImmunity(npc.type, netUpdate);
+
+        /// <summary>
+        /// 禁用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// </summary>
+        /// <param name="npcID">NPC 类型 ID</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void DisableStaticImmunity(int npcID, bool netUpdate = true) => ConfigureStaticImmunityUsage(npcID, false, netUpdate);
+
+        /// <summary>
+        /// 设置指定类型的 NPC 是否启用静态无敌帧逻辑
+        /// </summary>
+        /// <param name="npcID">NPC 类型 ID</param>
+        /// <param name="enabled">是否启用</param>
+        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
+        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
+        public static void ConfigureStaticImmunityUsage(int npcID, bool enabled, bool netUpdate = true) {
+            if (!NPCID_To_SourceID.TryGetValue(npcID, out int sourceID) || sourceID == -1) {
+                throw new InvalidOperationException($"No static immunity data found for NPC type {npcID}. " +
+                    $"Make sure to register it using LoadenNPCStaticImmunityData().");
+            }
+
+            foreach (var key in NPCID_To_UseStaticImmunity.Keys) {
+                if (NPCID_To_SourceID[key] == sourceID) {
+                    NPCID_To_UseStaticImmunity[key] = enabled;
+                }
+            }
+
+            if (!isSinglePlayer && netUpdate) {
+                ModPacket modPacket = VaultMod.Instance.GetPacket();
+                modPacket.Write((byte)MessageType.UseStaticImmunity);
+                modPacket.Write(npcID);
+                modPacket.Write(enabled);
+                modPacket.Send();
             }
         }
 
