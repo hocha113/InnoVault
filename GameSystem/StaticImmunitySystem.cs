@@ -5,6 +5,8 @@ using System.Reflection;
 using Terraria;
 using Terraria.ModLoader;
 using static InnoVault.VaultNetWork;
+using static InnoVault.GameSystem.StaticImmunitySystem;
+using Terraria.ID;
 
 namespace InnoVault.GameSystem
 {
@@ -30,7 +32,7 @@ namespace InnoVault.GameSystem
     public sealed class StaticImmunityAttribute(Type sourceNPC = null, int staticImmunityCooldown = 0) : Attribute
     {
         /// <summary>
-        /// 该 NPC 的免疫逻辑来源 NPC 类型<br/>
+        /// 该类 NPC 的免疫逻辑来源 NPC 类型<br/>
         /// 用于将当前 NPC 的静态免疫逻辑映射到另一个 NPC，共享无敌帧<br/>
         /// 若为 <see langword="null"/>，则默认为自身（即使用当前类本身作为来源）
         /// </summary>
@@ -38,7 +40,7 @@ namespace InnoVault.GameSystem
 
         /// <summary>
         /// 静态免疫冷却时间，单位为帧（ticks）<br/>
-        /// 冷却期间该 NPC 将不会再次受到来自同一玩家的伤害
+        /// 冷却期间该类 NPC 将不会再次受到来自同一玩家的伤害
         /// 默认值为 0
         /// </summary>
         public int StaticImmunityCooldown { get; set; } = staticImmunityCooldown;
@@ -46,10 +48,18 @@ namespace InnoVault.GameSystem
 
     internal sealed class StaticImmunitySystem : ModSystem
     {
+        internal enum HitType : byte
+        {
+            Player,
+            Item,
+            Projectile,
+        }
         //这里的数据不应该对外暴露，而是使用封装好的接口进行访问操纵，直接修改这里的字典可能造成系统不稳定，写在这里提醒自己
         internal static readonly Dictionary<int, bool> NPCID_To_UseStaticImmunity = [];
         internal static readonly Dictionary<int, int> NPCID_To_SourceID = [];
+        internal static readonly Dictionary<int, HitType> NPCID_To_HitType = [];
         internal static readonly Dictionary<int, int> NPCID_To_StaticImmunityCooldown = [];
+        internal static readonly Dictionary<int, int> NPCID_To_StaticImmunityCooldown_ByPlayer = [];
         internal static readonly Dictionary<int, int[]> NPCSourceID_To_PlayerCooldowns = [];
 
         internal static void HandlePacket(MessageType type, BinaryReader reader, int whoAmI) {
@@ -101,6 +111,7 @@ namespace InnoVault.GameSystem
         public override void Unload() {
             NPCID_To_UseStaticImmunity?.Clear();
             NPCID_To_SourceID?.Clear();
+            NPCID_To_HitType?.Clear();
             NPCID_To_StaticImmunityCooldown?.Clear();
             NPCSourceID_To_PlayerCooldowns?.Clear();
         }
@@ -117,6 +128,7 @@ namespace InnoVault.GameSystem
             for (int i = 0; i < NPCLoader.NPCCount; i++) {
                 NPCID_To_UseStaticImmunity.TryAdd(i, true);
                 NPCID_To_SourceID.TryAdd(i, -1);//确保不会覆盖前面已经设置好的项
+                NPCID_To_HitType.TryAdd(i, HitType.Player);
             }
 
             Type[] types = VaultUtils.GetAnyModCodeType();
@@ -179,6 +191,23 @@ namespace InnoVault.GameSystem
             }
             return null;
         }
+
+        public override bool On_OnHitNPC(NPC npc, in NPC.HitInfo hit, int damageDone) {
+            int sourceID = NPCID_To_SourceID[npc.type];
+            if (sourceID == -1 || !NPCID_To_UseStaticImmunity[npc.type]) {
+                return true;
+            }
+
+            if (NPCID_To_HitType[npc.type] != HitType.Player) {
+                NPCID_To_HitType[npc.type] = HitType.Player;
+                return true;
+            }
+
+            if (npc.AddStaticImmunity(Player.whoAmI)) {
+                npc.immune[Player.whoAmI] = 0;
+            }
+            return true;
+        }
     }
 
     internal sealed class StaticImmunityGlobalNPC : GlobalNPC
@@ -186,6 +215,7 @@ namespace InnoVault.GameSystem
         public override void OnHitByItem(NPC npc, Player player, Item item, NPC.HitInfo hit, int damageDone) {
             if (npc.AddStaticImmunity(player.whoAmI)) {
                 npc.immune[player.whoAmI] = 0;
+                NPCID_To_HitType[npc.type] = HitType.Item;
             }
         }
 
@@ -205,6 +235,7 @@ namespace InnoVault.GameSystem
                     whoAmI = 0;
                 }
                 npc.immune[whoAmI] = 0;
+                NPCID_To_HitType[npc.type] = HitType.Projectile;
             }
         }
 

@@ -112,6 +112,17 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
+        /// 玩家击中NPC时运行
+        /// </summary>
+        /// <param name="target"></param>
+        /// <param name="hit"></param>
+        /// <param name="damageDone"></param>
+        /// <returns></returns>
+        public virtual bool On_OnHitNPC(NPC target, in NPC.HitInfo hit, int damageDone) {
+            return true;
+        }
+
+        /// <summary>
         /// 玩家是否可以切换物品，默认返回<see langword="null"/>，即不进行拦截
         /// 返回有效值可以阻止或者允许玩家切换物品，优先级大于<see cref="ItemOverride.CanSwitchWeapon"/>
         /// </summary>

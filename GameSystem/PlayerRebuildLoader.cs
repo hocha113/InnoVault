@@ -1,4 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
+using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
@@ -10,6 +11,7 @@ using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.WorldBuilding;
 using static InnoVault.GameSystem.PlayerOverride;
+using static System.Net.Mime.MediaTypeNames;
 
 namespace InnoVault.GameSystem
 {
@@ -22,10 +24,12 @@ namespace InnoVault.GameSystem
         public delegate void On_ModifyHitNPCWithItem_Dalegate(Player player, Item item, NPC target, ref NPC.HitModifiers modifiers);
         public delegate void On_ModifyHitNPCWithProj_Dalegate(Player player, Projectile proj, NPC target, ref NPC.HitModifiers modifiers);
         public delegate bool On_CanHitNPC_Dalegate(Player player, NPC target);
+        public delegate void On_OnHitNPC_Dalegate(Player player, NPC target, in NPC.HitInfo hit, int damageDone);
         public static Type playerLoaderType;
         public static MethodBase onModifyHitNPCWithItemMethod;
         public static MethodBase onModifyHitNPCWithProjMethod;
         public static MethodBase onCanHitNPCMethod;
+        public static MethodBase onOnHitNPCMethod;
         void IVaultLoader.LoadData() {
             Instances ??= [];
             TypeToInstance ??= [];
@@ -39,6 +43,7 @@ namespace InnoVault.GameSystem
             onModifyHitNPCWithItemMethod = getPublicStaticMethod("ModifyHitNPCWithItem");
             onModifyHitNPCWithProjMethod = getPublicStaticMethod("ModifyHitNPCWithProj");
             onCanHitNPCMethod = getPublicStaticMethod("CanHitNPC");
+            onOnHitNPCMethod = getPublicStaticMethod("OnHitNPC");
 
             if (onModifyHitNPCWithItemMethod != null) {
                 VaultHook.Add(onModifyHitNPCWithItemMethod, OnModifyHitNPCWithItemHook);
@@ -48,6 +53,9 @@ namespace InnoVault.GameSystem
             }
             if (onCanHitNPCMethod != null) {
                 VaultHook.Add(onCanHitNPCMethod, OnCanHitNPCHook);
+            }
+            if (onOnHitNPCMethod != null) {
+                VaultHook.Add(onOnHitNPCMethod, On_OnHitNPCHook);
             }
         }
 
@@ -155,7 +163,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(player, out var values)) {
                 bool result = true;
                 foreach (var value in values.Values) {
-                    value.On_ModifyHitNPCWithItem(item, target, ref modifiers);
+                    bool newResult = value.On_ModifyHitNPCWithItem(item, target, ref modifiers);
+                    if (newResult == false) {
+                        result = false;
+                    }
                 }
                 if (!result) {
                     return;
@@ -169,7 +180,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(player, out var values)) {
                 bool result = true;
                 foreach (var value in values.Values) {
-                    value.On_ModifyHitNPCWithProj(proj, target, ref modifiers);
+                    bool newResult = value.On_ModifyHitNPCWithProj(proj, target, ref modifiers);
+                    if (newResult == false) {
+                        result = false;
+                    }
                 }
                 if (!result) {
                     return;
@@ -182,13 +196,33 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(player, out var values)) {
                 bool? result = null;
                 foreach (var value in values.Values) {
-                    result = value.On_CanHitNPC(target);
+                    bool? newResult = value.On_CanHitNPC(target);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
                 }
             }
+            
             return orig.Invoke(player, target);
+        }
+
+        private static void On_OnHitNPCHook(On_OnHitNPC_Dalegate orig, Player player, NPC target, in NPC.HitInfo hit, int damageDone) {
+            if (TryFetchByPlayer(player, out var values)) {
+                bool result = true;
+                foreach (var value in values.Values) {
+                    bool? newResult = value.On_OnHitNPC(target, hit, damageDone);
+                    if (newResult == false) {
+                        result = false;
+                    }
+                }
+                if (!result) {
+                    return;
+                }
+            }
+            orig.Invoke(player, target, hit, damageDone);
         }
 
         public override bool Shoot(Item item, EntitySource_ItemUse_WithAmmo source
