@@ -170,6 +170,14 @@ namespace InnoVault
         public static Vector2 To(this Vector2 vr1, Vector2 vr2) => vr2 - vr1;
 
         /// <summary>
+        /// 由该实体到目标点的向量
+        /// </summary>
+        /// <param name="entity"></param>
+        /// <param name="targetCenter"></param>
+        /// <returns></returns>
+        public static Vector2 To(this Entity entity, Vector2 targetCenter) => entity.Center.To(targetCenter);
+
+        /// <summary>
         /// 将一个二维函数填充为三维
         /// </summary>
         /// <param name="vector"></param>
