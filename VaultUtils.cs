@@ -1971,6 +1971,66 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 解析字符串键并获取对应的物块类型
+        /// </summary>
+        /// <param name="fullName">用于解析的字符串键，可以是整数类型或模组/物块名称的组合</param>
+        /// <returns>解析后得到的物块类型</returns>
+        public static int GetTileTypeFromFullName(string fullName) {
+            if (fullName == "Null/Null") {
+                return 0; // Terraria.TileID.None = 0
+            }
+
+            if (int.TryParse(fullName, out int intValue)) {
+                return intValue;
+            }
+            else {
+                string[] parts = fullName.Split('/');
+                if (parts.Length != 2) {
+                    return 0;
+                }
+
+                if (ModLoader.TryGetMod(parts[0], out Mod mod)
+                    && mod.TryFind(parts[1], out ModTile modTile)) {
+                    return modTile.Type;
+                }
+
+                return 0;
+            }
+        }
+
+        /// <summary>
+        /// 解析字符串键并获取对应的墙壁类型
+        /// </summary>
+        /// <param name="fullName">用于解析的字符串键，可以是整数类型或模组/墙壁名称的组合</param>
+        /// <param name="loadVanillaWall">是否自动加载一次原版墙壁</param>
+        /// <returns>解析后得到的墙壁类型</returns>
+        public static int GetWallTypeFromFullName(string fullName, bool loadVanillaWall = false) {
+            if (fullName == "Null/Null") {
+                return 0; // Terraria.WallID.None = 0
+            }
+
+            if (int.TryParse(fullName, out int intValue)) {
+                if (loadVanillaWall && !isServer) {
+                    Main.instance.LoadWall(intValue);
+                }
+                return intValue;
+            }
+            else {
+                string[] parts = fullName.Split('/');
+                if (parts.Length != 2) {
+                    return 0;
+                }
+
+                if (ModLoader.TryGetMod(parts[0], out Mod mod)
+                    && mod.TryFind(parts[1], out ModWall modWall)) {
+                    return modWall.Type;
+                }
+
+                return 0;
+            }
+        }
+
+        /// <summary>
         /// 安全加载物品资源
         /// </summary>
         /// <param name="id"></param>
