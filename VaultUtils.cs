@@ -8,6 +8,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Text.RegularExpressions;
 using System.Threading;
@@ -996,7 +997,8 @@ namespace InnoVault
         /// <param name="point">目标 Tile 坐标，可以是箱子任意一格</param>
         /// <param name="items">返回被取出的物品列表（包含箱子本体时也会返回）</param>
         /// <param name="ignoreLocked">是否忽略上锁状态（<see langword="true"/> 时无视锁定直接移除）</param>
-        /// <param name="dropChest"><see langword="true"/> 表示不额外掉落箱子物品，仅破坏箱子；<see langword="false"/> 则将箱子本身加入掉落列表</param>
+        /// <param name="dropChest"><see langword="true"/> 表示不额外掉落箱子物品，仅破坏箱子 <br/>(注:未起作用，箱子因为是多结构物块仍旧会掉落)；<br/>
+        /// <see langword="false"/> 则将箱子本身加入掉落列表</param>
         /// <param name="netUpdate">多人模式下是否同步更新</param>
         /// <returns>
         /// <see langword="true"/> 表示箱子已成功移除并返回物品；<see langword="false"/> 表示操作失败（位置无效、未找到箱子、被锁定等）
@@ -1051,7 +1053,7 @@ namespace InnoVault
             }
 
             //破坏箱子 Tile
-            WorldGen.KillTile(point.X, point.Y, noItem: dropChest);
+            WorldGen.KillTile(point.X, point.Y, noItem: !dropChest);
 
             //同步更新
             if (netUpdate && isSinglePlayer) {
@@ -3071,13 +3073,43 @@ namespace InnoVault
         /// </summary>
         /// <param name="tile"></param>
         /// <returns></returns>
-        public static int GetTileDrop(this Tile tile) {
-            int stye = TileObjectData.GetTileStyle(tile);
-            if (stye == -1) {
-                stye = 0;
+        public static int GetTileDrop(this Tile tile) => TileLoader.GetItemDropFromTypeAndStyle(tile.TileType, TileObjectData.GetTileStyle(tile));
+
+        /// <summary>
+        /// 获取<see cref="WorldGen"/>中的私有方法 KillTile_GetItemDrops 的信息
+        /// </summary>
+        public readonly static MethodInfo KillTile_GetItemDrops_Method
+            = typeof(WorldGen).GetMethod("KillTile_GetItemDrops", BindingFlags.Static | BindingFlags.NonPublic);
+
+        /// <summary>
+        /// 获取一个物块的掉落物ID
+        /// </summary>
+        /// <param name="tile"></param>
+        /// <param name="x"></param>
+        /// <param name="y"></param>
+        /// <returns></returns>
+        public static int GetTileDrop(this Tile tile, int x, int y) {
+            int id = GetTileDrop(tile);
+            if (id > 0) {
+                return id;
             }
 
-            return TileLoader.GetItemDropFromTypeAndStyle(tile.TileType, stye);
+            //如果失败则用反射调用原版方法
+            object[] parameters = [
+                x, 
+                y,
+                tile, //Tile tileCache
+                0,    //out int dropItem
+                0,    //out int dropItemStack
+                0,    //out int secondaryItem
+                0,    //out int secondaryItemStack
+                false //includeLargeObjectDrops
+            ];
+
+            KillTile_GetItemDrops_Method.Invoke(null, parameters);
+
+            id = (int)parameters[3];//dropItem
+            return id;
         }
 
         /// <summary>
