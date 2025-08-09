@@ -10,6 +10,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -380,6 +381,72 @@ namespace InnoVault
             }
 
             return chunks;
+        }
+
+        /// <summary>
+        /// 将 <see cref="List{T}"/> 直接序列化为原始字节数组（无额外开销，适合高性能存储）
+        /// </summary>
+        /// <typeparam name="T">
+        /// 必须是值类型（struct），且字段布局为固定大小的非托管类型：<br/>
+        /// -不包含引用类型字段（如 string、class、List 等）<br/>
+        /// -无自动属性（除非编译器生成的字段也是值类型）<br/>
+        /// -建议使用 [StructLayout(LayoutKind.Sequential)] 保证内存布局顺序
+        /// </typeparam>
+        /// <param name="list">要序列化的结构体列表</param><br/>
+        /// <returns>按内存布局直接拷贝生成的字节数组</returns>
+        /// <remarks>
+        /// 注意事项：<br/>
+        /// 1.这是“裸内存拷贝”，不能跨平台传输（不同架构/编译器可能布局不同）<br/>
+        /// 2.如果需要跨平台或长期存储，应考虑使用 BinaryWriter 或 protobuf 进行可移植序列化<br/>
+        /// 3.如果结构体中有 bool，C# 默认占 1 字节，但对齐填充会增加额外字节<br/>
+        /// 4.适合短期内在内存中缓存、或本地快速存取的临时数据<br/>
+        /// 5.使用结构体内部不能包含引用类型成员
+        /// </remarks>
+        public static byte[] SerializeBytes<T>(List<T> list) where T : struct {
+            int size = Marshal.SizeOf<T>();
+            byte[] data = new byte[list.Count * size];
+            T[] array = [.. list];
+
+            var handle = GCHandle.Alloc(array, GCHandleType.Pinned);
+            try {
+                IntPtr ptr = handle.AddrOfPinnedObject();
+                Marshal.Copy(ptr, data, 0, data.Length);
+            } finally {
+                handle.Free();
+            }
+
+            return data;
+        }
+
+        /// <summary>
+        /// 从原始字节数组直接反序列化为 <see cref="List{T}"/>（必须是与 <see cref="SerializeBytes"/> 相同的类型）
+        /// </summary>
+        /// <typeparam name="T">
+        /// 必须是值类型（struct），且字段布局与生成字节时一致
+        /// </typeparam>
+        /// <param name="data">原始结构体二进制数据</param>
+        /// <returns>还原的结构体列表</returns>
+        /// <remarks>
+        /// 注意事项：<br/>
+        /// 1.必须保证 data.Length 是 Marshal.SizeOf&lt;T&gt; 的整数倍，否则数据会不完整<br/>
+        /// 2.读取的结构体必须与写入时的类型完全一致，否则会产生数据错位<br/>
+        /// 3.同样不建议用于跨平台或跨版本数据<br/>
+        /// 4.使用结构体内部不能包含引用类型成员
+        /// </remarks>
+        public static List<T> DeserializeBytes<T>(byte[] data) where T : struct {
+            int size = Marshal.SizeOf<T>();
+            int count = data.Length / size;
+            T[] array = new T[count];
+
+            var handle = GCHandle.Alloc(array, GCHandleType.Pinned);
+            try {
+                IntPtr ptr = handle.AddrOfPinnedObject();
+                Marshal.Copy(data, 0, ptr, data.Length);
+            } finally {
+                handle.Free();
+            }
+
+            return [.. array];
         }
 
         /// <summary>
