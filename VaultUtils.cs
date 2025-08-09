@@ -991,6 +991,81 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 尝试移除指定位置的箱子，并返回箱子内的所有物品（包括可选的箱子本身）
+        /// </summary>
+        /// <param name="point">目标 Tile 坐标，可以是箱子任意一格</param>
+        /// <param name="items">返回被取出的物品列表（包含箱子本体时也会返回）</param>
+        /// <param name="ignoreLocked">是否忽略上锁状态（<see langword="true"/> 时无视锁定直接移除）</param>
+        /// <param name="dropChest"><see langword="true"/> 表示不额外掉落箱子物品，仅破坏箱子；<see langword="false"/> 则将箱子本身加入掉落列表</param>
+        /// <param name="netUpdate">多人模式下是否同步更新</param>
+        /// <returns>
+        /// <see langword="true"/> 表示箱子已成功移除并返回物品；<see langword="false"/> 表示操作失败（位置无效、未找到箱子、被锁定等）
+        /// </returns>
+        public static bool TryKillChest(Point16 point, out List<Item> items, bool ignoreLocked = false, bool dropChest = false, bool netUpdate = true) {
+            // 初始化返回列表
+            items = [];
+
+            // 获取该位置箱子的左上角坐标（支持多格箱子）
+            Point16? topLeft = GetTopLeftOrNull(point);
+            if (topLeft == null) {
+                return false;
+            }
+            
+            point = topLeft.Value;
+
+            //获取箱子索引
+            int chestIndex = Chest.FindChest(point.X, point.Y);
+            if (chestIndex == -1 || !Main.chest.IndexInRange(chestIndex)) {
+                return false;
+            }
+            
+            Chest chest = Main.chest[chestIndex];
+            if (chest == null) {
+                return false;
+            }
+            
+            //检查锁定状态
+            if (!ignoreLocked && Chest.IsLocked(chest.x, chest.y)) {
+                return false;
+            }
+            
+            //确保物品数组存在
+            if (chest.item == null) {
+                return false;
+            }
+            
+            //复制并清空箱子物品
+            for (int i = 0; i < Chest.maxItems; i++) {
+                if (chest.item[i].IsAir) {
+                    continue;
+                }
+
+                items.Add(chest.item[i].Clone());
+                chest.item[i] = new Item();
+            }
+
+            //如果允许掉落箱子本身，将其加入掉落列表
+            if (!dropChest) {
+                int itemID = GetTileDrop(Framing.GetTileSafely(point));
+                items.Add(new Item(itemID));
+            }
+
+            //破坏箱子 Tile
+            WorldGen.KillTile(point.X, point.Y, noItem: dropChest);
+
+            //同步更新
+            if (netUpdate && isSinglePlayer) {
+                for (int i = 0; i < Chest.maxItems; i++) {
+                    NetMessage.SendData(MessageID.SyncChestItem, -1, -1, null, chestIndex, i);
+                } 
+
+                NetMessage.SendTileSquare(Main.myPlayer, point.X, point.Y);
+            }
+
+            return true;
+        }
+
+        /// <summary>
         /// 检测玩家是否有效且正常存活
         /// </summary>
         /// <returns>返回 <see langword="true"/> 表示活跃，返回 <see langword="false"/> 表示为空或者已经死亡的非活跃状态</returns>
@@ -2981,7 +3056,22 @@ namespace InnoVault
         /// </summary>
         /// <param name="tile"></param>
         /// <returns></returns>
+        [Obsolete("此方法已经弃用")]
         public static int GetTileDorp(this Tile tile) {
+            int stye = TileObjectData.GetTileStyle(tile);
+            if (stye == -1) {
+                stye = 0;
+            }
+
+            return TileLoader.GetItemDropFromTypeAndStyle(tile.TileType, stye);
+        }
+
+        /// <summary>
+        /// 获取一个物块的掉落物ID
+        /// </summary>
+        /// <param name="tile"></param>
+        /// <returns></returns>
+        public static int GetTileDrop(this Tile tile) {
             int stye = TileObjectData.GetTileStyle(tile);
             if (stye == -1) {
                 stye = 0;
