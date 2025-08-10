@@ -275,6 +275,7 @@ namespace InnoVault
         /// 创建一个矩形
         /// </summary>
         public static Rectangle GetRectangle(this Vector2 topLeft, Point size) => new Rectangle((int)topLeft.X, (int)topLeft.Y, size.X, size.Y);
+        
         /// <summary>
         /// 创建一个矩形
         /// </summary>
@@ -291,6 +292,27 @@ namespace InnoVault
         /// 创建一个矩形
         /// </summary>
         public static Rectangle GetRectangle(this Point16 topLeft, Point size) => new Rectangle(topLeft.X, topLeft.Y, size.X, size.Y);
+
+        /// <summary>
+        /// 根据两个点创建包含它们的矩形，不要求点顺序，自动判断区域
+        /// </summary>
+        public static Rectangle GetRectangleFromPoints(this Vector2 p1, Vector2 p2) {
+            float x = Math.Min(p1.X, p2.X);
+            float y = Math.Min(p1.Y, p2.Y);
+            float width = Math.Abs(p1.X - p2.X) + 1;
+            float height = Math.Abs(p1.Y - p2.Y) + 1;
+            return new Rectangle((int)x, (int)y, (int)width, (int)height);
+        }
+        /// <summary>
+        /// 根据两个点创建包含它们的矩形，不要求点顺序，自动判断区域
+        /// </summary>
+        public static Rectangle GetRectangleFromPoints(this Point16 p1, Point16 p2) {
+            int x = Math.Min(p1.X, p2.X);
+            int y = Math.Min(p1.Y, p2.Y);
+            int width = Math.Abs(p1.X - p2.X) + 1;
+            int height = Math.Abs(p1.Y - p2.Y) + 1;
+            return new Rectangle(x, y, width, height);
+        }
 
         /// <summary>
         /// 计算一个渐进速度值
