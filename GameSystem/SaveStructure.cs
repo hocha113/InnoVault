@@ -19,6 +19,18 @@ namespace InnoVault.GameSystem
     public struct TileSaveData
     {
         /// <summary>
+        /// 控制在加载存档时是否强制放置物块<br/>
+        /// 如果为 <see langword="true"/> 则即使目标位置当前没有物块，也会恢复存档中的物块<br/>
+        /// 每次调用 SaveStructure.LoadTiles 后会自动重置为默认值 <see langword="false"/>
+        /// </summary>
+        public static bool ForcePlaceTiles { get; set; } = false;
+        /// <summary>
+        /// 控制在加载存档时是否强制放置墙壁<br/>
+        /// 如果为 <see langword="true"/> 则即使目标位置当前没有墙壁，也会恢复存档中的墙壁<br/>
+        /// 每次调用 SaveStructure.LoadTiles 后会自动重置为默认值 <see langword="false"/>
+        /// </summary>
+        public static bool ForcePlaceWalls { get; set; } = false;
+        /// <summary>
         /// 物块的名称，该成员只在模组物块上使用，如果存储的是原版物块(即 TileType 小于 TileID.Count 的情况)，则只会存储空字符串<br/>
         /// 否则，对于模组物块，将存储其内部名，用于动态矫正<see cref="TileType"/>的值
         /// </summary>
@@ -100,25 +112,26 @@ namespace InnoVault.GameSystem
 
             ushort tileID = TileType;
             //在开始一切之前先进行模组ID校验
-            if (TileName != string.Empty) {
+            if (!string.IsNullOrEmpty(TileName)) {
                 tileID = (ushort)VaultUtils.GetTileTypeFromFullName(TileName);
             }
             //在开始一切之前先进行模组ID校验
             ushort wallID = WallType;
-            if (WallName != string.Empty) {
+            if (!string.IsNullOrEmpty(WallName)) {
                 wallID = (ushort)VaultUtils.GetWallTypeFromFullName(WallName);
             }
 
             tile.HasTile = HasTile;
-            if (HasTile) {
+            if (HasTile || ForcePlaceTiles) {
                 tile.TileType = tileID;
                 tile.TileFrameX = FrameX;
                 tile.TileFrameY = FrameY;
             }
 
-            if (wallID > WallID.None) {
+            if (wallID > WallID.None || ForcePlaceWalls) {
                 tile.WallType = wallID;
             }
+
             tile.Slope = (SlopeType)Slope;
             tile.LiquidType = LiquidType;
             tile.LiquidAmount = LiquidAmount;
@@ -681,6 +694,9 @@ namespace InnoVault.GameSystem
                     setProgress?.Invoke(phaseStart + (phaseEnd - phaseStart) * (i / (float)count));
                 }
             }
+
+            TileSaveData.ForcePlaceTiles = false;
+            TileSaveData.ForcePlaceWalls = false;
         }
         /// <summary>
         /// 保存指定区域内的所有箱子
@@ -887,9 +903,10 @@ namespace InnoVault.GameSystem
         /// <param name="origin">起始坐标 左上角的世界物块位置</param>
         /// <param name="key">数据键，默认为 region</param>
         /// <param name="clampToWorldBounds">是否自动根据<see cref="RegionSaveData.Size"/>调整目标位置，防止区域超出世界边界</param>
-        public static void LoadRegion(TagCompound tag, Point16 origin, string key = "region", bool clampToWorldBounds = true) {
+        public static RegionSaveData LoadRegion(TagCompound tag, Point16 origin, string key = "region", bool clampToWorldBounds = true) {
             RegionSaveData region = RegionSaveData.FromTag(tag.Get<TagCompound>(key));
             region.ApplyToWorld(origin.X, origin.Y, clampToWorldBounds);
+            return region;
         }
 
         /// <summary>
