@@ -116,7 +116,9 @@ namespace InnoVault.GameSystem
                 tile.TileFrameY = FrameY;
             }
 
-            tile.WallType = wallID;
+            if (wallID > WallID.None) {
+                tile.WallType = wallID;
+            }
             tile.Slope = (SlopeType)Slope;
             tile.LiquidType = LiquidType;
             tile.LiquidAmount = LiquidAmount;
@@ -565,9 +567,9 @@ namespace InnoVault.GameSystem
     public abstract class SaveStructure : SaveContent<SaveStructure>
     {
         /// <summary>
-        /// 保存世界数据的路径，包含文件名，使用世界存档名字作为关键字
+        /// 保存结构数据的路径
         /// </summary>
-        public override string SavePath => Path.Combine(VaultSave.RootPath, "Structure", Mod.Name, $"structure_{Name}.nbt");
+        public override string SavePath => Path.Combine(VaultSave.RootPath, "Structure", Mod.Name, $"{Name}.nbt");
         /// <summary>
         /// 将整个世界复制保存为TagCompound
         /// </summary>
