@@ -580,9 +580,13 @@ namespace InnoVault.GameSystem
     public abstract class SaveStructure : SaveContent<SaveStructure>
     {
         /// <summary>
+        /// 保存结构数据的基本路径，指引到对应模组文件夹
+        /// </summary>
+        public string StructurePath => Path.Combine(VaultSave.RootPath, "Structure", Mod.Name);
+        /// <summary>
         /// 保存结构数据的路径
         /// </summary>
-        public override string SavePath => Path.Combine(VaultSave.RootPath, "Structure", Mod.Name, $"{Name}.nbt");
+        public override string SavePath => Path.Combine(StructurePath, $"{Name}.nbt");
         /// <summary>
         /// 将整个世界复制保存为TagCompound
         /// </summary>
