@@ -3,7 +3,6 @@ using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
 using System.Text;
 using Terraria;
 using Terraria.DataStructures;
@@ -93,6 +92,10 @@ namespace InnoVault.GameSystem
         /// 将本数据应用到指定位置（可用于区域移动 / 粘贴）
         /// </summary>
         public readonly void ApplyToWorld(short worldX, short worldY) {
+            if (!WorldGen.InWorld(worldX, worldY)) {
+                return;
+            }
+
             Tile tile = Main.tile[worldX, worldY];
 
             ushort tileID = TileType;
@@ -287,6 +290,10 @@ namespace InnoVault.GameSystem
         /// 将数据应用到世界，这会试图创建出一个箱子存储对象
         /// </summary>
         public readonly void ApplyToWorld(short targetX, short targetY) {
+            if (!WorldGen.InWorld(targetX, targetY)) {
+                return;
+            }
+
             int chestIndex = Chest.FindChest(targetX, targetY);
             if (chestIndex == -1) {
                 chestIndex = Chest.CreateChest(targetX, targetY);
@@ -421,6 +428,10 @@ namespace InnoVault.GameSystem
         /// 将数据应用到世界，这会放置出一个TP实体
         /// </summary>
         public readonly void ApplyToWorld(short targetX, short targetY) {
+            if (!WorldGen.InWorld(targetX, targetY)) {
+                return;
+            }
+
             Tile tile = Main.tile[targetX, targetY];
             TileProcessor tileProcessor = TileProcessorLoader.AddInWorld(tile.TileType, new Point16(targetX, targetY), null);
             if (tileProcessor != null) {
@@ -457,6 +468,10 @@ namespace InnoVault.GameSystem
     public struct RegionSaveData
     {
         /// <summary>
+        /// 区域大小，描述该结构区域的宽度与高度
+        /// </summary>
+        public Point16 Size;
+        /// <summary>
         /// 压缩后的物块数据
         /// 存储由TileSaveData序列化后的结果
         /// </summary>
@@ -475,13 +490,15 @@ namespace InnoVault.GameSystem
         /// 构造函数
         /// 初始化一个包含物块、箱子和TP实体数据的结构
         /// </summary>
+        /// <param name="size">区域大小</param>
         /// <param name="tiles">压缩后的物块数据</param>
         /// <param name="chests">箱子数据集合</param>
         /// <param name="tps">TP实体数据集合</param>
-        public RegionSaveData(byte[] tiles, IList<TagCompound> chests, IList<TagCompound> tps) {
-            Tiles = tiles; //物块数据
-            Chests = chests; //箱子数据
-            TileProcessors = tps; //TP数据
+        public RegionSaveData(Point16 size, byte[] tiles, IList<TagCompound> chests, IList<TagCompound> tps) {
+            Size = size;//区域大小
+            Tiles = tiles;//物块数据
+            Chests = chests;//箱子数据
+            TileProcessors = tps;//TP数据
         }
         /// <summary>
         /// 将保存的区域数据应用到世界<br/>
@@ -489,15 +506,25 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="targetX">目标区域左上角的X坐标</param>
         /// <param name="targetY">目标区域左上角的Y坐标</param>
-        public readonly void ApplyToWorld(short targetX, short targetY) {
+        /// <param name="clampToWorldBounds">是否自动根据<see cref="Size"/>调整目标位置，防止区域超出世界边界</param>
+        public readonly void ApplyToWorld(short targetX, short targetY, bool clampToWorldBounds = true) {
+            if (clampToWorldBounds) {
+                int maxX = Main.maxTilesX - Size.X;
+                int maxY = Main.maxTilesY - Size.Y;
+                targetX = (short)Math.Clamp(targetX, 0, maxX);
+                targetY = (short)Math.Clamp(targetY, 0, maxY);
+            }
+
             //反序列化物块并放置
             var tilesList = TileSaveData.Deserialize(Tiles);
             SaveStructure.LoadTiles(tilesList, targetX, targetY);
+
             //反序列化并放置箱子
             foreach (var chestTag in Chests) {
                 var chestData = ChestSaveData.FromTag(chestTag);
                 chestData.ApplyToWorld((short)(targetX + chestData.X), (short)(targetY + chestData.Y));
             }
+
             //反序列化并放置TP实体
             foreach (var tpTag in TileProcessors) {
                 var tpData = TPSaveData.FromTag(tpTag);
@@ -511,6 +538,7 @@ namespace InnoVault.GameSystem
         /// <returns>序列化后的TagCompound对象</returns>
         public readonly TagCompound ToTag() {
             return new TagCompound {
+                ["size"] = Size, //区域大小
                 ["tiles"] = Tiles, //物块数据
                 ["chests"] = Chests, //箱子数据
                 ["tps"] = TileProcessors //TP数据
@@ -523,9 +551,10 @@ namespace InnoVault.GameSystem
         /// <returns>反序列化得到的RegionSaveData</returns>
         public static RegionSaveData FromTag(TagCompound tag) {
             return new RegionSaveData(
-                tag.GetByteArray("tiles"), //物块数据
-                [.. tag.GetList<TagCompound>("chests")], //箱子数据
-                [.. tag.GetList<TagCompound>("tps")] //TP数据
+                tag.GetPoint16("size"),//区域大小
+                tag.GetByteArray("tiles"),//物块数据
+                [.. tag.GetList<TagCompound>("chests")],//箱子数据
+                [.. tag.GetList<TagCompound>("tps")]//TP数据
             );
         }
     }
@@ -855,9 +884,10 @@ namespace InnoVault.GameSystem
         /// <param name="tag">TagCompound数据</param>
         /// <param name="origin">起始坐标 左上角的世界物块位置</param>
         /// <param name="key">数据键，默认为 region</param>
-        public static void LoadRegion(TagCompound tag, Point16 origin, string key = "region") {
+        /// <param name="clampToWorldBounds">是否自动根据<see cref="RegionSaveData.Size"/>调整目标位置，防止区域超出世界边界</param>
+        public static void LoadRegion(TagCompound tag, Point16 origin, string key = "region", bool clampToWorldBounds = true) {
             RegionSaveData region = RegionSaveData.FromTag(tag.Get<TagCompound>(key));
-            region.ApplyToWorld(origin.X, origin.Y);
+            region.ApplyToWorld(origin.X, origin.Y, clampToWorldBounds);
         }
 
         /// <summary>
@@ -870,10 +900,11 @@ namespace InnoVault.GameSystem
         /// <param name="height">区域高度 单位为Tile</param>
         /// <returns>包含序列化后数据的RegionSaveData结构</returns>
         public static RegionSaveData SaveRegion(TagCompound tag, Point16 origin, short width, short height) {
+            var size = new Point16(width, height);
             var tiles = TileSaveData.Serialize(SaveTiles(origin.X, origin.Y, width, height));//序列化物块数据
             var chests = SaveChestsByTag(origin.X, origin.Y, width, height);//序列化箱子数据
             var tps = SaveTileProcessor(origin.X, origin.Y, width, height);//序列化TP实体数据
-            RegionSaveData regionSaveData = new RegionSaveData(tiles, chests, tps);
+            RegionSaveData regionSaveData = new RegionSaveData(size, tiles, chests, tps);
             tag["region"] = regionSaveData.ToTag();
             return regionSaveData;//返回区域数据结构
         }

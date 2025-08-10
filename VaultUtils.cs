@@ -1330,6 +1330,8 @@ namespace InnoVault
 
         /// <inheritdoc cref="TagCompound.Get{T}(string)" />
         public static ushort GetUShort(this TagCompound tag, string key) => tag.Get<ushort>(key);
+        /// <inheritdoc cref="TagCompound.Get{T}(string)" />
+        public static Point16 GetPoint16(this TagCompound tag, string key) => tag.Get<Point16>(key);
 
         /// <summary>
         /// 获取源 NPC ID
