@@ -25,6 +25,7 @@ using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
 using Terraria.ModLoader.Core;
+using Terraria.ModLoader.IO;
 using Terraria.ObjectData;
 using Terraria.Social;
 using static InnoVault.GameSystem.StaticImmunitySystem;
@@ -274,6 +275,22 @@ namespace InnoVault
         /// 创建一个矩形
         /// </summary>
         public static Rectangle GetRectangle(this Vector2 topLeft, Point size) => new Rectangle((int)topLeft.X, (int)topLeft.Y, size.X, size.Y);
+        /// <summary>
+        /// 创建一个矩形
+        /// </summary>
+        public static Rectangle GetRectangle(this Point16 topLeft, int width, int height) => new Rectangle(topLeft.X, topLeft.Y, width, height);
+        /// <summary>
+        /// 创建一个矩形
+        /// </summary>
+        public static Rectangle GetRectangle(this Point16 topLeft, int size) => new Rectangle(topLeft.X, topLeft.Y, size, size);
+        /// <summary>
+        /// 创建一个矩形
+        /// </summary>
+        public static Rectangle GetRectangle(this Point16 topLeft, Point16 size) => new Rectangle(topLeft.X, topLeft.Y, size.X, size.Y);
+        /// <summary>
+        /// 创建一个矩形
+        /// </summary>
+        public static Rectangle GetRectangle(this Point16 topLeft, Point size) => new Rectangle(topLeft.X, topLeft.Y, size.X, size.Y);
 
         /// <summary>
         /// 计算一个渐进速度值
@@ -1288,6 +1305,9 @@ namespace InnoVault
             }
             return new EntitySource_Parent(Main.LocalPlayer, "NullSource");
         }
+
+        /// <inheritdoc cref="TagCompound.Get{T}(string)" />
+        public static ushort GetUShort(this TagCompound tag, string key) => tag.Get<ushort>(key);
 
         /// <summary>
         /// 获取源 NPC ID
