@@ -230,7 +230,14 @@ namespace InnoVault.TileProcessors
                     return reset;
                 }
 
+                //TODO:这种处理方式虽然高性能，但在一个物块可能挂载有多个TP实体的情况下会出先问题
+                bool checkOtherTP = ByPositionGetTP(position, out var otherTP);
+
                 foreach (var processor in processorList) {
+                    if (checkOtherTP && otherTP.LoadenName == processor.LoadenName) {
+                        continue;
+                    }
+
                     TileProcessor newProcessor = processor.Clone();
                     newProcessor.Position = position;
                     newProcessor.TrackItem = item;
