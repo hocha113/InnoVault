@@ -1021,8 +1021,16 @@ namespace InnoVault.GameSystem
         /// <param name="origin">起始坐标 左上角的世界物块位置</param>
         /// <param name="key">数据键，默认为 region</param>
         /// <param name="clampToWorldBounds">是否自动根据<see cref="RegionSaveData.Size"/>调整目标位置，防止区域超出世界边界</param>
-        public static RegionSaveData LoadRegion(TagCompound tag, Point16 origin, string key = "region", bool clampToWorldBounds = true) {
-            RegionSaveData region = RegionSaveData.FromTag(tag.Get<TagCompound>(key));
+        public static RegionSaveData LoadRegion(TagCompound tag, Point16 origin, string key = "region", bool clampToWorldBounds = true) 
+            => LoadRegion(tag.GetRegionSaveData(key), origin, clampToWorldBounds);
+
+        /// <summary>
+        /// 将给定的区域数据在指定的位置放置出来
+        /// </summary>
+        /// <param name="region">区域数据</param>
+        /// <param name="origin">起始坐标 左上角的世界物块位置</param>
+        /// <param name="clampToWorldBounds">是否自动根据<see cref="RegionSaveData.Size"/>调整目标位置，防止区域超出世界边界</param>
+        public static RegionSaveData LoadRegion(RegionSaveData region, Point16 origin, bool clampToWorldBounds = true) {
             region.ApplyToWorld(origin.X, origin.Y, clampToWorldBounds);
             return region;
         }
