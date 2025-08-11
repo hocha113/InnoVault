@@ -1333,7 +1333,7 @@ namespace InnoVault
         /// <inheritdoc cref="TagCompound.Get{T}(string)" />
         public static Point16 GetPoint16(this TagCompound tag, string key) => tag.Get<Point16>(key);
         /// <inheritdoc cref="TagCompound.Get{T}(string)" />
-        public static RegionSaveData GetRegionSaveData(this TagCompound tag, string key) => RegionSaveData.FromTag(tag.Get<TagCompound>(key));
+        public static RegionSaveData GetRegionSaveData(this TagCompound tag, string key = "region") => RegionSaveData.FromTag(tag.Get<TagCompound>(key));
 
         /// <summary>
         /// 获取源 NPC ID

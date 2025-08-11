@@ -1075,17 +1075,21 @@ namespace InnoVault.GameSystem
         /// 在指定范围内寻找一个安全的方块放置区域
         /// </summary>
         /// <param name="structureSize">结构尺寸（宽高，单位：方块）</param>
-        /// <param name="startX">初始搜索中心X（可传出生点X）</param>
-        /// <param name="startY">初始搜索中心Y（可传出生点Y）</param>
+        /// <param name="startX">初始搜索中心X</param>
+        /// <param name="startY">初始搜索中心Y</param>
         /// <param name="maxAttempts">最大尝试次数</param>
         /// <param name="horizontalRange">X方向最大偏移范围</param>
         /// <param name="verticalRange">Y方向最大偏移范围</param>
         /// <param name="isTileSafe">判定物块是否安全，默认判定模组方块为危险方块</param>
         /// <returns>安全放置点左上角坐标</returns>
-        public static Point16 FindSafePlacement(Point structureSize, int startX, int startY, int maxAttempts = 300
+        public static Point16 FindSafePlacement(Point16 structureSize, int startX, int startY, int maxAttempts = 300
             , int horizontalRange = 200, int verticalRange = 200, Func<Tile, bool> isTileSafe = null) {
             int attempts = 0;
             isTileSafe ??= (Tile tile) => tile.TileType < TileID.Count;
+            //先判断一次，如果正常就直接返回
+            if (IsAreaSafe(startX, startY, structureSize, isTileSafe)) {
+                return new Point16(startX, startY);
+            }
 
             while (attempts < maxAttempts) {
                 //在范围内随机一个候选点
@@ -1096,7 +1100,7 @@ namespace InnoVault.GameSystem
                 candidateX = Math.Clamp(candidateX, 0, Main.maxTilesX - structureSize.X);
                 candidateY = Math.Clamp(candidateY, 0, Main.maxTilesY - structureSize.Y);
 
-                if (IsAreaSafe(candidateX, candidateY, structureSize)) {
+                if (IsAreaSafe(candidateX, candidateY, structureSize, isTileSafe)) {
                     return new Point16(candidateX, candidateY);
                 }
 
@@ -1110,9 +1114,23 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
+        /// 在指定范围内寻找一个安全的方块放置区域
+        /// </summary>
+        /// <param name="structureSize">结构尺寸（宽高，单位：方块）</param>
+        /// <param name="startPoint">初始搜索中心</param>
+        /// <param name="maxAttempts">最大尝试次数</param>
+        /// <param name="horizontalRange">X方向最大偏移范围</param>
+        /// <param name="verticalRange">Y方向最大偏移范围</param>
+        /// <param name="isTileSafe">判定物块是否安全，默认判定模组方块为危险方块</param>
+        /// <returns>安全放置点左上角坐标</returns>
+        public static Point16 FindSafePlacement(Point16 structureSize, Point16 startPoint, int maxAttempts = 300
+            , int horizontalRange = 200, int verticalRange = 200, Func<Tile, bool> isTileSafe = null) 
+            => FindSafePlacement(structureSize, startPoint.X, startPoint.Y, maxAttempts, horizontalRange, verticalRange, isTileSafe);
+
+        /// <summary>
         /// 检查某个矩形区域是否安全
         /// </summary>
-        private static bool IsAreaSafe(int startX, int startY, Point size, Func<Tile, bool> isTileSafe = null) {
+        private static bool IsAreaSafe(int startX, int startY, Point16 size, Func<Tile, bool> isTileSafe) {
             for (int i = 0; i < size.X; i++) {
                 for (int j = 0; j < size.Y; j++) {
                     Tile tile = Framing.GetTileSafely(startX + i, startY + j);
