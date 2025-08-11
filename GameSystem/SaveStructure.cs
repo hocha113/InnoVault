@@ -64,13 +64,48 @@ namespace InnoVault.GameSystem
         public byte WallColor;
         /// <summary>是否存在物块（<see cref="Tile.HasTile"/>）</summary>
         public bool HasTile;
+        /// <summary>是否存在促动器（<see cref="Tile.HasActuator"/>）</summary>
+        public bool HasActuator;
+        /// <summary>是否处于被促动状态（<see cref="Tile.IsActuated"/>）</summary>
+        public bool IsActuated;
+        /// <summary>是否为半砖（<see cref="Tile.IsHalfBlock"/>）</summary>
+        public bool IsHalfBlock;
+        /// <summary>是否有红色电线（<see cref="Tile.RedWire"/>）</summary>
+        public bool RedWire;
+        /// <summary>是否有绿色电线（<see cref="Tile.GreenWire"/>）</summary>
+        public bool GreenWire;
+        /// <summary>是否有蓝色电线（<see cref="Tile.BlueWire"/>）</summary>
+        public bool BlueWire;
+        /// <summary>是否有黄色电线（<see cref="Tile.YellowWire"/>）</summary>
+        public bool YellowWire;
+        /// <summary>物块是否不可见（<see cref="Tile.IsTileInvisible"/>）</summary>
+        public bool IsTileInvisible;
+        /// <summary>墙壁是否不可见（<see cref="Tile.IsWallInvisible"/>）</summary>
+        public bool IsWallInvisible;
+        /// <summary>物块是否全亮（忽略光照，<see cref="Tile.IsTileFullbright"/>）</summary>
+        public bool IsTileFullbright;
+        /// <summary>墙壁是否全亮（忽略光照，<see cref="Tile.IsWallFullbright"/>）</summary>
+        public bool IsWallFullbright;
         /// <summary>
         /// 根据给定的世界坐标和 Tile 数据构造保存单元
         /// </summary>
         public TileSaveData(short x, short y, Tile tile) {
             X = x;
             Y = y;
+
             HasTile = tile.HasTile;
+            HasActuator = tile.HasActuator;
+            IsActuated = tile.IsActuated;
+            IsHalfBlock = tile.IsHalfBlock;
+            RedWire = tile.RedWire;
+            GreenWire = tile.GreenWire;
+            BlueWire = tile.BlueWire;
+            YellowWire = tile.YellowWire;
+            IsTileInvisible = tile.IsTileInvisible;
+            IsWallInvisible = tile.IsWallInvisible;
+            IsTileFullbright = tile.IsTileFullbright;
+            IsWallFullbright = tile.IsWallFullbright;
+
             TileType = tile.HasTile ? tile.TileType : (ushort)0;
             FrameX = tile.HasTile ? tile.TileFrameX : (short)0;
             FrameY = tile.HasTile ? tile.TileFrameY : (short)0;
@@ -80,6 +115,7 @@ namespace InnoVault.GameSystem
             LiquidAmount = tile.LiquidAmount;
             TileColor = tile.TileColor;
             WallColor = tile.WallColor;
+
             //下面是处理那些该死的模组物块的情况
             TileName = string.Empty;
             if (TileType >= TileID.Count) {
@@ -122,6 +158,18 @@ namespace InnoVault.GameSystem
             }
 
             tile.HasTile = HasTile;
+            tile.HasActuator = HasActuator;
+            tile.IsActuated = IsActuated;
+            tile.IsHalfBlock = IsHalfBlock;
+            tile.RedWire = RedWire;
+            tile.GreenWire = GreenWire;
+            tile.BlueWire = BlueWire;
+            tile.YellowWire = YellowWire;
+            tile.IsTileInvisible = IsTileInvisible;
+            tile.IsWallInvisible = IsWallInvisible;
+            tile.IsTileFullbright = IsTileFullbright;
+            tile.IsWallFullbright = IsWallFullbright;
+
             if (HasTile || ForcePlaceTiles) {
                 tile.TileType = tileID;
                 tile.TileFrameX = FrameX;
@@ -142,9 +190,27 @@ namespace InnoVault.GameSystem
         /// 序列化为 TagCompound
         /// </summary>
         public readonly TagCompound ToTag() {
+            BitsByte flags1 = new();
+            flags1[0] = HasTile;
+            flags1[1] = HasActuator;
+            flags1[2] = IsActuated;
+            flags1[3] = IsHalfBlock;
+
+            BitsByte flags2 = new();
+            flags2[0] = RedWire;
+            flags2[1] = GreenWire;
+            flags2[2] = BlueWire;
+            flags2[3] = YellowWire;
+            flags2[4] = IsTileInvisible;
+            flags2[5] = IsWallInvisible;
+            flags2[6] = IsTileFullbright;
+            flags2[7] = IsWallFullbright;
+
             return new TagCompound {
                 ["X"] = X,
                 ["Y"] = Y,
+                ["Flags1"] = (byte)flags1,
+                ["Flags2"] = (byte)flags2,
                 ["TileType"] = TileType,
                 ["FrameX"] = FrameX,
                 ["FrameY"] = FrameY,
@@ -154,18 +220,36 @@ namespace InnoVault.GameSystem
                 ["LiquidAmount"] = LiquidAmount,
                 ["TileColor"] = TileColor,
                 ["WallColor"] = WallColor,
-                ["HasTile"] = HasTile,
                 ["TileName"] = TileName ?? string.Empty,
                 ["WallName"] = WallName ?? string.Empty
             };
         }
+
         /// <summary>
         /// 从 TagCompound 反序列化
         /// </summary>
         public static TileSaveData FromTag(TagCompound tag) {
+            BitsByte flags1 = (BitsByte)tag.GetByte("Flags1");
+            BitsByte flags2 = (BitsByte)tag.GetByte("Flags2");
+
             return new TileSaveData {
                 X = tag.GetShort("X"),
                 Y = tag.GetShort("Y"),
+
+                HasTile = flags1[0],
+                HasActuator = flags1[1],
+                IsActuated = flags1[2],
+                IsHalfBlock = flags1[3],
+
+                RedWire = flags2[0],
+                GreenWire = flags2[1],
+                BlueWire = flags2[2],
+                YellowWire = flags2[3],
+                IsTileInvisible = flags2[4],
+                IsWallInvisible = flags2[5],
+                IsTileFullbright = flags2[6],
+                IsWallFullbright = flags2[7],
+
                 TileType = tag.GetUShort("TileType"),
                 FrameX = tag.GetShort("FrameX"),
                 FrameY = tag.GetShort("FrameY"),
@@ -175,7 +259,6 @@ namespace InnoVault.GameSystem
                 LiquidAmount = tag.GetByte("LiquidAmount"),
                 TileColor = tag.GetByte("TileColor"),
                 WallColor = tag.GetByte("WallColor"),
-                HasTile = tag.GetBool("HasTile"),
                 TileName = tag.GetString("TileName"),
                 WallName = tag.GetString("WallName")
             };
@@ -187,11 +270,9 @@ namespace InnoVault.GameSystem
             using var ms = new MemoryStream();
             using var writer = new BinaryWriter(ms, Encoding.UTF8, leaveOpen: true);
 
-            //写入总数
             writer.Write(tiles.Count);
 
             foreach (var tile in tiles) {
-                //写值类型字段
                 writer.Write(tile.X);
                 writer.Write(tile.Y);
                 writer.Write(tile.TileType);
@@ -203,9 +284,26 @@ namespace InnoVault.GameSystem
                 writer.Write(tile.LiquidAmount);
                 writer.Write(tile.TileColor);
                 writer.Write(tile.WallColor);
-                writer.Write(tile.HasTile);
 
-                //写字符串：先写长度(int)，再写UTF8字节，如果为空写长度0
+                // 位压缩
+                BitsByte flags1 = new BitsByte();
+                flags1[0] = tile.HasTile;
+                flags1[1] = tile.HasActuator;
+                flags1[2] = tile.IsActuated;
+                flags1[3] = tile.IsHalfBlock;
+                writer.Write((byte)flags1);
+
+                BitsByte flags2 = new BitsByte();
+                flags2[0] = tile.RedWire;
+                flags2[1] = tile.GreenWire;
+                flags2[2] = tile.BlueWire;
+                flags2[3] = tile.YellowWire;
+                flags2[4] = tile.IsTileInvisible;
+                flags2[5] = tile.IsWallInvisible;
+                flags2[6] = tile.IsTileFullbright;
+                flags2[7] = tile.IsWallFullbright;
+                writer.Write((byte)flags2);
+
                 WriteString(writer, tile.TileName);
                 WriteString(writer, tile.WallName);
             }
@@ -214,15 +312,6 @@ namespace InnoVault.GameSystem
             return ms.ToArray();
         }
 
-        private static void WriteString(BinaryWriter writer, string value) {
-            if (string.IsNullOrEmpty(value)) {
-                writer.Write(0);
-                return;
-            }
-            var bytes = Encoding.UTF8.GetBytes(value);
-            writer.Write(bytes.Length);
-            writer.Write(bytes);
-        }
         /// <summary>
         /// 反序列化 byte[] 到 List&lt;TileSaveData&gt;
         /// </summary>
@@ -247,7 +336,22 @@ namespace InnoVault.GameSystem
                 tile.LiquidAmount = reader.ReadByte();
                 tile.TileColor = reader.ReadByte();
                 tile.WallColor = reader.ReadByte();
-                tile.HasTile = reader.ReadBoolean();
+
+                BitsByte flags1 = reader.ReadByte();
+                tile.HasTile = flags1[0];
+                tile.HasActuator = flags1[1];
+                tile.IsActuated = flags1[2];
+                tile.IsHalfBlock = flags1[3];
+
+                BitsByte flags2 = reader.ReadByte();
+                tile.RedWire = flags2[0];
+                tile.GreenWire = flags2[1];
+                tile.BlueWire = flags2[2];
+                tile.YellowWire = flags2[3];
+                tile.IsTileInvisible = flags2[4];
+                tile.IsWallInvisible = flags2[5];
+                tile.IsTileFullbright = flags2[6];
+                tile.IsWallFullbright = flags2[7];
 
                 tile.TileName = ReadString(reader);
                 tile.WallName = ReadString(reader);
@@ -256,6 +360,16 @@ namespace InnoVault.GameSystem
             }
 
             return result;
+        }
+
+        private static void WriteString(BinaryWriter writer, string value) {
+            if (string.IsNullOrEmpty(value)) {
+                writer.Write(0);
+                return;
+            }
+            var bytes = Encoding.UTF8.GetBytes(value);
+            writer.Write(bytes.Length);
+            writer.Write(bytes);
         }
 
         private static string ReadString(BinaryReader reader) {
@@ -948,5 +1062,59 @@ namespace InnoVault.GameSystem
         /// <param name="area">矩形区域 定义了左上角坐标和尺寸</param>
         public static RegionSaveData SaveRegion(TagCompound tag, Rectangle area)
             => SaveRegion(tag, new Point16(area.X, area.Y), (short)area.Width, (short)area.Height);//保存矩形区域
+
+        /// <summary>
+        /// 在指定范围内寻找一个安全的方块放置区域
+        /// </summary>
+        /// <param name="structureSize">结构尺寸（宽高，单位：方块）</param>
+        /// <param name="startX">初始搜索中心X（可传出生点X）</param>
+        /// <param name="startY">初始搜索中心Y（可传出生点Y）</param>
+        /// <param name="maxAttempts">最大尝试次数</param>
+        /// <param name="horizontalRange">X方向最大偏移范围</param>
+        /// <param name="verticalRange">Y方向最大偏移范围</param>
+        /// <param name="isTileSafe">判定物块是否安全，默认判定模组方块为危险方块</param>
+        /// <returns>安全放置点左上角坐标</returns>
+        public static Point16 FindSafePlacement(Point structureSize, int startX, int startY, int maxAttempts = 300
+            , int horizontalRange = 200, int verticalRange = 200, Func<Tile, bool> isTileSafe = null) {
+            int attempts = 0;
+            isTileSafe ??= (Tile tile) => tile.TileType < TileID.Count;
+
+            while (attempts < maxAttempts) {
+                //在范围内随机一个候选点
+                int candidateX = startX + WorldGen.genRand.Next(-horizontalRange, horizontalRange + 1);
+                int candidateY = startY + WorldGen.genRand.Next(-verticalRange, verticalRange + 1);
+
+                //边界检查
+                candidateX = Math.Clamp(candidateX, 0, Main.maxTilesX - structureSize.X);
+                candidateY = Math.Clamp(candidateY, 0, Main.maxTilesY - structureSize.Y);
+
+                if (IsAreaSafe(candidateX, candidateY, structureSize)) {
+                    return new Point16(candidateX, candidateY);
+                }
+
+                attempts++;
+            }
+
+            //如果找不到，兜底位置
+            int fallbackX = Math.Clamp(startX, 0, Main.maxTilesX - structureSize.X);
+            int fallbackY = Math.Clamp(startY - 50, 0, Main.maxTilesY - structureSize.Y);
+            return new Point16(fallbackX, fallbackY);
+        }
+
+        /// <summary>
+        /// 检查某个矩形区域是否安全
+        /// </summary>
+        private static bool IsAreaSafe(int startX, int startY, Point size, Func<Tile, bool> isTileSafe = null) {
+            for (int i = 0; i < size.X; i++) {
+                for (int j = 0; j < size.Y; j++) {
+                    Tile tile = Framing.GetTileSafely(startX + i, startY + j);
+                    if (isTileSafe.Invoke(tile)) {
+                        continue;
+                    }
+                    return false;
+                }
+            }
+            return true;
+        }
     }
 }
