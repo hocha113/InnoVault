@@ -3246,7 +3246,13 @@ namespace InnoVault
         /// </summary>
         /// <param name="tile"></param>
         /// <returns></returns>
-        public static int GetTileDrop(this Tile tile) => TileLoader.GetItemDropFromTypeAndStyle(tile.TileType, TileObjectData.GetTileStyle(tile));
+        public static int GetTileDrop(this Tile tile) {
+            int style = TileObjectData.GetTileStyle(tile);
+            if (style <= 0) {
+                style = 0;
+            }
+            return TileLoader.GetItemDropFromTypeAndStyle(tile.TileType, style);
+        }
 
         /// <summary>
         /// 获取<see cref="WorldGen"/>中的私有方法 KillTile_GetItemDrops 的信息
