@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
+using System.CodeDom;
 using System.Linq;
 using System.Reflection;
 using Terraria.Audio;
@@ -206,13 +207,11 @@ namespace InnoVault
         }
 
         internal static void ProcessMemberAsset(MemberInfo member, Type type, bool load) {
-            VaultLoadenAttribute attribute;
-            try {
-                attribute = member.GetCustomAttribute<VaultLoadenAttribute>();
-            } catch (Exception ex) {
-                VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} due to attribute load error: {ex.Message}");
-                return;
-            }
+            VaultLoadenAttribute attribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(member, (phase, ex) => {
+                VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} " +
+                    $"Due To {phase} Load Error: {ex.Message}"
+                );
+            });
 
             if (attribute == null) {
                 return;
@@ -297,7 +296,7 @@ namespace InnoVault
                 attribute.AssetMode = GetAttributeAssetMode(valueType);
             }
             if (attribute.AssetMode == AssetMode.None) {//第二次检测，如果还是None就跳过
-                VaultMod.Instance.Logger.Warn($"Cannot determine asset mode for {member.Name} of type {valueType}. Skipped.");
+                //VaultMod.Instance.Logger.Warn($"Cannot determine asset mode for {member.Name} of type {valueType}. Skipped.");
                 return;
             }
 
@@ -358,50 +357,47 @@ namespace InnoVault
         /// <param name="classAttribute">类级别的<see cref="VaultLoadenAttribute"/></param>
         /// <param name="load">true 表示加载，false 表示卸载</param>
         private static void ProcessClassMemberAsset(MemberInfo member, Type type, VaultLoadenAttribute classAttribute, bool load) {
-            // 检查成员是否已有自己的 VaultLoadenAttribute
-            VaultLoadenAttribute memberAttribute;
-            try {
-                memberAttribute = member.GetCustomAttribute<VaultLoadenAttribute>();
-            } catch (Exception ex) {
-                VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} in class {type.FullName} due to attribute load error: {ex.Message}");
-                return;
-            }
+            VaultLoadenAttribute memberAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(member, (phase, ex) => {
+                    VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} " +
+                        $"in class {type.FullName} due to {phase} load error: {ex.Message}");
+                }
+            );
 
             if (memberAttribute != null) {
-                // 成员有自己的 VaultLoadenAttribute，直接跳过
+                //成员有自己的 VaultLoadenAttribute，直接跳过
                 return;
             }
 
-            // 使用类级别的 VaultLoadenAttribute
+            //使用类级别的 VaultLoadenAttribute
             Type valueType = member is FieldInfo field ? field.FieldType : (member as PropertyInfo)?.PropertyType;
             if (valueType == null) {
                 return;
             }
 
-            // 仅处理支持的资源类型
+            //仅处理支持的资源类型
             AssetMode assetMode = GetAttributeAssetMode(valueType);
             if (assetMode == AssetMode.None) {
-                VaultMod.Instance.Logger.Warn($"Cannot determine asset mode for {member.Name} of type {valueType} in class {type.FullName}. Skipped.");
+                //VaultMod.Instance.Logger.Warn($"Cannot determine asset mode for {member.Name} of type {valueType} in class {type.FullName}. Skipped.");
                 return;
             }
 
-            // 使用成员名称构造资源路径
+            //使用成员名称构造资源路径
             string memberName = member.Name;
             string memberPath = classAttribute.Path.EndsWith('/') ? classAttribute.Path + memberName : $"{classAttribute.Path}/{memberName}";
 
-            // 创建临时的 VaultLoadenAttribute 用于加载
+            //创建临时的 VaultLoadenAttribute 用于加载
             var tempAttribute = new VaultLoadenAttribute(memberPath, assetMode, classAttribute.EffectPassname) {
                 Mod = classAttribute.Mod
             };
 
             if (load) {
-                // 加载资源
+                //加载资源
                 CheckAttributePath(type, memberName, tempAttribute);
                 //VaultMod.Instance.Logger.Debug($"CheckAttributePath set TempAttribute resource path for {member.MemberType} : {tempAttribute.Path}");
                 LoadMember(member, tempAttribute);
             }
             else {
-                // 卸载资源
+                //卸载资源
                 UnloadMember(member);
             }
         }
@@ -420,15 +416,13 @@ namespace InnoVault
                 return;
             }
 
-            // 检查 AssetMode（如果类级别指定了 AssetMode）
+            //检查 AssetMode（如果类级别指定了 AssetMode）
             if (classAttribute.AssetMode != AssetMode.None) {
-                VaultLoadenAttribute memberAttribute;
-                try {
-                    memberAttribute = member.GetCustomAttribute<VaultLoadenAttribute>();
-                } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} in class {type.FullName} due to attribute load error: {ex.Message}");
-                    return;
-                }
+                VaultLoadenAttribute memberAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(member, (phase, ex) => {
+                        VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} " +
+                            $"in class {type.FullName} due to {phase} load error: {ex.Message}");
+                    }
+                );
 
                 if (GetAttributeAssetMode(memberType) != classAttribute.AssetMode) {
                     //VaultMod.Instance.Logger.Debug($"Skipped {member.MemberType} {member.Name} in class {type.FullName} due to mismatched AssetMode");
@@ -436,7 +430,7 @@ namespace InnoVault
                 }
             }
 
-            // 处理成员
+            //处理成员
             ProcessClassMemberAsset(member, type, classAttribute, load);
         }
 
@@ -447,38 +441,35 @@ namespace InnoVault
         /// <param name="load">true 表示加载，false 表示卸载</param>
         private static void ProcessClassAssets(Type type, bool load) {
             // 检查类上是否有 VaultLoadenAttribute
-            VaultLoadenAttribute classAttribute;
-            try {
-                classAttribute = type.GetCustomAttribute<VaultLoadenAttribute>();
-            } catch (Exception ex) {
-                VaultMod.Instance.Logger.Warn($"Skipped class {type.FullName} due to attribute load error: {ex.Message}");
-                return;
-            }
+            VaultLoadenAttribute classAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(type, (phase, ex) => {
+                    VaultMod.Instance.Logger.Warn($"Skipped class {type.FullName} due to {phase} load error: {ex.Message}");
+                }
+            );
 
             if (classAttribute == null) {
-                return; // 类上没有 VaultLoadenAttribute，跳过
+                return; //类上没有 VaultLoadenAttribute，跳过
             }
 
-            // 查找模组
+            //查找模组
             if (!FindattributeByMod(type, classAttribute)) {
                 VaultMod.Instance.Logger.Warn($"Cannot find mod for class {type.FullName}. Skipped.");
                 return;
             }
 
             if (load) {
-                // 加载时，检查类级路径
+                //加载时，检查类级路径
                 CheckClassAttributePath(type, classAttribute);
             }
 
-            // 获取所有静态字段和属性
+            //获取所有静态字段和属性
             BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static;
 
-            // 处理字段
+            //处理字段
             foreach (var field in type.GetFields(flags)) {
                 ProcessClassMemberPassInto(field, type, classAttribute, load);
             }
 
-            // 处理属性
+            //处理属性
             foreach (var property in type.GetProperties(flags)) {
                 ProcessClassMemberPassInto(property, type, classAttribute, load);
             }

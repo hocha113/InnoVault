@@ -423,6 +423,60 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 安全地从 <see cref="MemberInfo"/> 获取指定类型的 <see cref="Attribute"/>
+        /// </summary>
+        /// <typeparam name="T">目标特性类型</typeparam>
+        /// <param name="member">要扫描的成员</param>
+        /// <param name="onError">错误回调，参数依次是错误类型阶段("metadata"/"instantiate")和异常对象</param>
+        /// <returns>找到的特性实例，如果没有或出错则返回 <see langword="null"/></returns>
+        public static T GetAttributeSafely<T>(MemberInfo member, Action<string, Exception> onError = null) where T : Attribute {
+            try {
+                //元数据预筛选
+                if (!CustomAttributeData.GetCustomAttributes(member).Any(a => a.AttributeType == typeof(T))) {
+                    return null;
+                }
+
+                //安全实例化特性
+                try {
+                    return member.GetCustomAttribute<T>();
+                } catch (Exception exAttr) {
+                    onError?.Invoke("Instantiate", exAttr);
+                    return null;
+                }
+            } catch (Exception exMeta) {
+                onError?.Invoke("Metadata", exMeta);
+                return null;
+            }
+        }
+
+        /// <summary>
+        /// 安全地从 <see cref="Type"/> 获取指定类型的 <see cref="Attribute"/>
+        /// </summary>
+        /// <typeparam name="T">目标特性类型</typeparam>
+        /// <param name="type">要扫描的类型</param>
+        /// <param name="onError">错误回调，参数依次是错误类型阶段("metadata"/"instantiate")和异常对象</param>
+        /// <returns>找到的特性实例，如果没有或出错则返回 <see langword="null"/></returns>
+        public static T GetAttributeSafely<T>(Type type, Action<string, Exception> onError = null) where T : Attribute {
+            try {
+                //元数据预筛选
+                if (!CustomAttributeData.GetCustomAttributes(type).Any(a => a.AttributeType == typeof(T))) {
+                    return null;
+                }
+
+                //安全实例化特性
+                try {
+                    return type.GetCustomAttribute<T>();
+                } catch (Exception exAttr) {
+                    onError?.Invoke("Instantiate", exAttr);
+                    return null;
+                }
+            } catch (Exception exMeta) {
+                onError?.Invoke("Metadata", exMeta);
+                return null;
+            }
+        }
+
+        /// <summary>
         /// 将 <see cref="List{T}"/> 直接序列化为原始字节数组（无额外开销，适合高性能存储）
         /// </summary>
         /// <typeparam name="T">
