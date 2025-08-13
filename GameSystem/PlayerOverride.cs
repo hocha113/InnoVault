@@ -1,9 +1,12 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.StateStruct;
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ID;
+using Terraria.ModLoader;
+using static Terraria.Player;
 
 namespace InnoVault.GameSystem
 {
@@ -127,6 +130,23 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <returns></returns>
         public virtual bool On_GiveImmuneTimeForCollisionAttack(int time) {
+            return true;
+        }
+
+        /// <summary>
+        /// 运行在<see cref="CombinedHooks.CanBeHitByProjectile"/>之前，用于决定玩家是否被该弹幕击中
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool? On_CanBeHitByProjectile(Projectile proj) {
+            return false;
+        }
+
+        /// <summary>
+        /// 修改受击处理
+        /// </summary>
+        /// <param name="hurtState">封装好的受击参数</param>
+        /// <returns>返回是否成功处理受击，true 表示允许受击</returns>
+        public virtual bool On_Hurt(ref HurtState hurtState) {
             return true;
         }
 

@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.StateStruct;
+using Microsoft.Xna.Framework;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
@@ -12,6 +13,7 @@ using Terraria.ModLoader;
 using Terraria.WorldBuilding;
 using static InnoVault.GameSystem.PlayerOverride;
 using static System.Net.Mime.MediaTypeNames;
+using static Terraria.Player;
 
 namespace InnoVault.GameSystem
 {
@@ -26,12 +28,16 @@ namespace InnoVault.GameSystem
         public delegate bool On_CanHitNPC_Dalegate(Player player, NPC target);
         public delegate void On_OnHitNPC_Dalegate(Player player, NPC target, in NPC.HitInfo hit, int damageDone);
         public delegate void On_GiveImmuneTimeForCollisionAttack_Dalegate(Player player, int time);
+        public delegate bool On_CanBeHitByProjectile_Dalegate(Player player, Projectile proj);
+        public delegate double On_Hurt_Dalegate(Player player, PlayerDeathReason damageSource, int Damage, int hitDirection, out HurtInfo info, bool pvp = false, bool quiet = false, int cooldownCounter = -1, bool dodgeable = true, float armorPenetration = 0f, float scalingArmorPenetration = 0f, float knockback = 4.5f);
         public static Type playerLoaderType;
         public static MethodBase onModifyHitNPCWithItemMethod;
         public static MethodBase onModifyHitNPCWithProjMethod;
         public static MethodBase onCanHitNPCMethod;
         public static MethodBase onOnHitNPCMethod;
         public static MethodBase onGiveImmuneTimeForCollisionAttackMethod;
+        public static MethodBase onCanBeHitByProjectileMethod;
+        public static MethodBase onHurtMethod;
         void IVaultLoader.LoadData() {
             Instances ??= [];
             TypeToInstance ??= [];
@@ -47,21 +53,47 @@ namespace InnoVault.GameSystem
             onCanHitNPCMethod = getPublicStaticMethod("CanHitNPC");
             onOnHitNPCMethod = getPublicStaticMethod("OnHitNPC");
             onGiveImmuneTimeForCollisionAttackMethod = typeof(Player).GetMethod("GiveImmuneTimeForCollisionAttack", BindingFlags.Public | BindingFlags.Instance);
+            onCanBeHitByProjectileMethod = typeof(CombinedHooks).GetMethod("CanBeHitByProjectile", BindingFlags.Public | BindingFlags.Instance);
+            onHurtMethod = typeof(Player).GetMethod(
+                "Hurt",
+                BindingFlags.Public | BindingFlags.Instance,
+                null,
+                [
+                    typeof(PlayerDeathReason),
+                    typeof(int),
+                    typeof(int),
+                    typeof(HurtInfo).MakeByRefType(),
+                    typeof(bool),
+                    typeof(bool),
+                    typeof(int),
+                    typeof(bool),
+                    typeof(float),
+                    typeof(float),
+                    typeof(float)
+                ],
+                null
+            );
 
             if (onModifyHitNPCWithItemMethod != null) {
-                VaultHook.Add(onModifyHitNPCWithItemMethod, OnModifyHitNPCWithItemHook);
+                VaultHook.Add(onModifyHitNPCWithItemMethod, On_ModifyHitNPCWithItemHook);
             }
             if (onModifyHitNPCWithProjMethod != null) {
-                VaultHook.Add(onModifyHitNPCWithProjMethod, OnModifyHitNPCWithProjHook);
+                VaultHook.Add(onModifyHitNPCWithProjMethod, On_ModifyHitNPCWithProjHook);
             }
             if (onCanHitNPCMethod != null) {
-                VaultHook.Add(onCanHitNPCMethod, OnCanHitNPCHook);
+                VaultHook.Add(onCanHitNPCMethod, On_CanHitNPCHook);
             }
             if (onOnHitNPCMethod != null) {
                 VaultHook.Add(onOnHitNPCMethod, On_OnHitNPCHook);
             }
             if (onGiveImmuneTimeForCollisionAttackMethod != null) {
                 VaultHook.Add(onGiveImmuneTimeForCollisionAttackMethod, On_GiveImmuneTimeForCollisionAttackHook);
+            }
+            if (onCanBeHitByProjectileMethod != null) {
+                VaultHook.Add(onCanBeHitByProjectileMethod, On_CanBeHitByProjectileHook);
+            }
+            if (onHurtMethod != null) {
+                VaultHook.Add(onHurtMethod, On_HurtHook);
             }
         }
 
@@ -164,7 +196,7 @@ namespace InnoVault.GameSystem
             return true;
         }
 
-        private static void OnModifyHitNPCWithItemHook(On_ModifyHitNPCWithItem_Dalegate orig
+        private static void On_ModifyHitNPCWithItemHook(On_ModifyHitNPCWithItem_Dalegate orig
             , Player player, Item item, NPC target, ref NPC.HitModifiers modifiers) {
             if (TryFetchByPlayer(player, out var values)) {
                 bool result = true;
@@ -181,7 +213,7 @@ namespace InnoVault.GameSystem
             orig.Invoke(player, item, target, ref modifiers);
         }
 
-        private static void OnModifyHitNPCWithProjHook(On_ModifyHitNPCWithProj_Dalegate orig
+        private static void On_ModifyHitNPCWithProjHook(On_ModifyHitNPCWithProj_Dalegate orig
             , Player player, Projectile proj, NPC target, ref NPC.HitModifiers modifiers) {
             if (TryFetchByPlayer(player, out var values)) {
                 bool result = true;
@@ -198,7 +230,7 @@ namespace InnoVault.GameSystem
             orig.Invoke(player, proj, target, ref modifiers);
         }
 
-        private static bool OnCanHitNPCHook(On_CanHitNPC_Dalegate orig, Player player, NPC target) {
+        private static bool On_CanHitNPCHook(On_CanHitNPC_Dalegate orig, Player player, NPC target) {
             if (TryFetchByPlayer(player, out var values)) {
                 bool? result = null;
                 foreach (var value in values.Values) {
@@ -231,6 +263,43 @@ namespace InnoVault.GameSystem
             orig.Invoke(player, target, hit, damageDone);
         }
 
+        private static double On_HurtHook(On_Hurt_Dalegate orig, Player player, PlayerDeathReason damageSource, int Damage, int hitDirection
+            , out HurtInfo info, bool pvp = false, bool quiet = false, int cooldownCounter = -1, bool dodgeable = true  
+            , float armorPenetration = 0f, float scalingArmorPenetration = 0f, float knockback = 4.5f) {
+            var hurtState = new HurtState {
+                DamageSource = damageSource,
+                Damage = Damage,
+                HitDirection = hitDirection,
+                PvP = pvp,
+                Quiet = quiet,
+                CooldownCounter = cooldownCounter,
+                Dodgeable = dodgeable,
+                ArmorPenetration = armorPenetration,
+                ScalingArmorPenetration = scalingArmorPenetration,
+                Knockback = knockback,
+                Info = default
+            };
+
+            if (TryFetchByPlayer(player, out var values)) {
+                info = default;
+                bool result = true;
+                foreach (var value in values.Values) {
+                    bool? newResult = value.On_Hurt(ref hurtState);
+                    if (newResult == false) {
+                        result = false;
+                    }
+                }
+                if (!result) {
+                    return 0.0;
+                }
+            }
+
+            double num = orig.Invoke(player, hurtState.DamageSource, hurtState.Damage, hurtState.HitDirection, out hurtState.Info, hurtState.PvP, hurtState.Quiet, hurtState.CooldownCounter
+                , hurtState.Dodgeable, hurtState.ArmorPenetration, hurtState.ScalingArmorPenetration, hurtState.Knockback);
+            info = hurtState.Info;
+            return num;
+        }
+
         private static void On_GiveImmuneTimeForCollisionAttackHook(On_GiveImmuneTimeForCollisionAttack_Dalegate orig, Player player, int time) {
             if (TryFetchByPlayer(player, out var values)) {
                 bool result = true;
@@ -245,6 +314,23 @@ namespace InnoVault.GameSystem
                 }
             }
             orig.Invoke(player, time);
+        }
+
+        private static bool On_CanBeHitByProjectileHook(On_CanBeHitByProjectile_Dalegate orig, Player player, Projectile proj) {
+            if (TryFetchByPlayer(player, out var values)) {
+                bool? result = null;
+                foreach (var value in values.Values) {
+                    bool? newResult = value.On_CanBeHitByProjectile(proj);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                }
+                if (result.HasValue) {
+                    return result.Value;
+                }
+            }
+
+            return orig.Invoke(player, proj);
         }
 
         public override bool Shoot(Item item, EntitySource_ItemUse_WithAmmo source
