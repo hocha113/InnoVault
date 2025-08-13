@@ -18,6 +18,25 @@ namespace InnoVault.GameSystem
             }
         }
 
+        private static bool HookRightClick(OnRightClickDelegate orig, int i, int j) {
+            Tile tile = Framing.GetTileSafely(i, j);
+            if (TileOverride.TryFetchByID(tile.TileType, out var tileOverrides)) {
+                bool? reset = null;
+                foreach (var rTile in tileOverrides.Values) {
+                    bool? newReset = rTile.RightClick(i, j, tile);
+                    if (newReset.HasValue) {
+                        reset = newReset.Value;
+                    }
+                }
+
+                if (reset.HasValue) {
+                    return reset.Value;
+                }
+            }
+
+            return orig.Invoke(i, j);
+        }
+
         /// <inheritdoc/>
         public override bool CanDrop(int i, int j, int type) {
             if (TileOverride.TryFetchByID(type, out var tileOverrides)) {
@@ -61,25 +80,6 @@ namespace InnoVault.GameSystem
                 }
             }
             return true;
-        }
-
-        private static bool HookRightClick(OnRightClickDelegate orig, int i, int j) {
-            Tile tile = Framing.GetTileSafely(i, j);
-            if (TileOverride.TryFetchByID(tile.TileType, out var tileOverrides)) {
-                bool? reset = null;
-                foreach (var rTile in tileOverrides.Values) {
-                    bool? newReset = rTile.RightClick(i, j, tile);
-                    if (newReset.HasValue) {
-                        reset = newReset.Value;
-                    }
-                }
-
-                if (reset.HasValue) {
-                    return reset.Value;
-                }
-            }
-
-            return orig.Invoke(i, j);
         }
     }
 }
