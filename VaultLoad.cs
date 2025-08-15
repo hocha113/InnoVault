@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
-using System.CodeDom;
+using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Terraria.Audio;
@@ -26,11 +26,11 @@ namespace InnoVault
         /// </summary>
         Sound,
         /// <summary>
-        /// 纹理，即<see cref="Texture2D"/>类型
+        /// 加载<see cref="Asset{T}"/>纹理类文件
         /// </summary>
         Texture,
         /// <summary>
-        /// 渲染类文件
+        /// 加载<see cref="Asset{T}"/>渲染类文件
         /// </summary>
         Effects,
         /// <summary>
@@ -41,6 +41,42 @@ namespace InnoVault
         /// 加载<see cref="MiscShaderData"/>类型的渲染类文件
         /// </summary>
         MiscShader,
+        /// <summary>
+        /// 加载<see cref="Texture2D"/>纹理类文件
+        /// </summary>
+        TextureValue,
+        /// <summary>
+        /// 加载<see cref="Effect"/>类型的渲染类文件
+        /// </summary>
+        EffectValue,
+        /// <summary>
+        /// 加载数组批次处理
+        /// </summary>
+        SoundArray,
+        /// <summary>
+        /// 加载数组批次处理
+        /// </summary>
+        TextureArray,
+        /// <summary>
+        /// 加载数组批次处理
+        /// </summary>
+        EffectArray,
+        /// <summary>
+        /// 加载数组批次处理
+        /// </summary>
+        ArmorShaderArray,
+        /// <summary>
+        /// 加载数组批次处理
+        /// </summary>
+        MiscShaderArray,
+        /// <summary>
+        /// 加载数组批次处理
+        /// </summary>
+        TextureValueArray,
+        /// <summary>
+        /// 加载数组批次处理
+        /// </summary>
+        EffectValueArray,
     }
 
     /// <summary>
@@ -53,7 +89,12 @@ namespace InnoVault
     /// <list type="bullet">
     ///   <item><see cref="SoundStyle"/></item>
     ///   <item><see cref="ArmorShaderData"/></item>
-    ///   <item><see cref="Asset{T}"/>（其中 T 为 <see cref="Texture2D"/> 或 <see cref="Effect"/>）</item>
+    ///   <item><see cref="MiscShaderData"/></item>
+    ///   <item><see cref="Asset{T}"/>(其中 T 为 <see cref="Texture2D"/> or <see cref="Effect"/>)</item>
+    ///   <item><see cref="Texture2D"/></item>
+    ///   <item><see cref="Effect"/></item>
+    ///   <item><see cref="IList{T}"/>(其中 T 为 <see cref="SoundStyle"/> or <see cref="Asset{T}"/> or <see cref="ArmorShaderData"/> 
+    ///   or <see cref="MiscShaderData"/> or <see cref="Texture2D"/> or <see cref="Effect"/>)</item>
     /// </list>
     /// </para>
     /// <para>资源类型根据成员的声明类型自动推断（除非指定 <paramref name="assetMode"/>）</para>
@@ -95,6 +136,8 @@ namespace InnoVault
         /// 用于<see cref="AssetMode.Effects"/>的加载，默认为空字符串，即自动指定为渲染文件名 + Pass
         /// </summary>
         public string EffectPassname { get; set; } = effectPassname;
+
+        internal int ArrayCount { get; set; }
     }
 
     /// <summary>
@@ -106,6 +149,14 @@ namespace InnoVault
         /// 在绝大部分内容加载完成后被设置为<see langword="true"/>
         /// </summary>
         public static bool LoadenContent { get; private set; } = false;
+        /// <summary>
+        /// 存储纹理实例
+        /// </summary>
+        private readonly static HashSet<Texture2D> TextureValues = [];
+        /// <summary>
+        /// 存储渲染器实例
+        /// </summary>
+        private readonly static HashSet<Effect> EffectValues = [];
         /// <summary>
         /// 一个非常靠后的加载钩子，此时本地化、配方修改、菜单排序等内容已经设置完成
         /// </summary>
@@ -143,6 +194,22 @@ namespace InnoVault
                 ProcessClassAssets(t, load: false);
                 ProcessTypeAssets(t, load: false);
             }
+
+            foreach (var item in TextureValues) {
+                if (item.IsDisposed) {
+                    continue;
+                }
+                item.Dispose();
+            }
+            TextureValues.Clear();
+
+            foreach (var item in EffectValues) {
+                if (item.IsDisposed) {
+                    continue;
+                }
+                item.Dispose();
+            }
+            EffectValues.Clear();
         }
 
         internal static void ProcessTypeAssets(Type type, bool load) {
@@ -231,6 +298,45 @@ namespace InnoVault
             }
         }
 
+        internal static bool GetAttributeAssetArrayByIsAssignableFromMode(Type elementType, out AssetMode assetMode) {
+            assetMode = AssetMode.None;
+            if (typeof(SoundStyle).IsAssignableFrom(elementType))
+                assetMode = AssetMode.SoundArray;
+            if (typeof(Asset<Texture2D>).IsAssignableFrom(elementType))
+                assetMode = AssetMode.TextureArray;
+            if (typeof(Asset<Effect>).IsAssignableFrom(elementType))
+                assetMode = AssetMode.EffectArray;
+            if (typeof(ArmorShaderData).IsAssignableFrom(elementType))
+                assetMode = AssetMode.ArmorShaderArray;
+            if (typeof(MiscShaderData).IsAssignableFrom(elementType))
+                assetMode = AssetMode.MiscShaderArray;
+            if (typeof(Texture2D).IsAssignableFrom(elementType))
+                assetMode = AssetMode.TextureValueArray;
+            if (typeof(Effect).IsAssignableFrom(elementType))
+                assetMode = AssetMode.EffectValueArray;
+            return assetMode != AssetMode.None;
+        }
+
+        private static T LoadValue<T>(VaultLoadenAttribute attribute) {
+            var type = typeof(T);
+            if (type == typeof(SoundStyle))
+                return (T)(object)new SoundStyle(attribute.Mod.Name + "/" + attribute.Path);
+            if (type == typeof(Asset<Texture2D>))
+                return (T)(object)attribute.Mod.Assets.Request<Texture2D>(attribute.Path);
+            if (type == typeof(Asset<Effect>))
+                return (T)(object)LoadEffect(attribute);
+            if (type == typeof(ArmorShaderData))
+                return (T)(object)new ArmorShaderData(LoadEffect(attribute), attribute.EffectPassname);
+            if (type == typeof(MiscShaderData))
+                return (T)(object)LoadMiscShader(attribute);
+            if (type == typeof(Texture2D))
+                return (T)(object)LoadTextureValue(attribute);
+            if (type == typeof(Effect))
+                return (T)(object)LoadEffectValue(attribute);
+
+            throw new NotSupportedException($"不支持加载类型 {type}");
+        }
+
         internal static AssetMode GetAttributeAssetMode(Type type) {
             if (type == typeof(SoundStyle)) {
                 return AssetMode.Sound;
@@ -247,11 +353,146 @@ namespace InnoVault
             else if (type == typeof(MiscShaderData)) {
                 return AssetMode.MiscShader;
             }
+            else if (type == typeof(Texture2D)) {
+                return AssetMode.TextureValue;
+            }
+            else if (type == typeof(Effect)) {
+                return AssetMode.EffectValue;
+            }
+
+            if (type.IsArray && type.GetElementType() != null) {
+                var elementType = type.GetElementType();
+                if (GetAttributeAssetArrayByIsAssignableFromMode(elementType, out var assetMode))
+                    return assetMode;
+            }
+            else if (type.IsGenericType && typeof(IList<>).IsAssignableFrom(type.GetGenericTypeDefinition())) {
+                var elementType = type.GetGenericArguments()[0];
+                if (GetAttributeAssetArrayByIsAssignableFromMode(elementType, out var assetMode))
+                    return assetMode;
+            }
+            else {
+                var ilistInterface = type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>));
+                if (ilistInterface != null) {
+                    var elementType = ilistInterface.GetGenericArguments()[0];
+                    if (GetAttributeAssetArrayByIsAssignableFromMode(elementType, out var assetMode))
+                        return assetMode;
+                }
+            }
+
             return AssetMode.None;
         }
 
-        internal static Asset<Effect> LoadEffect(VaultLoadenAttribute attribute) {
-            Asset<Effect> asset = attribute.Mod.Assets.Request<Effect>(attribute.Path);
+        internal static IList<T> LoadAsset<T>(MemberInfo member, VaultLoadenAttribute attribute) {
+            if (member is FieldInfo field) {
+                if (typeof(IList<T>).IsAssignableFrom(field.FieldType)) {
+                    var currentValue = field.GetValue(null);
+
+                    int count = 0;
+                    if (currentValue is IList<T> listVal) {
+                        count = listVal.Count;
+                    }
+                    else if (currentValue is T[] arrVal) {
+                        count = arrVal.Length;
+                    }
+
+                    attribute.ArrayCount = count;
+
+                    var newList = new List<T>();
+                    for (int i = 0; i < attribute.ArrayCount; i++) {
+                        string origPath = attribute.Path;
+                        attribute.Path = origPath + i;
+
+                        T value = LoadValue<T>(attribute);//通用的资源加载方法
+                        attribute.Path = origPath;
+                        newList.Add(value);
+                    }
+
+                    return newList;
+                }
+            }
+            if (member is PropertyInfo prop && prop.CanWrite && prop.GetSetMethod(true) != null) {
+                if (typeof(IList<T>).IsAssignableFrom(prop.PropertyType) ||
+                    (prop.PropertyType.IsArray && prop.PropertyType.GetElementType() == typeof(T))) {
+                    var currentValue = prop.GetValue(null);
+
+                    int count = 0;
+                    if (currentValue is IList<T> listVal) {
+                        count = listVal.Count;
+                    }
+                    else if (currentValue is T[] arrVal) {
+                        count = arrVal.Length;
+                    }
+
+                    attribute.ArrayCount = count;
+
+                    var newList = new List<T>();
+                    for (int i = 0; i < attribute.ArrayCount; i++) {
+                        string origPath = attribute.Path;
+                        attribute.Path = origPath + i;
+
+                        T value = LoadValue<T>(attribute);//通用的资源加载方法
+                        attribute.Path = origPath;
+                        newList.Add(value);
+                    }
+
+                    return newList;
+                }
+            }
+            return null;
+        }
+
+        internal static void LoadMember(MemberInfo member, VaultLoadenAttribute attribute) {
+            Type valueType = member is FieldInfo field ? field.FieldType : (member as PropertyInfo)?.PropertyType;
+            if (valueType == null) {
+                return;
+            }
+
+            if (member is PropertyInfo prop && (!prop.CanWrite || prop.GetSetMethod(true) == null)) {//对于属性需要检测其是否可写
+                VaultMod.Instance.Logger.Error($"Property {member.Name} is marked with VaultLoadenAttribute but has no setter.");
+                return;
+            }
+
+            if (attribute.Mod == null) {//一般来说到这里了不会出现这种情况，但多判断一下总没错
+                VaultMod.Instance.Logger.Error($"{member.MemberType} {member.Name} from Mod is Null");
+                return;
+            }
+
+            if (attribute.AssetMode == AssetMode.None) {//自动指定资源类型
+                attribute.AssetMode = GetAttributeAssetMode(valueType);
+            }
+            if (attribute.AssetMode == AssetMode.None) {//第二次检测，如果还是None就跳过
+                VaultMod.Instance.Logger.Warn($"Cannot determine asset mode for {member.Name} of type {valueType}. Skipped.");
+                return;
+            }
+
+            object value = attribute.AssetMode switch {//根据资源类型来加载值
+                AssetMode.Sound => new SoundStyle(attribute.Mod.Name + "/" + attribute.Path),
+                AssetMode.Texture => attribute.Mod.Assets.Request<Texture2D>(attribute.Path),
+                AssetMode.Effects => LoadEffect(attribute),
+                AssetMode.ArmorShader => new ArmorShaderData(LoadEffect(attribute), attribute.EffectPassname),
+                AssetMode.MiscShader => LoadMiscShader(attribute),
+                AssetMode.TextureValue => LoadTextureValue(attribute),
+                AssetMode.EffectValue => LoadEffectValue(attribute),
+                AssetMode.SoundArray => LoadAsset<SoundStyle>(member, attribute),
+                AssetMode.TextureArray => LoadAsset<Asset<Texture2D>>(member, attribute),
+                AssetMode.EffectArray => LoadAsset<Asset<Effect>>(member, attribute),
+                AssetMode.ArmorShaderArray => LoadAsset<ArmorShaderData>(member, attribute),
+                AssetMode.MiscShaderArray => LoadAsset<MiscShaderData>(member, attribute),
+                AssetMode.TextureValueArray => LoadAsset<Texture2D>(member, attribute),
+                AssetMode.EffectValueArray => LoadAsset<Effect>(member, attribute),
+                _ => null
+            };
+
+            if (member is FieldInfo fieldInfo) {
+                fieldInfo.SetValue(null, value);
+            }
+            else if (member is PropertyInfo propInfo) {
+                propInfo.SetValue(null, value);
+            }
+        }
+
+        internal static Asset<Effect> LoadEffect(VaultLoadenAttribute attribute, AssetRequestMode requestMode = AssetRequestMode.AsyncLoad) {
+            Asset<Effect> asset = attribute.Mod.Assets.Request<Effect>(attribute.Path, requestMode);
             string effectName = attribute.Path.Split('/')[^1];
             string effectKey = attribute.Mod.Name + ":" + effectName;
 
@@ -276,45 +517,16 @@ namespace InnoVault
             return miscShader;
         }
 
-        internal static void LoadMember(MemberInfo member, VaultLoadenAttribute attribute) {
-            Type valueType = member is FieldInfo field ? field.FieldType : (member as PropertyInfo)?.PropertyType;
-            if (valueType == null) {
-                return;
-            }
+        internal static Texture2D LoadTextureValue(VaultLoadenAttribute attribute) {
+            Texture2D value = attribute.Mod.Assets.Request<Texture2D>(attribute.Path, AssetRequestMode.ImmediateLoad).Value;
+            TextureValues.Add(value);
+            return value;
+        }
 
-            if (member is PropertyInfo prop && (!prop.CanWrite || prop.GetSetMethod(true) == null)) {//对于属性需要检测其是否可写
-                VaultMod.Instance.Logger.Error($"Property {member.Name} is marked with VaultLoadenAttribute but has no setter.");
-                return;
-            }
-
-            if (attribute.Mod == null) {//一般来说到这里了不会出现这种情况，但多判断一下总没错
-                VaultMod.Instance.Logger.Error($"{member.MemberType} {member.Name} from Mod is Null");
-                return;
-            }
-
-            if (attribute.AssetMode == AssetMode.None) {//自动指定资源类型
-                attribute.AssetMode = GetAttributeAssetMode(valueType);
-            }
-            if (attribute.AssetMode == AssetMode.None) {//第二次检测，如果还是None就跳过
-                //VaultMod.Instance.Logger.Warn($"Cannot determine asset mode for {member.Name} of type {valueType}. Skipped.");
-                return;
-            }
-
-            object value = attribute.AssetMode switch {//根据资源类型来加载值
-                AssetMode.Sound => new SoundStyle(attribute.Mod.Name + "/" + attribute.Path),
-                AssetMode.Texture => attribute.Mod.Assets.Request<Texture2D>(attribute.Path),
-                AssetMode.Effects => LoadEffect(attribute),
-                AssetMode.ArmorShader => new ArmorShaderData(LoadEffect(attribute), attribute.EffectPassname),
-                AssetMode.MiscShader => LoadMiscShader(attribute),
-                _ => null
-            };
-
-            if (member is FieldInfo fieldInfo) {
-                fieldInfo.SetValue(null, value);
-            }
-            else if (member is PropertyInfo propInfo) {
-                propInfo.SetValue(null, value);
-            }
+        internal static Effect LoadEffectValue(VaultLoadenAttribute attribute) {
+            Effect effect = LoadEffect(attribute, AssetRequestMode.ImmediateLoad).Value;
+            EffectValues.Add(effect);
+            return effect;
         }
 
         /// <summary>
@@ -323,7 +535,7 @@ namespace InnoVault
         /// <param name="type">类类型</param>
         /// <param name="attribute">类级别的 VaultLoadenAttribute</param>
         private static void CheckClassAttributePath(Type type, VaultLoadenAttribute attribute) {
-            // 复用 VaultLoad 的路径检查逻辑，但不追加成员名
+            //复用 VaultLoad 的路径检查逻辑，但不追加成员名
             if (!string.IsNullOrEmpty(type.Namespace)) {
                 string namespacePath = type.Namespace.Replace('.', '/');
                 attribute.Path = attribute.Path.Replace("{@namespace}", namespacePath);
