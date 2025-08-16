@@ -81,9 +81,9 @@ namespace InnoVault
     }
 
     /// <summary>
-    /// 标记静态字段、属性或类以自动加载和管理资源
-    /// 类级别标记会自动处理所有符合条件的静态成员，但跳过已标记 `VaultLoadenAttribute` 的成员
-    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-VaultLoaden"/></br>
+    /// 标记静态字段、属性或者类，以自动加载和管理资源<br/>
+    /// 类级别标记会自动处理所有符合条件的静态成员，但跳过已标记 `VaultLoadenAttribute` 的成员<br/>
+    /// 该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-VaultLoaden"/>
     /// </summary>
     /// <remarks>
     /// <para>支持的资源类型包括：
@@ -134,6 +134,10 @@ namespace InnoVault
         public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex) : this(path, assetMode, effectPassname, startIndex, 0, false) { }
         /// <inheritdoc/>
         public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex, int arrayCount) : this(path, assetMode, effectPassname, startIndex, arrayCount, false) { }
+        /// <inheritdoc/>
+        public VaultLoadenAttribute(string path, int startIndex) : this(path, AssetMode.None, "", startIndex, 0, false) { }
+        /// <inheritdoc/>
+        public VaultLoadenAttribute(string path, int startIndex, int arrayCount) : this(path, AssetMode.None, "", startIndex, arrayCount, false) { }
         /// <summary>
         /// 这个字段或属性所属的模组程序集，自动指定
         /// </summary>
