@@ -1,4 +1,5 @@
 ﻿using InnoVault.GameSystem;
+using log4net.Core;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
@@ -50,31 +51,31 @@ namespace InnoVault
         /// </summary>
         EffectValue,
         /// <summary>
-        /// 加载数组批次处理
+        /// 加载数组批次处理，用于<see cref="IList{T}"/>，其中 T 为 <see cref="SoundStyle"/>
         /// </summary>
         SoundArray,
         /// <summary>
-        /// 加载数组批次处理
+        /// 加载数组批次处理，用于<see cref="IList{T}"/>，其中 T 为 <see cref="Asset{T}"/>，其中 T 为 <see cref="Texture2D"/>
         /// </summary>
         TextureArray,
         /// <summary>
-        /// 加载数组批次处理
+        /// 加载数组批次处理，用于<see cref="IList{T}"/>，其中 T 为 <see cref="Asset{T}"/>，其中 T 为 <see cref="Effect"/>
         /// </summary>
         EffectArray,
         /// <summary>
-        /// 加载数组批次处理
+        /// 加载数组批次处理，用于<see cref="IList{T}"/>，其中 T 为 <see cref="ArmorShaderData"/>
         /// </summary>
         ArmorShaderArray,
         /// <summary>
-        /// 加载数组批次处理
+        /// 加载数组批次处理，用于<see cref="IList{T}"/>，其中 T 为 <see cref="MiscShaderData"/>
         /// </summary>
         MiscShaderArray,
         /// <summary>
-        /// 加载数组批次处理
+        /// 加载数组批次处理，用于<see cref="IList{T}"/>，其中 T 为 <see cref="Texture2D"/>
         /// </summary>
         TextureValueArray,
         /// <summary>
-        /// 加载数组批次处理
+        /// 加载数组批次处理，用于<see cref="IList{T}"/>，其中 T 为 <see cref="Effect"/>
         /// </summary>
         EffectValueArray,
     }
@@ -113,12 +114,26 @@ namespace InnoVault
     /// </list>
     /// </para>
     /// </remarks>
-    /// <param name="path">资源加载路径（支持占位符，省略模组名前缀）</param>
     /// <param name="assetMode">资源加载类型，默认为 <see cref="AssetMode.None"/>（自动推断）类级别标记时，指定非 <see cref="AssetMode.None"/> 将只加载匹配类型的成员</param>
+    /// <param name="path">资源加载路径（支持占位符，省略模组名前缀）</param>
+    /// <param name="pathConcatenation">仅作用到类级别的标签之上，启用后会根据下划线拆分成员名来扩充路径进行自动加载</param>
+    /// <param name="startIndex">元素文件起始索引标号，默认从0开始</param>
+    /// <param name="arrayCount">用于加载集合类资源时指定集合长度，默认为0，即自动指定</param>
     /// <param name="effectPassname">用于 <see cref="AssetMode.Effects"/> 时指定的 Pass 名称，留空则使用资源文件名作为默认 Pass</param>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Class, AllowMultiple = false)]
-    public class VaultLoadenAttribute(string path, AssetMode assetMode = AssetMode.None, string effectPassname = "") : Attribute
+    public class VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname
+        , int startIndex, int arrayCount, bool pathConcatenation) : Attribute
     {
+        /// <inheritdoc/>
+        public VaultLoadenAttribute(string path) : this(path, AssetMode.None, "", 0, 0, false){ }
+        /// <inheritdoc/>
+        public VaultLoadenAttribute(string path, AssetMode assetMode) : this(path, assetMode, "", 0, 0, false) { }
+        /// <inheritdoc/>
+        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname) : this(path, assetMode, effectPassname, 0, 0, false) { }
+        /// <inheritdoc/>
+        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex) : this(path, assetMode, effectPassname, startIndex, 0, false) { }
+        /// <inheritdoc/>
+        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex, int arrayCount) : this(path, assetMode, effectPassname, startIndex, arrayCount, false) { }
         /// <summary>
         /// 这个字段或属性所属的模组程序集，自动指定
         /// </summary>
@@ -136,8 +151,18 @@ namespace InnoVault
         /// 用于<see cref="AssetMode.Effects"/>的加载，默认为空字符串，即自动指定为渲染文件名 + Pass
         /// </summary>
         public string EffectPassname { get; set; } = effectPassname;
-
-        internal int ArrayCount { get; set; }
+        /// <summary>
+        /// 元素文件起始索引标号，默认从0开始
+        /// </summary>
+        public int StartIndex { get; set; } = startIndex;
+        /// <summary>
+        /// 如果该标签用于收纳集合类型资源，该属性用作表示集合元素数量
+        /// </summary>
+        public int ArrayCount { get; set; } = arrayCount;
+        /// <summary>
+        /// 仅作用到类级别的标签之上，启用后会根据下划线拆分成员名来扩充路径进行自动加载
+        /// </summary>
+        public bool PathConcatenation { get; set; } = pathConcatenation;
     }
 
     /// <summary>
@@ -161,7 +186,45 @@ namespace InnoVault
         /// 一个非常靠后的加载钩子，此时本地化、配方修改、菜单排序等内容已经设置完成
         /// </summary>
         public static event Action EndLoadenEvent;
-
+        /// <summary>
+        /// 将对应的资源枚举类型对应到实际的编译码类型
+        /// </summary>
+        public readonly static Dictionary<AssetMode, Type> AssetModeToTypeMap = new() {
+            { AssetMode.None, null },
+            { AssetMode.Sound, typeof(SoundStyle) },
+            { AssetMode.Texture, typeof(Asset<Texture2D>) },
+            { AssetMode.Effects, typeof(Asset<Effect>) },
+            { AssetMode.ArmorShader, typeof(ArmorShaderData) },
+            { AssetMode.MiscShader, typeof(MiscShaderData) },
+            { AssetMode.TextureValue, typeof(Texture2D) },
+            { AssetMode.EffectValue, typeof(Effect) },
+            { AssetMode.SoundArray, typeof(IList<SoundStyle>) },
+            { AssetMode.TextureArray, typeof(IList<Asset<Texture2D>>) },
+            { AssetMode.EffectArray, typeof(IList<Asset<Effect>>) },
+            { AssetMode.ArmorShaderArray, typeof(IList<ArmorShaderData>) },
+            { AssetMode.MiscShaderArray, typeof(IList<MiscShaderData>) },
+            { AssetMode.TextureValueArray, typeof(IList<Texture2D>) },
+            { AssetMode.EffectValueArray, typeof(IList<Effect>) },
+        };
+        /// <summary>
+        /// 将实际的编译时类型映射到资源的枚举类型
+        /// </summary>
+        public readonly static Dictionary<Type, AssetMode> TypeToAssetModeMap = new() {
+            { typeof(SoundStyle), AssetMode.Sound },
+            { typeof(Asset<Texture2D>), AssetMode.Texture },
+            { typeof(Asset<Effect>), AssetMode.Effects },
+            { typeof(ArmorShaderData), AssetMode.ArmorShader },
+            { typeof(MiscShaderData), AssetMode.MiscShader },
+            { typeof(Texture2D), AssetMode.TextureValue },
+            { typeof(Effect), AssetMode.EffectValue },
+            { typeof(IList<SoundStyle>), AssetMode.SoundArray },
+            { typeof(IList<Asset<Texture2D>>), AssetMode.TextureArray },
+            { typeof(IList<Asset<Effect>>), AssetMode.EffectArray },
+            { typeof(IList<ArmorShaderData>), AssetMode.ArmorShaderArray },
+            { typeof(IList<MiscShaderData>), AssetMode.MiscShaderArray },
+            { typeof(IList<Texture2D>), AssetMode.TextureValueArray },
+            { typeof(IList<Effect>), AssetMode.EffectValueArray },
+        };
         internal static void LoadData() {
             try {//BossBarLoader的GotoSavedStyle是非常靠后的加载调用
                 VaultHook.Add(typeof(BossBarLoader).GetMethod("GotoSavedStyle"
@@ -195,20 +258,20 @@ namespace InnoVault
                 ProcessTypeAssets(t, load: false);
             }
 
-            foreach (var item in TextureValues) {
-                if (item.IsDisposed) {
-                    continue;
-                }
-                item.Dispose();
-            }
+            //foreach (var item in TextureValues) {
+            //    if (item.IsDisposed) {
+            //        continue;
+            //    }
+            //    item.Dispose();
+            //}//事实证明最好不要去自行释放这些纹理实例，因为原版自己也在进行管理，在实例化时加载了Asset<T>即可
             TextureValues.Clear();
 
-            foreach (var item in EffectValues) {
-                if (item.IsDisposed) {
-                    continue;
-                }
-                item.Dispose();
-            }
+            //foreach (var item in EffectValues) {
+            //    if (item.IsDisposed) {
+            //        continue;
+            //    }
+            //    item.Dispose();
+            //}
             EffectValues.Clear();
         }
 
@@ -300,145 +363,117 @@ namespace InnoVault
 
         internal static bool GetAttributeAssetArrayByIsAssignableFromMode(Type elementType, out AssetMode assetMode) {
             assetMode = AssetMode.None;
-            if (typeof(SoundStyle).IsAssignableFrom(elementType))
-                assetMode = AssetMode.SoundArray;
-            if (typeof(Asset<Texture2D>).IsAssignableFrom(elementType))
-                assetMode = AssetMode.TextureArray;
-            if (typeof(Asset<Effect>).IsAssignableFrom(elementType))
-                assetMode = AssetMode.EffectArray;
-            if (typeof(ArmorShaderData).IsAssignableFrom(elementType))
-                assetMode = AssetMode.ArmorShaderArray;
-            if (typeof(MiscShaderData).IsAssignableFrom(elementType))
-                assetMode = AssetMode.MiscShaderArray;
-            if (typeof(Texture2D).IsAssignableFrom(elementType))
-                assetMode = AssetMode.TextureValueArray;
-            if (typeof(Effect).IsAssignableFrom(elementType))
-                assetMode = AssetMode.EffectValueArray;
+            foreach (Type targetElement in TypeToAssetModeMap.Keys) {
+                if (targetElement.IsAssignableFrom(elementType)) {
+                    assetMode = TypeToAssetModeMap[targetElement];
+                    break;
+                }
+            }
             return assetMode != AssetMode.None;
         }
 
-        private static T LoadValue<T>(VaultLoadenAttribute attribute) {
-            var type = typeof(T);
-            if (type == typeof(SoundStyle))
-                return (T)(object)new SoundStyle(attribute.Mod.Name + "/" + attribute.Path);
-            if (type == typeof(Asset<Texture2D>))
-                return (T)(object)attribute.Mod.Assets.Request<Texture2D>(attribute.Path);
-            if (type == typeof(Asset<Effect>))
-                return (T)(object)LoadEffect(attribute);
-            if (type == typeof(ArmorShaderData))
-                return (T)(object)new ArmorShaderData(LoadEffect(attribute), attribute.EffectPassname);
-            if (type == typeof(MiscShaderData))
-                return (T)(object)LoadMiscShader(attribute);
-            if (type == typeof(Texture2D))
-                return (T)(object)LoadTextureValue(attribute);
-            if (type == typeof(Effect))
-                return (T)(object)LoadEffectValue(attribute);
-
-            throw new NotSupportedException($"不支持加载类型 {type}");
-        }
-
         internal static AssetMode GetAttributeAssetMode(Type type) {
-            if (type == typeof(SoundStyle)) {
-                return AssetMode.Sound;
-            }
-            else if (type == typeof(Asset<Texture2D>)) {
-                return AssetMode.Texture;
-            }
-            else if (type == typeof(Asset<Effect>)) {
-                return AssetMode.Effects;
-            }
-            else if (type == typeof(ArmorShaderData)) {
-                return AssetMode.ArmorShader;
-            }
-            else if (type == typeof(MiscShaderData)) {
-                return AssetMode.MiscShader;
-            }
-            else if (type == typeof(Texture2D)) {
-                return AssetMode.TextureValue;
-            }
-            else if (type == typeof(Effect)) {
-                return AssetMode.EffectValue;
+            if (TypeToAssetModeMap.TryGetValue(type, out AssetMode assetMode)) {
+                return assetMode;
             }
 
             if (type.IsArray && type.GetElementType() != null) {
                 var elementType = type.GetElementType();
-                if (GetAttributeAssetArrayByIsAssignableFromMode(elementType, out var assetMode))
+                if (GetAttributeAssetArrayByIsAssignableFromMode(elementType, out assetMode)) {
                     return assetMode;
+                }
+
             }
             else if (type.IsGenericType && typeof(IList<>).IsAssignableFrom(type.GetGenericTypeDefinition())) {
                 var elementType = type.GetGenericArguments()[0];
-                if (GetAttributeAssetArrayByIsAssignableFromMode(elementType, out var assetMode))
+                if (GetAttributeAssetArrayByIsAssignableFromMode(elementType, out assetMode)) {
                     return assetMode;
+                }
             }
             else {
                 var ilistInterface = type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>));
                 if (ilistInterface != null) {
                     var elementType = ilistInterface.GetGenericArguments()[0];
-                    if (GetAttributeAssetArrayByIsAssignableFromMode(elementType, out var assetMode))
+                    if (GetAttributeAssetArrayByIsAssignableFromMode(elementType, out assetMode)) {
                         return assetMode;
+                    }
                 }
             }
 
             return AssetMode.None;
         }
 
-        internal static IList<T> LoadAsset<T>(MemberInfo member, VaultLoadenAttribute attribute) {
+        private static object LoadValue(MemberInfo member, VaultLoadenAttribute attribute) {
+            return attribute.AssetMode switch {//根据资源类型来加载值
+                AssetMode.Sound => new SoundStyle(attribute.Mod.Name + "/" + attribute.Path),
+                AssetMode.Texture => attribute.Mod.Assets.Request<Texture2D>(attribute.Path),
+                AssetMode.Effects => LoadEffect(attribute),
+                AssetMode.ArmorShader => new ArmorShaderData(LoadEffect(attribute), attribute.EffectPassname),
+                AssetMode.MiscShader => LoadMiscShader(attribute),
+                AssetMode.TextureValue => LoadTextureValue(attribute),
+                AssetMode.EffectValue => LoadEffectValue(attribute),
+                AssetMode.SoundArray => LoadArrayAsset<SoundStyle>(member, attribute),
+                AssetMode.TextureArray => LoadArrayAsset<Asset<Texture2D>>(member, attribute),
+                AssetMode.EffectArray => LoadArrayAsset<Asset<Effect>>(member, attribute),
+                AssetMode.ArmorShaderArray => LoadArrayAsset<ArmorShaderData>(member, attribute),
+                AssetMode.MiscShaderArray => LoadArrayAsset<MiscShaderData>(member, attribute),
+                AssetMode.TextureValueArray => LoadArrayAsset<Texture2D>(member, attribute),
+                AssetMode.EffectValueArray => LoadArrayAsset<Effect>(member, attribute),
+                _ => null,
+            };
+        }
+
+        private static T LoadValue<T>(MemberInfo member, VaultLoadenAttribute attribute) => (T)LoadValue(member, attribute);
+
+        internal static IList<T> LoadArrayAsset<T>(MemberInfo member, VaultLoadenAttribute attribute) {
+            //取出当前集合的值
+            object currentValue = null;
+            bool isValue = false;
+
             if (member is FieldInfo field) {
-                if (typeof(IList<T>).IsAssignableFrom(field.FieldType)) {
-                    var currentValue = field.GetValue(null);
-
-                    int count = 0;
-                    if (currentValue is IList<T> listVal) {
-                        count = listVal.Count;
-                    }
-                    else if (currentValue is T[] arrVal) {
-                        count = arrVal.Length;
-                    }
-
-                    attribute.ArrayCount = count;
-
-                    var newList = new List<T>();
-                    for (int i = 0; i < attribute.ArrayCount; i++) {
-                        string origPath = attribute.Path;
-                        attribute.Path = origPath + i;
-
-                        T value = LoadValue<T>(attribute);//通用的资源加载方法
-                        attribute.Path = origPath;
-                        newList.Add(value);
-                    }
-
-                    return newList;
-                }
+                isValue = true;
+                currentValue = field.GetValue(null);
             }
+
             if (member is PropertyInfo prop && prop.CanWrite && prop.GetSetMethod(true) != null) {
-                if (typeof(IList<T>).IsAssignableFrom(prop.PropertyType) ||
-                    (prop.PropertyType.IsArray && prop.PropertyType.GetElementType() == typeof(T))) {
-                    var currentValue = prop.GetValue(null);
-
-                    int count = 0;
-                    if (currentValue is IList<T> listVal) {
-                        count = listVal.Count;
-                    }
-                    else if (currentValue is T[] arrVal) {
-                        count = arrVal.Length;
-                    }
-
-                    attribute.ArrayCount = count;
-
-                    var newList = new List<T>();
-                    for (int i = 0; i < attribute.ArrayCount; i++) {
-                        string origPath = attribute.Path;
-                        attribute.Path = origPath + i;
-
-                        T value = LoadValue<T>(attribute);//通用的资源加载方法
-                        attribute.Path = origPath;
-                        newList.Add(value);
-                    }
-
-                    return newList;
-                }
+                isValue = true;
+                currentValue = prop.GetValue(null);
             }
-            return null;
+
+            if (!isValue) {
+                return null;
+            }
+
+            int count = attribute.ArrayCount;
+            if (count == 0) {
+                if (currentValue == null) {//考虑到集合这种引用类型开发者完全有可能不会进行初始化，这里进行判断
+                    return null;
+                }
+                //推断元素数量
+                count = currentValue switch {
+                    T[] arrVal => arrVal.Length,
+                    IList<T> listVal => listVal.Count,
+                    _ => 0
+                };
+                attribute.ArrayCount = count;
+            }
+
+            //按数量逐个加载
+            var newList = new List<T>(count);
+            string origPath = attribute.Path;
+            AssetMode origAssetMode = attribute.AssetMode;
+            if (TypeToAssetModeMap.TryGetValue(typeof(T), out var assetMode)) {
+                attribute.AssetMode = assetMode;//进行集合类别的元素降级，防止无限迭代
+            }
+            for (int i = attribute.StartIndex; i < attribute.ArrayCount; i++) {
+                attribute.Path = origPath + i;
+                newList.Add(LoadValue<T>(member, attribute));//这里如果处理不当会触发死循环，前面的orig参数用于避免这种情况
+            }
+            //恢复
+            attribute.Path = origPath;
+            attribute.AssetMode = origAssetMode;
+
+            return newList;
         }
 
         internal static void LoadMember(MemberInfo member, VaultLoadenAttribute attribute) {
@@ -465,23 +500,7 @@ namespace InnoVault
                 return;
             }
 
-            object value = attribute.AssetMode switch {//根据资源类型来加载值
-                AssetMode.Sound => new SoundStyle(attribute.Mod.Name + "/" + attribute.Path),
-                AssetMode.Texture => attribute.Mod.Assets.Request<Texture2D>(attribute.Path),
-                AssetMode.Effects => LoadEffect(attribute),
-                AssetMode.ArmorShader => new ArmorShaderData(LoadEffect(attribute), attribute.EffectPassname),
-                AssetMode.MiscShader => LoadMiscShader(attribute),
-                AssetMode.TextureValue => LoadTextureValue(attribute),
-                AssetMode.EffectValue => LoadEffectValue(attribute),
-                AssetMode.SoundArray => LoadAsset<SoundStyle>(member, attribute),
-                AssetMode.TextureArray => LoadAsset<Asset<Texture2D>>(member, attribute),
-                AssetMode.EffectArray => LoadAsset<Asset<Effect>>(member, attribute),
-                AssetMode.ArmorShaderArray => LoadAsset<ArmorShaderData>(member, attribute),
-                AssetMode.MiscShaderArray => LoadAsset<MiscShaderData>(member, attribute),
-                AssetMode.TextureValueArray => LoadAsset<Texture2D>(member, attribute),
-                AssetMode.EffectValueArray => LoadAsset<Effect>(member, attribute),
-                _ => null
-            };
+            object value = LoadValue(member, attribute);
 
             if (member is FieldInfo fieldInfo) {
                 fieldInfo.SetValue(null, value);
@@ -547,7 +566,7 @@ namespace InnoVault
             }
 
             if (attribute.Path.StartsWith('@')) {
-                pathParts[0] = pathParts[0][1..]; // 去掉@
+                pathParts[0] = pathParts[0][1..]; //去掉@
                 if (ModLoader.TryGetMod(pathParts[0], out Mod newMod)) {
                     attribute.Mod = newMod;
                 }
@@ -595,7 +614,21 @@ namespace InnoVault
 
             //使用成员名称构造资源路径
             string memberName = member.Name;
-            string memberPath = classAttribute.Path.EndsWith('/') ? classAttribute.Path + memberName : $"{classAttribute.Path}/{memberName}";
+
+            //使用成员名称构造资源路径
+            string memberPath;
+            if (classAttribute.PathConcatenation) {
+                //启用路径扩展，成员名按下划线拆分，作为子目录
+                var segments = member.Name.Split('_', StringSplitOptions.RemoveEmptyEntries);
+                memberPath = classAttribute.Path.TrimEnd('/');
+                foreach (var seg in segments) {
+                    memberPath += "/" + seg;
+                }
+            }
+            else {
+                //默认规则直接拼接成员名
+                memberPath = classAttribute.Path.EndsWith('/') ? classAttribute.Path + memberName : $"{classAttribute.Path}/{memberName}";
+            }
 
             //创建临时的 VaultLoadenAttribute 用于加载
             var tempAttribute = new VaultLoadenAttribute(memberPath, assetMode, classAttribute.EffectPassname) {
