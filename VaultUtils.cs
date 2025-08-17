@@ -477,6 +477,35 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 获取给定类型所有外层类，从最近的到最外层
+        /// </summary>
+        public static IEnumerable<Type> GetDeclaringTypes(this Type type) {
+            var current = type.DeclaringType;
+            while (current != null) {
+                yield return current;
+                current = current.DeclaringType;
+            }
+        }
+
+        /// <summary>
+        /// 构建一个字典，表示每个类型及其直接内部类
+        /// </summary>
+        public static Dictionary<Type, List<Type>> GetNestedTypeTree(this Type type, BindingFlags flags = BindingFlags.Public | BindingFlags.NonPublic) {
+            var result = new Dictionary<Type, List<Type>>();
+            BuildTree(type, result, flags);
+            return result;
+        }
+
+        private static void BuildTree(Type type, Dictionary<Type, List<Type>> dict, BindingFlags flags) {
+            var nestedTypes = new List<Type>(type.GetNestedTypes(flags));
+            dict[type] = nestedTypes;
+
+            foreach (var nested in nestedTypes) {
+                BuildTree(nested, dict, flags);
+            }
+        }
+
+        /// <summary>
         /// 将 <see cref="List{T}"/> 直接序列化为原始字节数组（无额外开销，适合高性能存储）
         /// </summary>
         /// <typeparam name="T">

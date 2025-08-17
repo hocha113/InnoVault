@@ -1,4 +1,5 @@
 ﻿using InnoVault.GameSystem;
+using InnoVault.PRT;
 using log4net.Core;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
@@ -120,28 +121,40 @@ namespace InnoVault
     /// <param name="startIndex">元素文件起始索引标号，默认从0开始</param>
     /// <param name="arrayCount">用于加载集合类资源时指定集合长度，默认为0，即自动指定</param>
     /// <param name="effectPassname">用于 <see cref="AssetMode.Effects"/> 时指定的 Pass 名称，留空则使用资源文件名作为默认 Pass</param>
+    /// <param name="mod">指定目标模组，默认为<see langword="null"/>，即自动指定为当前模组。不建议使用该参数来指定外部模组加载外部资源，<br/>
+    /// 如果想做到这个，使用<see langword="path"/>的格式化 "@OtherMod" 来定义外部模组对象</param>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Class, AllowMultiple = false)]
     public class VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname
-        , int startIndex, int arrayCount, bool pathConcatenation) : Attribute
+        , int startIndex, int arrayCount, bool pathConcatenation, Mod mod) : Attribute
     {
         /// <inheritdoc/>
-        public VaultLoadenAttribute(string path) : this(path, AssetMode.None, "", 0, 0, false){ }
+        public VaultLoadenAttribute(string path)
+            : this(path, AssetMode.None, "", 0, 0, false, null){ }
         /// <inheritdoc/>
-        public VaultLoadenAttribute(string path, AssetMode assetMode) : this(path, assetMode, "", 0, 0, false) { }
+        public VaultLoadenAttribute(string path, AssetMode assetMode)
+            : this(path, assetMode, "", 0, 0, false, null) { }
         /// <inheritdoc/>
-        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname) : this(path, assetMode, effectPassname, 0, 0, false) { }
+        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname)
+            : this(path, assetMode, effectPassname, 0, 0, false, null) { }
         /// <inheritdoc/>
-        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex) : this(path, assetMode, effectPassname, startIndex, 0, false) { }
+        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex)
+            : this(path, assetMode, effectPassname, startIndex, 0, false, null) { }
         /// <inheritdoc/>
-        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex, int arrayCount) : this(path, assetMode, effectPassname, startIndex, arrayCount, false) { }
+        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex, int arrayCount)
+            : this(path, assetMode, effectPassname, startIndex, arrayCount, false, null) { }
         /// <inheritdoc/>
-        public VaultLoadenAttribute(string path, int startIndex) : this(path, AssetMode.None, "", startIndex, 0, false) { }
+        public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex, int arrayCount, bool pathConcatenation)
+            : this(path, assetMode, effectPassname, startIndex, arrayCount, pathConcatenation, null) { }
         /// <inheritdoc/>
-        public VaultLoadenAttribute(string path, int startIndex, int arrayCount) : this(path, AssetMode.None, "", startIndex, arrayCount, false) { }
+        public VaultLoadenAttribute(string path, int startIndex)
+            : this(path, AssetMode.None, "", startIndex, 0, false, null) { }
+        /// <inheritdoc/>
+        public VaultLoadenAttribute(string path, int startIndex, int arrayCount)
+            : this(path, AssetMode.None, "", startIndex, arrayCount, false, null) { }
         /// <summary>
         /// 这个字段或属性所属的模组程序集，自动指定
         /// </summary>
-        public Mod Mod { get; set; }
+        public Mod Mod { get; set; } = mod;
         /// <summary>
         /// 这个字段或属性要加载的资源形式，默认为<see cref="AssetMode.None"/>，即自动指定
         /// </summary>
@@ -178,6 +191,10 @@ namespace InnoVault
         /// 在绝大部分内容加载完成后被设置为<see langword="true"/>
         /// </summary>
         public static bool LoadenContent { get; private set; } = false;
+        /// <summary>
+        /// 存储处理过的类型，在加载完成后会立刻清理释放
+        /// </summary>
+        private readonly static HashSet<Type> ProcessedTypes = [];
         /// <summary>
         /// 存储纹理实例
         /// </summary>
@@ -250,32 +267,23 @@ namespace InnoVault
         }
 
         internal static void LoadAsset() {
+            ProcessedTypes.Clear();
             foreach (var t in VaultUtils.GetAnyModCodeType()) {
                 ProcessClassAssets(t, load: true);
                 ProcessTypeAssets(t, load: true);
             }
+            ProcessedTypes.Clear();
         }
 
         internal static void UnLoadAsset() {
+            ProcessedTypes.Clear();
             foreach (var t in VaultUtils.GetAnyModCodeType()) {
                 ProcessClassAssets(t, load: false);
                 ProcessTypeAssets(t, load: false);
             }
-
-            //foreach (var item in TextureValues) {
-            //    if (item.IsDisposed) {
-            //        continue;
-            //    }
-            //    item.Dispose();
-            //}//事实证明最好不要去自行释放这些纹理实例，因为原版自己也在进行管理，在实例化时加载了Asset<T>即可
+            ProcessedTypes.Clear();
+            //事实证明最好不要去自行释放这些纹理实例，因为原版自己也在进行管理，在实例化时注册了Asset<T>即可
             TextureValues.Clear();
-
-            //foreach (var item in EffectValues) {
-            //    if (item.IsDisposed) {
-            //        continue;
-            //    }
-            //    item.Dispose();
-            //}
             EffectValues.Clear();
         }
 
@@ -326,7 +334,7 @@ namespace InnoVault
             }
 
             if (attribute.Path.StartsWith('@')) {//用@指定其他模组，重新设置源模组对象
-                pathParts[0] = pathParts[0][1..]; // 去掉@
+                pathParts[0] = pathParts[0][1..]; //去掉@
                 if (ModLoader.TryGetMod(pathParts[0], out Mod newMod)) {
                     attribute.Mod = newMod;
                 }
@@ -689,7 +697,7 @@ namespace InnoVault
         /// <param name="type">要处理的类型</param>
         /// <param name="load">true 表示加载，false 表示卸载</param>
         private static void ProcessClassAssets(Type type, bool load) {
-            // 检查类上是否有 VaultLoadenAttribute
+            //检查类上是否有 VaultLoadenAttribute
             VaultLoadenAttribute classAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(type, (phase, ex) => {
                     VaultMod.Instance.Logger.Warn($"Skipped class {type.FullName} due to {phase} load error: {ex.Message}");
                 }
@@ -705,23 +713,76 @@ namespace InnoVault
                 return;
             }
 
-            if (load) {
-                //加载时，检查类级路径
-                CheckClassAttributePath(type, classAttribute);
+            ProcessClassAssetsWithAttribute(type, classAttribute, load);
+        }
+
+        /// <summary>
+        /// 处理类及其成员
+        /// </summary>
+        private static void ProcessClassAssetsWithAttribute(Type type, VaultLoadenAttribute attribute, bool load) {
+            //避免在扫描一些使用了动态代码生成或者IL源码注入的模组时出现无限递归调用
+            //这种情况有可能出现吗?首先得标记了VaultLoaden，才能进入这里的处理，然后还得出现动态生成的自循环互相嵌套类
+            //如果真的发生了那种事，这行代码就会起作用，不管如何，我Fuck可能会这样干的混蛋
+            if (!ProcessedTypes.Add(type)) {
+                return;//已处理过，跳过
             }
 
-            //获取所有静态字段和属性
+            //类路径校验（只有 load 阶段做）
+            if (load) {
+                CheckClassAttributePath(type, attribute);
+            }
+
             BindingFlags flags = BindingFlags.NonPublic | BindingFlags.Public | BindingFlags.Static;
 
             //处理字段
             foreach (var field in type.GetFields(flags)) {
-                ProcessClassMemberPassInto(field, type, classAttribute, load);
+                ProcessClassMemberPassInto(field, type, attribute, load);
             }
 
             //处理属性
             foreach (var property in type.GetProperties(flags)) {
-                ProcessClassMemberPassInto(property, type, classAttribute, load);
+                ProcessClassMemberPassInto(property, type, attribute, load);
             }
+
+            flags = BindingFlags.NonPublic | BindingFlags.Public;
+
+            //递归处理嵌套类
+            foreach (var nestedType in type.GetNestedTypes(flags)) {
+                //检查嵌套类上是否有 VaultLoadenAttribute
+                VaultLoadenAttribute subClassAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(nestedType, (phase, ex) => {
+                    VaultMod.Instance.Logger.Warn($"Skipped nested class {nestedType.FullName} due to {phase} load error: {ex.Message}");
+                });
+
+                if (subClassAttribute != null) {
+                    continue; //嵌套类如果有自己的 VaultLoadenAttribute，就交给独立流程，不要在递归嵌套类流程里处理
+                }
+
+                //继承外层类的 attribute，并拼接路径
+                var nestedAttr = new VaultLoadenAttribute(
+                    CombinePath(attribute.Path, nestedType.Name),
+                    attribute.AssetMode,
+                    attribute.EffectPassname,
+                    attribute.StartIndex,
+                    attribute.ArrayCount,
+                    attribute.PathConcatenation,
+                    attribute.Mod
+                );
+
+                ProcessClassAssetsWithAttribute(nestedType, nestedAttr, load);
+            }
+        }
+
+        private static string CombinePath(string basePath, string nestedName) {
+            if (string.IsNullOrEmpty(basePath)) {
+                return nestedName + "/";
+            }
+
+            //确保 basePath 末尾只有一个 "/"
+            if (!basePath.EndsWith('/')) {
+                basePath += "/";
+            }
+
+            return basePath + nestedName + "/";
         }
     }
 }
