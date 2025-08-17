@@ -551,7 +551,13 @@ namespace InnoVault.GameSystem
             X = relX;
             Y = relY;
             Data = [];
-            tileProcessor.SaveData(Data);
+            try {
+                tileProcessor.SaveData(Data);
+            } catch (Exception ex) {
+                Data = [];
+                VaultMod.LoggerError($"@TPSaveData-{tileProcessor.ID}", $"TPSaveData: " +
+                    $"An error occurred while trying to save the TP {tileProcessor}: {ex.Message}");
+            }
         }
         /// <summary>
         /// 将数据应用到世界，这会放置出一个TP实体
@@ -563,8 +569,13 @@ namespace InnoVault.GameSystem
 
             Tile tile = Main.tile[targetX, targetY];
             TileProcessor tileProcessor = TileProcessorLoader.AddInWorld(tile.TileType, new Point16(targetX, targetY), null);
-            if (tileProcessor != null) {
-                tileProcessor.LoadData(Data);
+            if (tileProcessor != null && Data.Count > 0) {
+                try {
+                    tileProcessor.LoadData(Data);
+                } catch (Exception ex) {
+                    VaultMod.LoggerError($"@TPSaveData.ApplyToWorld-{tileProcessor.ID}", $"TPSaveData.ApplyToWorld: " +
+                        $"An error occurred while trying to load the TP {tileProcessor}: {ex.Message}");
+                }
             }
         }
         /// <summary>

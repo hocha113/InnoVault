@@ -1,5 +1,6 @@
 ﻿using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
+using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace InnoVault.TileProcessors
 {
@@ -393,7 +395,14 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
 
-                tp.SaveData(saveData);
+                try {
+                    tp.SaveData(saveData);
+                } catch (Exception ex) {
+                    saveData = [];
+                    VaultMod.LoggerError($"@SaveWorldData-{tp.ID}", $"SaveWorldData: " +
+                        $"An error occurred while trying to save the TP {tp}: {ex.Message}");
+                }
+                
                 if (saveData.Count == 0) {
                     saveData = [];
                     continue;
@@ -438,7 +447,12 @@ namespace InnoVault.TileProcessors
 
                 // 从字典中查找匹配项
                 if (TP_NameAndPoint_To_Instance.TryGetValue((loadenName, point), out TileProcessor tp)) {
-                    tp.LoadData(data);
+                    try {
+                        tp.LoadData(data);
+                    } catch (Exception ex) {
+                        VaultMod.LoggerError($"@LoadWorldData-{tp.ID}", $"LoadWorldData: " +
+                            $"An error occurred while trying to save the TP {tp}: {ex.Message}");
+                    }
                 }
             }
         }
