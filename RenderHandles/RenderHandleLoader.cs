@@ -30,7 +30,7 @@ namespace InnoVault.RenderHandles
             }
         }
 
-        // 确保旧的RenderTarget2D对象被正确释放
+        //确保旧的RenderTarget2D对象被正确释放
         private static void DisposeScreen() {
             screen?.Dispose();
             screen = null;
