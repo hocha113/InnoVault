@@ -1032,7 +1032,7 @@ namespace InnoVault.GameSystem
         /// <param name="origin">起始坐标 左上角的世界物块位置</param>
         /// <param name="key">数据键，默认为 region</param>
         /// <param name="clampToWorldBounds">是否自动根据<see cref="RegionSaveData.Size"/>调整目标位置，防止区域超出世界边界</param>
-        public static RegionSaveData LoadRegion(TagCompound tag, Point16 origin, string key = "region", bool clampToWorldBounds = true) 
+        public static RegionSaveData LoadRegion(TagCompound tag, Point16 origin, string key = "region", bool clampToWorldBounds = true)
             => LoadRegion(tag.GetRegionSaveData(key), origin, clampToWorldBounds);
 
         /// <summary>
@@ -1135,7 +1135,7 @@ namespace InnoVault.GameSystem
         /// <param name="isTileSafe">判定物块是否安全，默认判定模组方块为危险方块</param>
         /// <returns>安全放置点左上角坐标</returns>
         public static Point16 FindSafePlacement(Point16 structureSize, Point16 startPoint, int maxAttempts = 300
-            , int horizontalRange = 200, int verticalRange = 200, Func<Tile, bool> isTileSafe = null) 
+            , int horizontalRange = 200, int verticalRange = 200, Func<Tile, bool> isTileSafe = null)
             => FindSafePlacement(structureSize, startPoint.X, startPoint.Y, maxAttempts, horizontalRange, verticalRange, isTileSafe);
 
         /// <summary>

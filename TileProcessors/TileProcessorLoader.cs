@@ -402,7 +402,7 @@ namespace InnoVault.TileProcessors
                     VaultMod.LoggerError($"@SaveWorldData-{tp.ID}", $"SaveWorldData: " +
                         $"An error occurred while trying to save the TP {tp}: {ex.Message}");
                 }
-                
+
                 if (saveData.Count == 0) {
                     saveData = [];
                     continue;

@@ -22,11 +22,11 @@ namespace InnoVault.RenderHandles
             On_Main.DrawDust -= EndDraw;
         }
 
-        private void Main_OnResolutionChanged(Vector2 screenPos) {
+        private void Main_OnResolutionChanged(Vector2 screenSize) {
             DisposeScreen();
             screen = new RenderTarget2D(Main.graphics.GraphicsDevice, Main.screenWidth, Main.screenHeight);
             foreach (var render in RenderHandle.Instances) {
-                render.OnResolutionChanged(screenPos);
+                render.OnResolutionChanged(screenSize);
             }
         }
 
@@ -51,7 +51,7 @@ namespace InnoVault.RenderHandles
                     render.finalTexture = finalTexture;
                     render.screenTarget1 = screenTarget1;
                     render.screenTarget2 = screenTarget2;
-                    render.EndCaptureDraw(screen);
+                    render.EndCaptureDraw(Main.spriteBatch, Main.instance.GraphicsDevice, screen);
                 }
             }
 

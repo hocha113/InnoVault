@@ -264,7 +264,7 @@ namespace InnoVault.GameSystem
         }
 
         private static double On_HurtHook(On_Hurt_Dalegate orig, Player player, PlayerDeathReason damageSource, int Damage, int hitDirection
-            , out HurtInfo info, bool pvp = false, bool quiet = false, int cooldownCounter = -1, bool dodgeable = true  
+            , out HurtInfo info, bool pvp = false, bool quiet = false, int cooldownCounter = -1, bool dodgeable = true
             , float armorPenetration = 0f, float scalingArmorPenetration = 0f, float knockback = 4.5f) {
             var hurtState = new HurtState {
                 DamageSource = damageSource,

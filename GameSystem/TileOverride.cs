@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using Terraria;
-using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InnoVault.GameSystem
@@ -67,7 +66,7 @@ namespace InnoVault.GameSystem
         /// <param name="id"></param>
         /// <param name="tileOverrides"></param>
         /// <returns></returns>
-        public static bool TryFetchByID(int id, out Dictionary<Type, TileOverride> tileOverrides) 
+        public static bool TryFetchByID(int id, out Dictionary<Type, TileOverride> tileOverrides)
             => ByID.TryGetValue(id, out tileOverrides);
         /// <summary>
         /// 是否掉落物品

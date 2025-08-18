@@ -32,7 +32,7 @@ namespace InnoVault
         }
 
         public override void UpdateInventory(Player player) {
-            
+
         }
 
         public override bool PreDrawInWorld(SpriteBatch spriteBatch, Color lightColor, Color alphaColor, ref float rotation, ref float scale, int whoAmI) {

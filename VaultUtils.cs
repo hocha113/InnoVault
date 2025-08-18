@@ -275,7 +275,7 @@ namespace InnoVault
         /// 创建一个矩形
         /// </summary>
         public static Rectangle GetRectangle(this Vector2 topLeft, Point size) => new Rectangle((int)topLeft.X, (int)topLeft.Y, size.X, size.Y);
-        
+
         /// <summary>
         /// 创建一个矩形
         /// </summary>
@@ -1201,7 +1201,7 @@ namespace InnoVault
             if (topLeft == null) {
                 return false;
             }
-            
+
             point = topLeft.Value;
 
             //获取箱子索引
@@ -1209,22 +1209,22 @@ namespace InnoVault
             if (chestIndex == -1 || !Main.chest.IndexInRange(chestIndex)) {
                 return false;
             }
-            
+
             Chest chest = Main.chest[chestIndex];
             if (chest == null) {
                 return false;
             }
-            
+
             //检查锁定状态
             if (!ignoreLocked && Chest.IsLocked(chest.x, chest.y)) {
                 return false;
             }
-            
+
             //确保物品数组存在
             if (chest.item == null) {
                 return false;
             }
-            
+
             //复制并清空箱子物品
             for (int i = 0; i < Chest.maxItems; i++) {
                 if (chest.item[i].IsAir) {
@@ -1248,7 +1248,7 @@ namespace InnoVault
             if (netUpdate && isSinglePlayer) {
                 for (int i = 0; i < Chest.maxItems; i++) {
                     NetMessage.SendData(MessageID.SyncChestItem, -1, -1, null, chestIndex, i);
-                } 
+                }
 
                 NetMessage.SendTileSquare(Main.myPlayer, point.X, point.Y);
             }
@@ -3358,7 +3358,7 @@ namespace InnoVault
 
             //如果失败则用反射调用原版方法
             object[] parameters = [
-                x, 
+                x,
                 y,
                 tile, //Tile tileCache
                 0,    //out int dropItem

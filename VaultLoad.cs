@@ -129,7 +129,7 @@ namespace InnoVault
     {
         /// <inheritdoc/>
         public VaultLoadenAttribute(string path)
-            : this(path, AssetMode.None, "", 0, 0, false, null){ }
+            : this(path, AssetMode.None, "", 0, 0, false, null) { }
         /// <inheritdoc/>
         public VaultLoadenAttribute(string path, AssetMode assetMode)
             : this(path, assetMode, "", 0, 0, false, null) { }
@@ -601,9 +601,9 @@ namespace InnoVault
         /// <param name="load">true 表示加载，false 表示卸载</param>
         private static void ProcessClassMemberAsset(MemberInfo member, Type type, VaultLoadenAttribute classAttribute, bool load) {
             VaultLoadenAttribute memberAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(member, (phase, ex) => {
-                    VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} " +
-                        $"in class {type.FullName} due to {phase} load error: {ex.Message}");
-                }
+                VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} " +
+                    $"in class {type.FullName} due to {phase} load error: {ex.Message}");
+            }
             );
 
             if (memberAttribute != null) {
@@ -676,9 +676,9 @@ namespace InnoVault
             //检查 AssetMode（如果类级别指定了 AssetMode）
             if (classAttribute.AssetMode != AssetMode.None) {
                 VaultLoadenAttribute memberAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(member, (phase, ex) => {
-                        VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} " +
-                            $"in class {type.FullName} due to {phase} load error: {ex.Message}");
-                    }
+                    VaultMod.Instance.Logger.Warn($"Skipped {member.MemberType.ToString().ToLower()} {member.Name} " +
+                        $"in class {type.FullName} due to {phase} load error: {ex.Message}");
+                }
                 );
 
                 if (GetAttributeAssetMode(memberType) != classAttribute.AssetMode) {
@@ -699,8 +699,8 @@ namespace InnoVault
         private static void ProcessClassAssets(Type type, bool load) {
             //检查类上是否有 VaultLoadenAttribute
             VaultLoadenAttribute classAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(type, (phase, ex) => {
-                    VaultMod.Instance.Logger.Warn($"Skipped class {type.FullName} due to {phase} load error: {ex.Message}");
-                }
+                VaultMod.Instance.Logger.Warn($"Skipped class {type.FullName} due to {phase} load error: {ex.Message}");
+            }
             );
 
             if (classAttribute == null) {
