@@ -111,7 +111,8 @@ namespace InnoVault
     /// <para>限制：
     /// <list type="bullet">
     ///   <item>只读属性（无 setter）无法加载</item>
-    ///   <item>类级别标记时，<paramref name="assetMode"/> 永远不会自动推断，保持 <see cref="AssetMode.None"/> 将加载所有支持类型的成员如果显式指定则只会加载对应资源类型的成员</item>
+    ///   <item>类级别标记时，<paramref name="assetMode"/> 永远不会自动推断，保持 <see cref="AssetMode.None"/> 
+    ///   将加载所有支持类型的成员，如果显式指定，则只会加载对应资源类型的成员</item>
     /// </list>
     /// </para>
     /// </remarks>
