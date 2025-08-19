@@ -11,9 +11,11 @@ namespace InnoVault.RenderHandles
     /// </summary>
     public abstract class RenderHandle : VaultType
     {
-        /// <summary>
-        /// 所有 <see cref="RenderHandle"/> 的单实例均存储于此
-        /// </summary>
+        /// <remarks>
+        /// 存储所有已注册的 <see cref="RenderHandle"/> 实例，按 <see cref="Weight"/> 升序排序<br/>
+        /// 所有 <see cref="RenderHandle"/> 的生命周期由 <see cref="RenderHandleLoader"/> 管理，
+        /// 在卸载时会统一释放其持有的 <see cref="RenderTarget2D"/> 并清空 <see cref="Instances"/>
+        /// </remarks>
         public static List<RenderHandle> Instances { get; private set; } = [];
         /// <summary>
         /// 渲染权重，用于排序默认值为 1
