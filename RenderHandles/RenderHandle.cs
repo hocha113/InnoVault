@@ -11,7 +11,10 @@ namespace InnoVault.RenderHandles
     /// </summary>
     public abstract class RenderHandle : VaultType
     {
-        internal static List<RenderHandle> Instances { get; set; } = new List<RenderHandle>();
+        /// <summary>
+        /// 所有 <see cref="RenderHandle"/> 的单实例均存储于此
+        /// </summary>
+        public static List<RenderHandle> Instances { get; private set; } = [];
         /// <summary>
         /// 渲染权重，用于排序默认值为 1
         /// Weight 越大，在排序中越靠后
@@ -34,8 +37,7 @@ namespace InnoVault.RenderHandles
         /// </summary>
         public RenderTarget2D screenTarget2;
         /// <summary>
-        /// 注册方法，会在 VaultType 初始化时调用
-        /// 添加实例到 Instances 列表并按 Weight 排序
+        /// 密封内容
         /// </summary>
         protected override void Register() {
             if (!CanLoad()) {
@@ -67,7 +69,23 @@ namespace InnoVault.RenderHandles
         /// <summary>
         /// 捕获结束时绘制的回调，可以自定义渲染逻辑
         /// </summary>
-        public virtual void EndCaptureDraw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screen) {
+        /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/> </param>
+        /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice </param>
+        /// <param name="screenSwap">一个主动给予和自动维护的中间屏幕对象，作用类似于 <see cref="Main.screenTargetSwap"/> ，
+        /// 如果需要实际修改画面，请使用 <see cref="Main.screenTarget"/> </param>
+        public virtual void EndCaptureDraw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
+
+        }
+
+        /// <summary>
+        /// 捕获结束时绘制的回调，可以自定义渲染逻辑，运行在 <see cref="EndCaptureDraw"/>之后 ，<br/>
+        /// 在 <see cref="Main.gameMenu"/> 为 <see langword="true"/> 的情况下仍旧会被调用
+        /// </summary>
+        /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/> </param>
+        /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice </param>
+        /// <param name="screenSwap">一个主动给予和自动维护的中间屏幕对象，作用类似于 <see cref="Main.screenTargetSwap"/> ，
+        /// 如果需要实际修改画面，请使用 <see cref="Main.screenTarget"/> </param>
+        public virtual void PostEndCaptureDraw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
 
         }
 
@@ -76,6 +94,24 @@ namespace InnoVault.RenderHandles
         /// </summary>
         public virtual void EndEntityDraw(SpriteBatch spriteBatch, Main main) {
 
+        }
+
+        /// <summary>
+        /// 释放缓存的屏幕资源
+        /// </summary>
+        internal void DisposeRender() {
+            if (finalTexture?.IsDisposed == false) {
+                finalTexture.Dispose();
+            }
+            if (screenTarget1?.IsDisposed == false) {
+                screenTarget1.Dispose();
+            }
+            if (screenTarget2?.IsDisposed == false) {
+                screenTarget2.Dispose();
+            }
+            finalTexture = null;
+            screenTarget1 = null;
+            screenTarget2 = null;
         }
     }
 }
