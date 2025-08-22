@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using Terraria;
 using Terraria.Graphics.Effects;
 
@@ -77,16 +78,23 @@ namespace InnoVault.RenderHandles
                 render.finalTexture = finalTexture;
                 render.screenTarget1 = screenTarget1;
                 render.screenTarget2 = screenTarget2;
+                if (render.ignoreBug > 0) {
+                    render.ignoreBug--;
+                }
             }
 
             if (!Main.gameMenu) {
                 foreach (var render in RenderHandle.Instances) {
-                    render.EndCaptureDraw(Main.spriteBatch, Main.instance.GraphicsDevice, ScreenSwap);
+                    HandleRenderAction(render, "EndCaptureDraw", () => 
+                        render.EndCaptureDraw(Main.spriteBatch, Main.instance.GraphicsDevice, ScreenSwap)
+                    );
                 }
             }
 
             foreach (var render in RenderHandle.Instances) {
-                render.PostEndCaptureDraw(Main.spriteBatch, Main.instance.GraphicsDevice, ScreenSwap);
+                HandleRenderAction(render, "PostEndCaptureDraw", () =>
+                    render.PostEndCaptureDraw(Main.spriteBatch, Main.instance.GraphicsDevice, ScreenSwap)
+                );
             }
 
             orig.Invoke(filterManager, finalTexture, screenTarget1, screenTarget2, clearColor);
@@ -98,7 +106,26 @@ namespace InnoVault.RenderHandles
                 return;
             }
             foreach (var render in RenderHandle.Instances) {
-                render.EndEntityDraw(Main.spriteBatch, main);
+                HandleRenderAction(render, "EndEntityDraw", () =>
+                    render.EndEntityDraw(Main.spriteBatch, main)
+                );
+            }
+        }
+
+        private static void HandleRenderAction(RenderHandle render, string stage, Action action) {
+            if (render.ignoreBug > 0) {
+                return;
+            }
+
+            try {
+                action();
+            } catch (Exception ex) {
+                render.ignoreBug = 60;//暂时屏蔽一段时间，避免帧帧报错
+                render.errorCount++;
+                VaultMod.LoggerError(
+                    $"[RenderHandleLoader:{render}{stage}]",
+                    $"Stage [{stage}] failed: {ex.Message}. errorCount={render.errorCount}"
+                );
             }
         }
     }
