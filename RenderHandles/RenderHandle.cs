@@ -23,6 +23,15 @@ namespace InnoVault.RenderHandles
         /// </summary>
         public virtual float Weight => 1f;
         /// <summary>
+        /// 屏幕数量，决定 <see cref="ScreenTargets"/> 可以包含并管理多少块屏幕对象
+        /// 不要设置为过大的值，这可能会造成明显的游戏性能问题
+        /// </summary>
+        public virtual int ScreenSlot => 0;
+        /// <summary>
+        /// 用于存储管理多个屏幕画面实例，配合 <see cref="ScreenSlot"/> 使用
+        /// </summary>
+        public RenderTarget2D[] ScreenTargets { get; private set; }
+        /// <summary>
         /// FilterManager 引用，可用于处理后期滤镜
         /// </summary>
         public FilterManager filterManager;
@@ -57,6 +66,9 @@ namespace InnoVault.RenderHandles
             if (!CanLoad()) {
                 return;
             }
+            Main.QueueMainThreadAction(() => {
+                ScreenTargets = new RenderTarget2D[ScreenSlot];
+            });
             SetStaticDefaults();
         }
 
@@ -99,9 +111,10 @@ namespace InnoVault.RenderHandles
         }
 
         /// <summary>
-        /// 释放缓存的屏幕资源
+        /// 释放缓存的屏幕字段和渲染对象
+        /// 不要在游戏中途调用该方法，除非知道自己在做什么
         /// </summary>
-        internal void DisposeRender() {
+        public void DisposeRenderTargets() {
             if (finalTexture?.IsDisposed == false) {
                 finalTexture.Dispose();
             }
@@ -114,6 +127,34 @@ namespace InnoVault.RenderHandles
             finalTexture = null;
             screenTarget1 = null;
             screenTarget2 = null;
+        }
+
+        /// <summary>
+        /// 设置实例屏幕数组
+        /// </summary>
+        /// <param name="create">是否进行创建，如果为 <see langword="false"/> 则充当释放函数</param>
+        public void InitializeScreenTargets(bool create) {
+            if (create && ScreenTargets?.Length != ScreenSlot) {
+                if (ScreenTargets != null) {
+                    foreach (var render in ScreenTargets) {
+                        render?.Dispose();
+                    }
+                }
+                ScreenTargets = new RenderTarget2D[ScreenSlot];
+            }
+
+            for (int i = 0; i < ScreenTargets.Length; i++) {
+                ScreenTargets[i]?.Dispose();
+                ScreenTargets[i] = null;
+                if (!create) {
+                    continue;
+                }
+                ScreenTargets[i] = new RenderTarget2D(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight);
+            }
+
+            if (!create) {
+                ScreenTargets = null;
+            }
         }
     }
 }

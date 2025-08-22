@@ -76,7 +76,7 @@ namespace InnoVault.Trails
         /// <exception cref="ArgumentException">如果第一个元素大于第二个元素，则抛出异常</exception>
         public void SetRange((float Min, float Max) range) {
             if (range.Min > range.Max) {
-                throw new ArgumentException("最小值不能大于最大值！");
+                throw new ArgumentException("The minimum value cannot be greater than the maximum value.");
             }
             thunderRandomOffsetRange = range;
         }

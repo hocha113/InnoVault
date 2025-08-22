@@ -64,7 +64,7 @@ namespace InnoVault.Trails
             get => _trailPositions;
             set {
                 if (value.Length != maxPoints) {
-                    throw new ArgumentException("ERROR:位置数组的长度与预期结果不同");
+                    throw new ArgumentException("The length of the position array is different from the expected result.");
                 }
                 _trailPositions = value;
             }

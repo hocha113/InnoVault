@@ -27,8 +27,10 @@ namespace InnoVault.RenderHandles
 
             if (!VaultUtils.isServer) {
                 Main.QueueMainThreadAction(() => {
+                    DisposeScreen();
                     foreach (var render in RenderHandle.Instances) {
-                        render.DisposeRender();
+                        render.DisposeRenderTargets();
+                        render.InitializeScreenTargets(create: false);
                     }
                 });
             }
@@ -40,6 +42,7 @@ namespace InnoVault.RenderHandles
             DisposeScreen();
             ScreenSwap = new RenderTarget2D(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight);
             foreach (var render in RenderHandle.Instances) {
+                render.InitializeScreenTargets(create: true);
                 render.OnResolutionChanged(screenSize);
             }
         }
@@ -57,11 +60,16 @@ namespace InnoVault.RenderHandles
             , RenderTarget2D screenTarget2
             , Color clearColor) {
 
-            ScreenSwap ??= new RenderTarget2D(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight);
-
             if (RenderHandle.Instances?.Count == 0) {//列表为空的话直接返回
                 orig.Invoke(filterManager, finalTexture, screenTarget1, screenTarget2, clearColor);
                 return;
+            }
+
+            if (ScreenSwap == null) {
+                ScreenSwap = new RenderTarget2D(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight);
+                foreach (var render in RenderHandle.Instances) {
+                    render.InitializeScreenTargets(create: true);
+                }
             }
 
             foreach (var render in RenderHandle.Instances) {
