@@ -122,10 +122,9 @@ namespace InnoVault.RenderHandles
             } catch (Exception ex) {
                 render.ignoreBug = 60;//暂时屏蔽一段时间，避免帧帧报错
                 render.errorCount++;
-                VaultMod.LoggerError(
-                    $"[RenderHandleLoader:{render}{stage}]",
-                    $"Stage [{stage}] failed: {ex.Message}. errorCount={render.errorCount}"
-                );
+                string message = $"Stage [{stage}] failed: {ex.Message}. errorCount={render.errorCount}";
+                VaultMod.LoggerError($"[RenderHandleLoader:{render}{stage}]", message);
+                VaultUtils.Text(message, Color.Red);
             }
         }
     }
