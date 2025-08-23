@@ -23,7 +23,7 @@ namespace InnoVault.RenderHandles
         /// </summary>
         public virtual float Weight => 1f;
         /// <summary>
-        /// 屏幕数量，决定 <see cref="ScreenTargets"/> 可以包含并管理多少块屏幕对象
+        /// 屏幕数量，决定 <see cref="ScreenTargets"/> 可以包含并管理多少块屏幕对象，
         /// 不要设置为过大的值，这可能会造成明显的游戏性能问题
         /// </summary>
         public virtual int ScreenSlot => 0;
