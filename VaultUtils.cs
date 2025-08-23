@@ -3104,20 +3104,20 @@ namespace InnoVault
         #endregion
 
         #region Net
-
+#pragma warning disable IDE1006 // 命名样式
         /// <summary>
-        /// 判断是否处于客户端状态，如果是在单人或者服务端下将返回false
+        /// 判断是否处于客户端状态，如果是在单人或者服务端下将返回 <see langword="false"/>
         /// </summary>
         public static bool isClient => Main.netMode == NetmodeID.MultiplayerClient;
         /// <summary>
-        /// 判断是否处于服务端状态，如果是在单人或者客户端下将返回false
+        /// 判断是否处于服务端状态，如果是在单人或者客户端下将返回 <see langword="false"/>
         /// </summary>
         public static bool isServer => Main.netMode == NetmodeID.Server;
         /// <summary>
-        /// 仅判断是否处于单人状态，在单人模式下返回true
+        /// 仅判断是否处于单人状态，在单人模式下返回 <see langword="true"/>
         /// </summary>
         public static bool isSinglePlayer => Main.netMode == NetmodeID.SinglePlayer;
-
+#pragma warning restore IDE1006 // 命名样式
         /// <summary>
         /// 检查一个 Projectile 对象是否属于当前客户端玩家拥有的，如果是，返回true
         /// </summary>

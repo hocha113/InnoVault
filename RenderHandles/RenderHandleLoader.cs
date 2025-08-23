@@ -85,7 +85,7 @@ namespace InnoVault.RenderHandles
 
             if (!Main.gameMenu) {
                 foreach (var render in RenderHandle.Instances) {
-                    HandleRenderAction(render, "EndCaptureDraw", () => 
+                    HandleRenderAction(render, "EndCaptureDraw", () =>
                         render.EndCaptureDraw(Main.spriteBatch, Main.instance.GraphicsDevice, ScreenSwap)
                     );
                 }
