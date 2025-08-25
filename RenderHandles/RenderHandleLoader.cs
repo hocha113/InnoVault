@@ -26,17 +26,19 @@ namespace InnoVault.RenderHandles
             Main.OnResolutionChanged -= Main_OnResolutionChanged;
             On_Main.DrawDust -= EndDraw;
 
-            if (!VaultUtils.isServer) {
-                Main.QueueMainThreadAction(() => {
-                    DisposeScreen();
-                    foreach (var render in RenderHandle.Instances) {
-                        render.DisposeRenderTargets();
-                        render.InitializeScreenTargets(create: false);
-                    }
-                });
+            if (VaultUtils.isServer) {
+                return;
             }
 
-            RenderHandle.Instances?.Clear();
+            Main.QueueMainThreadAction(() => {
+                DisposeScreen();
+                foreach (var render in RenderHandle.Instances) {
+                    render.DisposeRenderTargets();
+                    render.InitializeScreenTargets(create: false);
+                }
+
+                RenderHandle.Instances?.Clear();
+            });
         }
 
         private void Main_OnResolutionChanged(Vector2 screenSize) {
