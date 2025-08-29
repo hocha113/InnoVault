@@ -82,8 +82,6 @@ namespace InnoVault
     /// <summary>
     /// 标记静态字段、属性或类，以实现资源的自动化加载与管理
     /// <br/>
-    /// 此标签旨在将开发者从繁琐的 <c>Mod.Assets.Request</c> 调用中解放出来，只需一次声明即可完成资源注册与加载
-    /// <br/>
     /// 当应用于一个类时，此标签将作为其内部所有未被单独标记的静态成员的默认加载规则，并能递归作用于嵌套类
     /// </summary>
     /// <remarks>
@@ -100,9 +98,9 @@ namespace InnoVault
     /// </list>
     /// </para>
     /// <para>
-    /// <b>核心功能：路径规则</b>
+    /// <b>路径规则</b>
     /// <br/>
-    /// <paramref name="path"/> 参数非常灵活，善用这些规则可以极大提高资源管理的便捷性
+    /// <paramref name="path"/> 参数非常灵活，并具备格式化关键词，善用这些规则可以极大提高资源管理的便捷性
     /// <list type="bullet">
     ///   <item><b>自动拼接</b>: 以 <c>"/"</c> 结尾的路径会自动追加成员自身的名称作为文件名<br/>
     ///     示例: <c>path: "Assets/Textures/"</c>，成员名为 <c>MyIcon</c> -> 最终路径 <c>Assets/Textures/MyIcon</c>
