@@ -18,8 +18,7 @@ namespace InnoVault.RenderHandles
         /// </remarks>
         public static List<RenderHandle> Instances { get; private set; } = [];
         /// <summary>
-        /// 渲染权重，用于排序默认值为 1
-        /// Weight 越大，在排序中越靠后
+        /// 渲染权重，用于排序默认值为 1，Weight 越大，在排序中越靠后
         /// </summary>
         public virtual float Weight => 1f;
         /// <summary>
@@ -55,6 +54,12 @@ namespace InnoVault.RenderHandles
                 return;
             }
 
+            if (ScreenSlot > 0) {
+                Main.QueueMainThreadAction(() => {
+                    InitializeScreenTargets(true);
+                });
+            }
+            
             Instances.Add(this);
             Instances.Sort((a, b) => a.Weight.CompareTo(b.Weight));
         }
@@ -66,9 +71,7 @@ namespace InnoVault.RenderHandles
             if (!CanLoad()) {
                 return;
             }
-            Main.QueueMainThreadAction(() => {
-                ScreenTargets = new RenderTarget2D[ScreenSlot];
-            });
+
             SetStaticDefaults();
         }
 
@@ -143,7 +146,7 @@ namespace InnoVault.RenderHandles
                 ScreenTargets = new RenderTarget2D[ScreenSlot];
             }
 
-            for (int i = 0; i < ScreenTargets.Length; i++) {
+            for (int i = 0; i < ScreenTargets?.Length; i++) {
                 ScreenTargets[i]?.Dispose();
                 ScreenTargets[i] = null;
                 if (!create) {

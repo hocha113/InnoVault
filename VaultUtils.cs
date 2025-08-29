@@ -3027,68 +3027,68 @@ namespace InnoVault
         /// <returns>返回一个包含当前弹药状态信息的 <see cref="AmmoState"/> 结构体</returns>
         public static AmmoState GetAmmoState(this Player player, int assignAmmoType = 0, bool numSort = false) {
             AmmoState ammoState = new();
-            int num = 0;  // 当前弹药总数量
-            List<Item> itemInds = new();  // 存储有效的弹药物品
-            List<int> itemTypes = new();  // 存储弹药物品的类型
-            List<int> itemShootTypes = new();  // 存储弹药发射类型（即射击类型）
+            int num = 0;  //当前弹药总数量
+            List<Item> itemInds = new();  //存储有效的弹药物品
+            List<int> itemTypes = new();  //存储弹药物品的类型
+            List<int> itemShootTypes = new();  //存储弹药发射类型（即射击类型）
 
-            // 遍历玩家背包中的所有物品
+            //遍历玩家背包中的所有物品
             foreach (Item item in player.inventory) {
-                // 跳过没有弹药的物品
+                //跳过没有弹药的物品
                 if (item.ammo == AmmoID.None) {
                     continue;
                 }
 
-                // 如果指定了弹药类型并且物品的弹药类型不匹配，跳过该物品
+                //如果指定了弹药类型并且物品的弹药类型不匹配，跳过该物品
                 if (assignAmmoType != 0 && item.ammo != assignAmmoType) {
                     continue;
                 }
 
-                // 添加物品类型、射击类型及堆叠数量
+                //添加物品类型、射击类型及堆叠数量
                 itemTypes.Add(item.type);
                 itemShootTypes.Add(item.shoot);
                 num += item.stack;  // 累加物品的堆叠数量
             }
 
-            // 遍历玩家快捷栏中的物品（位置从54到57）
+            //遍历玩家快捷栏中的物品（位置从54到57）
             for (int i = 54; i < 58; i++) {
                 Item item = player.inventory[i];
-                // 如果指定了弹药类型并且物品的弹药类型不匹配，或者物品没有弹药，跳过
+                //如果指定了弹药类型并且物品的弹药类型不匹配，或者物品没有弹药，跳过
                 if ((assignAmmoType != 0 && item.ammo != assignAmmoType) || item.ammo == AmmoID.None) {
                     continue;
                 }
                 itemInds.Add(player.inventory[i]);
             }
 
-            // 遍历玩家背包的前54个物品
+            //遍历玩家背包的前54个物品
             for (int i = 0; i < 54; i++) {
                 Item item = player.inventory[i];
-                // 如果指定了弹药类型并且物品的弹药类型不匹配，或者物品没有弹药，跳过
+                //如果指定了弹药类型并且物品的弹药类型不匹配，或者物品没有弹药，跳过
                 if ((assignAmmoType != 0 && item.ammo != assignAmmoType) || item.ammo == AmmoID.None) {
                     continue;
                 }
                 itemInds.Add(player.inventory[i]);
             }
 
-            // 如果需要排序，则按堆叠数量降序排序
+            //如果需要排序，则按堆叠数量降序排序
             if (numSort) {
                 itemInds = itemInds.OrderByDescending(item => item.stack).ToList();
             }
 
             // 设置返回的弹药状态信息
-            ammoState.ValidProjectileIDs = itemShootTypes.ToArray();  // 有效的弹药发射类型
-            ammoState.CurrentItems = itemInds.ToArray();  // 当前有效的弹药物品
-            ammoState.ValidItemIDs = itemTypes.ToArray();  // 有效的弹药物品类型
-            ammoState.CurrentAmount = num;  // 当前弹药总数量
+            ammoState.ValidProjectileIDs = itemShootTypes.ToArray();  //有效的弹药发射类型
+            ammoState.CurrentItems = itemInds.ToArray();  //当前有效的弹药物品
+            ammoState.ValidItemIDs = itemTypes.ToArray();  //有效的弹药物品类型
+            ammoState.CurrentAmount = num;  //当前弹药总数量
 
-            // 设置最大和最小数量的物品
+            //设置最大和最小数量的物品
             if (itemInds.Count > 0) {
-                ammoState.MaxAmountItem = itemInds[0];  // 最大数量的物品
-                ammoState.MinAmountItem = itemInds[^1];  // 最小数量的物品
+                ammoState.MaxAmountItem = itemInds[0];  //最大数量的物品
+                ammoState.MinAmountItem = itemInds[^1];  //最小数量的物品
             }
             else {
-                ammoState.MaxAmountItem = new Item();  // 若无有效物品，返回空物品
-                ammoState.MinAmountItem = new Item();  // 若无有效物品，返回空物品
+                ammoState.MaxAmountItem = new Item();  //若无有效物品，返回空物品
+                ammoState.MinAmountItem = new Item();  //若无有效物品，返回空物品
             }
 
             return ammoState;
@@ -3119,7 +3119,7 @@ namespace InnoVault
         public static bool isSinglePlayer => Main.netMode == NetmodeID.SinglePlayer;
 #pragma warning restore IDE1006 // 命名样式
         /// <summary>
-        /// 检查一个 Projectile 对象是否属于当前客户端玩家拥有的，如果是，返回true
+        /// 检查一个 <see cref="Projectile"/> 对象是否属于当前客户端玩家拥有的，如果是，返回 <see langword="true"/>
         /// </summary>
         public static bool IsOwnedByLocalPlayer(this Projectile projectile) => projectile.owner == Main.myPlayer;
 
