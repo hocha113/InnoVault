@@ -1,13 +1,10 @@
 ﻿using InnoVault.GameSystem;
-using InnoVault.PRT;
-using log4net.Core;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using Terraria;
 using Terraria.Audio;
 using Terraria.Graphics.Effects;
 using Terraria.Graphics.Shaders;
@@ -83,48 +80,64 @@ namespace InnoVault
     }
 
     /// <summary>
-    /// 标记静态字段、属性或者类，以自动加载和管理资源<br/>
-    /// 类级别标记会自动处理所有符合条件的静态成员，但跳过已标记 `VaultLoadenAttribute` 的成员<br/>
-    /// 该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-VaultLoaden"/>
+    /// 标记静态字段、属性或类，以实现资源的自动化加载与管理
+    /// <br/>
+    /// 此标签旨在将开发者从繁琐的 <c>Mod.Assets.Request</c> 调用中解放出来，只需一次声明即可完成资源注册与加载
+    /// <br/>
+    /// 当应用于一个类时，此标签将作为其内部所有未被单独标记的静态成员的默认加载规则，并能递归作用于嵌套类
     /// </summary>
     /// <remarks>
-    /// <para>支持的资源类型包括：
+    /// <para>
+    /// <b>支持的成员类型</b>
+    /// <br/>
+    /// 系统会根据成员的声明类型自动推断应加载的资源类型（除非通过 <paramref name="assetMode"/> 显式指定）
     /// <list type="bullet">
     ///   <item><see cref="SoundStyle"/></item>
-    ///   <item><see cref="ArmorShaderData"/></item>
-    ///   <item><see cref="MiscShaderData"/></item>
-    ///   <item><see cref="Asset{T}"/>(其中 T 为 <see cref="Texture2D"/> or <see cref="Effect"/>)</item>
-    ///   <item><see cref="Texture2D"/></item>
-    ///   <item><see cref="Effect"/></item>
-    ///   <item><see cref="IList{T}"/>(其中 T 为 <see cref="SoundStyle"/> or <see cref="Asset{T}"/> or <see cref="ArmorShaderData"/> 
-    ///   or <see cref="MiscShaderData"/> or <see cref="Texture2D"/> or <see cref="Effect"/>)</item>
+    ///   <item><see cref="Asset{T}"/> (T 为 <see cref="Texture2D"/> 或 <see cref="Effect"/>)</item>
+    ///   <item><see cref="Texture2D"/> 或 <see cref="Effect"/> (注意：这会立即加载资源，可能影响启动性能)</item>
+    ///   <item><see cref="ArmorShaderData"/> 或 <see cref="MiscShaderData"/></item>
+    ///   <item>以上任意类型的数组 <c>T[]</c> 或列表 <c>IList{T}</c></item>
     /// </list>
     /// </para>
-    /// <para>资源类型根据成员的声明类型自动推断（除非指定 <paramref name="assetMode"/>）</para>
-    /// <para>路径规则：
+    /// <para>
+    /// <b>核心功能：路径规则</b>
+    /// <br/>
+    /// <paramref name="path"/> 参数非常灵活，善用这些规则可以极大提高资源管理的便捷性
     /// <list type="bullet">
-    ///   <item>以 <c>"/"</c> 结尾的路径会自动追加成员名作为资源名</item>
-    ///   <item>包含 <c>{@namespace}</c> 的路径会替换为成员的完整命名空间（以 <c>/</c> 分隔）</item>
-    ///   <item>路径可省略模组名前缀，自动使用当前模组</item>
-    ///   <item>@可以标记外部模组名，比如"@OtherMod/Asset/MyItem"</item>
+    ///   <item><b>自动拼接</b>: 以 <c>"/"</c> 结尾的路径会自动追加成员自身的名称作为文件名<br/>
+    ///     示例: <c>path: "Assets/Textures/"</c>，成员名为 <c>MyIcon</c> -> 最终路径 <c>Assets/Textures/MyIcon</c>
+    ///   </item>
+    ///   <item><b>命名空间占位符</b>: 路径中的 <c>{@namespace}</c> 会被替换为成员所在类的完整命名空间路径<br/>
+    ///     示例: 成员在 <c>MyMod.Content.Items</c> 中 -> <c>{@namespace}</c> 变为 <c>MyMod/Content/Items</c>
+    ///   </item>
+    ///   <item><b>母类路径占位符</b>: 路径中的 <c>{@classPath}</c> 会被替换为成员所在类的完整标签路径<br/>
+    ///     示例: 成员在 <c>MyMod.Content.Items</c> 的 MyWeapon 类 中 -> <c>{@classPath}</c> 变为 <c>MyMod/Content/Items/MyWeapon</c><br/>
+    ///     如果 MyWeapon 类也标记了 <see cref="VaultLoadenAttribute"/>，<c>{@classPath}</c> 则会变为 <c>MyMod/Content/Items/MyWeapon.<see cref="Path"/></c>
+    ///   </item>
+    ///   <item><b>跨模组加载</b>: 使用 <c>"@模组名/"</c> 前缀可直接加载其他模组的资源<br/>
+    ///     示例: <c>"@AnotherMod/Assets/Music/BossTheme"</c>
+    ///   </item>
+    ///   <item><b>路径拼接扩展 (<paramref name="pathConcatenation"/>)</b>: 仅用于类级标签，启用后会将成员名按下划线 <c>"_"</c> 拆分为子目录<br/>
+    ///     示例: 类路径 <c>"Assets/UI/"</c>，成员名 <c>Button_Primary_Hover</c> -> 最终路径 <c>Assets/UI/Button/Primary/Hover</c>
+    ///   </item>
     /// </list>
     /// </para>
-    /// <para>限制：
+    /// <para>
+    /// <b>重要限制</b>
     /// <list type="bullet">
-    ///   <item>只读属性（无 setter）无法加载</item>
-    ///   <item>类级别标记时，<paramref name="assetMode"/> 永远不会自动推断，保持 <see cref="AssetMode.None"/> 
-    ///   将加载所有支持类型的成员，如果显式指定，则只会加载对应资源类型的成员</item>
+    ///   <item><b>属性写入</b>: 标签无法作用于只读属性（即没有 <c>setter</c> 的属性）</item>
+    ///   <item><b>集合初始化</b>: 当加载集合（数组/列表）且未指定 <paramref name="arrayCount"/> 时，该集合必须在使用标签前被初始化以确定长度 (例如 <c>new Asset&lt;Texture2D&gt;[5]</c>)</item>
+    ///   <item><b>类级标签的 <paramref name="assetMode"/></b>: 在类级标签上，<paramref name="assetMode"/> 默认为 <c>None</c>，会处理所有支持类型的成员，若显式指定一个类型，则只会处理该类中与之匹配的成员</item>
     /// </list>
     /// </para>
     /// </remarks>
-    /// <param name="assetMode">资源加载类型，默认为 <see cref="AssetMode.None"/>（自动推断）类级别标记时，指定非 <see cref="AssetMode.None"/> 将只加载匹配类型的成员</param>
-    /// <param name="path">资源加载路径（支持占位符，省略模组名前缀）</param>
-    /// <param name="pathConcatenation">仅作用到类级别的标签之上，启用后会根据下划线拆分成员名来扩充路径进行自动加载</param>
-    /// <param name="startIndex">元素文件起始索引标号，默认从0开始</param>
-    /// <param name="arrayCount">用于加载集合类资源时指定集合长度，默认为0，即自动指定</param>
-    /// <param name="effectPassname">用于 <see cref="AssetMode.Effects"/> 时指定的 Pass 名称，留空则使用资源文件名作为默认 Pass</param>
-    /// <param name="mod">指定目标模组，默认为<see langword="null"/>，即自动指定为当前模组。不建议使用该参数来指定外部模组加载外部资源，<br/>
-    /// 如果想做到这个，使用<see langword="path"/>的格式化 "@OtherMod" 来定义外部模组对象</param>
+    /// <param name="path">资源加载的基础路径，支持多种占位符与规则，详见备注</param>
+    /// <param name="assetMode">指定资源加载类型，默认为 <see cref="AssetMode.None"/> (自动推断)，在类级标签上可用于筛选成员</param>
+    /// <param name="pathConcatenation">仅在类级标签上生效，为 <c>true</c> 时会根据成员名中的下划线拆分并扩展路径</param>
+    /// <param name="startIndex">加载集合资源时，文件名数字后缀的起始索引，默认为0 (例如 `_0`, `_1`, `_2`...)</param>
+    /// <param name="arrayCount">加载集合资源时指定要加载的数量，若为0，系统将尝试从已初始化的集合推断其长度</param>
+    /// <param name="effectPassname">加载着色器 (<see cref="Effect"/>) 时指定的 Pass 名称，若留空则根据资源文件名自动生成</param>
+    /// <param name="mod">指定资源所属模组，通常应留空让系统自动指定，跨模组加载请优先使用 <paramref name="path"/> 参数的 <c>"@OtherMod/"</c> 格式</param>
     [AttributeUsage(AttributeTargets.Field | AttributeTargets.Property | AttributeTargets.Class, AllowMultiple = false)]
     public class VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname
         , int startIndex, int arrayCount, bool pathConcatenation, Mod mod) : Attribute
