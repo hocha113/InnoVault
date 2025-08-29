@@ -124,8 +124,10 @@ namespace InnoVault
     /// <b>重要限制</b>
     /// <list type="bullet">
     ///   <item><b>属性写入</b>: 标签无法作用于只读属性（即没有 <c>setter</c> 的属性）</item>
-    ///   <item><b>集合初始化</b>: 当加载集合（数组/列表）且未指定 <paramref name="arrayCount"/> 时，该集合必须在使用标签前被初始化以确定长度 (例如 <c>new Asset&lt;Texture2D&gt;[5]</c>)</item>
-    ///   <item><b>类级标签的 <paramref name="assetMode"/></b>: 在类级标签上，<paramref name="assetMode"/> 默认为 <c>None</c>，会处理所有支持类型的成员，若显式指定一个类型，则只会处理该类中与之匹配的成员</item>
+    ///   <item><b>集合初始化</b>: 当加载集合（数组/列表）且未指定 <paramref name="arrayCount"/> 时，
+    ///   该集合必须在使用标签前被初始化以确定长度 (例如 <c>new Asset&lt;Texture2D&gt;[5]</c>)</item>
+    ///   <item><b>类级标签的 <paramref name="assetMode"/></b>: 在类级标签上，<paramref name="assetMode"/> 默认为 <c>None</c>，
+    ///   会处理所有支持类型的成员，若显式指定一个类型，则只会处理该类中与之匹配的成员</item>
     /// </list>
     /// </para>
     /// </remarks>
@@ -342,7 +344,12 @@ namespace InnoVault
             }
 
             if (attribute.Path.Contains("{@classPath}")) {//替换为母类路径，类级别标签加载在字段标签之前，所以这里不用担心类标签数据还没有加载完成
-                VaultLoadenAttribute momClassAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(type);
+                VaultLoadenAttribute momClassAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(type, (phase, ex) => {
+                    VaultMod.Instance.Logger.Warn($"Failed to resolve '{{@classPath}}' for member '{targetName}'" +
+                        $": Could not read [VaultLoaden] attribute from containing class '{type.FullName}', by {phase}. " +
+                        $"Path will fall back to default (namespace + class name). Reason: {ex.Message}");
+                }
+                );
                 string classPath;
                 if (momClassAttribute != null) {
                     classPath = momClassAttribute.Path;
