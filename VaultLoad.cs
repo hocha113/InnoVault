@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Terraria;
 using Terraria.Audio;
 using Terraria.Graphics.Effects;
 using Terraria.Graphics.Shaders;
@@ -327,6 +328,18 @@ namespace InnoVault
             if (!string.IsNullOrEmpty(type.Namespace)) {//替换该特殊词柄为命名空间路径
                 string namespacePath = type.Namespace.Replace('.', '/');
                 attribute.Path = attribute.Path.Replace("{@namespace}", namespacePath);
+            }
+
+            if (attribute.Path.Contains("{@classPath}")) {//替换为母类路径，类级别标签加载在字段标签之前，所以这里不用担心类标签数据还没有加载完成
+                VaultLoadenAttribute momClassAttribute = VaultUtils.GetAttributeSafely<VaultLoadenAttribute>(type);
+                string classPath;
+                if (momClassAttribute != null) {
+                    classPath = momClassAttribute.Path;
+                }
+                else {
+                    classPath = type.Namespace.Replace('.', '/') + type.Name;
+                }
+                attribute.Path = attribute.Path.Replace("{@classPath}", classPath);
             }
 
             string[] pathParts = attribute.Path.Split('/');//切割路径，检测是否以模组名字开头，如果包含模组名部分则切除
