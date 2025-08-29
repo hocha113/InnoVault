@@ -54,7 +54,7 @@ namespace InnoVault.RenderHandles
                 return;
             }
 
-            if (ScreenSlot > 0) {
+            if (!VaultUtils.isServer && ScreenSlot > 0) {
                 Main.QueueMainThreadAction(() => {
                     InitializeScreenTargets(true);
                 });
