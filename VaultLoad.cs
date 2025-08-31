@@ -82,9 +82,9 @@ namespace InnoVault
     /// <summary>
     /// 标记静态字段、属性或类，以实现资源的自动化加载与管理
     /// <br/>
-    /// 该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-VaultLoaden"/>
-    /// <br/>
     /// 当应用于一个类时，此标签将作为其内部所有未被单独标记的静态成员的默认加载规则，并能递归作用于嵌套类
+    /// <br/>
+    /// 该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-VaultLoaden"/>
     /// </summary>
     /// <remarks>
     /// <para>
