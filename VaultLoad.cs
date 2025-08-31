@@ -82,6 +82,8 @@ namespace InnoVault
     /// <summary>
     /// 标记静态字段、属性或类，以实现资源的自动化加载与管理
     /// <br/>
+    /// 该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-VaultLoaden"/>
+    /// <br/>
     /// 当应用于一个类时，此标签将作为其内部所有未被单独标记的静态成员的默认加载规则，并能递归作用于嵌套类
     /// </summary>
     /// <remarks>
@@ -142,30 +144,73 @@ namespace InnoVault
     public class VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname
         , int startIndex, int arrayCount, bool pathConcatenation, Mod mod) : Attribute
     {
-        /// <inheritdoc/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path">资源加载的基础路径，支持多种占位符与规则，详见备注</param>
         public VaultLoadenAttribute(string path)
             : this(path, AssetMode.None, "", 0, 0, false, null) { }
-        /// <inheritdoc/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path">资源加载的基础路径，支持多种占位符与规则，详见备注</param>
+        /// <param name="assetMode">指定资源加载类型，默认为 <see cref="AssetMode.None"/> (自动推断)，在类级标签上可用于筛选成员</param>
         public VaultLoadenAttribute(string path, AssetMode assetMode)
             : this(path, assetMode, "", 0, 0, false, null) { }
-        /// <inheritdoc/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path">资源加载的基础路径，支持多种占位符与规则，详见备注</param>
+        /// <param name="assetMode">指定资源加载类型，默认为 <see cref="AssetMode.None"/> (自动推断)，在类级标签上可用于筛选成员</param>
+        /// <param name="effectPassname">加载着色器 (<see cref="Effect"/>) 时指定的 Pass 名称，若留空则根据资源文件名自动生成</param>
         public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname)
             : this(path, assetMode, effectPassname, 0, 0, false, null) { }
-        /// <inheritdoc/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path">资源加载的基础路径，支持多种占位符与规则，详见备注</param>
+        /// <param name="assetMode">指定资源加载类型，默认为 <see cref="AssetMode.None"/> (自动推断)，在类级标签上可用于筛选成员</param>
+        /// <param name="startIndex">加载集合资源时，文件名数字后缀的起始索引，默认为0 (例如 `_0`, `_1`, `_2`...)</param>
+        /// <param name="effectPassname">加载着色器 (<see cref="Effect"/>) 时指定的 Pass 名称，若留空则根据资源文件名自动生成</param>
         public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex)
             : this(path, assetMode, effectPassname, startIndex, 0, false, null) { }
-        /// <inheritdoc/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path">资源加载的基础路径，支持多种占位符与规则，详见备注</param>
+        /// <param name="assetMode">指定资源加载类型，默认为 <see cref="AssetMode.None"/> (自动推断)，在类级标签上可用于筛选成员</param>
+        /// <param name="startIndex">加载集合资源时，文件名数字后缀的起始索引，默认为0 (例如 `_0`, `_1`, `_2`...)</param>
+        /// <param name="arrayCount">加载集合资源时指定要加载的数量，若为0，系统将尝试从已初始化的集合推断其长度</param>
+        /// <param name="effectPassname">加载着色器 (<see cref="Effect"/>) 时指定的 Pass 名称，若留空则根据资源文件名自动生成</param>
         public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex, int arrayCount)
             : this(path, assetMode, effectPassname, startIndex, arrayCount, false, null) { }
-        /// <inheritdoc/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path">资源加载的基础路径，支持多种占位符与规则，详见备注</param>
+        /// <param name="assetMode">指定资源加载类型，默认为 <see cref="AssetMode.None"/> (自动推断)，在类级标签上可用于筛选成员</param>
+        /// <param name="pathConcatenation">仅在类级标签上生效，为 <c>true</c> 时会根据成员名中的下划线拆分并扩展路径</param>
+        /// <param name="startIndex">加载集合资源时，文件名数字后缀的起始索引，默认为0 (例如 `_0`, `_1`, `_2`...)</param>
+        /// <param name="arrayCount">加载集合资源时指定要加载的数量，若为0，系统将尝试从已初始化的集合推断其长度</param>
+        /// <param name="effectPassname">加载着色器 (<see cref="Effect"/>) 时指定的 Pass 名称，若留空则根据资源文件名自动生成</param>
         public VaultLoadenAttribute(string path, AssetMode assetMode, string effectPassname, int startIndex, int arrayCount, bool pathConcatenation)
             : this(path, assetMode, effectPassname, startIndex, arrayCount, pathConcatenation, null) { }
-        /// <inheritdoc/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path">资源加载的基础路径，支持多种占位符与规则，详见备注</param>
+        /// <param name="startIndex">加载集合资源时，文件名数字后缀的起始索引，默认为0 (例如 `_0`, `_1`, `_2`...)</param>
         public VaultLoadenAttribute(string path, int startIndex)
             : this(path, AssetMode.None, "", startIndex, 0, false, null) { }
-        /// <inheritdoc/>
+        /// <summary>
+        /// 
+        /// </summary>
+        /// <param name="path">资源加载的基础路径，支持多种占位符与规则，详见备注</param>
+        /// <param name="startIndex">加载集合资源时，文件名数字后缀的起始索引，默认为0 (例如 `_0`, `_1`, `_2`...)</param>
+        /// <param name="arrayCount">加载集合资源时指定要加载的数量，若为0，系统将尝试从已初始化的集合推断其长度</param>
         public VaultLoadenAttribute(string path, int startIndex, int arrayCount)
             : this(path, AssetMode.None, "", startIndex, arrayCount, false, null) { }
+
         /// <summary>
         /// 这个字段或属性所属的模组程序集，自动指定
         /// </summary>
@@ -284,6 +329,7 @@ namespace InnoVault
         internal static void LoadAsset() {
             ProcessedTypes.Clear();
             foreach (var t in VaultUtils.GetAnyModCodeType()) {
+                VaultFolderSystem.Load(t);
                 ProcessClassAssets(t, load: true);
                 ProcessTypeAssets(t, load: true);
             }
@@ -300,6 +346,7 @@ namespace InnoVault
             //事实证明最好不要去自行释放这些纹理实例，因为原版自己也在进行管理，在实例化时注册了Asset<T>即可
             TextureValues.Clear();
             EffectValues.Clear();
+            VaultFolderSystem.UnLoad();
         }
 
         internal static void ProcessTypeAssets(Type type, bool load) {
