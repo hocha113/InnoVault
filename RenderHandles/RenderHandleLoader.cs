@@ -80,9 +80,6 @@ namespace InnoVault.RenderHandles
                 render.finalTexture = finalTexture;
                 render.screenTarget1 = screenTarget1;
                 render.screenTarget2 = screenTarget2;
-                if (render.ignoreBug > 0) {
-                    render.ignoreBug--;
-                }
             }
 
             if (!Main.gameMenu) {

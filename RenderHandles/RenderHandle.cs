@@ -114,6 +114,15 @@ namespace InnoVault.RenderHandles
         }
 
         /// <summary>
+        /// 逻辑更新函数，不会在服务器上调用，一般用于进行不受刷新速度影响的点滴计算<br/>
+        /// 不要在此处做绘制通道的初始化操作，该钩子的运行时机不一定在渲染通道之前
+        /// </summary>
+        /// <param name="index">该实例的更新队列索引</param>
+        public virtual void UpdateBySystem(int index) {
+
+        }
+
+        /// <summary>
         /// 释放缓存的屏幕字段和渲染对象
         /// 不要在游戏中途调用该方法，除非知道自己在做什么
         /// </summary>
