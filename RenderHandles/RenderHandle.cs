@@ -123,25 +123,6 @@ namespace InnoVault.RenderHandles
         }
 
         /// <summary>
-        /// 释放缓存的屏幕字段和渲染对象
-        /// 不要在游戏中途调用该方法，除非知道自己在做什么
-        /// </summary>
-        public void DisposeRenderTargets() {
-            if (finalTexture?.IsDisposed == false) {
-                finalTexture.Dispose();
-            }
-            if (screenTarget1?.IsDisposed == false) {
-                screenTarget1.Dispose();
-            }
-            if (screenTarget2?.IsDisposed == false) {
-                screenTarget2.Dispose();
-            }
-            finalTexture = null;
-            screenTarget1 = null;
-            screenTarget2 = null;
-        }
-
-        /// <summary>
         /// 设置实例屏幕数组
         /// </summary>
         /// <param name="create">是否进行创建，如果为 <see langword="false"/> 则充当释放函数</param>

@@ -1,5 +1,4 @@
-﻿using Terraria.Graphics.Effects;
-using Terraria.ModLoader;
+﻿using Terraria.ModLoader;
 
 namespace InnoVault.RenderHandles
 {

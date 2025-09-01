@@ -33,7 +33,6 @@ namespace InnoVault.RenderHandles
             Main.QueueMainThreadAction(() => {
                 DisposeScreen();
                 foreach (var render in RenderHandle.Instances) {
-                    render.DisposeRenderTargets();
                     render.InitializeScreenTargets(create: false);
                 }
 
