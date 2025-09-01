@@ -2,7 +2,7 @@
 
 namespace InnoVault.RenderHandles
 {
-    internal class RenderHandleSystem : ModSystem
+    internal sealed class RenderHandleSystem : ModSystem
     {
         public override void PostUpdateEverything() {
             if (VaultUtils.isServer) {
