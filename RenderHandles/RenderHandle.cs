@@ -59,7 +59,7 @@ namespace InnoVault.RenderHandles
                     InitializeScreenTargets(true);
                 });
             }
-            
+
             Instances.Add(this);
             Instances.Sort((a, b) => a.Weight.CompareTo(b.Weight));
         }
