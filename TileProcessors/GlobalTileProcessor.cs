@@ -8,18 +8,12 @@ namespace InnoVault.TileProcessors
     /// <summary>
     /// 对于TP实体的一个全局类，你可以使用它来进行一些统一的操作
     /// </summary>
-    public class GlobalTileProcessor
+    public abstract class GlobalTileProcessor : VaultType
     {
         /// <summary>
-        /// 所属的模组
+        /// 封闭内容
         /// </summary>
-        public Mod Mod => TileProcessorLoader.TPGlobal_Type_To_Mod[GetType()];
-        /// <summary>
-        /// 游戏加载时调用一次
-        /// </summary>
-        public virtual void Load() {
-
-        }
+        protected sealed override void Register() { }
         /// <summary>
         /// 用于初始化一些次要信息，只会在实体生成时调用一次
         /// </summary>

@@ -1,12 +1,14 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.ObjectData;
+using static InnoVault.TileProcessors.TileProcessorLoader;
 
 namespace InnoVault.TileProcessors
 {
@@ -14,7 +16,7 @@ namespace InnoVault.TileProcessors
     /// 物块处理器，简称TP实体，它的功能目标类似于<see cref="TileEntity"/>
     /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-TP-Entity"/></br>
     /// </summary>
-    public abstract class TileProcessor
+    public abstract class TileProcessor : VaultType
     {
         #region Data
         /// <summary>
@@ -23,13 +25,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public virtual int TargetTileID => -1;
         /// <summary>
-        /// 这个物块处理器来自什么模组
+        /// 显示这个实例的填装名，如InnoVault/TileProcessor
         /// </summary>
-        public Mod Mod => TileProcessorLoader.TP_Type_To_Mod[GetType()];
-        /// <summary>
-        /// 显示这个实例的填装名，如InnoVault:TileProcessor
-        /// </summary>
-        public string LoadenName => Mod.Name + ":" + GetType().Name;
+        [Obsolete("已经过时，应当使用 ModType.FullName")]
+        public string LoadenName => FullName;
         /// <summary>
         /// 这个模块所要跟随的物块结构，如果对象是一个多结构物块，那么这个块一般代表左上角
         /// 这个值只在模块加载或被放置时更新一次
@@ -88,7 +87,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 实体的ID，在游戏加载时会给每个实体分配一个唯一的ID值
         /// </summary>
-        public int ID => TileProcessorLoader.TP_Type_To_ID[GetType()];
+        public int ID => TP_Type_To_ID[GetType()];
         /// <summary>
         /// 宽度，默认为16，如果<see cref="Tile"/>存在，则会在初始化时自动设置为其宽度，注意，单位是像素，比如如果一个多结构物块有两个物块宽，这个值会是32
         /// </summary>
@@ -126,6 +125,44 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public Vector2 CenterInWorld => PosInWorld + Size / 2;
         #endregion
+        /// <summary>
+        /// 封闭内容
+        /// </summary>
+        protected sealed override void Register() {
+            TP_Instances.Add(this);
+        }
+
+        /// <summary>
+        /// 加载内容
+        /// </summary>
+        public sealed override void SetupContent() {
+            Type type = GetType();
+            TP_Type_To_ID.Add(type, TP_ID_Count);
+            TP_FullName_To_ID.Add(FullName, TP_ID_Count);
+            TP_Type_To_Instance.Add(type, this);
+            TP_Type_To_Mod.Add(type, Mod);
+            TP_ID_To_Instance.Add(ID, this);
+            TP_ID_To_InWorld_Count.Add(ID, 0);
+
+            //这里的添加会稍微复杂些
+            //如果没有获取到值，说明键刚被创建，这里就执行值序列的创建与初始化，并添加进第一个值
+            if (!TargetTile_To_TPInstance.TryGetValue(TargetTileID, out List<TileProcessor> tps)) {
+                tps = new List<TileProcessor>();
+                TargetTile_To_TPInstance[TargetTileID] = tps;
+            }
+            //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
+            tps.Add(this);
+
+            try {
+                SetStaticDefaults();
+                SetStaticProperty();
+            } catch {
+                VaultMod.Instance.Logger.Info(FullName + ": An error occurred while performing SetStaticDefaults, but it was skipped");
+            }
+
+            TP_ID_Count++;
+        }
+
         /// <summary>
         /// 克隆函数，如果制作的模块类型含有独立的字段，一般要重写克隆函数复制这些字段
         /// </summary>
@@ -166,7 +203,7 @@ namespace InnoVault.TileProcessors
         /// 这个模块在世界中的存在数量
         /// </summary>
         /// <returns></returns>
-        public int GetInWorldHasNum() => TileProcessorLoader.TP_ID_To_InWorld_Count[ID];
+        public int GetInWorldHasNum() => TP_ID_To_InWorld_Count[ID];
 
         /// <summary>
         /// 这个函数是单实例的，在一个更新周期中，它只会运行一次，如果<see cref="GetInWorldHasNum"/>返回0，就不会被调用
@@ -186,13 +223,13 @@ namespace InnoVault.TileProcessors
             OnKill();
             Active = false;
 
-            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+            foreach (var tpGlobal in TPGlobalHooks) {
                 tpGlobal.OnKill(this);
             }
 
             TrackItem = null;
 
-            TileProcessorLoader.RemoveFromDictionaries(this);
+            RemoveFromDictionaries(this);
         }
 
         /// <summary>
@@ -207,11 +244,6 @@ namespace InnoVault.TileProcessors
         /// <param name="frameX"></param>
         /// <param name="frameY"></param>
         public virtual void KillMultiTileSet(int frameX, int frameY) { }
-
-        /// <summary>
-        /// 游戏加载时调用
-        /// </summary>
-        public virtual void Load() { }
 
         /// <summary>
         /// 游戏卸载时调用
@@ -235,6 +267,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 在游戏加载末期调用一次，一般用于设置一些静态的值
         /// </summary>
+        [Obsolete("已经过时，应该使用 SetStaticDefaults")]
         public virtual void SetStaticProperty() { }
 
         /// <summary>

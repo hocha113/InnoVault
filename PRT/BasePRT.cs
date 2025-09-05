@@ -2,7 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria.Graphics.Shaders;
-using Terraria.ModLoader;
+using static InnoVault.PRT.PRTLoader;
 
 namespace InnoVault.PRT
 {
@@ -10,7 +10,7 @@ namespace InnoVault.PRT
     /// 粒子基类，继承它用于实现各种高度自定义的粒子效果
     /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-PRT-System"/></br>
     /// </summary>
-    public abstract class BasePRT
+    public abstract class BasePRT : VaultType
     {
         #region Data
         /// <summary>
@@ -22,14 +22,6 @@ namespace InnoVault.PRT
         /// 因为存在<see cref="PRTLoader.InGame_World_MaxPRTCount"/>的全局上限
         /// </summary>
         public virtual int InGame_World_MaxCount => 4000;
-        /// <summary>
-        /// 这个粒子来自什么模组
-        /// </summary>
-        public virtual Mod Mod => PRTLoader.PRT_TypeToMod[GetType()];
-        /// <summary>
-        /// 该实例的内部名
-        /// </summary>
-        public virtual string Name => GetType().Name;
         /// <summary>
         /// 获取加载的粒子纹理资源
         /// </summary>
@@ -123,6 +115,24 @@ namespace InnoVault.PRT
         public ArmorShaderData shader;
 
         #endregion
+        /// <summary>
+        /// 封闭内容
+        /// </summary>
+        protected sealed override void Register() {
+            PRTInstances.Add(this);
+        }
+
+        /// <summary>
+        /// 加载内容
+        /// </summary>
+        public sealed override void SetupContent() {
+            Type type = GetType();
+            ID = PRT_TypeToID.Count;
+            PRT_TypeToID[type] = ID;
+            PRT_IDToInstances.Add(ID, this);
+            PRT_IDToInGame_World_Count.Add(ID, 0);
+            SetStaticDefaults();
+        }
 
         /// <summary>
         /// 仅仅在生成粒子的时候被执行一次，用于简单的内部初始化数据
@@ -156,7 +166,6 @@ namespace InnoVault.PRT
         /// </summary>
         /// <returns></returns>
         public BasePRT Clone() => (BasePRT)Activator.CreateInstance(GetType());
-
         /// <summary>
         /// 粒子是否应该在逻辑更新中自动更新位置数据，默认为<see langword="true"/>
         /// </summary>

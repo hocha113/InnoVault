@@ -1,16 +1,13 @@
 ﻿using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
-using Mono.Cecil.Cil;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
-using static System.Runtime.InteropServices.JavaScript.JSType;
 
 namespace InnoVault.TileProcessors
 {
@@ -30,6 +27,10 @@ namespace InnoVault.TileProcessors
         /// 是否加载好了TP实体到世界中
         /// </summary>
         public static bool LoadenTP { get; private set; }
+        /// <summary>
+        /// 当前TP实体的最大ID
+        /// </summary>
+        public static int TP_ID_Count { get; internal set; }
         /// <summary>
         /// 当前世界的数据
         /// </summary>
@@ -69,6 +70,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static Dictionary<Type, TileProcessor> TP_Type_To_Instance { get; private set; } = [];
         /// <summary>
+        /// 将<see cref="TileProcessor"/>对应的Type映射到所属模组
+        /// </summary>
+        public static Dictionary<Type, Mod> TP_Type_To_Mod { get; private set; } = [];
+        /// <summary>
         /// 记录当前世界中每个模块ID对应的TP实体数量
         /// </summary>
         public static Dictionary<int, int> TP_ID_To_InWorld_Count { get; internal set; } = [];
@@ -76,14 +81,6 @@ namespace InnoVault.TileProcessors
         /// 将模块ID映射到模块实例的字典
         /// </summary>
         public static Dictionary<int, TileProcessor> TP_ID_To_Instance { get; private set; } = [];
-        /// <summary>
-        /// 将<see cref="TileProcessor"/>对应的Type映射到所属模组
-        /// </summary>
-        public static Dictionary<Type, Mod> TP_Type_To_Mod { get; private set; } = [];
-        /// <summary>
-        /// 将<see cref="GlobalTileProcessor"/>对应的Type映射到所属模组
-        /// </summary>
-        public static Dictionary<Type, Mod> TPGlobal_Type_To_Mod { get; private set; } = [];
         /// <summary>
         /// 将目标Tile的ID映射到模块实例的字典
         /// </summary>
@@ -108,18 +105,6 @@ namespace InnoVault.TileProcessors
         #endregion
 
         void IVaultLoader.LoadData() {
-            TP_Instances = VaultUtils.GetSubclassInstances<TileProcessor>();
-            foreach (var tpInds in TP_Instances) {
-                VaultUtils.AddTypeModAssociation(TP_Type_To_Mod, tpInds.GetType(), ModLoader.Mods);
-                tpInds.Load();
-            }
-
-            TPGlobalHooks = VaultUtils.GetSubclassInstances<GlobalTileProcessor>();
-            foreach (var tpGlobal in TPGlobalHooks) {
-                VaultUtils.AddTypeModAssociation(TPGlobal_Type_To_Mod, tpGlobal.GetType(), ModLoader.Mods);
-                tpGlobal.Load();
-            }
-
             onTile_KillMultiTile_Method = typeof(TileLoader).GetMethod("KillMultiTile", BindingFlags.Public | BindingFlags.Static);
             VaultHook.Add(onTile_KillMultiTile_Method, OnKillMultiTileHook);
 
@@ -129,30 +114,6 @@ namespace InnoVault.TileProcessors
         }
 
         void IVaultLoader.SetupData() {
-            for (int i = 0; i < TP_Instances.Count; i++) {
-                TileProcessor module = TP_Instances[i];
-
-                TP_Type_To_ID.Add(module.GetType(), i);
-                TP_FullName_To_ID.Add(module.LoadenName, i);
-                TP_Type_To_Instance.Add(module.GetType(), module);
-                TP_ID_To_Instance.Add(module.ID, module);
-                TP_ID_To_InWorld_Count.Add(module.ID, 0);
-
-                //这里的添加会稍微复杂些
-                //如果没有获取到值，说明键刚被创建，这里就执行值序列的创建与初始化，并添加进第一个值
-                if (!TargetTile_To_TPInstance.TryGetValue(module.TargetTileID, out List<TileProcessor> tps)) {
-                    tps = new List<TileProcessor>();
-                    TargetTile_To_TPInstance[module.TargetTileID] = tps;
-                }
-                //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
-                tps.Add(module);
-
-                try {
-                    module.SetStaticProperty();
-                } catch {
-                    VaultMod.Instance.Logger.Info(nameof(module) + ": An error occurred while performing SetStaticProperty, but it was skipped");
-                }
-            }
             TargetTileTypes = [.. TargetTile_To_TPInstance.Keys];
         }
 
@@ -169,9 +130,9 @@ namespace InnoVault.TileProcessors
             TP_Type_To_ID?.Clear();
             TP_FullName_To_ID?.Clear();
             TP_Type_To_Instance?.Clear();
+            TP_Type_To_Mod?.Clear();
             TP_ID_To_Instance?.Clear();
             TP_ID_To_InWorld_Count?.Clear();
-            TP_Type_To_Mod?.Clear();
             TargetTile_To_TPInstance?.Clear();
             onTile_KillMultiTile_Method = null;
             ActiveWorldTagData = null;
@@ -236,7 +197,7 @@ namespace InnoVault.TileProcessors
                 bool checkOtherTP = ByPositionGetTP(position, out var otherTP);
 
                 foreach (var processor in processorList) {
-                    if (checkOtherTP && otherTP.LoadenName == processor.LoadenName) {
+                    if (checkOtherTP && otherTP.FullName == processor.FullName) {
                         continue;
                     }
 
@@ -249,7 +210,7 @@ namespace InnoVault.TileProcessors
 
                     //在这里实体已经被设置好了，更新一下Map
                     TP_IDAndPoint_To_Instance[(newProcessor.ID, newProcessor.Position)] = newProcessor;//如果实体重叠，那么就会进行覆盖
-                    TP_NameAndPoint_To_Instance[(newProcessor.LoadenName, newProcessor.Position)] = newProcessor;
+                    TP_NameAndPoint_To_Instance[(newProcessor.FullName, newProcessor.Position)] = newProcessor;
                     TP_Point_To_Instance[newProcessor.Position] = newProcessor;
 
                     bool add = true;
@@ -465,7 +426,7 @@ namespace InnoVault.TileProcessors
         /// <param name="tp"></param>
         public static void RemoveFromDictionaries(TileProcessor tp) {
             TP_IDAndPoint_To_Instance.Remove((tp.ID, tp.Position));
-            TP_NameAndPoint_To_Instance.Remove((tp.LoadenName, tp.Position));
+            TP_NameAndPoint_To_Instance.Remove((tp.FullName, tp.Position));
             //因为Point_To_Instance只考虑位置，所以在某些情况下可能出现实体顶替的情况，一个萝卜一个坑，移除时判断一下ID避免误杀
             if (TP_Point_To_Instance.TryGetValue(tp.Position, out var existing) && existing.ID == tp.ID) {
                 TP_Point_To_Instance.Remove(tp.Position);
@@ -539,7 +500,7 @@ namespace InnoVault.TileProcessors
                 if (tp == null) {
                     continue;
                 }
-                tpDictionary[(tp.LoadenName, tp.Position)] = tp;
+                tpDictionary[(tp.FullName, tp.Position)] = tp;
             }
             return tpDictionary;
         }

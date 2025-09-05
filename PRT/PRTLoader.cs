@@ -77,19 +77,6 @@ namespace InnoVault.PRT
             PRT_AdditiveBlend_Draw = [];
             PRT_NonPremultiplied_Draw = [];
             PRT_HasShader_Draw = [];
-
-            PRTInstances = VaultUtils.GetSubclassInstances<BasePRT>(false);
-
-            foreach (var particle in PRTInstances) {
-                Type type = particle.GetType();
-                int ID = PRT_TypeToID.Count;
-                PRT_TypeToID[type] = ID;
-                particle.ID = ID;
-                PRT_IDToInstances.Add(ID, particle);
-                PRT_IDToInGame_World_Count.Add(ID, 0);
-                VaultUtils.AddTypeModAssociation(PRT_TypeToMod, type, ModLoader.Mods);
-            }
-
             On_Main.DrawInfernoRings += DrawHook;
         }
         /// <summary>

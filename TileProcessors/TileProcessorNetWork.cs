@@ -160,7 +160,7 @@ namespace InnoVault.TileProcessors
             //$"{LoadenName}-SendData: 正在发送数据".LoggerDomp();
             ModPacket modPacket = VaultMod.Instance.GetPacket();
             modPacket.Write((byte)MessageType.Handler_TileProcessorIndsData);
-            modPacket.Write(tp.LoadenName);
+            modPacket.Write(tp.FullName);
             modPacket.WritePoint16(tp.Position);
             TileProcessorInstanceDoSendData(tp, modPacket);
             modPacket.Send();
@@ -177,7 +177,7 @@ namespace InnoVault.TileProcessors
             } catch (Exception ex) {
                 tileProcessor.SendCooldownTicks = 60;
                 string msg = $"TileProcessorInstanceDoSendData-Data Send Failure: {ex.Message}\n{ex.StackTrace}";
-                VaultMod.LoggerError($"{tileProcessor.LoadenName}:NullRef@SemdData", msg);
+                VaultMod.LoggerError($"{tileProcessor.FullName}:NullRef@SemdData", msg);
             }
         }
 
@@ -193,7 +193,7 @@ namespace InnoVault.TileProcessors
             } catch (Exception ex) {
                 tileProcessor.SendCooldownTicks = 60;
                 string msg = $"TileProcessorInstanceDoReceiveData-Data Reception Failure: {ex.Message}\n{ex.StackTrace}";
-                VaultMod.LoggerError($"{tileProcessor.LoadenName}:NullRef@ReceiveData", msg);
+                VaultMod.LoggerError($"{tileProcessor.FullName}:NullRef@ReceiveData", msg);
             }
         }
 
@@ -374,7 +374,7 @@ namespace InnoVault.TileProcessors
 
             foreach (TileProcessor tp in activeTPs) {
                 fullPacket.Write(TP_START_MARKER);
-                fullPacket.Write(tp.LoadenName);
+                fullPacket.Write(tp.FullName);
                 fullPacket.WritePoint16(tp.Position);
                 //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
                 fullPacket.Write((byte)(tp.Width / 16));
