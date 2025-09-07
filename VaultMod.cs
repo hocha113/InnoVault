@@ -1,12 +1,9 @@
 ﻿using InnoVault.GameSystem;
-using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using Terraria;
-using Terraria.Map;
 using Terraria.ModLoader;
 
 namespace InnoVault
@@ -42,7 +39,7 @@ namespace InnoVault
         internal const int LogCooldownSeconds = 5;
         /// <inheritdoc/>
         public override void Load() {
-            Loaders = VaultUtils.GetSubInterface<IVaultLoader>();
+            Loaders = VaultUtils.GetDerivedInstances<IVaultLoader>();
             foreach (var loader in Loaders) {
                 loader.LoadData();
             }

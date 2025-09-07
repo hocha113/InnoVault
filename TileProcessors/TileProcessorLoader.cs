@@ -172,14 +172,13 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 向世界中的模块列表添加一个新的 TileProcessor
+        /// 向世界中的TP实体列表添加一个新的 <see cref="TileProcessor"/><br/>
+        /// 该方法并不发送实体的放置同步信息，需要在合适的情况下自行调用<see cref="TileProcessorNetWork.PlaceInWorldNetSend"/>
         /// </summary>
         /// <param name="tileID">要添加的 Tile 的 ID</param>
         /// <param name="position">该模块的左上角位置</param>
         /// <param name="item">用于跟踪该模块的物品，可以为 null</param>
         /// <remarks>
-        /// 该方法会首先尝试从 <see cref="TP_Type_To_ID"/> 获取对应的模块，然后克隆该模块并设置其位置、跟踪物品和激活状态
-        /// 如果有空闲的模块槽位，会将新模块放入该槽位，否则会添加到列表的末尾
         /// 在绝大多数情况下，都应该只使用这个方法添加新的TP实体，以确保处理完善
         /// </remarks>
         public static TileProcessor AddInWorld(int tileID, Point16 position, Item item) {

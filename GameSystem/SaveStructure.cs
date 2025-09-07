@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.IO;
 using System.Text;
 using Terraria;
@@ -570,6 +571,10 @@ namespace InnoVault.GameSystem
             Tile tile = Main.tile[targetX, targetY];
             TileProcessor tileProcessor = TileProcessorLoader.AddInWorld(tile.TileType, new Point16(targetX, targetY), null);
             if (tileProcessor != null && Data.Count > 0) {
+                if (VaultUtils.isClient) {
+                    TileProcessorNetWork.PlaceInWorldNetSend(VaultMod.Instance, tile.TileType, new Point16(targetX, targetY));
+                }
+
                 try {
                     tileProcessor.LoadData(Data);
                 } catch (Exception ex) {

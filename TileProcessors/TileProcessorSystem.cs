@@ -64,7 +64,6 @@ namespace InnoVault.TileProcessors
         }
 
         internal static void TileProcessorUpdate(TileProcessor tileProcessor) {
-            tileProcessor.Mod.LoggerDomp();
             if (!tileProcessor.Spwan) {
                 tileProcessor.Initialize();
                 foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {

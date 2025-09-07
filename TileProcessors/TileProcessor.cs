@@ -146,15 +146,6 @@ namespace InnoVault.TileProcessors
             TP_ID_To_Instance.Add(ID, this);
             TP_ID_To_InWorld_Count.Add(ID, 0);
 
-            //这里的添加会稍微复杂些
-            //如果没有获取到值，说明键刚被创建，这里就执行值序列的创建与初始化，并添加进第一个值
-            if (!TargetTile_To_TPInstance.TryGetValue(TargetTileID, out List<TileProcessor> tps)) {
-                tps = [];
-                TargetTile_To_TPInstance[TargetTileID] = tps;
-            }
-            //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
-            tps.Add(this);
-
             TP_ID_Count++;
         }
 
@@ -165,6 +156,15 @@ namespace InnoVault.TileProcessors
             if (!CanLoad()) {
                 return;
             }
+
+            //这里的添加会稍微复杂些
+            //如果没有获取到值，说明键刚被创建，这里就执行值序列的创建与初始化，并添加进第一个值
+            if (!TargetTile_To_TPInstance.TryGetValue(TargetTileID, out List<TileProcessor> tps)) {
+                tps = [];
+                TargetTile_To_TPInstance[TargetTileID] = tps;
+            }
+            //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
+            tps.Add(this);
 
             try {
                 SetStaticDefaults();
