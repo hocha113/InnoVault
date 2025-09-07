@@ -134,6 +134,7 @@ namespace InnoVault.TileProcessors
             TP_ID_To_Instance?.Clear();
             TP_ID_To_InWorld_Count?.Clear();
             TargetTile_To_TPInstance?.Clear();
+            TPGlobalHooks?.Clear();
             onTile_KillMultiTile_Method = null;
             ActiveWorldTagData = null;
 

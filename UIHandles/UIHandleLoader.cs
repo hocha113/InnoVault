@@ -156,7 +156,7 @@ namespace InnoVault.UIHandles
         /// </summary>
         public static object UIModItemSpriteBatch { get; private set; }
 
-        private static readonly LayersModeEnum[] allLayersModes = (LayersModeEnum[])Enum.GetValues(typeof(LayersModeEnum));
+        internal static readonly LayersModeEnum[] allLayersModes = (LayersModeEnum[])Enum.GetValues(typeof(LayersModeEnum));
         #endregion
         internal static void Initialize() {
             UIHandles = [];
@@ -247,28 +247,6 @@ namespace InnoVault.UIHandles
             return id;
         }
 
-        //加载UIHandle
-        private static void UIHandlesLoad() {
-            UIHandles = VaultUtils.GetSubclassInstances<UIHandle>();
-            //我们需要在第一时间去寻找Mod,这样后续的UnLoad和Load才可以正常访问这些实例的Mod属性
-            for (int i = 0; i < UIHandles.Count; i++) {
-                var hander = UIHandles[i];
-                VaultUtils.AddTypeModAssociation(UIHandle_Type_To_Mod, hander.GetType(), ModLoader.Mods);
-                UIHandle_Type_To_ID.Add(hander.GetType(), i);
-                UIHandle_ID_To_Instance.Add(i, hander);
-            }
-
-            UIHandles.RemoveAll(ui => !ui.CanLoad());
-            foreach (var hander in UIHandles) {
-                hander.Load();
-                GetLayerModeHandlers(hander.LayersMode).Add(hander);
-            }
-
-            foreach (var layersMode in allLayersModes) {
-                GetLayerModeHandlers(layersMode).Sort((x, y) => x.RenderPriority.CompareTo(y.RenderPriority));//按照升序排列
-            }
-        }
-
         /// <summary>
         /// 根据指定的 <see cref="LayersModeEnum"/>，判断该模式是否包含在需要修改接口层的钩子中
         /// </summary>
@@ -325,23 +303,11 @@ namespace InnoVault.UIHandles
             }
         }
 
-        //加载Global实例
-        private static void UIHandleGlobalLoad() {
-            UIHandleGlobalHooks = VaultUtils.GetSubclassInstances<GlobalUIHandle>();
-            //我们需要在第一时间去寻找Mod,这样后续的UnLoad和Load才可以正常访问这些实例的Mod属性
-            foreach (var global in UIHandleGlobalHooks) {
-                VaultUtils.AddTypeModAssociation(UIHandleGlobal_Type_To_Mod, global.GetType(), ModLoader.Mods);
-                global.Load();
-            }
-        }
-
         /// <inheritdoc/>
         public override void Load() {
             UIModItemType = typeof(Main).Assembly.GetTypes().First(t => t.Name == "UIModItem");
 
             Initialize();
-            UIHandlesLoad();
-            UIHandleGlobalLoad();
 
             IL_Main.DrawMenu += IL_MenuLoadDraw_Hook;
 
@@ -394,19 +360,13 @@ namespace InnoVault.UIHandles
             if (keyLeftPressState != KeyPressState.None) {
                 switch (keyLeftPressState) {
                     case KeyPressState.Held:
-                        if (LeftHeldEvent != null) {
-                            LeftHeldEvent.Invoke();
-                        }
+                        LeftHeldEvent?.Invoke();
                         break;
                     case KeyPressState.Pressed:
-                        if (LeftPressedEvent != null) {
-                            LeftPressedEvent.Invoke();
-                        }
+                        LeftPressedEvent?.Invoke();
                         break;
                     case KeyPressState.Released:
-                        if (LeftReleasedEvent != null) {
-                            LeftReleasedEvent.Invoke();
-                        }
+                        LeftReleasedEvent?.Invoke();
                         break;
                 }
             }

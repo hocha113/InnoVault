@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.DataStructures;
-using Terraria.ModLoader;
 
 namespace InnoVault.TileProcessors
 {
@@ -13,7 +12,13 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected sealed override void Register() { }
+        protected sealed override void Register() {
+            if (!CanLoad()) {
+                return;
+            }
+
+            TileProcessorLoader.TPGlobalHooks.Add(this);
+        }
         /// <summary>
         /// 用于初始化一些次要信息，只会在实体生成时调用一次
         /// </summary>

@@ -133,29 +133,38 @@ namespace InnoVault.TileProcessors
         /// 封闭内容
         /// </summary>
         protected sealed override void Register() {
-            TP_Instances.Add(this);
-        }
+            if (!CanLoad()) {
+                return;
+            }
 
-        /// <summary>
-        /// 加载内容
-        /// </summary>
-        public sealed override void SetupContent() {
             Type type = GetType();
+            TP_Instances.Add(this);
             TP_Type_To_ID.Add(type, TP_ID_Count);
             TP_FullName_To_ID.Add(FullName, TP_ID_Count);
             TP_Type_To_Instance.Add(type, this);
-            TP_Type_To_Mod.Add(type, Mod);
+            TP_Type_To_Mod.Add(type, VaultUtils.FindModByType(type, ModLoader.Mods));//写在这里提醒自己，在这里不要使用Mod属性自己进行加载
             TP_ID_To_Instance.Add(ID, this);
             TP_ID_To_InWorld_Count.Add(ID, 0);
 
             //这里的添加会稍微复杂些
             //如果没有获取到值，说明键刚被创建，这里就执行值序列的创建与初始化，并添加进第一个值
             if (!TargetTile_To_TPInstance.TryGetValue(TargetTileID, out List<TileProcessor> tps)) {
-                tps = new List<TileProcessor>();
+                tps = [];
                 TargetTile_To_TPInstance[TargetTileID] = tps;
             }
             //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
             tps.Add(this);
+
+            TP_ID_Count++;
+        }
+
+        /// <summary>
+        /// 加载内容
+        /// </summary>
+        public sealed override void SetupContent() {
+            if (!CanLoad()) {
+                return;
+            }
 
             try {
                 SetStaticDefaults();
@@ -163,8 +172,6 @@ namespace InnoVault.TileProcessors
             } catch {
                 VaultMod.Instance.Logger.Info(FullName + ": An error occurred while performing SetStaticDefaults, but it was skipped");
             }
-
-            TP_ID_Count++;
         }
 
         /// <summary>

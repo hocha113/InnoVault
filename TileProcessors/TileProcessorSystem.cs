@@ -1,7 +1,6 @@
 ﻿using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Terraria;
@@ -65,6 +64,7 @@ namespace InnoVault.TileProcessors
         }
 
         internal static void TileProcessorUpdate(TileProcessor tileProcessor) {
+            tileProcessor.Mod.LoggerDomp();
             if (!tileProcessor.Spwan) {
                 tileProcessor.Initialize();
                 foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {

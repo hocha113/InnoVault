@@ -1,8 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using Terraria;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using static InnoVault.UIHandles.UIHandleLoader;
 
 namespace InnoVault.UIHandles
 {
@@ -10,7 +12,7 @@ namespace InnoVault.UIHandles
     /// UI处理器，一个简易的UI基类，继承它用于自定义各种UI实现
     /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-UI"/></br>
     /// </summary>
-    public abstract class UIHandle
+    public abstract class UIHandle : VaultType
     {
         /// <summary>
         /// 一个纹理的占位，可以重写它用于获取UI的主要纹理
@@ -23,16 +25,11 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 这个UI元素的内部ID
         /// </summary>
-        public int ID => UIHandleLoader.UIHandle_Type_To_ID[GetType()];
+        public int ID => UIHandle_Type_To_ID[GetType()];
         /// <summary>
-        /// 程序进行防御性处理时会用到的值，如果该实例内部发生错误，则会将该值设置为大于0的值，期间不会再自动调用该实例
-        /// 这个值每帧减一，直到不再大于0。无论出于什么目的，不要去自行设置它，而是使用<see cref="Active"/>
+        /// 这个UI集成来自于什么模组
         /// </summary>
-        internal int ignoreBug = -1;
-        /// <summary>
-        /// 记录发生错误的次数，不要自行设置它
-        /// </summary>
-        internal int errorCount;
+        public new Mod Mod => UIHandle_Type_To_Mod[GetType()];
         /// <summary>
         /// 这个UI是否活跃
         /// </summary>
@@ -40,10 +37,6 @@ namespace InnoVault.UIHandles
             get => false;
             set { }
         }
-        /// <summary>
-        /// 这个UI集成来自于什么模组
-        /// </summary>
-        public Mod Mod => UIHandleLoader.UIHandle_Type_To_Mod[GetType()];
         /// <summary>
         /// 获取用户的鼠标在屏幕上的位置，这个属性一般在绘制函数以外的地方使用，
         /// 因为绘制函数中不需要屏幕因子的坐标矫正，直接使用 Main.MouseScreen 即可
@@ -90,6 +83,35 @@ namespace InnoVault.UIHandles
         private bool downR;
 
         /// <summary>
+        /// 封闭内容
+        /// </summary>
+        protected override void Register() {
+            if (!CanLoad()) {
+                return;
+            }
+
+            int id = UIHandleLoader.UIHandles.Count;
+            Type type = GetType();
+            UIHandle_Type_To_ID.Add(type, id);
+            UIHandle_ID_To_Instance.Add(id, this);
+            UIHandleLoader.UIHandles.Add(this);
+            UIHandle_Type_To_Mod.Add(type, VaultUtils.FindModByType(type));
+            GetLayerModeHandlers(LayersMode).Add(this);
+            GetLayerModeHandlers(LayersMode).Sort((x, y) => x.RenderPriority.CompareTo(y.RenderPriority));//按照升序排列
+        }
+
+        /// <summary>
+        /// 加载内容
+        /// </summary>
+        public override void SetupContent() {
+            if (!CanLoad()) {
+                return;
+            }
+
+            SetStaticDefaults();
+        }
+
+        /// <summary>
         /// 检查左键的按键状态变化，返回对应的按键状态枚举值<para/>
         /// 与<see cref="UIHandleLoader.CheckLeftKeyState"/>不同，<see cref="CheckLeftKeyState"/>用于单实例的自我检测<para/>
         /// 通常我们不会直接使用<see cref="CheckLeftKeyState"/>来获取按键点击状态，而是使用<see cref="keyLeftPressState"/><para/>
@@ -122,17 +144,6 @@ namespace InnoVault.UIHandles
             if (!downR && oldDownR) return KeyPressState.Released;
             return KeyPressState.None;
         }
-
-        /// <summary>
-        /// 是否加载进游戏，默认为<see langword="true"/>
-        /// </summary>
-        /// <returns></returns>
-        public virtual bool CanLoad() => true;
-
-        /// <summary>
-        /// 在游戏加载时运行一次
-        /// </summary>
-        public virtual void Load() { }
 
         /// <summary>
         /// 在游戏卸载时运行一次

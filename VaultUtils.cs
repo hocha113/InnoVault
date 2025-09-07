@@ -648,6 +648,13 @@ namespace InnoVault
         /// 在给定的 Mod 数组中查找包含指定类型的 Mod 实例
         /// </summary>
         /// <param name="type">要查找的类型</param>
+        /// <returns>如果找到包含该类型的 Mod，返回对应的 Mod 实例；否则返回 <see langword="null"/></returns>
+        public static Mod FindModByType(Type type) => FindModByType(type, ModLoader.Mods);
+
+        /// <summary>
+        /// 在给定的 Mod 数组中查找包含指定类型的 Mod 实例
+        /// </summary>
+        /// <param name="type">要查找的类型</param>
         /// <param name="mods">Mod 实例的数组，用于搜索包含该类型的 Mod</param>
         /// <returns>如果找到包含该类型的 Mod，返回对应的 Mod 实例；否则返回 <see langword="null"/></returns>
         public static Mod FindModByType(Type type, Mod[] mods) {

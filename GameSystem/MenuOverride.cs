@@ -25,6 +25,7 @@ namespace InnoVault.GameSystem
             if (!CanLoad()) {
                 return;
             }
+
             Instances.Add(this);
             TypeToInstance[GetType()] = this;
         }
