@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria.Graphics.Shaders;
+using Terraria.ModLoader;
 using static InnoVault.PRT.PRTLoader;
 
 namespace InnoVault.PRT
@@ -19,13 +20,17 @@ namespace InnoVault.PRT
         public virtual string Texture => "";
         /// <summary>
         /// 这种粒子在世界的最大存在数量是多少，默认4000，不要将其设置为大于20000的值
-        /// 因为存在<see cref="PRTLoader.InGame_World_MaxPRTCount"/>的全局上限
+        /// 因为存在<see cref="InGame_World_MaxPRTCount"/>的全局上限
         /// </summary>
         public virtual int InGame_World_MaxCount => 4000;
         /// <summary>
         /// 获取加载的粒子纹理资源
         /// </summary>
-        public Texture2D TexValue => PRTLoader.PRT_IDToTexture[ID];
+        public Texture2D TexValue => PRT_IDToTexture[ID];
+        /// <summary>
+        /// 该粒子所来自的模组的实例
+        /// </summary>
+        public new Mod Mod => PRT_TypeToMod[GetType()];
         /// <summary>
         /// 一个通用的全局帧索引
         /// </summary>
@@ -129,6 +134,7 @@ namespace InnoVault.PRT
             Type type = GetType();
             ID = PRT_TypeToID.Count;
             PRT_TypeToID[type] = ID;
+            PRT_TypeToMod[type] = VaultUtils.FindModByType(type, ModLoader.Mods);
             PRT_IDToInstances.Add(ID, this);
             PRT_IDToInGame_World_Count.Add(ID, 0);
             SetStaticDefaults();

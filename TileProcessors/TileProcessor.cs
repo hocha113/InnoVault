@@ -30,11 +30,15 @@ namespace InnoVault.TileProcessors
         [Obsolete("已经过时，应当使用 ModType.FullName")]
         public string LoadenName => FullName;
         /// <summary>
-        /// 这个模块所要跟随的物块结构，如果对象是一个多结构物块，那么这个块一般代表左上角
-        /// 这个值只在模块加载或被放置时更新一次
+        /// 这个实体所要跟随的物块结构，如果对象是一个多结构物块，那么这个块一般代表左上角
+        /// 这个值只在实体加载或被放置时更新一次
         /// 在客户端上，这个值可能并没有加载，在使用时需要考虑环境验证或者编写一些防御代码，防止出现一些意料之外的情况
         /// </summary>
         public Tile Tile = default;
+        /// <summary>
+        /// 这个TP实体所属的模组的实例
+        /// </summary>
+        public new Mod Mod => TP_Type_To_Mod[GetType()];
         /// <summary>
         /// 如果是玩家中途手动放置的物块所生成的模块，这个值会标记为放置所用的物品
         /// ，否则为<see langword="null"/>，比如进入世界初始化生成的模块
@@ -46,7 +50,7 @@ namespace InnoVault.TileProcessors
         public bool Spwan;
         /// <summary>
         /// 模块的活跃性，如果是<see langword="false"/>，那么模块将不再进行更新和绘制
-        /// ，其在列表<see cref="TileProcessorLoader.TP_InWorld"/>中的实例引用将随时可能被顶替为新的模块
+        /// ，其在列表<see cref="TP_InWorld"/>中的实例引用将随时可能被顶替为新的模块
         /// </summary>
         public bool Active;
         /// <summary>
