@@ -164,6 +164,7 @@ namespace InnoVault.GameSystem
             if (!CanLoad()) {
                 return;
             }
+
             SaveContents.Add((T)(object)this);
         }
         /// <inheritdoc/>
@@ -171,6 +172,7 @@ namespace InnoVault.GameSystem
             if (!CanLoad()) {
                 return;
             }
+
             ModToSaves.TryAdd(Mod, []);
             TypeToInstance.Add(GetType(), (T)(object)this);
             ModToSaves[Mod].Add((T)(object)this);

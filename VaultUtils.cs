@@ -624,7 +624,7 @@ namespace InnoVault
             }
 
             // 返回处理后的文本
-            return new string(wrappedText.ToArray());
+            return new string([.. wrappedText]);
         }
 
         /// <summary>
@@ -643,6 +643,13 @@ namespace InnoVault
                 Utils.OpenToURL(str);
             }
         }
+
+        /// <summary>
+        /// 在给定的 Mod 数组中查找包含指定类型的 Mod 实例
+        /// </summary>
+        /// <param name="type">要查找的类型</param>
+        /// <returns>如果找到包含该类型的 Mod，返回对应的 Mod 实例；否则返回 <see langword="null"/></returns>
+        public static Mod FindModByType(Type type) => FindModByType(type, ModLoader.Mods);
 
         /// <summary>
         /// 在给定的 Mod 数组中查找包含指定类型的 Mod 实例
@@ -691,10 +698,10 @@ namespace InnoVault
         /// <returns>所有Mod代码中的可加载类型数组</returns>
         public static Type[] GetAnyModCodeType() {
             if (VaultMod.AnyModCodeType == null) {
-                // 创建一个存储所有类型的列表
+                //创建一个存储所有类型的列表
                 List<Type> types = [];
                 Mod[] mods = ModLoader.Mods;
-                // 使用 LINQ 将每个Mod的代码程序集中的所有可加载类型平铺到一个集合中
+                //使用 LINQ 将每个Mod的代码程序集中的所有可加载类型平铺到一个集合中
                 types.AddRange(mods.SelectMany(mod => AssemblyManager.GetLoadableTypes(mod.Code)));
                 VaultMod.AnyModCodeType = [.. types];
             }
@@ -707,6 +714,7 @@ namespace InnoVault
         /// </summary>
         /// <param name="baseType">基类的类型</param>
         /// <returns>子类列表</returns>
+        [Obsolete("已过时 使用 VaultUtils.GetDerivedTypes")]
         public static List<Type> GetSubclassTypeList(Type baseType) {
             List<Type> subclasses = [];
             Type[] allTypes = GetAnyModCodeType();
@@ -723,6 +731,7 @@ namespace InnoVault
         /// <summary>
         /// 根据给定的类型列表，创建符合条件的类型实例，并将实例添加到输出列表中，该方法默认要求类型拥有无参构造
         /// </summary>
+        [Obsolete("已经过时，使用 VaultUtils.GetDerivedInstances")]
         public static List<T> GetSubclassInstances<T>(bool parameterless = true) {
             List<Type> inTypes = GetSubclassTypeList(typeof(T));
             List<T> outInds = [];
@@ -742,6 +751,7 @@ namespace InnoVault
         /// </summary>
         /// <typeparam name="T">接口类型，用于检查类是否实现该接口</typeparam>
         /// <returns>一个包含所有实现了指定接口的类实例的列表</returns>
+        [Obsolete("已经过时，使用 VaultUtils.GetDerivedInstances")]
         public static List<T> GetSubInterface<T>() {
             string lname = typeof(T).Name;
             List<T> subInterface = new List<T>();
@@ -757,6 +767,69 @@ namespace InnoVault
             }
 
             return subInterface;
+        }
+
+        /// <summary>
+        /// 获取程序集中指定基类型（类或接口）的集合
+        /// </summary>
+        /// <typeparam name="TBase">基类型，可以是类或接口</typeparam>
+        /// <param name="allTypes">目标类型集合，默认为<see langword="null"/>，即自动初始化为全部模组的可加载类型</param>
+        /// <returns>一个包含所有符合条件的实例的列表</returns>
+        public static IList<Type> GetDerivedTypes<TBase>(Type[] allTypes = null) {
+            IList<Type> types = [];
+            Type baseType = typeof(TBase);
+
+            allTypes ??= GetAnyModCodeType();
+
+            foreach (Type type in allTypes) {
+                //核心筛选逻辑:
+                //类型必须是类 (IsClass)
+                //类型不能是抽象类 (!IsAbstract)
+                //类型必须可以赋值给 TBase (IsAssignableFrom)，这同时适用于类继承和接口实现
+                //类型不能是基类型本身 (type != baseType)，避免自己实例化自己
+                if (!type.IsClass || type.IsAbstract || !baseType.IsAssignableFrom(type) || type == baseType) {
+                    continue;
+                }
+
+                types.Add(type);
+            }
+
+            return types;
+        }
+
+        /// <summary>
+        /// 获取程序集中指定基类型（类或接口）的所有可实例化的派生类/实现类的实例
+        /// </summary>
+        /// <typeparam name="TBase">基类型，可以是类或接口</typeparam>
+        /// <param name="allTypes">目标类型集合，默认为<see langword="null"/>，即自动初始化为全部模组的可加载类型</param>
+        /// <param name="useUnsafeInitialization">如果为 true，则跳过构造函数；否则调用无参构造函数</param>
+        /// <returns>一个包含所有符合条件的实例的列表</returns>
+        public static List<TBase> GetDerivedInstances<TBase>(Type[] allTypes = null, bool useUnsafeInitialization = false) {
+            List<TBase> instances = [];
+            foreach (Type type in GetDerivedTypes<TBase>(allTypes)) {
+                try {
+                    object obj;
+                    if (useUnsafeInitialization) {
+                        obj = RuntimeHelpers.GetUninitializedObject(type);
+                    }
+                    else {
+                        //确保有无参构造函数才进行创建
+                        if (type.GetConstructor(Type.EmptyTypes) == null) {
+                            VaultMod.LoggerError($"GetDerivedInstances:{type.GetHashCode()}", $"Type {type.Name} does not have a parameterless constructor and was skipped.");
+                            continue;
+                        }
+                        obj = Activator.CreateInstance(type);
+                    }
+
+                    if (obj is TBase instance) {
+                        instances.Add(instance);
+                    }
+                } catch (Exception ex) {
+                    VaultMod.LoggerError($"GetDerivedInstances:{type.GetHashCode()}", $"Failed to create instance of type {type.Name}. Error: {ex.Message}");
+                }
+            }
+
+            return instances;
         }
 
         /// <summary>

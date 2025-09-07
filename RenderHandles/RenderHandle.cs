@@ -11,6 +11,7 @@ namespace InnoVault.RenderHandles
     /// </summary>
     public abstract class RenderHandle : VaultType
     {
+        #region Data
         /// <remarks>
         /// 存储所有已注册的 <see cref="RenderHandle"/> 实例，按 <see cref="Weight"/> 升序排序<br/>
         /// 所有 <see cref="RenderHandle"/> 的生命周期由 <see cref="RenderHandleLoader"/> 管理，
@@ -46,6 +47,7 @@ namespace InnoVault.RenderHandles
         /// 屏幕渲染目标2
         /// </summary>
         public RenderTarget2D screenTarget2;
+        #endregion
         /// <summary>
         /// 密封内容
         /// </summary>
