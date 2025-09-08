@@ -594,36 +594,36 @@ namespace InnoVault
         /// <param name="maxWidth">允许的最大宽度</param>
         /// <returns>已处理的自动换行文本</returns>
         public static string WrapTextToWidth(string text, Vector2 textSize, float maxWidth) {
-            // 将文本转换为字符列表
+            //将文本转换为字符列表
             List<char> characters = text.ToList();
             List<char> wrappedText = new List<char>();
             float currentWidth = 0;
             float charWidth;
 
-            // 遍历每个字符，处理宽度限制与换行逻辑
+            //遍历每个字符，处理宽度限制与换行逻辑
             foreach (char character in characters) {
-                // 计算每个字符的平均宽度（假设等宽字体或字符均匀分布）
+                //计算每个字符的平均宽度（假设等宽字体或字符均匀分布）
                 charWidth = textSize.X / text.Length;
 
-                // 遇到换行符，直接重置当前宽度并加入换行符
+                //遇到换行符，直接重置当前宽度并加入换行符
                 if (character == '\n') {
                     wrappedText.Add(character);
                     currentWidth = 0;
                 }
                 else {
-                    // 如果添加当前字符后宽度超出最大限制，插入换行符
+                    //如果添加当前字符后宽度超出最大限制，插入换行符
                     if (currentWidth + charWidth > maxWidth) {
                         wrappedText.Add('\n');
                         currentWidth = 0;
                     }
 
-                    // 添加字符并更新当前宽度
+                    //添加字符并更新当前宽度
                     wrappedText.Add(character);
                     currentWidth += charWidth;
                 }
             }
 
-            // 返回处理后的文本
+            //返回处理后的文本
             return new string([.. wrappedText]);
         }
 
@@ -635,11 +635,11 @@ namespace InnoVault
         /// <param name="inSteam">是否在Steam环境下打开（默认为true）</param>
         public static void WebRedirection(this string str, bool inSteam = true) {
             if (SocialAPI.Mode == SocialMode.Steam && inSteam) {
-                // 如果当前运行环境为Steam，并且指定在Steam中打开，则使用Steam内置浏览器
+                //如果当前运行环境为Steam，并且指定在Steam中打开，则使用Steam内置浏览器
                 SteamFriends.ActivateGameOverlayToWebPage(str);
             }
             else {
-                // 否则使用系统默认浏览器打开网页
+                //否则使用系统默认浏览器打开网页
                 Utils.OpenToURL(str);
             }
         }
