@@ -124,28 +124,24 @@ namespace InnoVault.PRT
         /// 封闭内容
         /// </summary>
         protected sealed override void Register() {
-            if (!CanLoad()) {
-                return;
-            }
-
-            Type type = GetType();
-            PRTInstances.Add(this);
-            ID = PRT_TypeToID.Count;
-            PRT_TypeToID[type] = ID;
-            PRT_TypeToMod[type] = VaultUtils.FindModByType(type, ModLoader.Mods);
-            PRT_IDToInstances.Add(ID, this);
-            PRT_IDToInGame_World_Count.Add(ID, 0);
+            
         }
 
         /// <summary>
         /// 加载内容
         /// </summary>
         public sealed override void SetupContent() {
-            if (!CanLoad()) {
-                return;
-            }
+            
+        }
 
-            SetStaticDefaults();
+        //因为粒子在设计理念中会包含含参数构造函数，这些会让默认的 Register 自动加载钩子无法捕获实例，所以这里自己写一个子类型捕获
+        internal void DoRegister() {
+            Type type = GetType();
+            ID = PRT_TypeToID.Count;
+            PRT_TypeToID[type] = ID;
+            PRT_TypeToMod[type] = VaultUtils.FindModByType(type, ModLoader.Mods);
+            PRT_IDToInstances.Add(ID, this);
+            PRT_IDToInGame_World_Count.Add(ID, 0);
         }
 
         /// <summary>

@@ -77,6 +77,14 @@ namespace InnoVault.PRT
             PRT_AdditiveBlend_Draw = [];
             PRT_NonPremultiplied_Draw = [];
             PRT_HasShader_Draw = [];
+
+            PRTInstances = VaultUtils.GetDerivedInstances<BasePRT>(null, true);
+            PRTInstances.RemoveAll(prt => !prt.CanLoad());
+
+            foreach (var prt in PRTInstances) {
+                prt.DoRegister();
+            }
+
             On_Main.DrawInfernoRings += DrawHook;
         }
         /// <summary>
@@ -95,6 +103,16 @@ namespace InnoVault.PRT
             PRT_NonPremultiplied_Draw = null;
             PRT_HasShader_Draw = null;
             On_Main.DrawInfernoRings -= DrawHook;
+        }
+
+        void IVaultLoader.SetupData() {
+            foreach (var prt in PRTInstances) {
+                try {
+                    prt.SetStaticDefaults();
+                } catch (Exception ex){
+                    VaultMod.Instance.Logger.Error(ex);
+                }
+            }
         }
 
         void IVaultLoader.LoadAsset() {
