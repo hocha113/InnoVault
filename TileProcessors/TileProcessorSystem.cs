@@ -1,8 +1,10 @@
 ﻿using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.IO;
 using System.Linq;
+using System.Text;
 using Terraria;
 using Terraria.GameContent;
 using Terraria.ModLoader;
@@ -22,10 +24,49 @@ namespace InnoVault.TileProcessors
         /// <inheritdoc/>
         public override void LoadWorldData(TagCompound tag) {
             tag.TryGet("root:worldData", out string _);
-            //如果不存在对应的NBT存档数据，说明是第一次进行有效加载，
+            //如果不存在对应的NBT存档数据，说明是第一次进行有效加载
             //那么就按找老版本去读取.twd的内容将老存档的数据加载进游戏的TP实体，以便保存时可以成功将老存档的数据保存进NBT
             if (!File.Exists(SaveWorld.SaveTPDataPath)) {
                 TileProcessorLoader.ActiveWorldTagData = tag;
+            }
+        }
+
+        /// <summary>
+        /// 统一的物块处理器(TP)错误处理函数
+        /// </summary>
+        /// <param name="tp">发生错误的TP实例</param>
+        /// <param name="ex">捕获到的异常</param>
+        /// <param name="errorContext">错误发生的阶段(如"Update", "Draw")</param>
+        private static void TPErrorHandle(TileProcessor tp, Exception ex, string errorContext) {
+            tp.ignoreBug = 60; //设置60帧的冷却，防止刷屏报错
+            tp.errorCount++;
+
+            var errorBuilder = new StringBuilder();
+            errorBuilder.AppendLine("A Tile Processor encountered a fatal error");
+            errorBuilder.AppendLine($"Stage: {errorContext}");
+            errorBuilder.AppendLine($"Type: {tp.GetType().FullName}");
+            errorBuilder.AppendLine($"Position: {tp.Position}");
+            errorBuilder.AppendLine($"Total Error Count: {tp.errorCount}");
+            errorBuilder.AppendLine("Exception Details:");
+            errorBuilder.Append(ex.ToString()); //记录完整的异常信息，包括堆栈跟踪
+
+            VaultMod.Instance.Logger.Error(errorBuilder.ToString());
+        }
+
+        /// <summary>
+        /// 带有错误处理的TP行为执行器
+        /// </summary>
+        /// <param name="tp">要执行操作的TP实例</param>
+        /// <param name="func">要执行的操作</param>
+        /// <param name="context">操作的上下文名称，用于报错</param>
+        private static void DoRun(TileProcessor tp, Action<TileProcessor> func, string context) {
+            if (tp.ignoreBug > 0) {
+                return;
+            }
+            try {
+                func.Invoke(tp);
+            } catch (Exception ex) {
+                TPErrorHandle(tp, ex, context);
             }
         }
 
@@ -39,30 +80,40 @@ namespace InnoVault.TileProcessors
             }
         }
 
+        /// <summary>
+        /// 检查一个TP实例是否应被销毁
+        /// </summary>
         internal static bool TileProcessorIsDead(TileProcessor tileProcessor) {
-            bool isDead = tileProcessor.IsDaed();
+            try {
+                bool isDead = tileProcessor.IsDaed();
 
-            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
-                bool? reset = tpGlobal.IsDaed(tileProcessor);
-                if (reset.HasValue) {
-                    isDead = reset.Value;
-                }
-            }
-
-            //在多人游戏中，不允许客户端自行杀死Tp实体，这些要通过服务器的统一广播来管理
-            if (isDead && !VaultUtils.isClient) {
-                if (VaultUtils.isServer) {
-                    TileProcessorNetWork.SendTPDeathByServer(tileProcessor);
+                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                    bool? reset = tpGlobal.IsDaed(tileProcessor);
+                    if (reset.HasValue) {
+                        isDead = reset.Value;
+                    }
                 }
 
-                tileProcessor.Kill();
+                //在多人游戏中，不允许客户端自行杀死Tp实体，这些要通过服务器的统一广播来管理
+                if (isDead && !VaultUtils.isClient) {
+                    if (VaultUtils.isServer) {
+                        TileProcessorNetWork.SendTPDeathByServer(tileProcessor);
+                    }
 
-                return true;
+                    tileProcessor.Kill();
+
+                    return true;
+                }
+            } catch (Exception ex) {
+                TPErrorHandle(tileProcessor, ex, "TileProcessorIsDead");
             }
 
             return false;
         }
 
+        /// <summary>
+        /// 更新一个TP实例的逻辑
+        /// </summary>
         internal static void TileProcessorUpdate(TileProcessor tileProcessor) {
             if (!tileProcessor.Spwan) {
                 tileProcessor.Initialize();
@@ -97,12 +148,12 @@ namespace InnoVault.TileProcessors
                     }
                     if (p.position.DistanceSQ(posInWorld) < idleDistanceSQ) {
                         playerInRange = true;
-                        break; // 有玩家在范围内就可以停止检查
+                        break; //有玩家在范围内就可以停止检查
                     }
                 }
 
                 if (!playerInRange) {
-                    return; // 没有任何玩家在范围内，跳过更新
+                    return; //没有任何玩家在范围内，跳过更新
                 }
             }
 
@@ -142,12 +193,16 @@ namespace InnoVault.TileProcessors
             }
 
             Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);//在这里缓存鼠标的矩形，避免在下面的遍历中多次构造矩形
-            //这里故意使用for来避免更新中途的删加情况，虽然中途进行移除元素的操作仍旧有可能出问题，但尽量不要当混蛋这么写
+            //这里故意使用for来避免更新中途的删加情况
             //另一个选择是使用快照遍历，但那个开销在理论上很大，因为这个集合的元素数量往往会很多
             for (int i = 0; i < TileProcessorLoader.TP_InWorld.Count; i++) {
                 TileProcessor tileProcessor = TileProcessorLoader.TP_InWorld[i];
                 if (!tileProcessor.Active) {
                     continue;
+                }
+
+                if (tileProcessor.ignoreBug > 0) {
+                    tileProcessor.ignoreBug--;//这里不跳过
                 }
 
                 if (tileProcessor.InScreen) {
@@ -163,16 +218,25 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
 
-                TileProcessorUpdate(tileProcessor);
+                if (tileProcessor.ignoreBug > 0) {
+                    tileProcessor.ignoreBug--;
+                    continue;
+                }
+
+                DoRun(tileProcessor, TileProcessorUpdate, "Update");
             }
 
             foreach (TileProcessor tpInds in TileProcessorLoader.TP_Instances.ToList()) {
                 if (tpInds.GetInWorldHasNum() > 0) {
-                    tpInds.SingleInstanceUpdate();
+                    //对单例更新也进行封装
+                    DoRun(tpInds, tp => tp.SingleInstanceUpdate(), "SingleInstanceUpdate");
                 }
             }
         }
 
+        /// <summary>
+        /// 预绘制一个TP实例
+        /// </summary>
         internal static void TileProcessorPreTileDraw(TileProcessor tileProcessor) {
             if (!VaultUtils.IsPointOnScreen(tileProcessor.PosInWorld - Main.screenPosition, tileProcessor.DrawExtendMode)) {
                 return;
@@ -190,7 +254,6 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 绘制这个TP实体的调试框
         /// </summary>
-        /// <param name="tileProcessor"></param>
         public static void TileProcessorBoxSizeDraw(TileProcessor tileProcessor) {
             if (VaultClientConfig.Instance.TileProcessorBoxSizeDraw) {
                 Vector2 drawPos = tileProcessor.PosInWorld - Main.screenPosition;
@@ -207,7 +270,9 @@ namespace InnoVault.TileProcessors
             }
         }
 
-        /// <inheritdoc/>
+        /// <summary>
+        /// 在原版物块绘制之前执行的TP绘制
+        /// </summary>
         public static void PreDrawTiles() {
             if (!TileProcessorLoader.CanRunByWorld()) {
                 return;
@@ -218,7 +283,8 @@ namespace InnoVault.TileProcessors
                 if (!tileProcessor.Active) {
                     continue;
                 }
-                TileProcessorPreTileDraw(tileProcessor);
+
+                DoRun(tileProcessor, TileProcessorPreTileDraw, "PreTileDraw");
             }
         }
 
@@ -244,7 +310,7 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
 
-                tileProcessor.BackDraw(Main.spriteBatch);
+                DoRun(tileProcessor, tp => tp.BackDraw(Main.spriteBatch), "BackDraw");
             }
             //第二次层次
             foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
@@ -253,16 +319,25 @@ namespace InnoVault.TileProcessors
                 }
 
                 bool reset = true;
+
                 foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
-                    reset = tpGlobal.PreDraw(tileProcessor, Main.spriteBatch);
+                    try {
+                        reset = tpGlobal.PreDraw(tileProcessor, Main.spriteBatch);
+                    } catch (Exception ex) {
+                        TPErrorHandle(tileProcessor, ex, $"Global PreDraw By {tpGlobal}");
+                    }
                 }
 
                 if (reset) {
-                    tileProcessor.Draw(Main.spriteBatch);
+                    DoRun(tileProcessor, tp => tp.Draw(Main.spriteBatch), "Draw");
                 }
 
                 foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
-                    tpGlobal.PostDraw(tileProcessor, Main.spriteBatch);
+                    try {
+                        tpGlobal.PostDraw(tileProcessor, Main.spriteBatch);
+                    } catch (Exception ex) {
+                        TPErrorHandle(tileProcessor, ex, $"Global PostDraw By {tpGlobal}");
+                    }
                 }
             }
             //第三次层，也是最上方的
@@ -271,7 +346,7 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
 
-                tileProcessor.FrontDraw(Main.spriteBatch);
+                DoRun(tileProcessor, tp => tp.FrontDraw(Main.spriteBatch), "FrontDraw");
 
                 TileProcessorBoxSizeDraw(tileProcessor);
             }
