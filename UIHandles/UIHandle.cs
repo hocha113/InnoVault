@@ -31,6 +31,10 @@ namespace InnoVault.UIHandles
         /// </summary>
         public new Mod Mod => UIHandle_Type_To_Mod[GetType()];
         /// <summary>
+        /// 这个UI的内部填充名
+        /// </summary>
+        public new string FullName => GetFullName(Mod.Name, Name);
+        /// <summary>
         /// 这个UI是否活跃
         /// </summary>
         public virtual bool Active {

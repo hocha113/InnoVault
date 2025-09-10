@@ -157,24 +157,6 @@ namespace InnoVault.UIHandles
 
         internal static readonly LayersModeEnum[] allLayersModes = (LayersModeEnum[])Enum.GetValues(typeof(LayersModeEnum));
         #endregion
-        internal static void Initialize() {
-            UIHandles = [];
-            UIHandleGlobalHooks = [];
-            UIHandles_Vanilla_Mouse_Text = [];
-            UIHandles_Vanilla_Interface_Logic_1 = [];
-            UIHandles_Vanilla_MP_Player_Names = [];
-            UIHandles_Vanilla_Hide_UI_Toggle = [];
-            UIHandles_Vanilla_Resource_Bars = [];
-            UIHandles_Vanilla_Ingame_Options = [];
-            UIHandles_Vanilla_Diagnose_Net = [];
-            UIHandles_Mod_MenuLoad = [];
-            UIHandles_Mod_UIModItem = [];
-            UIHandle_Type_To_Mod = [];
-            UIHandleGlobal_Type_To_Mod = [];
-            UIHandle_Name_To_ID = [];
-            UIHandle_Type_To_ID = [];
-            UIHandle_ID_To_Instance = [];
-        }
 
         /// <summary>
         /// 获取目标UI实例
@@ -305,11 +287,7 @@ namespace InnoVault.UIHandles
         /// <inheritdoc/>
         public override void Load() {
             UIModItemType = typeof(Main).Assembly.GetTypes().First(t => t.Name == "UIModItem");
-
-            Initialize();
-
             IL_Main.DrawMenu += IL_MenuLoadDraw_Hook;
-
             VaultHook.Add(UIModItemType.GetMethod("Draw", BindingFlags.Instance | BindingFlags.Public), On_UIModItem_DrawHook);
         }
 
@@ -318,7 +296,24 @@ namespace InnoVault.UIHandles
             foreach (var hander in UIHandles) {
                 hander.UnLoad();
             }
-            Initialize();
+
+            UIHandles?.Clear();
+            UIHandleGlobalHooks?.Clear();
+            UIHandles_Vanilla_Mouse_Text?.Clear();
+            UIHandles_Vanilla_Interface_Logic_1?.Clear();
+            UIHandles_Vanilla_MP_Player_Names?.Clear();
+            UIHandles_Vanilla_Hide_UI_Toggle?.Clear();
+            UIHandles_Vanilla_Resource_Bars?.Clear();
+            UIHandles_Vanilla_Ingame_Options?.Clear();
+            UIHandles_Vanilla_Diagnose_Net?.Clear();
+            UIHandles_Mod_MenuLoad?.Clear();
+            UIHandles_Mod_UIModItem?.Clear();
+            UIHandle_Type_To_Mod?.Clear();
+            UIHandleGlobal_Type_To_Mod?.Clear();
+            UIHandle_Name_To_ID?.Clear();
+            UIHandle_Type_To_ID?.Clear();
+            UIHandle_ID_To_Instance?.Clear();
+
             LeftHeldEvent = null;
             LeftPressedEvent = null;
             LeftReleasedEvent = null;
