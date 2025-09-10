@@ -403,11 +403,11 @@ namespace InnoVault.TileProcessors
 
                 string modName = thisTag.GetString("mod");
                 string name = thisTag.GetString("name");
-                string loadenName = modName + ":" + name;
-                Point16 point = new Point16(thisTag.GetShort("X"), thisTag.GetShort("Y"));
+                string fullName = modName + "/" + name;
+                Point16 point = new (thisTag.GetShort("X"), thisTag.GetShort("Y"));
 
                 // 从字典中查找匹配项
-                if (TP_NameAndPoint_To_Instance.TryGetValue((loadenName, point), out TileProcessor tp)) {
+                if (TP_NameAndPoint_To_Instance.TryGetValue((fullName, point), out TileProcessor tp)) {
                     try {
                         tp.LoadData(data);
                     } catch (Exception ex) {
