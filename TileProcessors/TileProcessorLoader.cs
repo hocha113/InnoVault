@@ -438,7 +438,13 @@ namespace InnoVault.TileProcessors
             bool? reset = null;
             position = default;
             foreach (var tpGlobal in TPGlobalHooks) {
-                reset = tpGlobal.TryIsTopLeftPoint(i, j, out position);
+                bool? newReset = tpGlobal.TryIsTopLeftPoint(i, j, out var newPosition);
+                if (newReset.HasValue) {
+                    reset = newReset.Value;
+                }
+                if (newPosition != default) {
+                    position = newPosition;
+                }
             }
             return reset;
         }
@@ -466,7 +472,10 @@ namespace InnoVault.TileProcessors
         internal static Point16? TileProcessorPlaceInWorldGetTopLeftPoint(int i, int j) {
             Point16? point16 = null;
             foreach (var tpGlobal in TPGlobalHooks) {
-                point16 = tpGlobal.GetTopLeftPoint(i, j);
+                Point16? newPoint16 = tpGlobal.GetTopLeftPoint(i, j);
+                if (newPoint16.HasValue) {
+                    point16 = newPoint16;
+                }
             }
             return point16;
         }

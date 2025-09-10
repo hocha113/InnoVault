@@ -3282,7 +3282,10 @@ namespace InnoVault
             if (TileProcessorLoader.TargetTileTypes.Contains(tile.TileType)) {
                 Point16? gPoint = null;
                 foreach (var gTP in TileProcessorLoader.TPGlobalHooks) {
-                    gPoint = gTP.GetTopLeftOrNull(tile, i, j);
+                    Point16? newGPoint = gTP.GetTopLeftOrNull(tile, i, j);
+                    if (newGPoint.HasValue) {
+                        gPoint = newGPoint;
+                    }
                 }
                 if (gPoint.HasValue) {
                     return gPoint.Value;

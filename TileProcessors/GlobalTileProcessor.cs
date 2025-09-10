@@ -20,6 +20,16 @@ namespace InnoVault.TileProcessors
             TileProcessorLoader.TPGlobalHooks.Add(this);
         }
         /// <summary>
+        /// 加载内容
+        /// </summary>
+        public sealed override void SetupContent() {
+            if (!CanLoad()) {
+                return;
+            }
+
+            SetStaticDefaults();
+        }
+        /// <summary>
         /// 用于初始化一些次要信息，只会在实体生成时调用一次
         /// </summary>
         /// <param name="tileProcessor"></param>
