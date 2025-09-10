@@ -1,6 +1,7 @@
 ﻿using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Mono.Cecil.Cil;
 using System;
 using System.IO;
 using System.Linq;
@@ -50,6 +51,7 @@ namespace InnoVault.TileProcessors
             errorBuilder.AppendLine("Exception Details:");
             errorBuilder.Append(ex.ToString()); //记录完整的异常信息，包括堆栈跟踪
 
+            VaultUtils.Text(errorBuilder.ToString());
             VaultMod.Instance.Logger.Error(errorBuilder.ToString());
         }
 
@@ -188,6 +190,12 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                if (tpGlobal.ignoreBug > 0) {
+                    tpGlobal.ignoreBug--;
+                }
+            }
+
             foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_Instances) {
                 TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID] = 0;
             }
@@ -227,9 +235,48 @@ namespace InnoVault.TileProcessors
             }
 
             foreach (TileProcessor tpInds in TileProcessorLoader.TP_Instances.ToList()) {
+                bool reset = true;
+
+                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                    if (tpGlobal.ignoreBug > 0) {
+                        continue;
+                    }
+
+                    try {
+                        reset = tpGlobal.PreSingleInstanceUpdate(tpInds);
+                    } catch (Exception ex) {
+                        tpGlobal.ignoreBug = 60;
+                        tpGlobal.errorCount++;
+
+                        string errorContent = $"TPGlobalHooks.PreSingleInstanceUpdate:{ex}";
+                        VaultUtils.Text(errorContent);
+                        VaultMod.Instance.Logger.Error(errorContent);
+                    }
+                }
+
+                if (!reset) {
+                    continue;
+                }
+
                 if (tpInds.GetInWorldHasNum() > 0) {
                     //对单例更新也进行封装
                     DoRun(tpInds, tp => tp.SingleInstanceUpdate(), "SingleInstanceUpdate");
+                    foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                        if (tpGlobal.ignoreBug > 0) {
+                            continue;
+                        }
+
+                        try {
+                            tpGlobal.SingleInstanceUpdate(tpInds);
+                        } catch (Exception ex) {
+                            tpGlobal.ignoreBug = 60;
+                            tpGlobal.errorCount++;
+
+                            string errorContent = $"TPGlobalHooks.SingleInstanceUpdate:{ex}";
+                            VaultUtils.Text(errorContent);
+                            VaultMod.Instance.Logger.Error(errorContent);
+                        }
+                    }
                 }
             }
         }
@@ -278,6 +325,28 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
+            bool reset = true;
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                if (tpGlobal.ignoreBug > 0) {
+                    continue;
+                }
+
+                try {
+                    reset = tpGlobal.PreTileDrawEverthing(Main.spriteBatch);
+                } catch (Exception ex) {
+                    tpGlobal.ignoreBug = 60;
+                    tpGlobal.errorCount++;
+
+                    string errorContent = $"TPGlobalHooks.PreTileDrawEverthing:{ex}";
+                    VaultUtils.Text(errorContent);
+                    VaultMod.Instance.Logger.Error(errorContent);
+                }
+            }
+
+            if (!reset) {
+                return;
+            }
+
             for (int i = 0; i < TileProcessorLoader.TP_InWorld.Count; i++) {
                 TileProcessor tileProcessor = TileProcessorLoader.TP_InWorld[i];
                 if (!tileProcessor.Active) {
@@ -291,6 +360,28 @@ namespace InnoVault.TileProcessors
         /// <inheritdoc/>
         public override void PostDrawTiles() {
             if (!TileProcessorLoader.CanRunByWorld()) {
+                return;
+            }
+
+            bool globalReset = true;
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                if (tpGlobal.ignoreBug > 0) {
+                    continue;
+                }
+
+                try {
+                    globalReset = tpGlobal.PreDrawEverthing(Main.spriteBatch);
+                } catch (Exception ex) {
+                    tpGlobal.ignoreBug = 60;
+                    tpGlobal.errorCount++;
+
+                    string errorContent = $"TPGlobalHooks.PreDrawEverthing:{ex}";
+                    VaultUtils.Text(errorContent);
+                    VaultMod.Instance.Logger.Error(errorContent);
+                }
+            }
+
+            if (!globalReset) {
                 return;
             }
 
@@ -352,6 +443,23 @@ namespace InnoVault.TileProcessors
             }
 
             Main.spriteBatch.End();
+
+            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                if (tpGlobal.ignoreBug > 0) {
+                    continue;
+                }
+
+                try {
+                    tpGlobal.PostDrawEverthing(Main.spriteBatch);
+                } catch (Exception ex) {
+                    tpGlobal.ignoreBug = 60;
+                    tpGlobal.errorCount++;
+
+                    string errorContent = $"TPGlobalHooks.PostDrawEverthing:{ex}";
+                    VaultUtils.Text(errorContent);
+                    VaultMod.Instance.Logger.Error(errorContent);
+                }
+            }
         }
     }
 }

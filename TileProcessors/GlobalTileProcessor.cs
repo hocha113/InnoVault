@@ -40,6 +40,19 @@ namespace InnoVault.TileProcessors
 
         }
         /// <summary>
+        /// 这个函数是单实例的，在一个更新周期中，它只会运行一次，即使<see cref="TileProcessor.GetInWorldHasNum"/>返回0，也会被调用<br/>
+        /// 运行在<see cref="TileProcessor.SingleInstanceUpdate"/>之前，返回<see langword="false"/>可以阻止其运行
+        /// </summary>
+        public virtual bool PreSingleInstanceUpdate(TileProcessor tileProcessor) {
+            return true;
+        }
+        /// <summary>
+        /// 这个函数是单实例的，在一个更新周期中，它只会运行一次，如果<see cref="TileProcessor.GetInWorldHasNum"/>返回0，就不会被调用
+        /// </summary>
+        public virtual void SingleInstanceUpdate(TileProcessor tileProcessor) {
+
+        }
+        /// <summary>
         /// 获取多结构物块的放置原点坐标。如果希望系统使用原生判定，返回<see langword="null"/>，
         /// 若需要自定义放置原点，则返回一个有效的坐标值
         /// 如果改动了这个，务必注重<see cref="TryIsTopLeftPoint"/>的逻辑判定，两者具有强配合性
@@ -75,6 +88,21 @@ namespace InnoVault.TileProcessors
             return null;
         }
         /// <summary>
+        /// 更新在所有实例的<see cref="TileProcessor.PreTileDraw(SpriteBatch)"/>之前，返回<see langword="false"/>可以阻止其运行
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool PreTileDrawEverthing(SpriteBatch spriteBatch) {
+            return true;
+        }
+        /// <summary>
+        /// 更新在所有实例的<see cref="TileProcessor.Draw(SpriteBatch)"/>之前，返回<see langword="false"/>可以阻止其运行<br/>
+        /// 画布此时已经关闭，如果要进行绘制，需要自行设置画布开启
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool PreDrawEverthing(SpriteBatch spriteBatch) {
+            return true;
+        }
+        /// <summary>
         /// 更新在<see cref="TileProcessor.PreTileDraw(SpriteBatch)"/>之前，返回<see langword="false"/>可以阻止其运行
         /// </summary>
         /// <returns></returns>
@@ -92,6 +120,13 @@ namespace InnoVault.TileProcessors
         /// 更新在<see cref="TileProcessor.Draw(SpriteBatch)"/>之后
         /// </summary>
         public virtual void PostDraw(TileProcessor tileProcessor, SpriteBatch spriteBatch) {
+
+        }
+        /// <summary>
+        /// 更新在所有实例的<see cref="TileProcessor.Draw(SpriteBatch)"/>之后<br/>
+        /// 画布此时已经关闭，如果要进行绘制，需要自行设置画布开启
+        /// </summary>
+        public virtual void PostDrawEverthing(SpriteBatch spriteBatch) {
 
         }
         /// <summary>
