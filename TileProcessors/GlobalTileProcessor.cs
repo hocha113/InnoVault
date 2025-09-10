@@ -91,7 +91,7 @@ namespace InnoVault.TileProcessors
         /// 更新在所有实例的<see cref="TileProcessor.PreTileDraw(SpriteBatch)"/>之前，返回<see langword="false"/>可以阻止其运行
         /// </summary>
         /// <returns></returns>
-        public virtual bool PreTileDrawEverthing(SpriteBatch spriteBatch) {
+        public virtual bool PreTileDrawEverything(SpriteBatch spriteBatch) {
             return true;
         }
         /// <summary>
@@ -99,7 +99,7 @@ namespace InnoVault.TileProcessors
         /// 画布此时已经关闭，如果要进行绘制，需要自行设置画布开启
         /// </summary>
         /// <returns></returns>
-        public virtual bool PreDrawEverthing(SpriteBatch spriteBatch) {
+        public virtual bool PreDrawEverything(SpriteBatch spriteBatch) {
             return true;
         }
         /// <summary>
@@ -126,7 +126,7 @@ namespace InnoVault.TileProcessors
         /// 更新在所有实例的<see cref="TileProcessor.Draw(SpriteBatch)"/>之后<br/>
         /// 画布此时已经关闭，如果要进行绘制，需要自行设置画布开启
         /// </summary>
-        public virtual void PostDrawEverthing(SpriteBatch spriteBatch) {
+        public virtual void PostDrawEverything(SpriteBatch spriteBatch) {
 
         }
         /// <summary>

@@ -3560,6 +3560,14 @@ namespace InnoVault
             }
         }
 
+        private static FieldInfo SpriteBatch_BeginCalled_Field = typeof(SpriteBatch).GetField("beginCalled", BindingFlags.NonPublic | BindingFlags.Instance);
+        /// <summary>
+        /// 反射获取画布的 beginCalled 字段值
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        /// <returns></returns>
+        public static bool GetBeginCalledBool(this SpriteBatch spriteBatch) => (bool)SpriteBatch_BeginCalled_Field.GetValue(spriteBatch);
+
         /// <summary>
         /// 获取完整纹理的矩形区域
         /// </summary>

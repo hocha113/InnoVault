@@ -51,7 +51,7 @@ namespace InnoVault.TileProcessors
             errorBuilder.AppendLine("Exception Details:");
             errorBuilder.Append(ex.ToString()); //记录完整的异常信息，包括堆栈跟踪
 
-            VaultUtils.Text(errorBuilder.ToString());
+            VaultUtils.Text(errorBuilder.ToString(), Color.Red);
             VaultMod.Instance.Logger.Error(errorBuilder.ToString());
         }
 
@@ -249,7 +249,7 @@ namespace InnoVault.TileProcessors
                         tpGlobal.errorCount++;
 
                         string errorContent = $"TPGlobalHooks.PreSingleInstanceUpdate:{ex}";
-                        VaultUtils.Text(errorContent);
+                        VaultUtils.Text(errorContent, Color.Red);
                         VaultMod.Instance.Logger.Error(errorContent);
                     }
                 }
@@ -273,7 +273,7 @@ namespace InnoVault.TileProcessors
                             tpGlobal.errorCount++;
 
                             string errorContent = $"TPGlobalHooks.SingleInstanceUpdate:{ex}";
-                            VaultUtils.Text(errorContent);
+                            VaultUtils.Text(errorContent, Color.Red);
                             VaultMod.Instance.Logger.Error(errorContent);
                         }
                     }
@@ -332,13 +332,13 @@ namespace InnoVault.TileProcessors
                 }
 
                 try {
-                    reset = tpGlobal.PreTileDrawEverthing(Main.spriteBatch);
+                    reset = tpGlobal.PreTileDrawEverything(Main.spriteBatch);
                 } catch (Exception ex) {
                     tpGlobal.ignoreBug = 60;
                     tpGlobal.errorCount++;
 
                     string errorContent = $"TPGlobalHooks.PreTileDrawEverthing:{ex}";
-                    VaultUtils.Text(errorContent);
+                    VaultUtils.Text(errorContent, Color.Red);
                     VaultMod.Instance.Logger.Error(errorContent);
                 }
             }
@@ -370,13 +370,13 @@ namespace InnoVault.TileProcessors
                 }
 
                 try {
-                    globalReset = tpGlobal.PreDrawEverthing(Main.spriteBatch);
+                    globalReset = tpGlobal.PreDrawEverything(Main.spriteBatch);
                 } catch (Exception ex) {
                     tpGlobal.ignoreBug = 60;
                     tpGlobal.errorCount++;
 
                     string errorContent = $"TPGlobalHooks.PreDrawEverthing:{ex}";
-                    VaultUtils.Text(errorContent);
+                    VaultUtils.Text(errorContent, Color.Red);
                     VaultMod.Instance.Logger.Error(errorContent);
                 }
             }
@@ -450,13 +450,13 @@ namespace InnoVault.TileProcessors
                 }
 
                 try {
-                    tpGlobal.PostDrawEverthing(Main.spriteBatch);
+                    tpGlobal.PostDrawEverything(Main.spriteBatch);
                 } catch (Exception ex) {
                     tpGlobal.ignoreBug = 60;
                     tpGlobal.errorCount++;
 
                     string errorContent = $"TPGlobalHooks.PostDrawEverthing:{ex}";
-                    VaultUtils.Text(errorContent);
+                    VaultUtils.Text(errorContent, Color.Red);
                     VaultMod.Instance.Logger.Error(errorContent);
                 }
             }
