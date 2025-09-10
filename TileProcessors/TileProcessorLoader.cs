@@ -403,7 +403,7 @@ namespace InnoVault.TileProcessors
 
                 string modName = thisTag.GetString("mod");
                 string name = thisTag.GetString("name");
-                string fullName = modName + "/" + name;
+                string fullName = TileProcessor.GetFullName(modName, name);
                 Point16 point = new (thisTag.GetShort("X"), thisTag.GetShort("Y"));
 
                 // 从字典中查找匹配项
@@ -708,12 +708,12 @@ namespace InnoVault.TileProcessors
         /// <returns>返回与指定ID及坐标最接近的 <see cref="TileProcessor"/>，如果未找到则返回<see langword="null"/></returns>
         public static TileProcessor FindModuleRangeSearch(int ID, int x, int y, int maxFindLeng) {
             TileProcessor module = null;
-            float findSquaredValue = maxFindLeng * maxFindLeng * 256; // 平方距离（像素）
+            float findSquaredValue = maxFindLeng * maxFindLeng * 256; //平方距离（像素）
             Vector2 position = new Vector2(x, y) * 16;
 
             foreach (KeyValuePair<(int, Point16), TileProcessor> kvp in TP_IDAndPoint_To_Instance) {
                 if (kvp.Key.Item1 != ID) {
-                    continue; // 筛选ID
+                    continue; //筛选ID
                 }
 
                 var inds = kvp.Value;

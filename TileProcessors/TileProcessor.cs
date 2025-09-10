@@ -40,6 +40,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public new Mod Mod => TP_Type_To_Mod[GetType()];
         /// <summary>
+        /// 这个TP实体的内部填充名
+        /// </summary>
+        public new string FullName => GetFullName(Mod.Name, Name);
+        /// <summary>
         /// 如果是玩家中途手动放置的物块所生成的模块，这个值会标记为放置所用的物品
         /// ，否则为<see langword="null"/>，比如进入世界初始化生成的模块
         /// </summary>
@@ -140,9 +144,9 @@ namespace InnoVault.TileProcessors
             Type type = GetType();
             TP_Instances.Add(this);
             TP_Type_To_ID.Add(type, TP_ID_Count);
-            TP_FullName_To_ID.Add(FullName, TP_ID_Count);
             TP_Type_To_Instance.Add(type, this);
             TP_Type_To_Mod.Add(type, VaultUtils.FindModByType(type, ModLoader.Mods));//写在这里提醒自己，在这里不要使用Mod属性自己进行加载
+            TP_FullName_To_ID.Add(FullName, TP_ID_Count);
             TP_ID_To_Instance.Add(ID, this);
             TP_ID_To_InWorld_Count.Add(ID, 0);
 
@@ -199,6 +203,14 @@ namespace InnoVault.TileProcessors
             WhoAmI = reader.ReadInt32();
             Position = reader.ReadPoint16();
         }
+
+        /// <summary>
+        /// 返回该TP实体的填充名
+        /// </summary>
+        /// <param name="modName"></param>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static string GetFullName(string modName, string name) => modName + "/" + name;//设置这个函数是为了防止其他地方硬编码拼接内部名
 
         /// <summary>
         /// 这个TP实体如果在加载世界时已经存在，这个函数会在加载世界时被调用一次，用以用来初始化一些信息
