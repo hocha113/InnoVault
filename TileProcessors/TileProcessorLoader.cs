@@ -403,7 +403,7 @@ namespace InnoVault.TileProcessors
 
                 string modName = thisTag.GetString("mod");
                 string name = thisTag.GetString("name");
-                string fullName = TileProcessor.GetFullName(modName, name);
+                string fullName = VaultType.GetFullName(modName, name);
                 Point16 point = new (thisTag.GetShort("X"), thisTag.GetShort("Y"));
 
                 // 从字典中查找匹配项

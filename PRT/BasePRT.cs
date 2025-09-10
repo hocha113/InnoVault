@@ -32,6 +32,10 @@ namespace InnoVault.PRT
         /// </summary>
         public new Mod Mod => PRT_TypeToMod[GetType()];
         /// <summary>
+        /// 这个粒子的内部填充名
+        /// </summary>
+        public new string FullName => GetFullName(Mod.Name, Name);
+        /// <summary>
         /// 一个通用的全局帧索引
         /// </summary>
         public Rectangle Frame = default;

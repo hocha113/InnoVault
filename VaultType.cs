@@ -28,5 +28,12 @@ namespace InnoVault
         public virtual bool CanOverride() {
             return true;
         }
+        /// <summary>
+        /// 返回该TP实体的填充名
+        /// </summary>
+        /// <param name="modName"></param>
+        /// <param name="name"></param>
+        /// <returns></returns>
+        public static string GetFullName(string modName, string name) => modName + "/" + name;//设置这个函数是为了防止其他地方硬编码拼接内部名
     }
 }

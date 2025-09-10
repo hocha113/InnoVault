@@ -205,14 +205,6 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 返回该TP实体的填充名
-        /// </summary>
-        /// <param name="modName"></param>
-        /// <param name="name"></param>
-        /// <returns></returns>
-        public static string GetFullName(string modName, string name) => modName + "/" + name;//设置这个函数是为了防止其他地方硬编码拼接内部名
-
-        /// <summary>
         /// 这个TP实体如果在加载世界时已经存在，这个函数会在加载世界时被调用一次，用以用来初始化一些信息
         /// </summary>
         public virtual void LoadInWorld() { }
