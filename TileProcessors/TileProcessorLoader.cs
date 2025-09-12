@@ -349,7 +349,13 @@ namespace InnoVault.TileProcessors
                 }
             }
 
+            WorldLoadProgress = 10;
+
+            var worldData = GetWorldData(ActiveWorldTagData);
+
             WorldLoadProgress = 15;
+
+            UnknowTP.FrontHandleRecoverLoadTP(worldData);
 
             int count = collectedDatas.Count;
             for (int i = 0; i < count; i++) {
@@ -360,9 +366,7 @@ namespace InnoVault.TileProcessors
                 }
             }
 
-            if (ActiveWorldTagData != null) {
-                LoadWorldData(ActiveWorldTagData);
-            }
+            LoadWorldData(worldData);
 
             WorldLoadProgress = 100;
 
@@ -423,15 +427,36 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 载入世界所有TP实体的存档数据
+        /// 获取世界所有TP实体的存档数据
         /// </summary>
         /// <param name="tag"></param>
-        internal static void LoadWorldData(TagCompound tag) {
+        internal static IList<TagCompound> GetWorldData(TagCompound tag) {
             if (!tag.ContainsKey(key_TPData_TagList)) {
-                return;
+                return null;
             }
 
             IList<TagCompound> list = tag.GetList<TagCompound>(key_TPData_TagList);
+            IList<TagCompound> reset = [];
+            // 遍历标签列表并在字典中查找匹配的 TileProcessor
+            foreach (TagCompound thisTag in list) {
+                if (!thisTag.TryGet("data", out TagCompound data) || data.Count == 0) {
+                    continue;
+                }
+
+                reset.Add(thisTag);
+            }
+
+            return reset;
+        }
+
+        /// <summary>
+        /// 载入世界所有TP实体的存档数据
+        /// </summary>
+        /// <param name="list"></param>
+        internal static void LoadWorldData(IList<TagCompound> list) {
+            if (list == null) {
+                return;
+            }
 
             // 遍历标签列表并在字典中查找匹配的 TileProcessor
             foreach (TagCompound thisTag in list) {

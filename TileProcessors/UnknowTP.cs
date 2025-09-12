@@ -1,7 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections;
+using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.GameContent;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using static InnoVault.TileProcessors.TileProcessorLoader;
@@ -20,15 +24,19 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 暂存的模组名
         /// </summary>
-        public string UnModName { get; set; } = "";
+        public string UnModName { get; set; }
         /// <summary>
         /// 暂存的实体名
         /// </summary>
-        public string UnTypeName { get; set; } = "";
+        public string UnTypeName { get; set; }
         /// <summary>
         /// 暂存的数据
         /// </summary>
         public TagCompound Data { get; set; } = [];
+        /// <summary>
+        /// 悬浮查看时应该显示的字符
+        /// </summary>
+        public string HoverString => $"Unknow:{GetFullName(UnModName, UnTypeName)}";
         /// <inheritdoc/>
         public override bool IsDaed() {
             //在多人游戏中，不允许客户端自行杀死Tp实体，这些要通过服务器的统一广播来管理
@@ -51,19 +59,43 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 在加载世界时调用，尝试恢复数据
         /// </summary>
+        /// <param name="list"></param>
+        public static void FrontHandleRecoverLoadTP(IList<TagCompound> list) {
+            // 遍历标签列表并在字典中查找匹配的 TileProcessor
+            foreach (TagCompound thisTag in list) {
+                if (!thisTag.TryGet("data", out TagCompound data) || data.Count == 0) {
+                    continue;
+                }
+
+                if (thisTag.ContainsKey("unMod") && thisTag.ContainsKey("unName")) {
+                    RecoverLoadTP(thisTag);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 在加载世界时调用，尝试恢复数据
+        /// </summary>
         public static TileProcessor RecoverLoadTP(TagCompound thisTag) {
             Point16 point = new(thisTag.GetShort("X"), thisTag.GetShort("Y"));
-            string unMod = thisTag.GetString("unMod");
-            string unType = thisTag.GetString("unName");
+            if (!thisTag.TryGet("unMod", out string unMod)) {
+                unMod = thisTag.GetString("mod");
+            }
+            if (!thisTag.TryGet("unName", out string unType)) {
+                unType = thisTag.GetString("name");
+            }
             TagCompound data = thisTag.Get<TagCompound>("data");
 
             TileProcessor newTP;
 
-            if (ModLoader.HasMod(unMod)) {
-                int tpID = GetModuleID(GetFullName(unMod, unType));
+            if (TP_FullName_To_ID.TryGetValue(GetFullName(unMod, unType), out int tpID)) {
                 newTP = NewTPInWorld(tpID, point, null);
                 newTP.LoadData(data);
                 return newTP;
+            }
+            else if (ModLoader.HasMod(unMod)){
+                AddInWorld(Framing.GetTileSafely(point).TileType, point, null);
+                return null;
             }
 
             newTP = NewTPInWorld(GetModuleID<UnknowTP>(), point, null);
@@ -84,7 +116,7 @@ namespace InnoVault.TileProcessors
             return new() {
                 ["unMod"] = UnModName,
                 ["unType"] = UnTypeName,
-                ["mod"] = Mod,
+                ["mod"] = Mod.Name,
                 ["name"] = Name,
                 ["X"] = Position.X,
                 ["Y"] = Position.Y,
@@ -96,6 +128,17 @@ namespace InnoVault.TileProcessors
         public override void Draw(SpriteBatch spriteBatch) {
             spriteBatch.Draw(VaultAsset.Unknow.Value, PosInWorld - Main.screenPosition, null
                 , Lighting.GetColor(Position.ToPoint()), 0, Vector2.Zero, 1, SpriteEffects.None, 0);
+            
+        }
+
+        /// <inheritdoc/>
+        public override void FrontDraw(SpriteBatch spriteBatch) {
+            if (!HoverTP) {
+                return;
+            }
+            Vector2 drawPos = PosInWorld - Main.screenPosition;
+            Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, HoverString,
+            drawPos.X, drawPos.Y + 60, Color.AliceBlue, Color.Black, Vector2.Zero, 1f);
         }
 
         /// <inheritdoc/>
@@ -103,6 +146,6 @@ namespace InnoVault.TileProcessors
         /// <inheritdoc/>
         public override void LoadData(TagCompound tag) { }
         /// <inheritdoc/>
-        public override string ToString() => $"Unknow:{GetFullName(UnModName, UnTypeName)}" + $"\nWhoAmI:{WhoAmI}";
+        public override string ToString() => HoverString + $"\nWhoAmI:{WhoAmI}";
     }
 }
