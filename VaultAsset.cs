@@ -41,5 +41,9 @@ namespace InnoVault
         /// 感叹号纹理
         /// </summary>
         public static Asset<Texture2D> AxclamationPoint { get; set; }
+        /// <summary>
+        /// 未知纹理
+        /// </summary>
+        public static Asset<Texture2D> Unknow { get; set; }
     }
 }

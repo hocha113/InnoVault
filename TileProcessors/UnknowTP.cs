@@ -1,4 +1,6 @@
-﻿using Terraria;
+﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
+using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -89,7 +91,13 @@ namespace InnoVault.TileProcessors
                 ["data"] = Data
             };
         }
-        
+
+        /// <inheritdoc/>
+        public override void Draw(SpriteBatch spriteBatch) {
+            spriteBatch.Draw(VaultAsset.Unknow.Value, PosInWorld - Main.screenPosition, null
+                , Lighting.GetColor(Position.ToPoint()), 0, Vector2.Zero, 1, SpriteEffects.None, 0);
+        }
+
         /// <inheritdoc/>
         public override void SaveData(TagCompound tag) { }
         /// <inheritdoc/>
