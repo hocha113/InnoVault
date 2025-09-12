@@ -4,7 +4,7 @@ using static InnoVault.TileProcessors.TileProcessorLoader;
 namespace InnoVault.TileProcessors
 {
     /// <summary>
-    /// 工具类，提供了对 <see cref="TileProcessorLoader"/> 中常用静态函数的快捷访问方式
+    /// 工具类，提供对 <see cref="TileProcessorLoader"/> 中常用静态函数的快捷访问方式
     /// </summary>
     public static class TPUtils
     {
