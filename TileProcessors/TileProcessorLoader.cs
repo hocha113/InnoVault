@@ -1,5 +1,4 @@
 ﻿using InnoVault.GameSystem;
-using InnoVault.PRT;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
@@ -7,7 +6,6 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
-using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
@@ -472,7 +470,7 @@ namespace InnoVault.TileProcessors
         #region Utils
         /// <summary>
         /// 移除对应TP实体在字典中的记录，目前仅在<see cref="TileProcessor.Kill"/>中被使用
-        /// 如果你考虑自行调用，请务必保证自己清楚自己在做什么，在错误的时机中移除活跃实体的字典存据会导致多种问题
+        /// 如果你考虑自行调用，请保证清楚自己在做什么，在错误的时机中移除活跃实体的字典存据会导致多种问题
         /// </summary>
         /// <param name="tp"></param>
         public static void RemoveFromDictionaries(TileProcessor tp) {
