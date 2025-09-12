@@ -1,0 +1,100 @@
+﻿using Terraria;
+using Terraria.DataStructures;
+using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
+using static InnoVault.TileProcessors.TileProcessorLoader;
+
+namespace InnoVault.TileProcessors
+{
+    /// <summary>
+    /// 用于暂存被禁用的模组的TP实体的占位符实体
+    /// </summary>
+    public class UnknowTP : TileProcessor
+    {
+        /// <summary>
+        /// 标识名，和使用 <see cref="UnknowTP"/> 的 <see cref="VaultType.GetFullName(string, string)"/> 返回值相同
+        /// </summary>
+        public const string UnknowTag = "InnoVault/UnknowTP";
+        /// <summary>
+        /// 暂存的模组名
+        /// </summary>
+        public string UnModName { get; set; } = "";
+        /// <summary>
+        /// 暂存的实体名
+        /// </summary>
+        public string UnTypeName { get; set; } = "";
+        /// <summary>
+        /// 暂存的数据
+        /// </summary>
+        public TagCompound Data { get; set; } = [];
+        /// <inheritdoc/>
+        public override bool IsDaed() {
+            //在多人游戏中，不允许客户端自行杀死Tp实体，这些要通过服务器的统一广播来管理
+            if (VaultUtils.isClient) {
+                return false;
+            }
+
+            if (Tile == default(Tile)) {
+                return true;
+            }
+
+            if (!Tile.HasTile) {
+                return true;
+            }
+
+            //删除关于目标物块ID的判定
+            return false;
+        }
+
+        /// <summary>
+        /// 在加载世界时调用，尝试恢复数据
+        /// </summary>
+        public static TileProcessor RecoverLoadTP(TagCompound thisTag) {
+            Point16 point = new(thisTag.GetShort("X"), thisTag.GetShort("Y"));
+            string unMod = thisTag.GetString("unMod");
+            string unType = thisTag.GetString("unName");
+            TagCompound data = thisTag.Get<TagCompound>("data");
+
+            TileProcessor newTP;
+
+            if (ModLoader.HasMod(unMod)) {
+                int tpID = GetModuleID(GetFullName(unMod, unType));
+                newTP = NewTPInWorld(tpID, point, null);
+                newTP.LoadData(data);
+                return newTP;
+            }
+
+            newTP = NewTPInWorld(GetModuleID<UnknowTP>(), point, null);
+            if (newTP is UnknowTP unknowTP) {
+                unknowTP.UnModName = unMod;
+                unknowTP.UnTypeName = unType;
+                unknowTP.Data = data;
+            }
+
+            return newTP;
+        }
+
+        /// <summary>
+        /// 获取这个占位符缓存的具体数据
+        /// </summary>
+        /// <returns></returns>
+        public TagCompound GetData() {
+            return new() {
+                ["unMod"] = UnModName,
+                ["unType"] = UnTypeName,
+                ["mod"] = Mod,
+                ["name"] = Name,
+                ["X"] = Position.X,
+                ["Y"] = Position.Y,
+                ["data"] = Data
+            };
+        }
+        
+        /// <inheritdoc/>
+        public override void SaveData(TagCompound tag) { }
+        /// <inheritdoc/>
+        public override void LoadData(TagCompound tag) { }
+        /// <inheritdoc/>
+        public override string ToString() => $"Unknow:{GetFullName(UnModName, UnTypeName)}" + $"\nWhoAmI:{WhoAmI}";
+    }
+}

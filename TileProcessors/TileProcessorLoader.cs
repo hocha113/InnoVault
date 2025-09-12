@@ -1,4 +1,5 @@
 ﻿using InnoVault.GameSystem;
+using InnoVault.PRT;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
@@ -6,6 +7,7 @@ using System.Reflection;
 using System.Threading.Tasks;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
@@ -172,6 +174,66 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
+        /// 在世界中基于指定的 <see cref="TileProcessor"/> ID，创建并注册一个新的TP实例<br/>
+        /// </summary>
+        /// <param name="tpID">要放置的TP实体的ID</param>
+        /// <param name="position">在世界中的左上角位置（物块坐标）</param>
+        /// <param name="item">用于追踪该实例来源的物品，可以为 <see langword="null"/></param>
+        /// <remarks>
+        /// 本方法只负责实体的创建与注册，不会发送网络同步<br/>
+        /// 在多人游戏环境下，需要在合适时机调用<br/>
+        /// <see cref="TileProcessorNetWork.PlaceInWorldNetSend"/> 主动同步<br/>
+        /// 如果目标位置已经存在同类实例，本方法会覆盖旧实例<br/>
+        /// 如果在一个 Tile 上挂载多个 TP 实例，可能会导致覆盖逻辑出错<br/>
+        /// </remarks>
+        /// <returns>
+        /// 成功创建并注册的 <see cref="TileProcessor"/> 实例<br/>
+        /// 如果超过 <see cref="MaxTPInWorldCount"/> 或创建失败，返回 <see langword="null"/><br/>
+        /// </returns>
+        public static TileProcessor NewTPInWorld(int tpID, Point16 position, Item item) {
+            if (TP_InWorld.Count >= MaxTPInWorldCount) {
+                return null;
+            }
+
+            TileProcessor reset = null;
+
+            TileProcessor newProcessor = TP_ID_To_Instance[tpID].Clone();
+            newProcessor.Position = position;
+            newProcessor.TrackItem = item;
+            newProcessor.Active = true;
+            newProcessor.LoadenTile();
+            newProcessor.SetProperty();
+
+            //在这里实体已经被设置好了，更新一下Map
+            TP_IDAndPoint_To_Instance[(newProcessor.ID, newProcessor.Position)] = newProcessor;//如果实体重叠，那么就会进行覆盖
+            TP_NameAndPoint_To_Instance[(newProcessor.FullName, newProcessor.Position)] = newProcessor;
+            TP_Point_To_Instance[newProcessor.Position] = newProcessor;
+
+            bool add = true;
+            for (int i = 0; i < TP_InWorld.Count; i++) {
+                if (TP_InWorld[i].Active) {
+                    continue;//如果目标的实体槽位是活跃的就跳过
+                }
+
+                newProcessor.WhoAmI = TP_InWorld[i].WhoAmI;
+                TP_InWorld[i] = newProcessor;
+                add = false;
+                reset = newProcessor;
+                break;
+            }
+
+            if (!add) {//如果遍历至末尾也没能找到空闲槽位插入实体，就进行扩容
+                return reset;
+            }
+
+            newProcessor.WhoAmI = TP_InWorld.Count;
+            reset = newProcessor;
+            TP_InWorld.Add(newProcessor);
+
+            return reset;
+        }
+
+        /// <summary>
         /// 向世界中的TP实体列表添加一个新的 <see cref="TileProcessor"/><br/>
         /// 该方法并不发送实体的放置同步信息，需要在合适的情况下自行调用<see cref="TileProcessorNetWork.PlaceInWorldNetSend"/>
         /// </summary>
@@ -201,38 +263,7 @@ namespace InnoVault.TileProcessors
                         continue;
                     }
 
-                    TileProcessor newProcessor = processor.Clone();
-                    newProcessor.Position = position;
-                    newProcessor.TrackItem = item;
-                    newProcessor.Active = true;
-                    newProcessor.LoadenTile();
-                    newProcessor.SetProperty();
-
-                    //在这里实体已经被设置好了，更新一下Map
-                    TP_IDAndPoint_To_Instance[(newProcessor.ID, newProcessor.Position)] = newProcessor;//如果实体重叠，那么就会进行覆盖
-                    TP_NameAndPoint_To_Instance[(newProcessor.FullName, newProcessor.Position)] = newProcessor;
-                    TP_Point_To_Instance[newProcessor.Position] = newProcessor;
-
-                    bool add = true;
-                    for (int i = 0; i < TP_InWorld.Count; i++) {
-                        if (TP_InWorld[i].Active) {
-                            continue;//如果目标的实体槽位是活跃的就跳过
-                        }
-
-                        newProcessor.WhoAmI = TP_InWorld[i].WhoAmI;
-                        TP_InWorld[i] = newProcessor;
-                        add = false;
-                        reset = newProcessor;
-                        break;
-                    }
-
-                    if (!add) {//如果遍历至末尾也没能找到空闲槽位插入实体，就进行扩容
-                        continue;
-                    }
-
-                    newProcessor.WhoAmI = TP_InWorld.Count;
-                    reset = newProcessor;
-                    TP_InWorld.Add(newProcessor);
+                    reset = NewTPInWorld(processor.ID, position, item);
                 }
             }
 
@@ -349,10 +380,17 @@ namespace InnoVault.TileProcessors
         /// </summary>
         /// <param name="tag"></param>
         internal static void SaveWorldData(TagCompound tag) {
-            List<TagCompound> list = new List<TagCompound>();
+            List<TagCompound> list = [];
+
             TagCompound saveData = [];
             foreach (TileProcessor tp in TP_InWorld) {
                 if (tp == null || !tp.Active) {
+                    continue;
+                }
+
+                if (tp.FullName == UnknowTP.UnknowTag && tp is UnknowTP unknowTP) {
+                    saveData = [];
+                    list.Add(unknowTP.GetData());
                     continue;
                 }
 
@@ -369,7 +407,7 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
 
-                TagCompound thisTag = new TagCompound {
+                TagCompound thisTag = new() {
                     ["mod"] = tp?.Mod.Name,
                     ["name"] = tp?.GetType().Name,
                     ["X"] = tp.Position.X,
@@ -410,6 +448,14 @@ namespace InnoVault.TileProcessors
                 if (TP_NameAndPoint_To_Instance.TryGetValue((fullName, point), out TileProcessor tp)) {
                     try {
                         tp.LoadData(data);
+                    } catch (Exception ex) {
+                        VaultMod.LoggerError($"@LoadWorldData-{tp.ID}", $"LoadWorldData: " +
+                            $"An error occurred while trying to save the TP {tp}: {ex.Message}");
+                    }
+                }
+                else {
+                    try {
+                        UnknowTP.RecoverLoadTP(thisTag);
                     } catch (Exception ex) {
                         VaultMod.LoggerError($"@LoadWorldData-{tp.ID}", $"LoadWorldData: " +
                             $"An error occurred while trying to save the TP {tp}: {ex.Message}");
