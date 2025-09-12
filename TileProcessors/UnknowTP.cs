@@ -57,54 +57,15 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 在加载世界时调用，尝试恢复数据
+        /// 在加载世界时调用
         /// </summary>
-        /// <param name="list"></param>
-        public static void FrontHandleRecoverLoadTP(IList<TagCompound> list) {
-            // 遍历标签列表并在字典中查找匹配的 TileProcessor
-            foreach (TagCompound thisTag in list) {
-                if (!thisTag.TryGet("data", out TagCompound data) || data.Count == 0) {
-                    continue;
-                }
-
-                if (thisTag.ContainsKey("unMod") && thisTag.ContainsKey("unName")) {
-                    RecoverLoadTP(thisTag);
-                }
-            }
-        }
-
-        /// <summary>
-        /// 在加载世界时调用，尝试恢复数据
-        /// </summary>
-        public static TileProcessor RecoverLoadTP(TagCompound thisTag) {
-            Point16 point = new(thisTag.GetShort("X"), thisTag.GetShort("Y"));
-            if (!thisTag.TryGet("unMod", out string unMod)) {
-                unMod = thisTag.GetString("mod");
-            }
-            if (!thisTag.TryGet("unName", out string unType)) {
-                unType = thisTag.GetString("name");
-            }
-            TagCompound data = thisTag.Get<TagCompound>("data");
-
-            TileProcessor newTP;
-
-            if (TP_FullName_To_ID.TryGetValue(GetFullName(unMod, unType), out int tpID)) {
-                newTP = NewTPInWorld(tpID, point, null);
-                newTP.LoadData(data);
-                return newTP;
-            }
-            else if (ModLoader.HasMod(unMod)){
-                AddInWorld(Framing.GetTileSafely(point).TileType, point, null);
-                return null;
-            }
-
-            newTP = NewTPInWorld(GetModuleID<UnknowTP>(), point, null);
+        public static TileProcessor Place(TagCompound data, string mod, string name, Point16 point) {
+            TileProcessor newTP = NewTPInWorld(GetModuleID<UnknowTP>(), point, null);
             if (newTP is UnknowTP unknowTP) {
-                unknowTP.UnModName = unMod;
-                unknowTP.UnTypeName = unType;
+                unknowTP.UnModName = mod;
+                unknowTP.UnTypeName = name;
                 unknowTP.Data = data;
             }
-
             return newTP;
         }
 
