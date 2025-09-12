@@ -109,7 +109,7 @@ namespace InnoVault.PRT
             foreach (var prt in PRTInstances) {
                 try {
                     prt.SetStaticDefaults();
-                } catch (Exception ex){
+                } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error(ex);
                 }
             }

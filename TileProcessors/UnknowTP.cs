@@ -1,8 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
-using System.Collections;
-using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
@@ -36,7 +33,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 悬浮查看时应该显示的字符
         /// </summary>
-        public string HoverString => $"Unknow:{GetFullName(UnModName, UnTypeName)}";
+        public string HoverString => GetFullName(UnModName, UnTypeName);
         /// <inheritdoc/>
         public override bool IsDaed() {
             //在多人游戏中，不允许客户端自行杀死Tp实体，这些要通过服务器的统一广播来管理
@@ -89,7 +86,7 @@ namespace InnoVault.TileProcessors
         public override void Draw(SpriteBatch spriteBatch) {
             spriteBatch.Draw(VaultAsset.Unknow.Value, PosInWorld - Main.screenPosition, null
                 , Lighting.GetColor(Position.ToPoint()), 0, Vector2.Zero, 1, SpriteEffects.None, 0);
-            
+
         }
 
         /// <inheritdoc/>

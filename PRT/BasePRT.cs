@@ -128,14 +128,14 @@ namespace InnoVault.PRT
         /// 封闭内容
         /// </summary>
         protected sealed override void Register() {
-            
+
         }
 
         /// <summary>
         /// 加载内容
         /// </summary>
         public sealed override void SetupContent() {
-            
+
         }
 
         //因为粒子在设计理念中会包含含参数构造函数，这些会让默认的 Register 自动加载钩子无法捕获实例，所以这里自己写一个子类型捕获
