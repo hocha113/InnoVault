@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.IO;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
@@ -97,6 +98,18 @@ namespace InnoVault.TileProcessors
             Vector2 drawPos = PosInWorld - Main.screenPosition;
             Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, HoverString,
             drawPos.X, drawPos.Y + 60, Color.AliceBlue, Color.Black, Vector2.Zero, 1f);
+        }
+
+        //发送一下卸载名，以避免客户端只能看到斜杠，至于Data就不用发送了，客户端不保存存档数据
+        /// <inheritdoc/>
+        public override void SendData(ModPacket data) {
+            data.Write(UnModName);
+            data.Write(UnTypeName);
+        }
+        /// <inheritdoc/>
+        public override void ReceiveData(BinaryReader reader, int whoAmI) {
+            UnModName = reader.ReadString();
+            UnTypeName = reader.ReadString();
         }
 
         /// <inheritdoc/>
