@@ -240,6 +240,34 @@ namespace InnoVault.GameSystem
             }
         }
         /// <summary>
+        /// 将传入的 <see cref="TagCompound"/> 数据直接保存到 zip 文件中
+        /// zip 内部包含一个单独的 NBT 文件（默认命名为 "data.nbt"）
+        /// 如果路径所处的目录不存在则自动创建
+        /// </summary>
+        public static void SaveTagToZip(TagCompound tag, string zipPath) {
+            try {
+                var dir = Path.GetDirectoryName(zipPath);
+                if (!string.IsNullOrEmpty(dir)) {
+                    Directory.CreateDirectory(dir);
+                }
+
+                if (File.Exists(zipPath)) {
+                    File.Delete(zipPath);//避免旧文件冲突
+                }
+
+                using FileStream zipStream = new(zipPath, FileMode.Create);
+                using var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Create);
+
+                //在 zip 内部创建一个 NBT 文件 (名字可自定义)
+                var entry = archive.CreateEntry(Path.GetFileNameWithoutExtension(zipPath) + ".nbt", System.IO.Compression.CompressionLevel.Optimal);
+
+                using var entryStream = entry.Open();
+                TagIO.ToStream(tag, entryStream);//直接写入 zip 内的 entry
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"[SaveTagToZip] Failed to save NBT into zip: {ex}");
+            }
+        }
+        /// <summary>
         /// 获取该存储对象所拥有的根标签，用于表达NBT存储内容
         /// </summary>
         /// <param name="rootTag"></param>
