@@ -244,7 +244,7 @@ namespace InnoVault.GameSystem
         /// zip 内部包含一个单独的 NBT 文件（默认命名为 "data.nbt"）
         /// 如果路径所处的目录不存在则自动创建
         /// </summary>
-        public static void SaveTagToZip(TagCompound tag, string zipPath) {
+        public static void SaveTagToZip(TagCompound tag, string zipPath, bool addTimeStamp = false) {
             try {
                 var dir = Path.GetDirectoryName(zipPath);
                 if (!string.IsNullOrEmpty(dir)) {
@@ -253,6 +253,14 @@ namespace InnoVault.GameSystem
 
                 if (File.Exists(zipPath)) {
                     File.Delete(zipPath);//避免旧文件冲突
+                }
+
+                if (addTimeStamp) {//在清除了旧文件后再插入时间戳
+                    string fileNameWithoutExt = Path.GetFileNameWithoutExtension(zipPath);
+                    string ext = Path.GetExtension(zipPath);
+                    string timeStamp = VaultUtils.GetTimeStamp();
+                    string newFileName = $"{timeStamp}-{fileNameWithoutExt}{ext}";
+                    zipPath = Path.Combine(dir ?? string.Empty, newFileName);
                 }
 
                 using FileStream zipStream = new(zipPath, FileMode.Create);

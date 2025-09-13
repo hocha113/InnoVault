@@ -384,6 +384,11 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 获取当前时间戳字符串（格式：yyyy-MM-dd）
+        /// </summary>
+        public static string GetTimeStamp() => DateTime.Now.ToString("yyyy-MM-dd");
+
+        /// <summary>
         /// 生成乱码字符串
         /// </summary>
         /// <param name="length"></param>

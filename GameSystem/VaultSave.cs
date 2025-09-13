@@ -89,7 +89,7 @@ namespace InnoVault.GameSystem
             TryDo(() => {
                 SaveWorld.DoSave();
                 if (TagCache.TryGet(SaveWorld.GetInstance<SaveWorld>().SavePath, out var tag)) {
-                    SaveWorld.SaveTagToZip(tag, SaveWorld.BackupPath);
+                    SaveWorld.SaveTagToZip(tag, SaveWorld.BackupPath, true);
                 }
             }, "[SaveWorld] Failed to save world data");
             TryDo(SaveTileProcessors, "[SaveWorld] Failed to save TileProcessor data");
@@ -108,7 +108,7 @@ namespace InnoVault.GameSystem
             TagCompound tpTag = SaveMod.TryLoadRootTag(SaveWorld.SaveTPDataPath, out var existingTag) ? existingTag : [];
             TileProcessorLoader.SaveWorldData(tpTag);
             SaveMod.SaveTagToFile(tpTag, SaveWorld.SaveTPDataPath);
-            SaveMod.SaveTagToZip(tpTag, SaveWorld.BackupTPDataPath);
+            SaveMod.SaveTagToZip(tpTag, SaveWorld.BackupTPDataPath, true);
         }
         //读取TP实体存储的NBT数据，并将其赋值给ActiveWorldTagData用于后续加载读取
         //TP实体真正加载数据在步骤WorldGen.Hooks.OnWorldLoad中，运行在该加载钩子之后
