@@ -221,8 +221,6 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 将传入的 <see cref="TagCompound"/> 数据写入指定路径的 NBT 文件
         /// 如果路径所处的目录不存在则自动创建
-        /// 使用 <see cref="TagIO.ToStream"/> 进行序列化并压缩写入
-        /// 在写入过程中如出现异常会记录错误日志
         /// </summary>
         public static void SaveTagToFile(TagCompound tag, string path) {
             try {
@@ -241,7 +239,6 @@ namespace InnoVault.GameSystem
         }
         /// <summary>
         /// 将传入的 <see cref="TagCompound"/> 数据直接保存到 zip 文件中
-        /// zip 内部包含一个单独的 NBT 文件（默认命名为 "data.nbt"）
         /// 如果路径所处的目录不存在则自动创建
         /// </summary>
         public static void SaveTagToZip(TagCompound tag, string zipPath, bool addTimeStamp = false) {
