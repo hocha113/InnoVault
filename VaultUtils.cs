@@ -19,6 +19,7 @@ using Terraria.Audio;
 using Terraria.Chat;
 using Terraria.DataStructures;
 using Terraria.GameContent;
+using Terraria.GameContent.Events;
 using Terraria.GameContent.ItemDropRules;
 using Terraria.GameInput;
 using Terraria.ID;
@@ -215,6 +216,77 @@ namespace InnoVault
         /// <param name="theta"></param>
         /// <returns></returns>
         public static Vector2 RodingToVer(float radius, float theta) => theta.ToRotationVector2() * radius;
+
+        /// <summary>
+        /// 随机生成一个二维向量，长度在指定的整数区间 [min, max) 内<br/>
+        /// 向量方向均匀分布在单位圆上
+        /// </summary>
+        /// <param name="min">向量最小长度（包含）</param>
+        /// <param name="max">向量最大长度（不包含）</param>
+        /// <returns>随机向量</returns>
+        public static Vector2 RandVr(int min, int max) {
+            return Main.rand.NextVector2Unit() * Main.rand.Next(min, max);
+        }
+
+        /// <summary>
+        /// 随机生成一个二维向量，长度在 [0, max) 的整数范围内<br/>
+        /// 向量方向均匀分布在单位圆上
+        /// </summary>
+        /// <param name="max">向量最大长度（不包含）</param>
+        /// <returns>随机向量</returns>
+        public static Vector2 RandVr(int max) {
+            return Main.rand.NextVector2Unit() * Main.rand.Next(0, max);
+        }
+
+        /// <summary>
+        /// 随机生成一个二维向量，长度在指定的浮点区间 [min, max) 内<br/>
+        /// 向量方向均匀分布在单位圆上
+        /// </summary>
+        /// <param name="min">向量最小长度（包含）</param>
+        /// <param name="max">向量最大长度（不包含）</param>
+        /// <returns>随机向量</returns>
+        public static Vector2 RandVr(float min, float max) {
+            return Main.rand.NextVector2Unit() * Main.rand.NextFloat(min, max);
+        }
+
+        /// <summary>
+        /// 随机生成一个二维向量，长度在 [0, max) 的浮点范围内<br/>
+        /// 向量方向均匀分布在单位圆上
+        /// </summary>
+        /// <param name="max">向量最大长度（不包含）</param>
+        /// <returns>随机向量</returns>
+        public static Vector2 RandVr(float max) {
+            return Main.rand.NextVector2Unit() * Main.rand.NextFloat(0, max);
+        }
+
+        /// <summary>
+        /// 将角度（弧度制）转换为 [0, 1) 的归一化值<br/>
+        /// 输入角度可为负数，返回值表示角度在单位圆上的位置比例<br/>
+        /// 例如：0 → 0，π → 0.5，2π → 0
+        /// </summary>
+        /// <param name="radian">输入的角度（弧度制）</param>
+        /// <returns>角度归一化后对应的比例（范围 [0, 1)）</returns>
+        public static float GetCorrectRadian(float radian) {
+            return radian < 0
+                ? (MathHelper.TwoPi + radian) / MathHelper.TwoPi
+                : radian / MathHelper.TwoPi;
+        }
+
+        /// <summary>
+        /// 在指定角度范围内生成一个随机方向的向量，并返回指定长度<br/>
+        /// 注意：输入的角度为 <b>度数</b> 而非弧度<br/>
+        /// 例如：输入 (0, 90, 10)，则返回在第一象限内的一个长度为 10 的随机向量
+        /// </summary>
+        /// <param name="startAngle">起始角度（度数）</param>
+        /// <param name="endAngle">结束角度（度数）</param>
+        /// <param name="length">返回向量的长度</param>
+        /// <returns>在角度区间内的随机方向向量</returns>
+        public static Vector2 RandVrInAngleRange(float startAngle, float endAngle, float length) {
+            float range = endAngle - startAngle;
+            float angleRad = (startAngle + Main.rand.NextFloat() * range) * MathHelper.Pi / 180f;
+
+            return new Vector2(MathF.Cos(angleRad), MathF.Sin(angleRad)) * length;
+        }
 
         /// <summary>
         /// 色彩混合
@@ -1462,6 +1534,17 @@ namespace InnoVault
         public static bool IsAprilFoolsDay => DateTime.Now.Month == 4 && DateTime.Now.Day == 1;
 
         /// <summary>
+        /// 是否处于入侵期间的事件缓存<br/>
+        /// 外部模组可以自行添加更多额外判定，但务必做好维护
+        /// </summary>
+        public static event Func<bool> InvasionEvent = () => Main.invasionType > 0 || Main.pumpkinMoon || Main.snowMoon || DD2Event.Ongoing;
+
+        /// <summary>
+        /// 是否处于入侵期间
+        /// </summary>
+        public static bool IsInvasion() => InvasionEvent.Invoke();
+
+        /// <summary>
         /// 获取生成源
         /// </summary>
         public static IEntitySource FromObjectGetParent(this object obj) {
@@ -1495,6 +1578,117 @@ namespace InnoVault
         public static Point16 GetPoint16(this TagCompound tag, string key) => tag.Get<Point16>(key);
         /// <inheritdoc cref="TagCompound.Get{T}(string)" />
         public static RegionSaveData GetRegionSaveData(this TagCompound tag, string key = "region") => RegionSaveData.FromTag(tag.Get<TagCompound>(key));
+
+        /// <summary>
+        /// 调整武器的最终伤害数值  
+        /// </summary>
+        /// <param name="item">需要修改的物品实例</param>
+        /// <param name="currentDamage">当前设定的伤害值</param>
+        /// <param name="baseDamage">最初记录的基础伤害值</param>
+        /// <param name="damage">引用传入的 <see cref="StatModifier"/>，将被直接修改</param>
+        public static void ApplyWeaponDamageScaling(Item item, int currentDamage, int baseDamage, ref StatModifier damage) {
+            //保留原始的乘法系数，用于后续修正
+            float oldMultiplicative = damage.Multiplicative;
+            //按当前与基础伤害比率缩放
+            damage *= currentDamage / (float)baseDamage;
+            //抵消掉旧的乘法系数，避免重复叠加
+            damage /= oldMultiplicative;
+            //校正因部分模组后置修改造成的基础偏差
+            damage *= baseDamage / (float)item.damage;
+            //应用物品前缀的伤害修正
+            damage *= item.GetPrefixState().damageMult;
+        }
+
+        /// <summary>
+        /// 调整武器的最终击退数值 
+        /// </summary>
+        /// <param name="item">需要修改的物品实例</param>
+        /// <param name="currentKnockback">当前设定的击退值</param>
+        /// <param name="baseKnockback">最初记录的基础击退值</param>
+        /// <param name="knockback">引用传入的 <see cref="StatModifier"/>，将被直接修改</param>
+        public static void ApplyWeaponKnockbackScaling(Item item, float currentKnockback, float baseKnockback, ref StatModifier knockback) {
+            //按当前与基础击退比率缩放
+            knockback *= currentKnockback / baseKnockback;
+            //校正因部分模组后置修改造成的基础偏差
+            knockback *= baseKnockback / item.knockBack;
+            //应用物品前缀的击退修正
+            knockback *= item.GetPrefixState().knockbackMult;
+        }
+
+        /// <summary>
+        /// 将 <see cref="ModKeybind"/> 转换为可读字符串，用于在物品提示中显示玩家的实际按键绑定<br/>
+        /// 支持多重绑定，以 “/” 分隔显示
+        /// </summary>
+        /// <param name="keybind">目标 ModKeybind</param>
+        /// <param name="noneTip">无绑定时使用的占位符内容，默认为 [NONE] </param>
+        /// <returns>格式化后的绑定字符串</returns>
+        public static string ToTooltipString(this ModKeybind keybind, string noneTip = "[NONE]") {
+            if (Main.dedServ || keybind == null) {
+                return string.Empty;
+            }
+
+            List<string> assignedKeys = keybind.GetAssignedKeys();
+            return (assignedKeys == null || assignedKeys.Count == 0) ? noneTip : string.Join(" / ", assignedKeys);
+        }
+
+        /// <summary>
+        /// 在 <see cref="TooltipLine"/> 列表中，将占位符关键字替换为指定热键的实际绑定<br/>
+        /// 可用于动态更新物品描述中的按键信息
+        /// </summary>
+        /// <param name="tooltips">待修改的 TooltipLine 列表</param>
+        /// <param name="keybind">ModKeybind 实例</param>
+        /// <param name="placeholder">占位符关键字（默认为 "[KEY]"）</param>
+        /// <param name="noneTip">无绑定时使用的占位符内容，默认为 [NONE] </param>
+        /// <param name="filterMod">若指定，仅替换来自该 Mod 的 TooltipLine</param>
+        public static void InsertHotkeyBinding(this IList<TooltipLine> tooltips, ModKeybind keybind
+            , string placeholder = "[KEY]", string noneTip = "[NONE]", string filterMod = null) {
+            if (Main.dedServ || keybind == null || tooltips == null || tooltips.Count == 0) {
+                return;
+            }
+
+            string bindingText = keybind.ToTooltipString(noneTip);
+            tooltips.ReplacePlaceholder(placeholder, bindingText, filterMod);
+        }
+
+        /// <summary>
+        /// 遍历 <see cref="TooltipLine"/> 列表，将包含指定占位符的文本替换为目标内容<br/>
+        /// 可通过 modName 参数限制作用范围
+        /// </summary>
+        /// <param name="tooltips">TooltipLine 集合</param>
+        /// <param name="placeholder">要查找的占位符</param>
+        /// <param name="replacement">替换内容</param>
+        /// <param name="modName">若不为空，仅替换来自该 Mod 的行</param>
+        public static void ReplacePlaceholder(this IList<TooltipLine> tooltips, string placeholder, string replacement, string modName = null) {
+            if (tooltips == null || string.IsNullOrEmpty(placeholder)) {
+                return;
+            }
+
+            for (int i = 0; i < tooltips.Count; i++) {
+                TooltipLine line = tooltips[i];
+                if (!string.IsNullOrEmpty(modName) && !string.Equals(line.Mod, modName, StringComparison.OrdinalIgnoreCase)) {
+                    continue;
+                }
+
+                if (line.Text?.Contains(placeholder) == true) {
+                    line.Text = line.Text.Replace(placeholder, replacement ?? string.Empty);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 赋予玩家无敌状态，这个函数与<see cref="Player.SetImmuneTimeForAllTypes(int)"/>类似
+        /// </summary>
+        /// <param name="player">要赋予无敌状态的玩家</param>
+        /// <param name="time">无敌的帧数</param>
+        /// <param name="blink">是否允许玩家在无敌状态下闪烁默认为 false</param>
+        public static void GivePlayerImmuneState(this Player player, int time, bool blink = false) {
+            player.immuneNoBlink = !blink;
+            player.immune = true;
+            player.immuneTime = time;
+            for (int k = 0; k < player.hurtCooldowns.Length; k++) {
+                player.hurtCooldowns[k] = player.immuneTime;
+            }
+        }
 
         /// <summary>
         /// 获取源 NPC ID
