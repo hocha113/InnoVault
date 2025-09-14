@@ -1537,12 +1537,26 @@ namespace InnoVault
         /// 是否处于入侵期间的事件缓存<br/>
         /// 外部模组可以自行添加更多额外判定，但务必做好维护
         /// </summary>
-        public static event Func<bool> InvasionEvent = () => Main.invasionType > 0 || Main.pumpkinMoon || Main.snowMoon || DD2Event.Ongoing;
+        public static event Func<bool> InvasionEvent;
 
         /// <summary>
         /// 是否处于入侵期间
         /// </summary>
-        public static bool IsInvasion() => InvasionEvent.Invoke();
+        public static bool IsInvasion() {
+            bool baseCheck = Main.invasionType > 0 || Main.pumpkinMoon || Main.snowMoon || DD2Event.Ongoing;
+
+            if (InvasionEvent is null) {
+                return baseCheck;
+            }
+
+            foreach (Func<bool> check in InvasionEvent.GetInvocationList().Cast<Func<bool>>()) {
+                if (check()) {
+                    return true;//任意一个 true 就算 true
+                }
+            }
+
+            return baseCheck;
+        }
 
         /// <summary>
         /// 获取生成源
