@@ -382,7 +382,7 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            if (TryFetchByID(npc.type, out var npcOverrides)) {
+            if (npc.TryGetOverride(out var npcOverrides)) {
                 bool reset = true;
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
                     if (!npcOverrideInstance.FindFrame(frameHeight)) {
