@@ -2253,9 +2253,9 @@ namespace InnoVault
                 return false;
             }
             if (!globalInstance.NPCOverrides.TryGetValue(typeof(T), out var value2)) {
-                value = value2 as T;
                 return false;
             }
+            value = value2 as T;
             return value != null;
         }
 
