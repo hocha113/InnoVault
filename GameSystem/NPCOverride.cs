@@ -258,6 +258,11 @@ namespace InnoVault.GameSystem
         /// <param name="modifiers"></param>
         public virtual void ModifyHitByProjectile(Projectile projectile, ref NPC.HitModifiers modifiers) { }
         /// <summary>
+        /// 更新NPC的帧数据，返回 <see langword="false"/> 可以阻止后续逻辑运行
+        /// </summary>
+        /// <param name="frameHeight"></param>
+        public virtual bool FindFrame(int frameHeight) { return true; }
+        /// <summary>
         /// 修改绘制
         /// </summary>
         /// <param name="spriteBatch"></param>

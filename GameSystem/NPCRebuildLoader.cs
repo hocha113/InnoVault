@@ -23,12 +23,14 @@ namespace InnoVault.GameSystem
         public delegate void On_DrawDelegate2(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor);
         public delegate void On_OnHitByProjectileDelegate(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone);
         public delegate void On_ModifyIncomingHitDelegate(NPC npc, ref NPC.HitModifiers modifiers);
+        public delegate void On_FindFrameDelegate(NPC npc, int frameHeight);
         public delegate void On_NPCSetDefaultDelegate();
         public static event On_NPCDelegate PreSetDefaultsEvent;
         public static event On_NPCDelegate PostSetDefaultsEvent;
         public static Type npcLoaderType;
         public static MethodInfo onHitByProjectile_Method;
         public static MethodInfo modifyIncomingHit_Method;
+        public static MethodInfo onFindFrame_Method;
         public static MethodInfo onNPCAI_Method;
         public static MethodInfo onPreKill_Method;
         public static MethodInfo onPreDraw_Method;
@@ -53,6 +55,7 @@ namespace InnoVault.GameSystem
             npcLoaderType = null;
             onHitByProjectile_Method = null;
             modifyIncomingHit_Method = null;
+            onFindFrame_Method = null;
             onNPCAI_Method = null;
             onPreKill_Method = null;
             onPreDraw_Method = null;
@@ -98,7 +101,9 @@ namespace InnoVault.GameSystem
             bool result = true;
             if (npc.TryGetOverride(out var values)) {
                 foreach (var value in values.Values) {
-                    result = value.CheckActive();
+                    if (!value.CheckActive()) {
+                        result = false;
+                    }
                 }
             }
             return result;
@@ -133,7 +138,7 @@ namespace InnoVault.GameSystem
 
         private static void DompLog(string name) => VaultMod.Instance.Logger.Info($"ERROR:Fail To Load! {name} Is Null!");
 
-        private void LoaderMethodAndHook() {
+        private static void LoaderMethodAndHook() {
             {
                 onHitByProjectile_Method = GetMethodInfo("OnHitByProjectile");
                 if (onHitByProjectile_Method != null) {
@@ -150,6 +155,15 @@ namespace InnoVault.GameSystem
                 }
                 else {
                     DompLog("modifyIncomingHit_Method");
+                }
+            }
+            {
+                onFindFrame_Method = GetMethodInfo("FindFrame");
+                if (onFindFrame_Method != null) {
+                    VaultHook.Add(onFindFrame_Method, OnFindFrameHook);
+                }
+                else {
+                    DompLog("onFindFrame_Method");
                 }
             }
             {
@@ -207,7 +221,10 @@ namespace InnoVault.GameSystem
             if (npc.TryGetOverride(out var npcOverrides)) {
                 bool? result = null;
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
-                    result = npcOverrideInstance.On_PreKill();
+                    bool? newResult = npcOverrideInstance.On_PreKill();
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
 
                 if (result.HasValue) {
@@ -226,7 +243,10 @@ namespace InnoVault.GameSystem
             if (npc.TryGetOverride(out var npcOverrides)) {
                 bool? result = null;
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
-                    result = npcOverrideInstance.CheckDead();
+                    bool? newResult = npcOverrideInstance.CheckDead();
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
 
                 if (result.HasValue) {
@@ -246,7 +266,9 @@ namespace InnoVault.GameSystem
                 bool result = true;
                 int type = npc.type;
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
-                    result = npcOverrideInstance.AI();
+                    if (!npcOverrideInstance.AI()) {
+                        result = false;
+                    }
                     npcOverrideInstance.DoNetWork();
                 }
                 npc.type = type;
@@ -270,7 +292,10 @@ namespace InnoVault.GameSystem
             if (npc.TryGetOverride(out var npcOverrides)) {
                 bool? result = null;
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
-                    result = npcOverrideInstance.Draw(spriteBatch, screenPos, drawColor);
+                    bool? newResult = npcOverrideInstance.Draw(spriteBatch, screenPos, drawColor);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
@@ -292,7 +317,9 @@ namespace InnoVault.GameSystem
             if (npc.TryGetOverride(out var npcOverrides)) {
                 bool result = true;
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
-                    result = npcOverrideInstance.PostDraw(spriteBatch, screenPos, drawColor);
+                    if (!npcOverrideInstance.PostDraw(spriteBatch, screenPos, drawColor)) {
+                        result = false;
+                    }
                 }
                 if (!result) {
                     return;
@@ -302,7 +329,7 @@ namespace InnoVault.GameSystem
             orig.Invoke(npc, spriteBatch, screenPos, drawColor);
         }
 
-        public void OnHitByProjectileHook(On_OnHitByProjectileDelegate orig, NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone) {
+        public static void OnHitByProjectileHook(On_OnHitByProjectileDelegate orig, NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone) {
             foreach (var inds in Instances) {
                 if (inds.TargetID != NPCID.None && inds.TargetID != npc.type) {
                     continue;
@@ -327,7 +354,7 @@ namespace InnoVault.GameSystem
             orig.Invoke(npc, projectile, hit, damageDone);
         }
 
-        public void ModifyIncomingHitHook(On_ModifyIncomingHitDelegate orig, NPC npc, ref NPC.HitModifiers modifiers) {
+        public static void ModifyIncomingHitHook(On_ModifyIncomingHitDelegate orig, NPC npc, ref NPC.HitModifiers modifiers) {
             foreach (var inds in Instances) {
                 if (inds.TargetID != NPCID.None && inds.TargetID != npc.type) {
                     continue;
@@ -347,6 +374,27 @@ namespace InnoVault.GameSystem
             }
 
             orig.Invoke(npc, ref modifiers);
+        }
+
+        public static void OnFindFrameHook(On_FindFrameDelegate orig, NPC npc, int frameHeight) {
+            if (npc.type == NPCID.None || !npc.active) {
+                orig.Invoke(npc, frameHeight);
+                return;
+            }
+
+            if (TryFetchByID(npc.type, out var npcOverrides)) {
+                bool reset = true;
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    if (!npcOverrideInstance.FindFrame(frameHeight)) {
+                        reset = false;
+                    }
+                }
+                if (!reset) {
+                    return;
+                }
+            }
+
+            orig.Invoke(npc, frameHeight);
         }
 #pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
     }
