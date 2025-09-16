@@ -44,12 +44,14 @@ namespace InnoVault.GameSystem
             npcLoaderType = typeof(NPCLoader);
             Instances ??= [];
             ByID ??= [];
+            UniversalInstances ??= [];
             LoaderMethodAndHook();
         }
 
         void IVaultLoader.UnLoadData() {
             Instances?.Clear();
             ByID?.Clear();
+            UniversalInstances?.Clear();
             PreSetDefaultsEvent = null;
             PostSetDefaultsEvent = null;
             npcLoaderType = null;
@@ -363,18 +365,25 @@ namespace InnoVault.GameSystem
 
         public static void OnNPCAIHook(On_NPCDelegate orig, NPC npc) {
             if (npc.type == NPCID.None || !npc.active) {
+                try {
+                    orig.Invoke(npc);
+                } catch {
+                    npc.active = false;
+                }
                 return;
             }
 
             if (npc.TryGetOverride(out var npcOverrides)) {
                 bool result = true;
                 int type = npc.type;
+
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
                     if (!npcOverrideInstance.AI()) {
                         result = false;
                     }
                     npcOverrideInstance.DoNetWork();
                 }
+
                 npc.type = type;
                 if (!result) {
                     return;
@@ -390,27 +399,25 @@ namespace InnoVault.GameSystem
 
         public static bool OnPreDrawHook(On_DrawDelegate orig, NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {
             if (npc.type == NPCID.None || !npc.active) {
-                return false;
+                return orig.Invoke(npc, spriteBatch, screenPos, drawColor);
             }
 
             if (npc.TryGetOverride(out var npcOverrides)) {
                 bool? result = null;
+
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
                     bool? newResult = npcOverrideInstance.Draw(spriteBatch, screenPos, drawColor);
                     if (newResult.HasValue) {
                         result = newResult.Value;
                     }
                 }
+
                 if (result.HasValue) {
                     return result.Value;
                 }
             }
 
-            try {
-                return orig.Invoke(npc, spriteBatch, screenPos, drawColor);
-            } catch {
-                return true;
-            }
+            return orig.Invoke(npc, spriteBatch, screenPos, drawColor);
         }
 
         public static void OnPostDrawHook(On_DrawDelegate2 orig, NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {
@@ -434,24 +441,27 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnHitByProjectileHook(On_OnHitByProjectileDelegate orig, NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone) {
-            foreach (var inds in Instances) {
-                if (inds.TargetID != NPCID.None && inds.TargetID != npc.type) {
+            if (npc.TryGetOverride(out var npcOverrides)) {
+                foreach (var inds in npcOverrides.Values) {
+                    if (!inds.DoHitByProjectileByInstance(projectile, in hit, damageDone)) {
+                        return;
+                    }
+                }
+            }
+
+            foreach (var inds in Instances) {//临时性，后面删
+                if (inds.TargetID != NPCID.None) {
                     continue;
                 }
 
-                bool? shouldOverride = null;
-                if (inds.On_OnHitByProjectile_IfSpan(projectile)) {
-                    shouldOverride = inds.On_OnHitByProjectile(npc, projectile, hit, damageDone);
+                if (!inds.DoHitByProjectileByInstance(projectile, in hit, damageDone)) {
+                    return;
                 }
+            }
 
-                if (shouldOverride.HasValue) {
-                    if (shouldOverride.Value) {
-                        npc.ModNPC?.OnHitByProjectile(projectile, hit, damageDone);
-                        return;
-                    }
-                    else {
-                        return;
-                    }
+            foreach (var inds in UniversalInstances) {
+                if (!inds.DoHitByProjectileByInstance(projectile, in hit, damageDone)) {
+                    return;
                 }
             }
 
@@ -459,21 +469,27 @@ namespace InnoVault.GameSystem
         }
 
         public static void ModifyIncomingHitHook(On_ModifyIncomingHitDelegate orig, NPC npc, ref NPC.HitModifiers modifiers) {
-            foreach (var inds in Instances) {
-                if (inds.TargetID != NPCID.None && inds.TargetID != npc.type) {
+            if (npc.TryGetOverride(out var npcOverrides)) {
+                foreach (var inds in npcOverrides.Values) {
+                    if (!inds.DoModifyIncomingHitByInstance(ref modifiers)) {
+                        return;
+                    }
+                }
+            }
+
+            foreach (var inds in Instances) {//临时性，后面删
+                if (inds.TargetID != NPCID.None) {
                     continue;
                 }
 
-                bool? shouldOverride = inds.On_ModifyIncomingHit(npc, ref modifiers);
+                if (!inds.DoModifyIncomingHitByInstance(ref modifiers)) {
+                    return;
+                }
+            }
 
-                if (shouldOverride.HasValue) {
-                    if (shouldOverride.Value) {
-                        npc.ModNPC?.ModifyIncomingHit(ref modifiers);
-                        return;
-                    }
-                    else {
-                        return;
-                    }
+            foreach (var inds in UniversalInstances) {
+                if (!inds.DoModifyIncomingHitByInstance(ref modifiers)) {
+                    return;
                 }
             }
 

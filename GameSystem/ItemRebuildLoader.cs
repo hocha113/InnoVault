@@ -325,10 +325,8 @@ namespace InnoVault.GameSystem
                 }
             }
 
-            if (UniversalInstances.Count > 0) {
-                foreach (var inds in UniversalInstances) {
-                    inds.ModifyName(item, ref result);
-                }
+            foreach (var inds in UniversalInstances) {
+                inds.ModifyName(item, ref result);
             }
 
             if (result != string.Empty) {
@@ -355,10 +353,8 @@ namespace InnoVault.GameSystem
                 }
             }
 
-            if (UniversalInstances.Count > 0) {
-                foreach (var inds in UniversalInstances) {
-                    inds.ModifyAffixName(item, ref result);
-                }
+            foreach (var inds in UniversalInstances) {
+                inds.ModifyAffixName(item, ref result);
             }
 
             if (result != string.Empty) {

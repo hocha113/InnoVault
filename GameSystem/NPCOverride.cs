@@ -6,6 +6,7 @@ using System.IO;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.WorldBuilding;
 using static InnoVault.VaultNetWork;
 
 namespace InnoVault.GameSystem
@@ -24,6 +25,10 @@ namespace InnoVault.GameSystem
         /// 一个字典，可以根据目标ID来获得对应的修改实例
         /// </summary>
         public static Dictionary<int, Dictionary<Type, NPCOverride>> ByID { get; internal set; } = [];
+        /// <summary>
+        /// 所有负指向的实例集合，只包含<see cref="TargetID"/>为 -1 的实例
+        /// </summary>
+        public static List<NPCOverride> UniversalInstances { get; internal set; } = [];
         /// <summary>
         /// 要修改的NPC的ID值
         /// </summary>
@@ -100,13 +105,14 @@ namespace InnoVault.GameSystem
 
             SetStaticDefaults();
 
-            if (TargetID <= ItemID.None) {
-                return;
+            if (TargetID > ItemID.None) {
+                //嵌套字典需要提前挖坑
+                ByID.TryAdd(TargetID, []);
+                ByID[TargetID][GetType()] = this;
             }
-
-            //嵌套字典需要提前挖坑
-            ByID.TryAdd(TargetID, []);
-            ByID[TargetID][GetType()] = this;
+            else if (TargetID == -1) {
+                UniversalInstances.Add(this);
+            }
         }
         /// <summary>
         /// 寻找对应NPC实例的重载实例
@@ -177,6 +183,20 @@ namespace InnoVault.GameSystem
         public virtual bool? On_ModifyIncomingHit(NPC npc, ref NPC.HitModifiers modifiers) {
             return null;
         }
+        //用于调用针对实例的On_ModifyIncomingHit
+        internal bool DoModifyIncomingHitByInstance(ref NPC.HitModifiers modifiers) {
+            bool? shouldOverride = On_ModifyIncomingHit(npc, ref modifiers);
+
+            if (!shouldOverride.HasValue) {
+                return true;
+            }
+
+            if (shouldOverride.Value) {
+                npc.ModNPC?.ModifyIncomingHit(ref modifiers);
+            }
+
+            return false;
+        }
         /// <summary>
         /// 用于覆盖NPC的弹幕受击行为
         /// </summary>
@@ -189,6 +209,23 @@ namespace InnoVault.GameSystem
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool? On_OnHitByProjectile(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone) {
             return null;
+        }
+        //用于调用针对实例的On_OnHitByProjectile
+        internal bool DoHitByProjectileByInstance(Projectile projectile, in NPC.HitInfo hit, int damageDone) {
+            bool? shouldOverride = null;
+            if (On_OnHitByProjectile_IfSpan(projectile)) {
+                shouldOverride = On_OnHitByProjectile(npc, projectile, hit, damageDone);
+            }
+
+            if (!shouldOverride.HasValue) {
+                return true;
+            }
+
+            if (shouldOverride.Value) {
+                npc.ModNPC?.OnHitByProjectile(projectile, hit, damageDone);
+            }
+
+            return false;
         }
         /// <summary>
         /// 用于覆盖NPC的物品受击行为
