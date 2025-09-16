@@ -141,6 +141,14 @@ namespace InnoVault.GameSystem
             return null;
         }
 
+        public override void ModifyHoverBoundingBox(NPC npc, ref Rectangle boundingBox) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.ModifyHoverBoundingBox(ref boundingBox);
+                }
+            }
+        }
+
         public override void ModifyNPCLoot(NPC npc, NPCLoot npcLoot) {
             //不要用TryFetchByID或者直接访问NPCOverride
             if (ByID.TryGetValue(npc.type, out var values)) {

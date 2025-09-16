@@ -246,6 +246,10 @@ namespace InnoVault.GameSystem
         /// <param name="position"></param>
         public virtual bool? DrawHealthBar(byte hbPosition, ref float scale, ref Vector2 position) { return null; }
         /// <summary>
+        /// 修改NPC的鼠标悬浮碰撞判定
+        /// </summary>
+        public virtual void ModifyHoverBoundingBox(ref Rectangle boundingBox) { }
+        /// <summary>
         /// 编辑NPC的掉落，注意，这个方法不会被生物AI设置阻止，如果需要使用NPC实例，必须使用给出的参数thisNPC，而不是尝试访问<see cref="npc"/>
         /// </summary>
         /// <param name="thisNPC"></param>
