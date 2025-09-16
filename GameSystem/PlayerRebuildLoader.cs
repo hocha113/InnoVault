@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.Graphics;
+using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.WorldBuilding;
@@ -44,9 +46,11 @@ namespace InnoVault.GameSystem
 
             IL_Player.Update += Player_Update_Hook;
 
+            On_LegacyPlayerRenderer.DrawPlayers += On_DrawPlayersHook;
+
             playerLoaderType = typeof(PlayerLoader);
 
-            MethodBase getPublicStaticMethod(string key) => playerLoaderType.GetMethod(key, BindingFlags.Public | BindingFlags.Static);
+            static MethodBase getPublicStaticMethod(string key) => playerLoaderType.GetMethod(key, BindingFlags.Public | BindingFlags.Static);
 
             onModifyHitNPCWithItemMethod = getPublicStaticMethod("ModifyHitNPCWithItem");
             onModifyHitNPCWithProjMethod = getPublicStaticMethod("ModifyHitNPCWithProj");
@@ -102,6 +106,7 @@ namespace InnoVault.GameSystem
             TypeToInstance?.Clear();
 
             IL_Player.Update -= Player_Update_Hook;
+            On_LegacyPlayerRenderer.DrawPlayers -= On_DrawPlayersHook;
             playerLoaderType = null;
             onModifyHitNPCWithItemMethod = null;
             onModifyHitNPCWithProjMethod = null;
@@ -331,6 +336,22 @@ namespace InnoVault.GameSystem
             }
 
             return orig.Invoke(player, proj);
+        }
+
+        private static void On_DrawPlayersHook(On_LegacyPlayerRenderer.orig_DrawPlayers orig
+            , LegacyPlayerRenderer self, Camera camera, IEnumerable<Player> players) {
+            if (TryFetchByPlayer(Main.LocalPlayer, out var values)) {
+                bool reset = true;
+                foreach (var value in values.Values) {
+                    if (!value.PreDrawPlayers(camera, players)) {
+                        reset = false;
+                    }
+                }
+                if (!reset) {
+                    return;
+                }
+            }
+            orig.Invoke(self, camera, players);
         }
 
         public override bool Shoot(Item item, EntitySource_ItemUse_WithAmmo source

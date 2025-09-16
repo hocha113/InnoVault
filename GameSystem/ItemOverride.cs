@@ -31,6 +31,10 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static Dictionary<int, Dictionary<Type, ItemOverride>> ByID { get; internal set; } = [];
         /// <summary>
+        /// 所有负指向的实例集合，只包含<see cref="TargetID"/>为 -1 的实例
+        /// </summary>
+        public static List<ItemOverride> UniversalInstances { get; internal set; } = [];
+        /// <summary>
         /// 控制指定物品类型是否允许任意前缀<br/>
         /// 该属性只在游戏加载阶段生效，应当在<see cref="ModType.SetStaticDefaults"/>或者其他调用时机合适的函数中修改<br/>
         /// 值为 <see langword="true"/>：强制允许所有前缀<br/>
@@ -127,9 +131,16 @@ namespace InnoVault.GameSystem
         /// 封闭内容
         /// </summary>
         protected override void Register() {
-            if (CanLoad() && TargetID > ItemID.None) {
+            if (!CanLoad()) {
+                return;
+            }
+
+            if (TargetID > ItemID.None) {
                 Instances.Add(this);
                 TypeToInstance.Add(GetType(), this);
+            }
+            else if (TargetID == -1) {
+                UniversalInstances.Add(this);
             }
         }
 
@@ -231,6 +242,32 @@ namespace InnoVault.GameSystem
         /// <returns></returns>
         public static T GetOverride<T>() where T : ItemOverride => TypeToInstance[typeof(T)] as T;
 
+        /// <summary>
+        /// 修改物品的基础名字，如果 <see cref="TargetID"/> 为 -1 则在所有物品上生效<br/>
+        /// 这个钩子用于修改物品的逻辑层名字，即内部数据中保存的名称<br/>
+        /// 修改结果会影响诸如搜索框、索引、内部比较逻辑等功能<br/>
+        /// 不会直接影响 UI 上显示的物品名字<br/>
+        /// 请不要在这里访问 <see cref="Item.Name"/>，否则可能导致无限递归<br/>
+        /// 如果需要修改 UI 显示的名字，请使用 <see cref="ModifyAffixName"/>
+        /// </summary>
+        /// <param name="item">被修改名字的物品实例</param>
+        /// <param name="reset">要修改的名字字符串</param>
+        public virtual void ModifyName(Item item, ref string reset) {
+
+        }
+        /// <summary>
+        /// 修改物品的显示名字，如果 <see cref="TargetID"/> 为 -1 则在所有物品上生效<br/>
+        /// 这个钩子用于修改物品的 UI显示名字（带修饰/附加词的完整名字）<br/>
+        /// 修改结果会影响背包、提示框、UI 界面中看到的名字<br/>
+        /// 不会影响搜索或内部逻辑层面的名字<br/>
+        /// 请不要在这里访问 <see cref="Item.AffixName()"/>，否则可能导致无限递归<br/>
+        /// 如果需要确保逻辑层数据（如搜索关键字）也改名，请使用 <see cref="ModifyName"/>
+        /// </summary>
+        /// <param name="item">被修改名字的物品实例</param>
+        /// <param name="reset">要修改的名字字符串</param>
+        public virtual void ModifyAffixName(Item item, ref string reset) {
+
+        }
         /// <summary>
         /// 进行背包中的物品绘制，这个函数会执行在Draw之后
         /// </summary>

@@ -4,9 +4,10 @@ using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.Graphics;
+using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
-using static Terraria.Player;
 
 namespace InnoVault.GameSystem
 {
@@ -181,6 +182,17 @@ namespace InnoVault.GameSystem
         /// <param name="item"></param>
         /// <returns></returns>
         public virtual bool CanUseItem(Item item) {
+            return true;
+        }
+
+        /// <summary>
+        /// 运行在 <see cref="LegacyPlayerRenderer.DrawPlayers(Camera, IEnumerable{Player})"/> 之前，
+        /// 返回 <see langword="false"/> 可以阻止后续逻辑运行
+        /// </summary>
+        /// <param name="camera"></param>
+        /// <param name="players"></param>
+        /// <returns></returns>
+        public virtual bool PreDrawPlayers(Camera camera, IEnumerable<Player> players) {
             return true;
         }
     }

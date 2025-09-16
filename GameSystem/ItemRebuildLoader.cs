@@ -198,6 +198,7 @@ namespace InnoVault.GameSystem
             Instances?.Clear();
             TypeToInstance?.Clear();
             ByID?.Clear();
+            UniversalInstances?.Clear();
 
             PreShootEvent = null;
             PreSetDefaultsEvent = null;
@@ -303,28 +304,31 @@ namespace InnoVault.GameSystem
             return tooltips;
         }
 
-        /// <summary>
-        /// <br>这个钩子非常危险，未来很可能移除，因为它钩的是属性的get行为，这可能会带来较大的性能开销和适配性问题，同时，编写代码时也得非常小心，否则可能引起无限迭代让游戏闪退</br>
-        /// <br>为什么修改物品名字不使用 Item.SetNameOverride() ？因为这会导致一个难以解决的问题，详情见<see href="https://github.com/tModLoader/tModLoader/issues/4467#issuecomment-2623220787"/> </br>
-        /// <br>所以我使用了两个钩子来解决这个名称的覆盖显示，On_Name_Get_Hook改变了Item.Name返回值，因为Name被使用的地方非常多，所以这个钩子需要多加考察才能确认其安全性</br> 
-        /// <br>OnAffixNameHook用于改变UI获取物品名字的方式，(不知道为何，明明AffixName的返回值是基于Item.Name的，但On_Name_Get_Hook的修改没能在这上面起作用)</br> 
-        /// <br>直观来讲，一个负责改变UI上显示的名字(OnAffixNameHook)，一个负责改变逻辑数据，使其在搜索框之类的功能中能够被以新名字检索到(OnAffixNameHook)</br> 
-        /// </summary>
+        //这个钩子非常危险，未来很可能移除，因为它钩的是属性的get行为，这可能会带来较大的性能开销和适配性问题，同时，编写代码时也得非常小心，否则可能引起无限迭代让游戏闪退
+        //为什么修改物品名字不使用 Item.SetNameOverride() ？因为这会导致一个难以解决的问题，详情见 https://github.com/tModLoader/tModLoader/issues/4467#issuecomment-2623220787
+        //所以我使用了两个钩子来解决这个名称的覆盖显示，On_Name_Get_Hook改变了Item.Name返回值，因为Name被使用的地方非常多，所以这个钩子需要多加考察才能确认其安全性
+        //OnAffixNameHook用于改变UI获取物品名字的方式，(不知道为何，明明AffixName的返回值是基于Item.Name的，但On_Name_Get_Hook的修改没能在这上面起作用)
+        //直观来讲，一个负责改变UI上显示的名字(OnAffixNameHook)，一个负责改变逻辑数据，使其在搜索框之类的功能中能够被以新名字检索到(On_Name_Get_Hook)
         public static string On_Name_Get_Hook(On_GetItemName_get_Delegate orig, Item item) {
             if (!VaultLoad.LoadenContent) {
                 return orig.Invoke(item);
             }
 
-            if (!TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
-                return orig.Invoke(item);
+            string result = string.Empty;
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
+                foreach (var value in values.Values) {
+                    if (!value.CanLoadLocalization) {
+                        continue;
+                    }
+                    result = value.DisplayName.Value;
+                    value.ModifyName(item, ref result);
+                }
             }
 
-            string result = string.Empty;
-            foreach (var value in values.Values) {
-                if (!value.CanLoadLocalization) {
-                    continue;
+            if (UniversalInstances.Count > 0) {
+                foreach (var inds in UniversalInstances) {
+                    inds.ModifyName(item, ref result);
                 }
-                result = value.DisplayName.Value;
             }
 
             if (result != string.Empty) {
@@ -340,20 +344,28 @@ namespace InnoVault.GameSystem
             }
 
             bool onOverd = false;
+            string result = string.Empty;
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
-                string result = string.Empty;
                 foreach (var value in values.Values) {
                     if (!value.CanLoadLocalization) {
                         continue;
                     }
                     result = value.DisplayName.Value;
-                }
-
-                if (result != string.Empty) {
-                    item.SetNameOverride(result);
-                    onOverd = true;
+                    value.ModifyAffixName(item, ref result);
                 }
             }
+
+            if (UniversalInstances.Count > 0) {
+                foreach (var inds in UniversalInstances) {
+                    inds.ModifyAffixName(item, ref result);
+                }
+            }
+
+            if (result != string.Empty) {
+                item.SetNameOverride(result);
+                onOverd = true;
+            }
+
             //这是个很取巧的办法，保证了兼容性
             //因为上面已经将名称重命名了，所以这里会以重命名的内容进入原版的处理
             string forgtName = orig.Invoke(item);
