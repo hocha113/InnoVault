@@ -1,6 +1,5 @@
 ﻿using InnoVault.StateStruct;
 using Microsoft.Xna.Framework;
-using Mono.Cecil;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
@@ -12,9 +11,7 @@ using Terraria.Graphics;
 using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.WorldBuilding;
 using static InnoVault.GameSystem.PlayerOverride;
-using static System.Net.Mime.MediaTypeNames;
 using static Terraria.Player;
 
 namespace InnoVault.GameSystem
@@ -352,6 +349,14 @@ namespace InnoVault.GameSystem
                 }
             }
             orig.Invoke(self, camera, players);
+        }
+
+        public override void ResetEffects() {
+            if (TryFetchByPlayer(Player, out var values)) {
+                foreach (var value in values.Values) {
+                    value.ResetEffects();
+                }
+            }
         }
 
         public override bool Shoot(Item item, EntitySource_ItemUse_WithAmmo source

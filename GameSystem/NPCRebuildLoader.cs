@@ -125,6 +125,22 @@ namespace InnoVault.GameSystem
             }
         }
 
+        public override bool? DrawHealthBar(NPC npc, byte hbPosition, ref float scale, ref Vector2 position) {
+            if (npc.TryGetOverride(out var values)) {
+                bool? reset = null;
+                foreach (var value in values.Values) {
+                    bool? newReset = value.DrawHealthBar(hbPosition, ref scale, ref position);
+                    if (newReset.HasValue) {
+                        reset = newReset.Value;
+                    }
+                }
+                if (reset.HasValue) {
+                    return reset.Value;
+                }
+            }
+            return null;
+        }
+
         public override void ModifyNPCLoot(NPC npc, NPCLoot npcLoot) {
             //不要用TryFetchByID或者直接访问NPCOverride
             if (ByID.TryGetValue(npc.type, out var values)) {

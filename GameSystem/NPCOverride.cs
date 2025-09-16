@@ -239,6 +239,13 @@ namespace InnoVault.GameSystem
         /// <param name="rotation"></param>
         public virtual void BossHeadRotation(ref float rotation) { }
         /// <summary>
+        /// 编辑此NPC的血条绘制状态，返回<see langword="false"/>可以阻止后续逻辑运行
+        /// </summary>
+        /// <param name="hbPosition"></param>
+        /// <param name="scale"></param>
+        /// <param name="position"></param>
+        public virtual bool? DrawHealthBar(byte hbPosition, ref float scale, ref Vector2 position) { return null; }
+        /// <summary>
         /// 编辑NPC的掉落，注意，这个方法不会被生物AI设置阻止，如果需要使用NPC实例，必须使用给出的参数thisNPC，而不是尝试访问<see cref="npc"/>
         /// </summary>
         /// <param name="thisNPC"></param>

@@ -162,6 +162,11 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
+        /// 用于每帧更新恢复数据
+        /// </summary>
+        public virtual void ResetEffects() { }
+
+        /// <summary>
         /// 物品发射时调用该函数，优先级大于<see cref="ItemOverride.Shoot"/>
         /// </summary>
         /// <param name="item"></param>

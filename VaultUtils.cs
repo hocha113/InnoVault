@@ -1690,6 +1690,70 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 检查索引是否在数组范围内
+        /// </summary>
+        public static bool IsValidIndex(this int index, Array array) {
+            return index >= 0 && index < array.Length;
+        }
+
+        /// <summary>
+        /// 尝试根据索引获取玩家实例
+        /// </summary>
+        /// <param name="playerIndex">玩家索引</param>
+        /// <param name="player">输出的玩家实例</param>
+        /// <returns>若索引有效且玩家存活则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
+        public static bool TryGetPlayer(this int playerIndex, out Player player) {
+            player = null;
+            if (!playerIndex.IsValidIndex(Main.player)) {
+                return false;
+            }
+            Player instance = Main.player[playerIndex];
+            if (!instance.Alives()) {
+                return false;
+            }
+            player = instance;
+            return true;
+        }
+
+        /// <summary>
+        /// 尝试根据索引获取NPC实例
+        /// </summary>
+        /// <param name="npcIndex">NPC索引</param>
+        /// <param name="npc">输出的NPC实例</param>
+        /// <returns>若索引有效且NPC存活则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
+        public static bool TryGetNPC(this int npcIndex, out NPC npc) {
+            npc = null;
+            if (!npcIndex.IsValidIndex(Main.npc)) {
+                return false;
+            }
+            NPC instance = Main.npc[npcIndex];
+            if (!instance.Alives()) {
+                return false;
+            }
+            npc = instance;
+            return true;
+        }
+
+        /// <summary>
+        /// 尝试根据索引获取弹幕实例
+        /// </summary>
+        /// <param name="projectileIndex">弹幕索引</param>
+        /// <param name="proj">输出的弹幕实例</param>
+        /// <returns>若索引有效且弹幕存活则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
+        public static bool TryGetProjectile(this int projectileIndex, out Projectile proj) {
+            proj = null;
+            if (!projectileIndex.IsValidIndex(Main.projectile)) {
+                return false;
+            }
+            Projectile instance = Main.projectile[projectileIndex];
+            if (!instance.Alives()) {
+                return false;
+            }
+            proj = instance;
+            return true;
+        }
+
+        /// <summary>
         /// 赋予玩家无敌状态，这个函数与<see cref="Player.SetImmuneTimeForAllTypes(int)"/>类似
         /// </summary>
         /// <param name="player">要赋予无敌状态的玩家</param>
