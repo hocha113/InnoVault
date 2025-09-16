@@ -239,11 +239,27 @@ namespace InnoVault.GameSystem
         /// <param name="rotation"></param>
         public virtual void BossHeadRotation(ref float rotation) { }
         /// <summary>
-        /// 编辑NPC的掉落，注意，这个方法不会被生物AI设置阻止，注意，如果需要使用NPC实例，必须使用给出的参数thisNPC，而不是尝试访问<see cref="npc"/>
+        /// 编辑NPC的掉落，注意，这个方法不会被生物AI设置阻止，如果需要使用NPC实例，必须使用给出的参数thisNPC，而不是尝试访问<see cref="npc"/>
         /// </summary>
         /// <param name="thisNPC"></param>
         /// <param name="npcLoot"></param>
         public virtual void ModifyNPCLoot(NPC thisNPC, NPCLoot npcLoot) { }
+        /// <summary>
+        /// 是否允许NPC通过平台
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool? CanFallThroughPlatforms() { return null; }
+        /// <summary>
+        /// 在NPC商店打开时修改货架内容
+        /// </summary>
+        /// <param name="shopName">商店名</param>
+        /// <param name="items">货架物品列表</param>
+        public virtual void ModifyActiveShop(string shopName, Item[] items) { }
+        /// <summary>
+        /// 修改聊天内容，每次打开聊天框时会调用一次该钩子
+        /// </summary>
+        /// <param name="chat"></param>
+        public virtual void GetChat(ref string chat) { }
         /// <summary>
         /// 修改被物品击中的伤害
         /// </summary>
@@ -257,6 +273,25 @@ namespace InnoVault.GameSystem
         /// <param name="projectile"></param>
         /// <param name="modifiers"></param>
         public virtual void ModifyHitByProjectile(Projectile projectile, ref NPC.HitModifiers modifiers) { }
+        /// <summary>
+        /// 是否可以被物品击中
+        /// </summary>
+        /// <param name="player"></param>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        public virtual bool? CanBeHitByItem(Player player, Item item) { return null; }
+        /// <summary>
+        /// 这个友好NPC是否可以被其他敌对NPC击中
+        /// </summary>
+        /// <param name="attacker"></param>
+        /// <returns></returns>
+        public virtual bool? CanBeHitByNPC(NPC attacker) { return null; }
+        /// <summary>
+        /// 这个友好NPC是否可以被敌对弹幕击中
+        /// </summary>
+        /// <param name="projectile"></param>
+        /// <returns></returns>
+        public virtual bool? CanBeHitByProjectile(Projectile projectile) { return null; }
         /// <summary>
         /// 更新NPC的帧数据，返回 <see langword="false"/> 可以阻止后续逻辑运行
         /// </summary>

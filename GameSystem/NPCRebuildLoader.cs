@@ -134,6 +134,86 @@ namespace InnoVault.GameSystem
             }
         }
 
+        public override bool? CanFallThroughPlatforms(NPC npc) {
+            if (npc.TryGetOverride(out var values)) {
+                bool? reset = null;
+                foreach (var value in values.Values) {
+                    bool? newReset = value.CanFallThroughPlatforms();
+                    if (newReset.HasValue) {
+                        reset = newReset.Value;
+                    }
+                }
+                if (reset.HasValue) {
+                    return reset.Value;
+                }
+            }
+            return null;
+        }
+
+        public override void ModifyActiveShop(NPC npc, string shopName, Item[] items) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.ModifyActiveShop(shopName, items);
+                }
+            }
+        }
+
+        public override void GetChat(NPC npc, ref string chat) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.GetChat(ref chat);
+                }
+            }
+        }
+
+        public override bool? CanBeHitByItem(NPC npc, Player player, Item item) {
+            if (npc.TryGetOverride(out var values)) {
+                bool? reset = null;
+                foreach (var value in values.Values) {
+                    bool? newReset = value.CanBeHitByItem(player, item);
+                    if (newReset.HasValue) {
+                        reset = newReset.Value;
+                    }
+                }
+                if (reset.HasValue) {
+                    return reset.Value;
+                }
+            }
+            return null;
+        }
+
+        public override bool CanBeHitByNPC(NPC npc, NPC attacker) {
+            if (npc.TryGetOverride(out var values)) {
+                bool? reset = null;
+                foreach (var value in values.Values) {
+                    bool? newReset = value.CanBeHitByNPC(attacker);
+                    if (newReset.HasValue) {
+                        reset = newReset.Value;
+                    }
+                }
+                if (reset.HasValue) {
+                    return reset.Value;
+                }
+            }
+            return true;
+        }
+
+        public override bool? CanBeHitByProjectile(NPC npc, Projectile projectile) {
+            if (npc.TryGetOverride(out var values)) {
+                bool? reset = null;
+                foreach (var value in values.Values) {
+                    bool? newReset = value.CanBeHitByProjectile(projectile);
+                    if (newReset.HasValue) {
+                        reset = newReset.Value;
+                    }
+                }
+                if (reset.HasValue) {
+                    return reset.Value;
+                }
+            }
+            return null;
+        }
+
         private static MethodInfo GetMethodInfo(string key) => npcLoaderType.GetMethod(key, BindingFlags.Public | BindingFlags.Static);
 
         private static void DompLog(string name) => VaultMod.Instance.Logger.Info($"ERROR:Fail To Load! {name} Is Null!");

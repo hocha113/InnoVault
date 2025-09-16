@@ -78,7 +78,8 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 获取对应类型的玩家重制节点实例
+        /// 获取对应类型的玩家重制节点实例<br/>
+        /// 如果需要获取对应玩家实例的重制节点，应当使用 <see cref="VaultUtils.GetOverride{T}(Player)"/>
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>

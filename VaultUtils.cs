@@ -2207,7 +2207,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 获取指定类型 <typeparamref name="T"/> 的 <see cref="NPCOverride"/> 实例
+        /// 获取指定类型 <typeparamref name="T"/> 的 <see cref="NPCOverride"/> 实例<br/>
         /// 若未在 <see cref="NPCRebuildLoader"/> 中注册对应类型，会抛出异常
         /// </summary>
         /// <typeparam name="T">要获取的重制节点类型</typeparam>
@@ -2311,7 +2311,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 获取指定类型 <typeparamref name="T"/> 的 <see cref="PlayerOverride"/> 实例
+        /// 获取指定类型 <typeparamref name="T"/> 的 <see cref="PlayerOverride"/> 实例<br/>
         /// 若未在 <see cref="PlayerOverride.TypeToInstance"/> 中注册对应类型，会抛出异常
         /// </summary>
         /// <typeparam name="T">要获取的重制节点类型</typeparam>
