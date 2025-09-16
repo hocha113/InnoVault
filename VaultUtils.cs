@@ -2177,10 +2177,10 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 尝试获取指定 <see cref="Item"/> 类型对应的特定 <typeparamref name="T"/> 类型的 <see cref="NPCOverride"/>
+        /// 尝试获取指定 <see cref="Item"/> 类型对应的特定 <typeparamref name="T"/> 类型的 <see cref="ItemOverride"/>
         /// </summary>
         /// <typeparam name="T">
-        /// 期望获取的重写类型，必须继承自 <see cref="NPCOverride"/>
+        /// 期望获取的重写类型，必须继承自 <see cref="ItemOverride"/>
         /// </typeparam>
         /// <param name="item">要查询的物品实例</param>
         /// <param name="value">
@@ -2191,15 +2191,18 @@ namespace InnoVault
         /// 如果当前不在主菜单中，且存在该类型的重写映射，则返回 <c>true</c>；
         /// 否则返回 <c>false</c>
         /// </returns>
-        public static bool TryGetOverride<T>(this Item item, out T value) where T : NPCOverride {
+        public static bool TryGetOverride<T>(this Item item, out T value) where T : ItemOverride {
             value = null;
             if (Main.gameMenu) {
                 return false;
             }
-            if (ItemOverride.ByID.TryGetValue(item.type, out var values)) {
-                value = values[typeof(T)] as T;
-                return true;
+            if (!ItemOverride.TypeToInstance.TryGetValue(typeof(T), out var value2)) {
+                return false;
             }
+            if (item.type != value2.TargetID && value2.TargetID != -1) {
+                return false;
+            }
+            value = value2 as T;
             return value != null;
         }
 
@@ -2301,9 +2304,43 @@ namespace InnoVault
                 return false;
             }
             if (!globalInstance.ProjOverrides.TryGetValue(typeof(T), out var value2)) {
-                value = value2 as T;
                 return false;
             }
+            value = value2 as T;
+            return value != null;
+        }
+
+        /// <summary>
+        /// 获取指定类型 <typeparamref name="T"/> 的 <see cref="PlayerOverride"/> 实例
+        /// 若未在 <see cref="PlayerOverride.TypeToInstance"/> 中注册对应类型，会抛出异常
+        /// </summary>
+        /// <typeparam name="T">要获取的重制节点类型</typeparam>
+        /// <param name="player">目标 玩家 实例</param>
+        /// <returns><typeparamref name="T"/> 类型对应的 <see cref="PlayerOverride"/> 实例</returns>
+        /// <exception cref="KeyNotFoundException">如果未注册指定类型的节点</exception>
+        public static T GetOverride<T>(this Player player) where T : PlayerOverride {
+            var reset = PlayerOverride.GetOverride<T>();
+            reset.Player = player;
+            return reset;
+        }
+
+        /// <summary>
+        /// 尝试获取指定类型的 <see cref="PlayerOverride"/> 实例
+        /// </summary>
+        /// <typeparam name="T">要获取的 Override 类型，必须继承自 <see cref="PlayerOverride"/></typeparam>
+        /// <param name="player">目标玩家实例</param>
+        /// <param name="value">输出参数，用于接收对应类型的 Override 实例</param>
+        /// <returns>若成功获取到指定类型的 Override，返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
+        public static bool TryGetOverride<T>(this Player player, out T value) where T : PlayerOverride {
+            value = null;
+            if (Main.gameMenu) {
+                return false;
+            }
+            if (!PlayerOverride.TypeToInstance.TryGetValue(typeof(T), out var value2)) {
+                return false;
+            }
+            value2.Player = player;
+            value = value2 as T;
             return value != null;
         }
 

@@ -78,7 +78,7 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 获取对应类型的玩家重制节点实例S
+        /// 获取对应类型的玩家重制节点实例
         /// </summary>
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
@@ -189,8 +189,8 @@ namespace InnoVault.GameSystem
         /// 运行在 <see cref="LegacyPlayerRenderer.DrawPlayers(Camera, IEnumerable{Player})"/> 之前，
         /// 返回 <see langword="false"/> 可以阻止后续逻辑运行
         /// </summary>
-        /// <param name="camera"></param>
-        /// <param name="players"></param>
+        /// <param name="camera">相机实例</param>
+        /// <param name="players">所有要绘制的玩家实例</param>
         /// <returns></returns>
         public virtual bool PreDrawPlayers(Camera camera, IEnumerable<Player> players) {
             return true;
