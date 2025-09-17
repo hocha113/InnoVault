@@ -359,6 +359,14 @@ namespace InnoVault.GameSystem
             }
         }
 
+        public override void PostUpdate() {
+            if (TryFetchByPlayer(Player, out var values)) {
+                foreach (var value in values.Values) {
+                    value.PostUpdate();
+                }
+            }
+        }
+
         public override bool Shoot(Item item, EntitySource_ItemUse_WithAmmo source
             , Vector2 position, Vector2 velocity, int type, int damage, float knockback) {
             if (item.type == ItemID.None || item.IsAir) {
