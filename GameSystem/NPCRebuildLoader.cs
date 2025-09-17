@@ -1,5 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Graphics.PackedVector;
+using Mono.Cecil;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -24,6 +26,7 @@ namespace InnoVault.GameSystem
         public delegate void On_OnHitByProjectileDelegate(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone);
         public delegate void On_ModifyIncomingHitDelegate(NPC npc, ref NPC.HitModifiers modifiers);
         public delegate void On_FindFrameDelegate(NPC npc, int frameHeight);
+        public delegate void On_SetChatButtonsDelegate(ref string button, ref string button2);
         public delegate void On_NPCSetDefaultDelegate();
         public static event On_NPCDelegate PreSetDefaultsEvent;
         public static event On_NPCDelegate PostSetDefaultsEvent;
@@ -31,6 +34,9 @@ namespace InnoVault.GameSystem
         public static MethodInfo onHitByProjectile_Method;
         public static MethodInfo modifyIncomingHit_Method;
         public static MethodInfo onFindFrame_Method;
+        public static MethodInfo onSetChatButtons_Method;
+        public static MethodInfo onNPCUsesPartyHat_Method;
+        public static MethodInfo onUsesPartyHat_Method;
         public static MethodInfo onNPCAI_Method;
         public static MethodInfo onPreKill_Method;
         public static MethodInfo onPreDraw_Method;
@@ -46,6 +52,9 @@ namespace InnoVault.GameSystem
             ByID ??= [];
             UniversalInstances ??= [];
             LoaderMethodAndHook();
+
+            On_Main.DrawNPCHeadBoss += OnDrawNPCHeadBossHook;
+            On_NPC.GetBossHeadTextureIndex += OnGetBossHeadTextureIndexHook; ;
         }
 
         void IVaultLoader.UnLoadData() {
@@ -58,11 +67,15 @@ namespace InnoVault.GameSystem
             onHitByProjectile_Method = null;
             modifyIncomingHit_Method = null;
             onFindFrame_Method = null;
+            onSetChatButtons_Method = null;
+            onNPCUsesPartyHat_Method = null;
+            onUsesPartyHat_Method = null;
             onNPCAI_Method = null;
             onPreKill_Method = null;
             onPreDraw_Method = null;
             onPostDraw_Method = null;
             onCheckDead_Method = null;
+            On_Main.DrawNPCHeadBoss -= OnDrawNPCHeadBossHook;
         }
 
         public override GlobalNPC Clone(NPC from, NPC to) {
@@ -184,10 +197,49 @@ namespace InnoVault.GameSystem
             }
         }
 
+        public override bool? CanGoToStatue(NPC npc, bool toKingStatue) {
+            if (npc.TryGetOverride(out var values)) {
+                bool? reset = null;
+                foreach (var value in values.Values) {
+                    bool? newReset = value.CanGoToStatue(toKingStatue);
+                    if (newReset.HasValue) {
+                        reset = newReset.Value;
+                    }
+                }
+                if (reset.HasValue) {
+                    return reset.Value;
+                }
+            }
+            return null;
+        }
+
         public override void GetChat(NPC npc, ref string chat) {
             if (npc.TryGetOverride(out var values)) {
                 foreach (var value in values.Values) {
                     value.GetChat(ref chat);
+                }
+            }
+        }
+
+        public override bool PreChatButtonClicked(NPC npc, bool firstButton) {
+            if (npc.TryGetOverride(out var values)) {
+                bool reset = true;
+                foreach (var value in values.Values) {
+                    if (!value.PreChatButtonClicked(firstButton)) {
+                        reset = false;
+                    }
+                }
+                if (!reset) {
+                    return false;
+                }
+            }
+            return true;
+        }
+
+        public override void OnChatButtonClicked(NPC npc, bool firstButton) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.OnChatButtonClicked(firstButton);
                 }
             }
         }
@@ -270,6 +322,33 @@ namespace InnoVault.GameSystem
                 }
                 else {
                     DompLog("onFindFrame_Method");
+                }
+            }
+            {
+                onSetChatButtons_Method = GetMethodInfo("SetChatButtons");
+                if (onSetChatButtons_Method != null) {
+                    VaultHook.Add(onSetChatButtons_Method, OnSetChatButtonsHook);
+                }
+                else {
+                    DompLog("onSetChatButtons_Method");
+                }
+            }
+            {
+                onNPCUsesPartyHat_Method = typeof(NPC).GetMethod("UsesPartyHat", BindingFlags.Public | BindingFlags.Instance);
+                if (onNPCUsesPartyHat_Method != null) {
+                    VaultHook.Add(onNPCUsesPartyHat_Method, OnPreUsesPartyHatHook);
+                }
+                else {
+                    DompLog("onNPCUsesPartyHat_Method");
+                }
+            }
+            {
+                onUsesPartyHat_Method = GetMethodInfo("UsesPartyHat");
+                if (onUsesPartyHat_Method != null) {
+                    VaultHook.Add(onUsesPartyHat_Method, OnUsesPartyHatHook);
+                }
+                else {
+                    DompLog("onUsesPartyHat_Method");
                 }
             }
             {
@@ -460,6 +539,7 @@ namespace InnoVault.GameSystem
             }
 
             foreach (var inds in UniversalInstances) {
+                inds.UniversalSetNPCInstance(npc);
                 if (!inds.DoHitByProjectileByInstance(projectile, in hit, damageDone)) {
                     return;
                 }
@@ -488,6 +568,7 @@ namespace InnoVault.GameSystem
             }
 
             foreach (var inds in UniversalInstances) {
+                inds.UniversalSetNPCInstance(npc);
                 if (!inds.DoModifyIncomingHitByInstance(ref modifiers)) {
                     return;
                 }
@@ -515,6 +596,155 @@ namespace InnoVault.GameSystem
             }
 
             orig.Invoke(npc, frameHeight);
+        }
+
+        public static void OnSetChatButtonsHook(On_SetChatButtonsDelegate orig, ref string button, ref string button2) {
+            var npc = Main.LocalPlayer.TalkNPC;
+            if (npc == null) {
+                orig.Invoke(ref button, ref button2);
+                return;
+            }
+
+            if (npc.TryGetOverride(out var npcOverrides)) {
+                bool reset = true;
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    if (!npcOverrideInstance.SetChatButtons(ref button, ref button2)) {
+                        reset = false;
+                    }
+                }
+                if (!reset) {
+                    return;
+                }
+            }
+
+            orig.Invoke(ref button, ref button2);
+        }
+
+        public static bool OnPreUsesPartyHatHook(On_NPCDelegate2 orig, NPC npc) {
+            if (npc.type == NPCID.None || !npc.active) {
+                return orig.Invoke(npc);
+            }
+
+            if (npc.TryGetOverride(out var npcOverrides)) {
+                bool? result = null;
+
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    bool? newResult = npcOverrideInstance.PreUsesPartyHat();
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                }
+
+                if (result.HasValue) {
+                    return result.Value;
+                }
+            }
+
+            return orig.Invoke(npc);
+        }
+
+        public static bool OnUsesPartyHatHook(On_NPCDelegate2 orig, NPC npc) {
+            if (npc.type == NPCID.None || !npc.active) {
+                return orig.Invoke(npc);
+            }
+
+            if (npc.TryGetOverride(out var npcOverrides)) {
+                bool? result = null;
+
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    bool? newResult = npcOverrideInstance.UsesPartyHat();
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                }
+
+                if (result.HasValue) {
+                    return result.Value;
+                }
+            }
+
+            return orig.Invoke(npc);
+        }
+
+        public static void OnDrawNPCHeadBossHook(On_Main.orig_DrawNPCHeadBoss orig, Entity theNPC, byte alpha
+            , float headScale, float rotation, SpriteEffects effects, int bossHeadId, float x, float y) {
+            if (!theNPC.active || theNPC is not NPC npc) {
+                orig.Invoke(theNPC, alpha, headScale, rotation, effects, bossHeadId, x, y);
+                return;
+            }
+
+            if (npc.TryGetOverride(out var npcOverrides)) {
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    npcOverrideInstance.ModifyDrawNPCHeadBoss(ref x, ref y, ref bossHeadId, ref alpha, ref headScale, ref rotation, ref effects);
+                }
+
+                bool reset = true;
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    if (!npcOverrideInstance.PreDrawNPCHeadBoss(Main.BossNPCHeadRenderer, new Vector2(x, y), bossHeadId, alpha, headScale, rotation, effects)) {
+                        reset = false;
+                    }
+                }
+                if (!reset) {
+                    return;
+                }
+            }
+
+            if (UniversalInstances.Count > 0) {
+                foreach (var inds in UniversalInstances) {
+                    inds.UniversalSetNPCInstance(npc);
+                    inds.ModifyDrawNPCHeadBoss(ref x, ref y, ref bossHeadId, ref alpha, ref headScale, ref rotation, ref effects);
+                }
+
+                bool universalReset = true;
+
+                foreach (var inds in UniversalInstances) {
+                    inds.UniversalSetNPCInstance(npc);
+                    if (!inds.PreDrawNPCHeadBoss(Main.BossNPCHeadRenderer, new Vector2(x, y), bossHeadId, alpha, headScale, rotation, effects)) {
+                        universalReset = false;
+                    }
+                }
+
+                if (!universalReset) {
+                    return;
+                }
+            }
+
+            orig.Invoke(theNPC, alpha, headScale, rotation, effects, bossHeadId, x, y);
+        }
+
+        public static int OnGetBossHeadTextureIndexHook(On_NPC.orig_GetBossHeadTextureIndex orig, NPC npc) {
+            if (!npc.active) {//不需要判定ID
+                return orig.Invoke(npc);
+            }
+
+            if (npc.TryGetOverride(out var npcOverrides)) {
+                int index = -1;
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    int newIndex = npcOverrideInstance.GetBossHeadTextureIndex();
+                    if (newIndex >= 0) {
+                        index = newIndex;
+                    }
+                }
+                if (index >= 0) {
+                    return index;
+                }
+            }
+
+            if (UniversalInstances.Count > 0) {
+                int index = -1;
+                foreach (var inds in UniversalInstances) {
+                    inds.UniversalSetNPCInstance(npc);
+                    int newIndex = inds.GetBossHeadTextureIndex();
+                    if (newIndex >= 0) {
+                        index = newIndex;
+                    }
+                }
+                if (index >= 0) {
+                    return index;
+                }
+            }
+
+            return orig.Invoke(npc);
         }
 #pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
     }

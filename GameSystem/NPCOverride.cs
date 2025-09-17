@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using Terraria;
+using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.WorldBuilding;
@@ -145,6 +146,11 @@ namespace InnoVault.GameSystem
             return true;
         }
         /// <summary>
+        /// 仅用于全局重制节点设置临时NPC实例
+        /// </summary>
+        /// <param name="setNPC"></param>
+        internal void UniversalSetNPCInstance(NPC setNPC) => npc = setNPC;
+        /// <summary>
         /// 加载并初始化重制节点到对应的NPC实例上
         /// </summary>
         /// <param name="npc"></param>
@@ -276,6 +282,36 @@ namespace InnoVault.GameSystem
         /// <param name="rotation"></param>
         public virtual void BossHeadRotation(ref float rotation) { }
         /// <summary>
+        /// 运行在 <see cref="BossHeadSlot"/> 和 <see cref="NPC.GetBossHeadTextureIndex"/> 之前<br/>
+        /// 如果返回大于0的值，将阻止后续所有逻辑的运行，默认返回 -1
+        /// </summary>
+        public virtual int GetBossHeadTextureIndex() { return -1; }
+        /// <summary>
+        /// 允许编辑Boss头像绘制的数据
+        /// </summary>
+        /// <param name="x">绘制横坐标</param>
+        /// <param name="y">绘制纵坐标</param>
+        /// <param name="bossHeadId">Boss头像的资源ID</param>
+        /// <param name="alpha">绘制时的透明度值 范围0-255</param>
+        /// <param name="headScale">头像绘制的缩放比例</param>
+        /// <param name="rotation">头像绘制的旋转角度</param>
+        /// <param name="effects">绘制时使用的精灵翻转效果</param>
+        public virtual void ModifyDrawNPCHeadBoss(ref float x, ref float y, ref int bossHeadId
+            , ref byte alpha, ref float headScale, ref float rotation, ref SpriteEffects effects) { }
+        /// <summary>
+        /// 允许在Boss头像绘制前进行覆盖绘制 返回<see langword="false"/>可以阻止原版Boss头像的绘制
+        /// </summary>
+        /// <param name="renderer">用于绘制Boss头像的渲染器</param>
+        /// <param name="drawPos">绘制位置的屏幕坐标</param>
+        /// <param name="bossHeadId">Boss头像的资源ID</param>
+        /// <param name="alpha">绘制时的透明度值 范围0-255</param>
+        /// <param name="headScale">头像绘制的缩放比例</param>
+        /// <param name="rotation">头像绘制的旋转角度</param>
+        /// <param name="effects">绘制时使用的精灵翻转效果</param>
+        /// <returns>返回true继续执行原版逻辑 返回false阻止原版Boss头像绘制</returns>
+        public virtual bool PreDrawNPCHeadBoss(NPCHeadRenderer renderer, Vector2 drawPos, int bossHeadId
+            , byte alpha, float headScale, float rotation, SpriteEffects effects) { return true; }
+        /// <summary>
         /// 编辑此NPC的血条绘制状态，返回<see langword="false"/>可以阻止后续逻辑运行
         /// </summary>
         /// <param name="hbPosition"></param>
@@ -304,10 +340,47 @@ namespace InnoVault.GameSystem
         /// <param name="items">货架物品列表</param>
         public virtual void ModifyActiveShop(string shopName, Item[] items) { }
         /// <summary>
+        /// 用于判定该友好NPC是否传送到雕像处
+        /// </summary>
+        /// <param name="toKingStatue">是否是国王雕像，否则是女皇雕像</param>
+        /// <returns></returns>
+        public virtual bool? CanGoToStatue(bool toKingStatue) { return null; }
+        /// <summary>
         /// 修改聊天内容，每次打开聊天框时会调用一次该钩子
         /// </summary>
         /// <param name="chat"></param>
         public virtual void GetChat(ref string chat) { }
+        /// <summary>
+        /// 允许修改NPC聊天栏中按钮的名称，在 <see cref="Player.talkNPC"/>不为 -1 时调用<br/>
+        /// 不建议在这里使用硬编码字符，应当使用本地化
+        /// </summary>
+        /// <param name="button"></param>
+        /// <param name="button2"></param>
+        /// <returns></returns>
+        public virtual bool SetChatButtons(ref string button, ref string button2) { return true; }
+        /// <summary>
+        /// 在派对期间，这个友好NPC是否应该戴上派对帽<br/>
+        /// 运行在 <see cref="UsesPartyHat"/> 与 <see cref="NPC.UsesPartyHat()"/> 之前<br/>
+        /// 返回有效值会阻止原版逻辑的运行
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool? PreUsesPartyHat() { return null; }
+        /// <summary>
+        /// 在派对期间，这个友好NPC是否应该戴上派对帽<br/>
+        /// 返回有效值会阻止原版逻辑的运行
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool? UsesPartyHat() { return null; }
+        /// <summary>
+        /// 在NPC聊天栏中点击按钮时调用，运行在 <see cref="OnChatButtonClicked"/> 之前，返回<see langword="false"/>可以阻止其运行
+        /// </summary>
+        /// <param name="firstButton">是否是第一个按钮</param>
+        public virtual bool PreChatButtonClicked(bool firstButton) { return true; }
+        /// <summary>
+        /// 在NPC聊天栏中点击按钮时调用
+        /// </summary>
+        /// <param name="firstButton">是否是第一个按钮</param>
+        public virtual void OnChatButtonClicked(bool firstButton) { }
         /// <summary>
         /// 修改被物品击中的伤害
         /// </summary>

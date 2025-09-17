@@ -19,7 +19,7 @@ namespace InnoVault.UIHandles
         /// </summary>
         public virtual Texture2D Texture => VaultAsset.placeholder3.Value;
         /// <summary>
-        /// 获取玩家对象，一般为 LocalPlayer ，因为运行UI代码的只有可能是当前段玩家，也就是本地玩家
+        /// 获取玩家对象，等价于 <see cref="Main.LocalPlayer"/> ，因为运行UI代码的只有可能是当前端玩家，也就是本地玩家
         /// </summary>
         public static Player player => Main.LocalPlayer;
         /// <summary>
@@ -60,6 +60,10 @@ namespace InnoVault.UIHandles
         /// 绘制的位置，这一般意味着UI矩形的左上角
         /// </summary>
         public Vector2 DrawPosition;
+        /// <summary>
+        /// UI矩形大小
+        /// </summary>
+        public Vector2 Size;
         /// <summary>
         /// UI的矩形
         /// </summary>
