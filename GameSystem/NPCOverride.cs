@@ -282,10 +282,25 @@ namespace InnoVault.GameSystem
         /// <param name="rotation"></param>
         public virtual void BossHeadRotation(ref float rotation) { }
         /// <summary>
+        /// 编辑NPC在地图上的头像翻转状态
+        /// </summary>
+        /// <param name="spriteEffects"></param>
+        public virtual void BossHeadSpriteEffects(ref SpriteEffects spriteEffects) { }
+        /// <summary>
         /// 运行在 <see cref="BossHeadSlot"/> 和 <see cref="NPC.GetBossHeadTextureIndex"/> 之前<br/>
         /// 如果返回大于0的值，将阻止后续所有逻辑的运行，默认返回 -1
         /// </summary>
         public virtual int GetBossHeadTextureIndex() { return -1; }
+        /// <summary>
+        /// 运行在 <see cref="BossHeadRotation"/> 和 <see cref="NPC.GetBossHeadRotation"/> 之前<br/>
+        /// 如果返回有效值，将阻止后续所有逻辑的运行，默认返回 <see langword="null"/>
+        /// </summary>
+        public virtual float? GetBossHeadRotation() { return null; }
+        /// <summary>
+        /// 运行在 <see cref="BossHeadSpriteEffects"/> 和 <see cref="NPC.GetBossHeadSpriteEffects"/> 之前<br/>
+        /// 如果返回有效值，将阻止后续所有逻辑的运行，默认返回 <see langword="null"/>
+        /// </summary>
+        public virtual SpriteEffects? GetBossHeadSpriteEffects() { return null; }
         /// <summary>
         /// 允许编辑Boss头像绘制的数据
         /// </summary>

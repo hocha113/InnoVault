@@ -54,7 +54,9 @@ namespace InnoVault.GameSystem
             LoaderMethodAndHook();
 
             On_Main.DrawNPCHeadBoss += OnDrawNPCHeadBossHook;
-            On_NPC.GetBossHeadTextureIndex += OnGetBossHeadTextureIndexHook; ;
+            On_NPC.GetBossHeadTextureIndex += OnGetBossHeadTextureIndexHook;
+            On_NPC.GetBossHeadRotation += OnGetBossHeadRotationHook;
+            On_NPC.GetBossHeadSpriteEffects += OnGetBossHeadSpriteEffectsHook;
         }
 
         void IVaultLoader.UnLoadData() {
@@ -76,6 +78,9 @@ namespace InnoVault.GameSystem
             onPostDraw_Method = null;
             onCheckDead_Method = null;
             On_Main.DrawNPCHeadBoss -= OnDrawNPCHeadBossHook;
+            On_NPC.GetBossHeadTextureIndex -= OnGetBossHeadTextureIndexHook;
+            On_NPC.GetBossHeadRotation -= OnGetBossHeadRotationHook;
+            On_NPC.GetBossHeadSpriteEffects -= OnGetBossHeadSpriteEffectsHook;
         }
 
         public override GlobalNPC Clone(NPC from, NPC to) {
@@ -136,6 +141,14 @@ namespace InnoVault.GameSystem
             if (npc.TryGetOverride(out var values)) {
                 foreach (var value in values.Values) {
                     value.BossHeadRotation(ref rotation);
+                }
+            }
+        }
+
+        public override void BossHeadSpriteEffects(NPC npc, ref SpriteEffects spriteEffects) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.BossHeadSpriteEffects(ref spriteEffects);
                 }
             }
         }
@@ -741,6 +754,74 @@ namespace InnoVault.GameSystem
                 }
                 if (index >= 0) {
                     return index;
+                }
+            }
+
+            return orig.Invoke(npc);
+        }
+
+        public static float OnGetBossHeadRotationHook(On_NPC.orig_GetBossHeadRotation orig, NPC npc) {
+            if (!npc.active) {//不需要判定ID
+                return orig.Invoke(npc);
+            }
+
+            if (npc.TryGetOverride(out var npcOverrides)) {
+                float? rotation = null;
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    float? newRotation = npcOverrideInstance.GetBossHeadRotation();
+                    if (newRotation.HasValue) {
+                        rotation = newRotation.Value;
+                    }
+                }
+                if (rotation.HasValue) {
+                    return rotation.Value;
+                }
+            }
+
+            if (UniversalInstances.Count > 0) {
+                float? rotation = null;
+                foreach (var inds in UniversalInstances) {
+                    float? newRotation = inds.GetBossHeadRotation();
+                    if (newRotation.HasValue) {
+                        rotation = newRotation.Value;
+                    }
+                }
+                if (rotation.HasValue) {
+                    return rotation.Value;
+                }
+            }
+
+            return orig.Invoke(npc);
+        }
+
+        public static SpriteEffects OnGetBossHeadSpriteEffectsHook(On_NPC.orig_GetBossHeadSpriteEffects orig, NPC npc) {
+            if (!npc.active) {//不需要判定ID
+                return orig.Invoke(npc);
+            }
+
+            if (npc.TryGetOverride(out var npcOverrides)) {
+                SpriteEffects? spriteEffects = null;
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    SpriteEffects? newSpriteEffects = npcOverrideInstance.GetBossHeadSpriteEffects();
+                    if (newSpriteEffects.HasValue) {
+                        spriteEffects = newSpriteEffects.Value;
+                    }
+                }
+                if (spriteEffects.HasValue) {
+                    return spriteEffects.Value;
+                }
+            }
+
+            if (UniversalInstances.Count > 0) {
+                SpriteEffects? spriteEffects = null;
+                foreach (var inds in UniversalInstances) {
+                    SpriteEffects? newSpriteEffects = inds.GetBossHeadSpriteEffects();
+                    if (newSpriteEffects.HasValue) {
+                        spriteEffects = newSpriteEffects.Value;
+                    }
+                }
+                if (spriteEffects.HasValue) {
+                    return spriteEffects.Value;
                 }
             }
 
