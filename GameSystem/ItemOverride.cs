@@ -318,7 +318,7 @@ namespace InnoVault.GameSystem
             return null;
         }
         /// <summary>
-        /// 觉定这个饰品在什么情况下可以被装载
+        /// 决定这个饰品在什么情况下可以被装载
         /// </summary>
         /// <returns>返回默认值<see langword="null"/>会继续执行该物品的原默认方法</returns>
         public virtual bool? CanAccessoryBeEquippedWith(Item equippedItem, Item incomingItem, Player player) {
@@ -844,7 +844,7 @@ namespace InnoVault.GameSystem
 
         }
         /// <summary>
-        /// 用根据使用的弹药来修改弹药的各种属性
+        /// 根据使用的弹药来修改弹药的各种属性
         /// </summary>
         /// <param name="weapon"></param>
         /// <param name="ammo"></param>

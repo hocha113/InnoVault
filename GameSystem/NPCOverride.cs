@@ -7,7 +7,6 @@ using Terraria;
 using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.WorldBuilding;
 using static InnoVault.VaultNetWork;
 
 namespace InnoVault.GameSystem
@@ -175,7 +174,8 @@ namespace InnoVault.GameSystem
             }
         }
         /// <summary>
-        /// 这个属性用于<see cref="On_OnHitByProjectile"/>的实现，编辑方法生效的条件，一般判断会生效在那些目标弹幕ID之上
+        /// 用于 <see cref="On_OnHitByProjectile"/> 的前置条件判断，
+        /// 返回 <see langword="true"/> 时，才会执行相应的覆盖逻辑，通常用于筛选特定的弹幕ID
         /// </summary>
         public virtual bool On_OnHitByProjectile_IfSpan(Projectile proj) => false;
         /// <summary>

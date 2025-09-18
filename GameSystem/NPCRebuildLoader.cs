@@ -1,7 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Microsoft.Xna.Framework.Graphics.PackedVector;
-using Mono.Cecil;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -411,6 +409,13 @@ namespace InnoVault.GameSystem
             }
         }
 
+        internal static void LogAndDeactivateNPC(NPC npc, Exception ex) {
+            string npcMag = $"An error occurred in original AI for NPC {npc.FullName}. Deactivating it.";
+            VaultUtils.Text($"{npcMag} For detailed error information, please refer to the log file", Color.Red);
+            VaultMod.Instance.Logger.Error($"{npcMag} Error: {ex}");
+            npc.active = false;
+        }
+
         public static bool OnPreKillHook(On_NPCDelegate2 orig, NPC npc) {
             if (npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc);
@@ -459,8 +464,8 @@ namespace InnoVault.GameSystem
             if (npc.type == NPCID.None || !npc.active) {
                 try {
                     orig.Invoke(npc);
-                } catch {
-                    npc.active = false;
+                } catch (Exception ex) {
+                    LogAndDeactivateNPC(npc, ex);
                 }
                 return;
             }
@@ -484,8 +489,8 @@ namespace InnoVault.GameSystem
 
             try {
                 orig.Invoke(npc);
-            } catch {
-                npc.active = false;
+            } catch (Exception ex) {
+                LogAndDeactivateNPC(npc, ex);
             }
         }
 
