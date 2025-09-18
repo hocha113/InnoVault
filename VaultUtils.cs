@@ -985,7 +985,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 删除旧版本的同类文件，当前文件保留，其它旧版（包括无版本号视作v0）自动删除
+        /// 删除旧版本的同名文件，当前文件保留，其它旧版（包括无版本号视作v0）自动删除
         /// </summary>
         public static void TryDeleteOldVersionFiles(string targetPath) {
             try {
