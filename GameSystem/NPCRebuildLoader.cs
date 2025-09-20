@@ -6,6 +6,7 @@ using System.Reflection;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 using static InnoVault.GameSystem.NPCOverride;
 
 namespace InnoVault.GameSystem
@@ -301,6 +302,33 @@ namespace InnoVault.GameSystem
                 }
             }
             return null;
+        }
+
+        public override void SaveData(NPC npc, TagCompound tag) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.SaveData(tag);
+                }
+            }
+        }
+
+        public override void LoadData(NPC npc, TagCompound tag) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    value.LoadData(tag);
+                }
+            }
+        }
+
+        public override bool NeedSaving(NPC npc) {
+            if (npc.TryGetOverride(out var values)) {
+                foreach (var value in values.Values) {
+                    if (value.NeedSaving()) {
+                        return true;
+                    }
+                }
+            }
+            return false;
         }
 
         private static MethodInfo GetMethodInfo(string key) => npcLoaderType.GetMethod(key, BindingFlags.Public | BindingFlags.Static);

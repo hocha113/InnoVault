@@ -7,6 +7,7 @@ using Terraria;
 using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 using static InnoVault.VaultNetWork;
 
 namespace InnoVault.GameSystem
@@ -428,6 +429,22 @@ namespace InnoVault.GameSystem
         /// <param name="projectile"></param>
         /// <returns></returns>
         public virtual bool? CanBeHitByProjectile(Projectile projectile) { return null; }
+        /// <summary>
+        /// 保存该NPC的实例数据
+        /// </summary>
+        /// <param name="tag"></param>
+        public virtual void SaveData(TagCompound tag) { }
+        /// <summary>
+        /// 加载该NPC的实例数据，如果<see cref="SaveData(TagCompound)"/>没有存入任何数据，则不会调用这个方法
+        /// </summary>
+        /// <param name="tag"></param>
+        public virtual void LoadData(TagCompound tag) { }
+        /// <summary>
+        /// 是否需要保存该NPC的实例数据，默认返回<see langword="false"/><br/>
+        /// 该函数使用短路逻辑，如果前面的钩子返回了<see langword="true"/>，则不会被调用
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool NeedSaving() { return false; }
         /// <summary>
         /// 更新NPC的帧数据，返回 <see langword="false"/> 可以阻止后续逻辑运行
         /// </summary>

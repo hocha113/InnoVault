@@ -2292,9 +2292,6 @@ namespace InnoVault
         /// </returns>
         public static bool TryGetOverride(this NPC npc, out Dictionary<Type, NPCOverride> values) {
             values = null;
-            if (Main.gameMenu) {
-                return false;
-            }
             if (npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
                 values = globalInstance.NPCOverrides;
             }
