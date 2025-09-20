@@ -307,7 +307,11 @@ namespace InnoVault.GameSystem
         public override void SaveData(NPC npc, TagCompound tag) {
             if (npc.TryGetOverride(out var values)) {
                 foreach (var value in values.Values) {
-                    value.SaveData(tag);
+                    try {
+                        value.SaveData(tag);
+                    } catch (Exception ex) {
+                        LogAndDeactivateNPC(npc, ex);
+                    }
                 }
             }
         }
@@ -315,7 +319,11 @@ namespace InnoVault.GameSystem
         public override void LoadData(NPC npc, TagCompound tag) {
             if (npc.TryGetOverride(out var values)) {
                 foreach (var value in values.Values) {
-                    value.LoadData(tag);
+                    try {
+                        value.LoadData(tag);
+                    } catch (Exception ex) {
+                        LogAndDeactivateNPC(npc, ex);
+                    }
                 }
             }
         }
@@ -323,8 +331,12 @@ namespace InnoVault.GameSystem
         public override bool NeedSaving(NPC npc) {
             if (npc.TryGetOverride(out var values)) {
                 foreach (var value in values.Values) {
-                    if (value.NeedSaving()) {
-                        return true;
+                    try {
+                        if (value.NeedSaving()) {
+                            return true;
+                        }
+                    } catch (Exception ex) {
+                        LogAndDeactivateNPC(npc, ex);
                     }
                 }
             }
@@ -438,9 +450,16 @@ namespace InnoVault.GameSystem
         }
 
         internal static void LogAndDeactivateNPC(NPC npc, Exception ex) {
-            string npcMag = $"An error occurred in original AI for NPC {npc.FullName}. Deactivating it.";
-            VaultUtils.Text($"{npcMag} For detailed error information, please refer to the log file", Color.Red);
-            VaultMod.Instance.Logger.Error($"{npcMag} Error: {ex}");
+            if (npc == null) {
+                string nullNpcMsg = "An error occurred: NPC was null and could not be processed.";
+                VaultUtils.Text($"{nullNpcMsg} For detailed error information, please refer to the log file", Color.Red);
+                VaultMod.Instance.Logger.Error($"{nullNpcMsg} Error: {ex}");
+                return;
+            }
+
+            string npcMsg = $"An error occurred in original AI for NPC {npc.FullName}. Deactivating it.";
+            VaultUtils.Text($"{npcMsg} For detailed error information, please refer to the log file", Color.Red);
+            VaultMod.Instance.Logger.Error($"{npcMsg} Error: {ex}");
             npc.active = false;
         }
 
