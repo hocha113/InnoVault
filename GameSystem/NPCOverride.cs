@@ -155,10 +155,6 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="npc"></param>
         public static void SetDefaults(NPC npc) {
-            if (Main.gameMenu) {
-                return;
-            }
-
             if (!TryFetchByID(npc.type, out Dictionary<Type, NPCOverride> inds) || inds == null) {
                 return;
             }

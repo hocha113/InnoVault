@@ -2287,7 +2287,7 @@ namespace InnoVault
         /// <param name="npc">目标 NPC 实例</param>
         /// <param name="values">返回对应的重制节点字典，键为类型，值为 <see cref="NPCOverride"/> 实例</param>
         /// <returns>
-        /// 如果获取成功并非处于主菜单状态，则返回 <see langword="true"/>；
+        /// 如果获取成功，则返回 <see langword="true"/>；
         /// 否则返回 <see langword="false"/>，此时 <paramref name="values"/> 为 <see langword="null"/>
         /// </returns>
         public static bool TryGetOverride(this NPC npc, out Dictionary<Type, NPCOverride> values) {
@@ -2310,9 +2310,6 @@ namespace InnoVault
         /// </returns>
         public static bool TryGetOverride<T>(this NPC npc, out T value) where T : NPCOverride {
             value = null;
-            if (Main.gameMenu) {
-                return false;
-            }
             if (!npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
                 return false;
             }
