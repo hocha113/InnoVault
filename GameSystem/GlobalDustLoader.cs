@@ -56,7 +56,7 @@ namespace InnoVault.GameSystem
         private static void OnUpdateDustHook(On_Dust.orig_UpdateDust orig) {
             bool reset = true;
             foreach (var globalDust in Instance) {
-                if (!globalDust.PreUpdateDusts()) {
+                if (!globalDust.PreUpdateDustAll()) {
                     reset = false;
                 }
             }
@@ -66,14 +66,14 @@ namespace InnoVault.GameSystem
             }
 
             foreach (var globalDust in Instance) {
-                globalDust.PostUpdateDusts();
+                globalDust.PostUpdateDustAll();
             }
         }
 
         private static void OnDrawDustHook(Action<Main> orig, Main main) {
             bool reset = true;
             foreach (var globalDust in Instance) {
-                if (!globalDust.PreDraws()) {
+                if (!globalDust.PreDrawAll()) {
                     reset = false;
                 }
             }
@@ -83,7 +83,7 @@ namespace InnoVault.GameSystem
             }
 
             foreach (var globalDust in Instance) {
-                globalDust.PostDraws();
+                globalDust.PostDrawAll();
             }
         }
     }
