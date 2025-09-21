@@ -22,6 +22,7 @@ using Terraria.GameContent;
 using Terraria.GameContent.Events;
 using Terraria.GameContent.ItemDropRules;
 using Terraria.GameInput;
+using Terraria.Graphics.Shaders;
 using Terraria.ID;
 using Terraria.Localization;
 using Terraria.ModLoader;
@@ -3797,6 +3798,113 @@ namespace InnoVault
         #endregion
 
         #region Draw
+        /// <summary>
+        /// 获取一个值，该值指示UI空间的染色效果当前是否已激活
+        /// </summary>
+        public static bool UIEffectActive { get; private set; } = false;
+        /// <summary>
+        /// 获取一个值，该值指示世界空间的染色效果当前是否已激活
+        /// </summary>
+        public static bool WorldEffectActive { get; private set; } = false;
+
+        /// <summary>
+        /// 为UI绘制开启一个着色器染色效果
+        /// 此方法会中断当前的SpriteBatch，应用着色器后以新的配置重启
+        /// </summary>
+        /// <param name="entity">应用着色器的实体，着色器可能会使用此实体的位置、速度等信息进行计算</param>
+        /// <param name="dyeItemID">染料物品的ID，用于获取对应的着色器实例</param>
+        /// <param name="customBegin">一个可选的委托，用于在需要时执行自定义的SpriteBatch.Begin调用</param>
+        /// <remarks>
+        /// 每次调用此方法后，都必须在绘制完需要染色的内容后立即调用 <see cref="EndDyeEffectForUI(Action{SpriteBatch})"/> 来恢复画布的默认状态，否则会扰乱后续的UI绘制
+        /// </remarks>
+        public static void BeginDyeEffectForUI(this Entity entity, int dyeItemID, Action<SpriteBatch> customBegin = null) {
+            if (dyeItemID <= 0) {
+                return;
+            }
+            if (UIEffectActive) {
+                EndDyeEffectForUI();
+            }
+            BeginSpriteBatch(customBegin, Main.UIScaleMatrix);
+            GameShaders.Armor.GetShaderFromItemId(dyeItemID)?.Apply(entity, null);
+            UIEffectActive = true;
+        }
+
+        /// <summary>
+        /// 结束当前的UI染色效果，并恢复SpriteBatch的默认绘制状态
+        /// </summary>
+        /// <param name="customBegin">一个可选的委托，用于在需要时执行自定义的SpriteBatch.Begin调用来恢复状态</param>
+        public static void EndDyeEffectForUI(Action<SpriteBatch> customBegin = null) {
+            if (!UIEffectActive) {
+                return;
+            }
+            BeginSpriteBatch(customBegin, Main.UIScaleMatrix);
+            UIEffectActive = false;
+        }
+        /// <summary>
+        /// 结束当前的UI染色效果，并恢复SpriteBatch的默认绘制状态
+        /// </summary>
+        /// <param name="_"></param>
+        /// <param name="customBegin">一个可选的委托，用于在需要时执行自定义的SpriteBatch.Begin调用来恢复状态</param>
+        public static void EndDyeEffectForUI(this Entity _, Action<SpriteBatch> customBegin = null) => EndDyeEffectForUI(customBegin);
+
+        /// <summary>
+        /// 为世界内绘制开启一个着色器染色效果
+        /// 此方法会中断当前的SpriteBatch，应用着色器后以应用于世界坐标的变换矩阵重启
+        /// </summary>
+        /// <param name="entity">应用着色器的实体，着色器可能会使用此实体的位置、速度等信息进行计算</param>
+        /// <param name="dyeItemID">染料物品的ID，用于获取对应的着色器实例</param>
+        /// <param name="customBegin">一个可选的委托，用于在需要时执行自定义的SpriteBatch.Begin调用</param>
+        /// <remarks>
+        /// 每次调用此方法后，都必须在绘制完需要染色的内容后立即调用 <see cref="EndDyeEffectForWorld(Action{SpriteBatch})"/> 来恢复画布的默认状态，否则会扰乱后续的世界内绘制
+        /// </remarks>
+        public static void BeginDyeEffectForWorld(this Entity entity, int dyeItemID, Action<SpriteBatch> customBegin = null) {
+            if (dyeItemID <= 0) {
+                return;
+            }
+            if (WorldEffectActive) {
+                EndDyeEffectForWorld();
+            }
+            BeginSpriteBatch(customBegin, Main.GameViewMatrix.ZoomMatrix);
+            GameShaders.Armor.GetShaderFromItemId(dyeItemID)?.Apply(entity, null);
+            WorldEffectActive = true;
+        }
+
+        /// <summary>
+        /// 结束当前的世界染色效果，并恢复SpriteBatch的默认绘制状态
+        /// </summary>
+        /// <param name="customBegin">一个可选的委托，用于在需要时执行自定义的SpriteBatch.Begin调用来恢复状态</param>
+        public static void EndDyeEffectForWorld(Action<SpriteBatch> customBegin = null) {
+            if (!WorldEffectActive) {
+                return;
+            }
+            BeginSpriteBatch(customBegin, Main.GameViewMatrix.ZoomMatrix);
+            WorldEffectActive = false;
+        }
+        /// <summary>
+        /// 结束当前的世界染色效果，并恢复SpriteBatch的默认绘制状态
+        /// </summary>
+        /// <param name="_"></param>
+        /// <param name="customBegin">一个可选的委托，用于在需要时执行自定义的SpriteBatch.Begin调用来恢复状态</param>
+        public static void EndDyeEffectForWorld(this Entity _, Action<SpriteBatch> customBegin = null) => EndDyeEffectForWorld(customBegin);
+
+        /// <summary>
+        /// 私有辅助方法，用于结束当前的SpriteBatch并以指定的配置重新开始
+        /// 这是实现着色器效果的核心，因为应用着色器需要SpriteBatch在 <see cref="SpriteSortMode.Immediate"/> 模式下启动
+        /// </summary>
+        /// <param name="customBegin">一个可选的委托，如果提供，则使用它来代替默认的Begin调用</param>
+        /// <param name="transformMatrix">应用于SpriteBatch的变换矩阵，用于区分UI绘制和世界绘制</param>
+        private static void BeginSpriteBatch(Action<SpriteBatch> customBegin, Matrix transformMatrix) {
+            Main.spriteBatch.End();
+            if (customBegin != null) {
+                customBegin.Invoke(Main.spriteBatch);
+            }
+            else {
+                Main.spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend,
+                    Main.DefaultSamplerState, DepthStencilState.None,
+                    RasterizerState.CullCounterClockwise, null, transformMatrix);
+            }
+        }
+
         /// <summary>
         /// 计算并返回屏幕变换矩阵（World-View-Projection 矩阵）
         /// </summary>
