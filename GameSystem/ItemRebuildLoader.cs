@@ -171,7 +171,7 @@ namespace InnoVault.GameSystem
                 VaultHook.Add(onPreDrawInInventoryMethod, OnPreDrawInInventoryHook);
             }
             if (onPostDrawInInventoryMethod != null) {
-                VaultHook.Add(onPostDrawInInventoryMethod, OnPreDrawInInventoryHook);
+                VaultHook.Add(onPostDrawInInventoryMethod, OnPostDrawInInventoryHook);
             }
             if (onUseItemMethod != null) {
                 VaultHook.Add(onUseItemMethod, OnUseItemHook);
