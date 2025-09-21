@@ -177,18 +177,6 @@ namespace InnoVault.GameContent.BaseEntity
         /// </summary>
         /// <param name="flags"></param>
         /// <returns></returns>
-        [Obsolete("已经被弃用，应该使用 SendBitsByte ")]
-        public virtual BitsByte SandBitsByte(BitsByte flags) {
-            flags[0] = downLeftValue;
-            flags[1] = downRightValue;
-            return flags;
-        }
-        /// <summary>
-        /// 发送一个比特体，存储8个栏位的布尔值，
-        /// 如果子类准备重写，需要尊重父类的使用逻辑，当前已经占用至1号位
-        /// </summary>
-        /// <param name="flags"></param>
-        /// <returns></returns>
         public virtual BitsByte SendBitsByte(BitsByte flags) {
             flags[0] = downLeftValue;
             flags[1] = downRightValue;

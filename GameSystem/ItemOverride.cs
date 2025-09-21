@@ -68,12 +68,6 @@ namespace InnoVault.GameSystem
         /// </summary>
         public virtual bool IsVanilla => TargetID < ItemID.Count;
         /// <summary>
-        /// 是否参与配方替换，默认为<see langword="true"/>，如果<see cref="IsVanilla"/>为<see langword="true"/>，那么该属性自动返回<see langword="false"/>
-        /// [未使用]
-        /// </summary>
-        [Obsolete("该属性已经弃用，不再具备任何实际用途，如果需要检测配方合成，请直接判定ID或者使用IsVanilla")]
-        public virtual bool FormulaSubstitution => !IsVanilla;
-        /// <summary>
         /// 该重置节点是否会加载进图鉴中，默认为<see langword="true"/>
         /// [未使用]
         /// </summary>
