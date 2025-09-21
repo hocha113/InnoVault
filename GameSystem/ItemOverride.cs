@@ -265,15 +265,13 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 进行背包中的物品绘制，这个函数会执行在Draw之后
         /// </summary>
-        /// <param name="item"></param>
-        /// <param name="spriteBatch"></param>
-        /// <param name="position"></param>
-        /// <param name="frame"></param>
-        /// <param name="drawColor"></param>
-        /// <param name="itemColor"></param>
-        /// <param name="origin"></param>
-        /// <param name="scale"></param>
         public virtual void PostDrawInInventory(Item item, SpriteBatch spriteBatch, Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale) {
+
+        }
+        /// <summary>
+        /// 进行背包中的物品绘制，这个函数会执行在Draw之后
+        /// </summary>
+        public virtual void On_PostDrawInInventory(Item item, SpriteBatch spriteBatch, Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale) {
 
         }
         /// <summary>
@@ -904,6 +902,15 @@ namespace InnoVault.GameSystem
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool? On_Shoot(Item item, Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback) {
             return null;
+        }
+        /// <summary>
+        /// 调用在物品射击行为之后，让一些事情发生
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="whoAmI"></param>
+        /// <param name="weaponDamage"></param>
+        public virtual void On_PostShoot(Item item, int whoAmI, int weaponDamage) {
+
         }
         /// <summary>
         /// 拆分这个物品时让一些事情发生

@@ -90,6 +90,23 @@ namespace InnoVault.GameSystem
 
         public override bool AppliesToEntity(NPC entity, bool lateInstantiation) => lateInstantiation && ByID.ContainsKey(entity.type);
 
+        public static void UniversalForEach(Action<NPCOverride> action) {
+            foreach (var inds in UniversalInstances) {
+                action(inds);
+            }
+        }
+
+        public static bool? UniversalForEach(Func<NPCOverride, bool?> action) {
+            bool? result = null;
+            foreach (var inds in UniversalInstances) {
+                bool? newResult = action(inds);
+                if (newResult.HasValue) {
+                    result = newResult;
+                }
+            }
+            return result;
+        }
+
         public override void SetDefaults(NPC npc) {
             if (npc.Alives()) {
                 PreSetDefaultsEvent?.Invoke(npc);

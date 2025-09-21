@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -19,6 +20,23 @@ namespace InnoVault.GameSystem
     public class ItemRebuildLoader : GlobalItem, IVaultLoader
     {
 #pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
+        public static void UniversalForEach(Action<ItemOverride> action) {
+            foreach (var inds in UniversalInstances) {
+                action(inds);
+            }
+        }
+
+        public static bool? UniversalForEach(Func<ItemOverride, bool?> action) {
+            bool? result = null;
+            foreach (var inds in UniversalInstances) {
+                bool? newResult = action(inds);
+                if (newResult.HasValue) {
+                    result = newResult;
+                }
+            }
+            return result;
+        }
+
         #region On and IL
         public delegate bool On_Item_Dalegate(Item item);
         public delegate void On_Item_Void_Dalegate(Item item);
@@ -31,6 +49,7 @@ namespace InnoVault.GameSystem
         public delegate void On_ModifyHitNPC_Delegate(Item item, Player player, NPC target, ref NPC.HitModifiers modifiers);
         public delegate bool On_CanUseItem_Delegate(Item item, Player player);
         public delegate bool On_PreDrawInInventory_Delegate(Item item, SpriteBatch spriteBatch, Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale);
+        public delegate void On_PostDrawInInventory_Delegate(Item item, SpriteBatch spriteBatch, Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale);
         public delegate bool? On_UseItem_Delegate(Item item, Player player);
         public delegate void On_UseAnimation_Delegate(Item item, Player player);
         public delegate void On_ModifyWeaponCrit_Delegate(Item item, Player player, ref float crit);
@@ -45,6 +64,7 @@ namespace InnoVault.GameSystem
             , ref bool[] modifier, ref bool[] badModifier, ref int oneDropLogo, out Color?[] overrideColor, int prefixlineIndex);
         public delegate string On_GetItemNameValue_Delegate(int id);
         public delegate string On_GetItemName_get_Delegate(Item item);
+        public delegate void On_ItemCheckShoot_Delegate(Player player, int i, Item sItem, int weaponDamage);
         public static event On_Shoot_Dalegate PreShootEvent;
         public static event On_Item_Void_Dalegate PreSetDefaultsEvent;
         public static event On_Item_Void_Dalegate PostSetDefaultsEvent;
@@ -63,6 +83,7 @@ namespace InnoVault.GameSystem
         public static MethodBase onCanUseItemMethod;
         public static MethodBase onConsumeItemMethod;
         public static MethodBase onPreDrawInInventoryMethod;
+        public static MethodBase onPostDrawInInventoryMethod;
         public static MethodBase onUseItemMethod;
         public static MethodBase onUseAnimationMethod;
         public static MethodBase onModifyWeaponCritMethod;
@@ -108,6 +129,7 @@ namespace InnoVault.GameSystem
             onCanUseItemMethod = itemLoaderType.GetMethod("CanUseItem", BindingFlags.Public | BindingFlags.Static);
             onConsumeItemMethod = itemLoaderType.GetMethod("ConsumeItem", BindingFlags.Public | BindingFlags.Static);
             onPreDrawInInventoryMethod = itemLoaderType.GetMethod("PreDrawInInventory", BindingFlags.Public | BindingFlags.Static);
+            onPostDrawInInventoryMethod = itemLoaderType.GetMethod("PostDrawInInventory", BindingFlags.Public | BindingFlags.Static);
             onUseItemMethod = itemLoaderType.GetMethod("UseItem", BindingFlags.Public | BindingFlags.Static);
             onUseAnimationMethod = itemLoaderType.GetMethod("UseAnimation", BindingFlags.Public | BindingFlags.Static);
             onModifyWeaponCritMethod = itemLoaderType.GetMethod("ModifyWeaponCrit", BindingFlags.Public | BindingFlags.Static);
@@ -147,6 +169,9 @@ namespace InnoVault.GameSystem
             }
             if (onPreDrawInInventoryMethod != null) {
                 VaultHook.Add(onPreDrawInInventoryMethod, OnPreDrawInInventoryHook);
+            }
+            if (onPostDrawInInventoryMethod != null) {
+                VaultHook.Add(onPostDrawInInventoryMethod, OnPreDrawInInventoryHook);
             }
             if (onUseItemMethod != null) {
                 VaultHook.Add(onUseItemMethod, OnUseItemHook);
@@ -190,6 +215,8 @@ namespace InnoVault.GameSystem
             if (onAffixNameMethod != null) {
                 VaultHook.Add(onAffixNameMethod, OnAffixNameHook);
             }
+
+            VaultHook.Add(typeof(Player).GetMethod("ItemCheck_Shoot", BindingFlags.Instance | BindingFlags.NonPublic), OnItemCheckShootHook);
 
             On_Player.UpdateArmorSets += UpdateArmorSetHook;
         }
@@ -243,7 +270,7 @@ namespace InnoVault.GameSystem
 
         public static List<TooltipLine> On_ModifyTooltips_Hook(On_ModifyTooltips_Delegate orig, Item item, ref int numTooltips, string[] names, ref string[] text
             , ref bool[] modifier, ref bool[] badModifier, ref int oneDropLogo, out Color?[] overrideColor, int prefixlineIndex) {
-            List<TooltipLine> tooltips = new List<TooltipLine>();
+            List<TooltipLine> tooltips = [];
             for (int k = 0; k < numTooltips; k++) {
                 TooltipLine tooltip = new TooltipLine(VaultMod.Instance, names[k], text[k]);
                 TooltipLine_ModName_Field.SetValue(tooltip, "Terraria");
@@ -325,9 +352,7 @@ namespace InnoVault.GameSystem
                 }
             }
 
-            foreach (var inds in UniversalInstances) {
-                inds.ModifyName(item, ref result);
-            }
+            UniversalForEach(inds => inds.ModifyName(item, ref result));
 
             if (result != string.Empty) {
                 return result;
@@ -353,9 +378,7 @@ namespace InnoVault.GameSystem
                 }
             }
 
-            foreach (var inds in UniversalInstances) {
-                inds.ModifyAffixName(item, ref result);
-            }
+            UniversalForEach(inds => inds.ModifyName(item, ref result));
 
             if (result != string.Empty) {
                 item.SetNameOverride(result);
@@ -501,7 +524,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_ModifyItemLoot(item, itemLoot);
+                    bool? newResult = overrideInstance.On_ModifyItemLoot(item, itemLoot);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
 
                 if (result.HasValue) {
@@ -528,7 +554,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_ModifyWeaponCrit(item, player, ref crit);
+                    bool? newResult = overrideInstance.On_ModifyWeaponCrit(item, player, ref crit);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
 
                 if (result.HasValue) {
@@ -555,7 +584,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_UseAnimation(item, player);
+                    bool? newResult = overrideInstance.On_UseAnimation(item, player);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
 
                 if (result.HasValue) {
@@ -579,10 +611,18 @@ namespace InnoVault.GameSystem
         /// <param name="player"></param>
         /// <returns></returns>
         public static bool? OnUseItemHook(On_UseItem_Delegate orig, Item item, Player player) {
+            bool? universalResult = UniversalForEach(inds => inds.On_UseItem(item, player));
+            if (universalResult.HasValue) {
+                return universalResult.Value;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_UseItem(item, player);
+                    bool? newResult = overrideInstance.On_UseItem(item, player);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
@@ -609,11 +649,14 @@ namespace InnoVault.GameSystem
                 }
             }
 
-            bool? result = null;
+            bool? result = UniversalForEach(inds => inds.On_Shoot(item, player, source, position, velocity, type, damage, knockback));
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_Shoot(item, player, source, position, velocity, type, damage, knockback);
+                    bool? newResult = overrideInstance.On_Shoot(item, player, source, position, velocity, type, damage, knockback);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
@@ -628,6 +671,18 @@ namespace InnoVault.GameSystem
 
             return orig.Invoke(item, player, source, position, velocity, type, damage, knockback);
         }
+        //钩住这里达到运行在所有射击函数之后的效果
+        public static void OnItemCheckShootHook(On_ItemCheckShoot_Delegate orig, Player player, int i, Item sItem, int weaponDamage) {
+            orig.Invoke(player, i, sItem, weaponDamage);
+
+            if (TryFetchByID(sItem.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
+                foreach (var overrideInstance in itemOverrides.Values) {
+                    overrideInstance.On_PostShoot(sItem, i, weaponDamage);
+                }
+            }
+
+            UniversalForEach(inds => inds.On_PostShoot(sItem, i, weaponDamage));
+        }
         /// <summary>
         /// 提前于TML的方法执行，这样继承重写<br/><see cref="ItemOverride.On_ModifyShootStats"/><br/>便拥有可以阻断TML后续方法运行的能力，用于进行一些高级修改
         /// </summary>
@@ -636,7 +691,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_ModifyShootStats(item, player, ref position, ref velocity, ref type, ref damage, ref knockback);
+                    bool? newResult = overrideInstance.On_ModifyShootStats(item, player, ref position, ref velocity, ref type, ref damage, ref knockback);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     if (result.Value) {
@@ -656,10 +714,18 @@ namespace InnoVault.GameSystem
         /// <br/>继承重写<see cref="ItemOverride.On_CanUseItem(Item, Player)"/>来达到这些目的，用于进行一些高级修改
         /// </summary>
         public static bool OnCanUseItemHook(On_CanUseItem_Delegate orig, Item item, Player player) {
+            bool? universalResult = UniversalForEach(inds => inds.On_CanUseItem(item, player));
+            if (universalResult.HasValue) {
+                return universalResult.Value;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_CanUseItem(item, player);
+                    bool? newResult = overrideInstance.On_CanUseItem(item, player);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
@@ -676,7 +742,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_ConsumeItem(item, player);
+                    bool? newResult = overrideInstance.On_ConsumeItem(item, player);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
@@ -690,7 +759,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool result = true;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_OnHitNPC(item, player, target, hit, damageDone);
+                    bool? newResult = overrideInstance.On_OnHitNPC(item, player, target, hit, damageDone);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (!result) {
                     return;
@@ -704,7 +776,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool result = true;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_OnHitPvp(item, player, target, hurtInfo);
+                    bool? newResult = overrideInstance.On_OnHitPvp(item, player, target, hurtInfo);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (!result) {
                     return;
@@ -718,7 +793,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_ModifyHitNPC(item, player, target, ref modifiers);
+                    bool? newResult = overrideInstance.On_ModifyHitNPC(item, player, target, ref modifiers);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     if (result.Value) {
@@ -736,10 +814,18 @@ namespace InnoVault.GameSystem
 
         public static bool OnPreDrawInInventoryHook(On_PreDrawInInventory_Delegate orig, Item item, SpriteBatch spriteBatch
             , Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale) {
+            bool? universalResult = UniversalForEach(inds => inds.On_PreDrawInInventory(item, spriteBatch, position, frame, drawColor, itemColor, origin, scale));
+            if (universalResult.HasValue) {
+                return universalResult.Value;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = overrideInstance.On_PreDrawInInventory(item, spriteBatch, position, frame, drawColor, itemColor, origin, scale);
+                    bool? newResult = overrideInstance.On_PreDrawInInventory(item, spriteBatch, position, frame, drawColor, itemColor, origin, scale);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
@@ -747,6 +833,19 @@ namespace InnoVault.GameSystem
             }
 
             return orig.Invoke(item, spriteBatch, position, frame, drawColor, itemColor, origin, scale);
+        }
+
+        public static void OnPostDrawInInventoryHook(On_PostDrawInInventory_Delegate orig, Item item, SpriteBatch spriteBatch//Post参数列表和Pre一样，所以可以共用
+            , Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale) {
+            orig.Invoke(item, spriteBatch, position, frame, drawColor, itemColor, origin, scale);
+
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
+                foreach (var overrideInstance in itemOverrides.Values) {
+                    overrideInstance.On_PostDrawInInventory(item, spriteBatch, position, frame, drawColor, itemColor, origin, scale);
+                }
+            }
+
+            UniversalForEach(inds => inds.On_PostDrawInInventory(item, spriteBatch, position, frame, drawColor, itemColor, origin, scale));
         }
         #endregion
 
@@ -763,7 +862,10 @@ namespace InnoVault.GameSystem
             bool? result = null;
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 foreach (var overrideInstance in itemOverrides.Values) {
-                    result = action(overrideInstance);
+                    bool? newResult = action(overrideInstance);
+                    if (newResult.HasValue) {
+                        result = newResult;
+                    }
                 }
             }
             return result;
@@ -1023,7 +1125,7 @@ namespace InnoVault.GameSystem
             type = safeType;
             speed = safeSpeed;
             knockback = safeKnockback;
-            safeDamage = damage;
+            damage = safeDamage;
         }
 
         public override void RightClick(Item item, Player player) {
@@ -1079,7 +1181,7 @@ namespace InnoVault.GameSystem
         public override void UseItemHitbox(Item item, Player player, ref Rectangle hitbox, ref bool noHitbox) {
             Rectangle safeHitbox = hitbox;
             bool safeNoHitbox = noHitbox;
-            ProcessRemakeAction(item, (inds) => inds.UseItemFrame(item, player));
+            ProcessRemakeAction(item, (inds) => inds.UseItemHitbox(item, player, ref safeHitbox, ref safeNoHitbox));
             hitbox = safeHitbox;
             noHitbox = safeNoHitbox;
         }
