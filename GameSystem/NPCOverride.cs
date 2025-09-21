@@ -254,6 +254,10 @@ namespace InnoVault.GameSystem
         /// <returns></returns>
         public virtual bool AI() { return true; }
         /// <summary>
+        /// 允许在ai运行后进行一些操作
+        /// </summary>
+        public virtual void PostAI() { }
+        /// <summary>
         /// 允许编辑死亡事件，返回非null值可以阻断后续逻辑的运行
         /// </summary>
         /// <returns></returns>

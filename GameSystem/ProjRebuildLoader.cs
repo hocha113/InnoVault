@@ -51,6 +51,37 @@ namespace InnoVault.GameSystem
 
         public override bool AppliesToEntity(Projectile entity, bool lateInstantiation) => lateInstantiation && ByID.ContainsKey(entity.type);
 
+        public static void UniversalForEach(Projectile projectile, Action<ProjOverride> action) {
+            foreach (var inds in UniversalInstances) {
+                inds.UniversalSetProjInstance(projectile);
+                action(inds);
+            }
+        }
+
+        public static bool UniversalForEach(Projectile projectile, Func<ProjOverride, bool> action, bool startBool = true) {
+            bool result = startBool;
+            foreach (var inds in UniversalInstances) {
+                inds.UniversalSetProjInstance(projectile);
+                bool newResult = action(inds);
+                if (newResult != startBool) {
+                    result = newResult;
+                }
+            }
+            return result;
+        }
+
+        public static bool? UniversalForEach(Projectile projectile, Func<ProjOverride, bool?> action) {
+            bool? result = null;
+            foreach (var inds in UniversalInstances) {
+                inds.UniversalSetProjInstance(projectile);
+                bool? newResult = action(inds);
+                if (newResult.HasValue) {
+                    result = newResult;
+                }
+            }
+            return result;
+        }
+
         public override void SetDefaults(Projectile entity) {
             if (entity.Alives()) {
                 PreSetDefaultsEvent?.Invoke(entity);
@@ -107,16 +138,33 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnProjectileAIHook(On_Projectile_Void_Delegate orig, Projectile proj) {
-            if (proj.TryGetOverride(out var values)) {
+            if (!UniversalForEach(proj, inds => inds.AI())) {
+                return;
+            }
+
+            bool hasOverride = proj.TryGetOverride(out var values);
+
+            if (hasOverride) {
                 bool result = true;
                 foreach (var value in values.Values) {
-                    result = value.AI();
+                    if (!value.AI()) {
+                        result = false;
+                    }
                 }
                 if (!result) {
                     return;
                 }
             }
+
             orig.Invoke(proj);
+
+            if (hasOverride) {
+                foreach (var value in values.Values) {
+                    value.PostAI();
+                }
+            }
+
+            UniversalForEach(proj, inds => inds.PostAI());
         }
 
         public static bool OnPreDrawHook(On_PreDraw_Delegate orig, Projectile proj, ref Color lightColor) {

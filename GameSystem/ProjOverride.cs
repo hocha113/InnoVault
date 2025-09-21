@@ -22,6 +22,10 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static Dictionary<int, Dictionary<Type, ProjOverride>> ByID { get; internal set; } = [];
         /// <summary>
+        /// 所有负指向的实例集合，只包含<see cref="TargetID"/>为 -1 的实例
+        /// </summary>
+        public static List<ProjOverride> UniversalInstances { get; internal set; } = [];
+        /// <summary>
         /// 要修改的Proj的ID值
         /// </summary>
         public virtual int TargetID => NPCID.None;
@@ -54,13 +58,14 @@ namespace InnoVault.GameSystem
 
             SetStaticDefaults();
 
-            if (TargetID <= ItemID.None) {
-                return;
+            if (TargetID > ItemID.None) {
+                //嵌套字典需要提前挖坑
+                ByID.TryAdd(TargetID, []);
+                ByID[TargetID][GetType()] = this;
             }
-
-            //嵌套字典需要提前挖坑
-            ByID.TryAdd(TargetID, []);
-            ByID[TargetID][GetType()] = this;
+            else if (TargetID == -1) {
+                UniversalInstances.Add(this);
+            }
         }
         /// <summary>
         /// 寻找对应弹幕实例的重载实例
@@ -92,6 +97,12 @@ namespace InnoVault.GameSystem
             projOverrides = result;
             return true;
         }
+
+        /// <summary>
+        /// 仅用于全局重制节点设置临时Proj实例
+        /// </summary>
+        /// <param name="setProj"></param>
+        internal void UniversalSetProjInstance(Projectile setProj) => projectile = setProj;
 
         /// <summary>
         /// 加载并初始化重制节点到对应的弹幕实例上
@@ -135,6 +146,10 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <returns></returns>
         public virtual bool AI() => true;
+        /// <summary>
+        /// 弹幕的AI逻辑，在<see cref="AI"/>和原版AI逻辑之后调用
+        /// </summary>
+        public virtual void PostAI() { }
         /// <summary>
         /// 击中NPC时调用该函数
         /// </summary>

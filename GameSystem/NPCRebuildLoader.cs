@@ -90,15 +90,29 @@ namespace InnoVault.GameSystem
 
         public override bool AppliesToEntity(NPC entity, bool lateInstantiation) => lateInstantiation && ByID.ContainsKey(entity.type);
 
-        public static void UniversalForEach(Action<NPCOverride> action) {
+        public static void UniversalForEach(NPC npc, Action<NPCOverride> action) {
             foreach (var inds in UniversalInstances) {
+                inds.UniversalSetNPCInstance(npc);
                 action(inds);
             }
         }
 
-        public static bool? UniversalForEach(Func<NPCOverride, bool?> action) {
+        public static bool UniversalForEach(NPC npc, Func<NPCOverride, bool> action, bool startBool = true) {
+            bool result = startBool;
+            foreach (var inds in UniversalInstances) {
+                inds.UniversalSetNPCInstance(npc);
+                bool newResult = action(inds);
+                if (newResult != startBool) {
+                    result = newResult;
+                }
+            }
+            return result;
+        }
+
+        public static bool? UniversalForEach(NPC npc, Func<NPCOverride, bool?> action) {
             bool? result = null;
             foreach (var inds in UniversalInstances) {
+                inds.UniversalSetNPCInstance(npc);
                 bool? newResult = action(inds);
                 if (newResult.HasValue) {
                     result = newResult;
@@ -534,18 +548,23 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            if (npc.TryGetOverride(out var npcOverrides)) {
+            bool universalResult = UniversalForEach(npc, inds => inds.AI());
+            if (!universalResult) {
+                return;
+            }
+
+            bool hasOverrides = npc.TryGetOverride(out var npcOverrides);
+            if (hasOverrides) {
                 bool result = true;
-                int type = npc.type;
 
                 foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    int type = npc.type;
                     if (!npcOverrideInstance.AI()) {
                         result = false;
                     }
-                    npcOverrideInstance.DoNetWork();
+                    npc.type = type;
                 }
 
-                npc.type = type;
                 if (!result) {
                     return;
                 }
@@ -555,6 +574,22 @@ namespace InnoVault.GameSystem
                 orig.Invoke(npc);
             } catch (Exception ex) {
                 LogAndDeactivateNPC(npc, ex);
+            }
+
+            if (hasOverrides) {
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    int type = npc.type;
+                    npcOverrideInstance.PostAI();
+                    npc.type = type;
+                }
+            }
+
+            UniversalForEach(npc, inds => inds.PostAI());
+
+            if (hasOverrides) {//所有逻辑处理完成后，统一做一次网络同步
+                foreach (var npcOverrideInstance in npcOverrides.Values) {
+                    npcOverrideInstance.DoNetWork();
+                }
             }
         }
 
@@ -626,6 +661,8 @@ namespace InnoVault.GameSystem
                     return;
                 }
             }
+
+
 
             orig.Invoke(npc, projectile, hit, damageDone);
         }
