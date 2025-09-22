@@ -9,11 +9,11 @@ namespace InnoVault
     public abstract class VaultType<T> : ModType where T : VaultType<T>
     {
         /// <summary>
-        /// 是否自动在<see cref="ModType.Register"/>中调用<see cref="VaultRegistry{T}.Register(T)"/>,默认返回<see langword="true"/>
+        /// 是否自动在<see cref="ModType.Register"/>中调用<see cref="VaultTypeRegistry{T}.Register(T)"/>,默认返回<see langword="true"/>
         /// </summary>
         protected virtual bool AutoVaultRegistryRegister => true;
         /// <summary>
-        /// 是否自动在<see cref="ModType.SetupContent"/>中调用<see cref="VaultRegistry{T}.FinishLoading"/>,默认返回<see langword="true"/>
+        /// 是否自动在<see cref="ModType.SetupContent"/>中调用<see cref="VaultTypeRegistry{T}.CompleteLoading"/>,默认返回<see langword="true"/>
         /// </summary>
         protected virtual bool AutoVaultRegistryFinishLoading => true;
         /// <summary>
@@ -52,7 +52,7 @@ namespace InnoVault
                 return;
             }
             if (AutoVaultRegistryRegister) {
-                VaultRegistry<T>.Register((T)this);
+                VaultTypeRegistry<T>.Register((T)this);
             }
             VaultRegister();
         }
@@ -70,7 +70,7 @@ namespace InnoVault
                 return;
             }
             if (AutoVaultRegistryFinishLoading) {
-                VaultRegistry<T>.FinishLoading();
+                VaultTypeRegistry<T>.CompleteLoading();
             }
             VaultSetup();
         }

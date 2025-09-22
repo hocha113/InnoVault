@@ -51,23 +51,23 @@ namespace InnoVault.GameSystem
         public static MethodInfo onPostDraw_Method;
         public static MethodInfo onCheckDead_Method;
         public override bool InstancePerEntity => true;
-        private static readonly List<VaultHookCache<NPCOverride>> hooks = [];
-        internal static VaultHookCache<NPCOverride> HookAI;
-        internal static VaultHookCache<NPCOverride> HookPostAI;
-        internal static VaultHookCache<NPCOverride> HookOn_PreKill;
-        internal static VaultHookCache<NPCOverride> HookCheckActive;
-        internal static VaultHookCache<NPCOverride> HookCheckDead;
-        internal static VaultHookCache<NPCOverride> HookDraw;
-        internal static VaultHookCache<NPCOverride> HookPostDraw;
-        internal static VaultHookCache<NPCOverride> HookFindFrame;
-        internal static VaultHookCache<NPCOverride> HookModifyNPCLoot;
-        internal static VaultHookCache<NPCOverride> HookOnHitByItem;
-        internal static VaultHookCache<NPCOverride> HookOnHitByProjectile;
-        internal static VaultHookCache<NPCOverride> HookModifyHitByItem;
-        internal static VaultHookCache<NPCOverride> HookModifyHitByProjectile;
-        internal static VaultHookCache<NPCOverride> HookCanBeHitByItem;
-        internal static VaultHookCache<NPCOverride> HookCanBeHitByNPC;
-        internal static VaultHookCache<NPCOverride> HookCanBeHitByProjectile;
+        private static readonly List<VaultHookMethodCache<NPCOverride>> hooks = [];
+        internal static VaultHookMethodCache<NPCOverride> HookAI;
+        internal static VaultHookMethodCache<NPCOverride> HookPostAI;
+        internal static VaultHookMethodCache<NPCOverride> HookOn_PreKill;
+        internal static VaultHookMethodCache<NPCOverride> HookCheckActive;
+        internal static VaultHookMethodCache<NPCOverride> HookCheckDead;
+        internal static VaultHookMethodCache<NPCOverride> HookDraw;
+        internal static VaultHookMethodCache<NPCOverride> HookPostDraw;
+        internal static VaultHookMethodCache<NPCOverride> HookFindFrame;
+        internal static VaultHookMethodCache<NPCOverride> HookModifyNPCLoot;
+        internal static VaultHookMethodCache<NPCOverride> HookOnHitByItem;
+        internal static VaultHookMethodCache<NPCOverride> HookOnHitByProjectile;
+        internal static VaultHookMethodCache<NPCOverride> HookModifyHitByItem;
+        internal static VaultHookMethodCache<NPCOverride> HookModifyHitByProjectile;
+        internal static VaultHookMethodCache<NPCOverride> HookCanBeHitByItem;
+        internal static VaultHookMethodCache<NPCOverride> HookCanBeHitByNPC;
+        internal static VaultHookMethodCache<NPCOverride> HookCanBeHitByProjectile;
         public Dictionary<Type, NPCOverride> NPCOverrides { get; internal set; }
         public List<NPCOverride> AIOverrides { get; private set; }
         public List<NPCOverride> PostAIOverrides { get; private set; }
@@ -108,7 +108,7 @@ namespace InnoVault.GameSystem
             _loadHook = true;
 
             foreach(var type in VaultUtils.GetDerivedInstances<NPCOverride>()) {
-                VaultRegistry<NPCOverride>.Register(type);//这里提取手动加载好所有的NPCOverride实例
+                VaultTypeRegistry<NPCOverride>.Register(type);//这里提取手动加载好所有的NPCOverride实例
             }
 
             //使用Lambda表达式创建钩子列表，这个过程只在Mod加载时执行一次
@@ -155,8 +155,8 @@ namespace InnoVault.GameSystem
             On_NPC.GetBossHeadSpriteEffects -= OnGetBossHeadSpriteEffectsHook;
         }
 
-        private static VaultHookCache<NPCOverride> AddHook<F>(Expression<Func<NPCOverride, F>> func) where F : Delegate {
-            VaultHookCache<NPCOverride> hook = VaultHookCache<NPCOverride>.Create(func);
+        private static VaultHookMethodCache<NPCOverride> AddHook<F>(Expression<Func<NPCOverride, F>> func) where F : Delegate {
+            VaultHookMethodCache<NPCOverride> hook = VaultHookMethodCache<NPCOverride>.Create(func);
             hooks.Add(hook);
             return hook;
         }

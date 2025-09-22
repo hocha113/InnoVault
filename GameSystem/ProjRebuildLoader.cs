@@ -26,16 +26,16 @@ namespace InnoVault.GameSystem
         public static MethodInfo onPreDraw_Method;
         public static MethodInfo onPostDraw_Method;
         public override bool InstancePerEntity => true;
-        private static readonly List<VaultHookCache<ProjOverride>> hooks = [];
-        internal static VaultHookCache<ProjOverride> HookAI;
-        internal static VaultHookCache<ProjOverride> HookPostAI;
-        internal static VaultHookCache<ProjOverride> HookOnSpawn;
-        internal static VaultHookCache<ProjOverride> HookShouldUpdatePosition;
-        internal static VaultHookCache<ProjOverride> HookOnHitNPC;
-        internal static VaultHookCache<ProjOverride> HookOnHitPlayer;
-        internal static VaultHookCache<ProjOverride> HookOnKill;
-        internal static VaultHookCache<ProjOverride> HookDraw;
-        internal static VaultHookCache<ProjOverride> HookPostDraw;
+        private static readonly List<VaultHookMethodCache<ProjOverride>> hooks = [];
+        internal static VaultHookMethodCache<ProjOverride> HookAI;
+        internal static VaultHookMethodCache<ProjOverride> HookPostAI;
+        internal static VaultHookMethodCache<ProjOverride> HookOnSpawn;
+        internal static VaultHookMethodCache<ProjOverride> HookShouldUpdatePosition;
+        internal static VaultHookMethodCache<ProjOverride> HookOnHitNPC;
+        internal static VaultHookMethodCache<ProjOverride> HookOnHitPlayer;
+        internal static VaultHookMethodCache<ProjOverride> HookOnKill;
+        internal static VaultHookMethodCache<ProjOverride> HookDraw;
+        internal static VaultHookMethodCache<ProjOverride> HookPostDraw;
         public Dictionary<Type, ProjOverride> ProjOverrides { get; internal set; }
         //这些列表属于每个ProjRebuildLoader的实例(即每个弹幕)，只存储对当前弹幕生效的、且重写了对应方法的ProjOverride实例
         public List<ProjOverride> AIOverrides { get; private set; }
@@ -89,8 +89,8 @@ namespace InnoVault.GameSystem
             onPostDraw_Method = null;
         }
 
-        private static VaultHookCache<ProjOverride> AddHook<F>(Expression<Func<ProjOverride, F>> func) where F : Delegate {
-            VaultHookCache<ProjOverride> hook = VaultHookCache<ProjOverride>.Create(func);
+        private static VaultHookMethodCache<ProjOverride> AddHook<F>(Expression<Func<ProjOverride, F>> func) where F : Delegate {
+            VaultHookMethodCache<ProjOverride> hook = VaultHookMethodCache<ProjOverride>.Create(func);
             hooks.Add(hook);
             return hook;
         }

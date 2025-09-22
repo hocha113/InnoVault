@@ -13,12 +13,12 @@ namespace InnoVault.GameSystem
     /// </summary>
     public class GlobalDustLoader : IVaultLoader
     {
-        private static readonly List<VaultHookCache<GlobalDust>> hooks = [];
-        internal static VaultHookCache<GlobalDust> HookOnSpawn;
-        internal static VaultHookCache<GlobalDust> HookPreUpdateDustAll;
-        internal static VaultHookCache<GlobalDust> HookPostUpdateDustAll;
-        internal static VaultHookCache<GlobalDust> HookPreDrawAll;
-        internal static VaultHookCache<GlobalDust> HookPostDrawAll;
+        private static readonly List<VaultHookMethodCache<GlobalDust>> hooks = [];
+        internal static VaultHookMethodCache<GlobalDust> HookOnSpawn;
+        internal static VaultHookMethodCache<GlobalDust> HookPreUpdateDustAll;
+        internal static VaultHookMethodCache<GlobalDust> HookPostUpdateDustAll;
+        internal static VaultHookMethodCache<GlobalDust> HookPreDrawAll;
+        internal static VaultHookMethodCache<GlobalDust> HookPostDrawAll;
         void IVaultLoader.LoadData() {
             On_Dust.NewDust += OnNewDustHook;
             On_Dust.NewDustDirect += OnNewDustDirectHook;
@@ -43,8 +43,8 @@ namespace InnoVault.GameSystem
             Instance.Clear();
         }
 
-        private static VaultHookCache<GlobalDust> AddHook<F>(Expression<Func<GlobalDust, F>> func) where F : Delegate {
-            VaultHookCache<GlobalDust> hook = VaultHookCache<GlobalDust>.Create(func);
+        private static VaultHookMethodCache<GlobalDust> AddHook<F>(Expression<Func<GlobalDust, F>> func) where F : Delegate {
+            VaultHookMethodCache<GlobalDust> hook = VaultHookMethodCache<GlobalDust>.Create(func);
             hooks.Add(hook);
             return hook;
         }
