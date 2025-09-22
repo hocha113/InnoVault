@@ -151,15 +151,69 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            foreach (var npcOverrideInstance in inds.Values) {
-                npcOverrideInstance.ai = new float[MaxAISlot];
-                npcOverrideInstance.localAI = new float[MaxAISlot];
-                npcOverrideInstance.npc = npc;
-                npcOverrideInstance.SetProperty();
+            if (!npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
+                return;
             }
 
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
-                globalInstance.NPCOverrides = inds;
+            globalInstance.NPCOverrides = inds;
+
+            //遍历所有克隆出的实例
+            foreach (var overrideInstance in inds.Values) {
+                //为实例设置NPC上下文并初始化
+                overrideInstance.ai = new float[MaxAISlot];
+                overrideInstance.localAI = new float[MaxAISlot];
+                overrideInstance.npc = npc;
+                overrideInstance.SetProperty();
+
+                //使用已加载的静态钩子列表的高效查询能力，将实例分发到对应的专属列表中
+                if (NPCRebuildLoader.HookAI.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.AIOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookPostAI.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.PostAIOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookOn_PreKill.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.On_PreKillOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookCheckActive.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.CheckActiveOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookCheckDead.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.CheckDeadOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookDraw.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.DrawOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookPostDraw.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.PostDrawOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookFindFrame.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.FindFrameOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookModifyNPCLoot.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.ModifyNPCLootOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookOnHitByItem.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.OnHitByItemOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookOnHitByProjectile.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.OnHitByProjectileOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookModifyHitByItem.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.ModifyHitByItemOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookModifyHitByProjectile.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.ModifyHitByProjectileOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookCanBeHitByItem.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.CanBeHitByItemOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookCanBeHitByNPC.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.CanBeHitByNPCOverrides.Add(overrideInstance);
+                }
+                if (NPCRebuildLoader.HookCanBeHitByProjectile.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.CanBeHitByProjectileOverrides.Add(overrideInstance);
+                }
             }
         }
         /// <summary>
@@ -331,7 +385,7 @@ namespace InnoVault.GameSystem
         /// </summary>
         public virtual void ModifyHoverBoundingBox(ref Rectangle boundingBox) { }
         /// <summary>
-        /// 编辑NPC的掉落，注意，这个方法不会被生物AI设置阻止，如果需要使用NPC实例，必须使用给出的参数thisNPC，而不是尝试访问<see cref="npc"/>
+        /// 编辑NPC的掉落
         /// </summary>
         /// <param name="thisNPC"></param>
         /// <param name="npcLoot"></param>
