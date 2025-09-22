@@ -107,7 +107,7 @@ namespace InnoVault.GameSystem
             }
             _loadHook = true;
 
-            foreach(var type in VaultUtils.GetDerivedInstances<NPCOverride>()) {
+            foreach (var type in VaultUtils.GetDerivedInstances<NPCOverride>()) {
                 VaultTypeRegistry<NPCOverride>.Register(type);//这里提取手动加载好所有的NPCOverride实例
             }
 

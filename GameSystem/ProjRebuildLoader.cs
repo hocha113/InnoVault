@@ -225,13 +225,19 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnPostDrawHook(On_PostDraw_Delegate orig, Projectile proj, Color lightColor) {
-            orig.Invoke(proj, lightColor);
-
             if (proj.TryGetGlobalProjectile(out ProjRebuildLoader gProj)) {
+                bool result = true;
                 foreach (var value in gProj.PostDrawOverrides) {
-                    value.PostDraw(lightColor);
+                    if (!value.PostDraw(lightColor)) {
+                        result = false;
+                    }
+                }
+                if (!result) {
+                    return;
                 }
             }
+
+            orig.Invoke(proj, lightColor);
         }
 #pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
     }
