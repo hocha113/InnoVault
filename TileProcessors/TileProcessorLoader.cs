@@ -199,7 +199,7 @@ namespace InnoVault.TileProcessors
             newProcessor.Position = position;
             newProcessor.TrackItem = item;
             newProcessor.Active = true;
-            newProcessor.LoadenTile();
+            newProcessor.InitializePositionAndBounds();
             newProcessor.SetProperty();
 
             //在这里实体已经被设置好了，更新一下Map

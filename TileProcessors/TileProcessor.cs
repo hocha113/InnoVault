@@ -113,26 +113,31 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public int IdleDistance = -1;
         /// <summary>
-        /// 这个TP实体的碰撞矩形
-        /// </summary>
-        public virtual Rectangle HitBox => PosInWorld.GetRectangle(Size);
-        /// <summary>
-        /// 矩形大小
-        /// </summary>
-        public Vector2 Size => new Vector2(Width, Height);
-        /// <summary>
         /// 这个模块在世界物块坐标系上的位置，通常等价于所跟随的物块的坐标
         /// </summary>
         public Point16 Position;
         /// <summary>
         /// 这个模块在世界实体坐标系上的位置
         /// </summary>
-        public Vector2 PosInWorld => new Vector2(Position.X, Position.Y) * 16;
+        public Vector2 PosInWorld => _posInWorld;
+        private Vector2 _posInWorld;
+        /// <summary>
+        /// 矩形大小
+        /// </summary>
+        public Vector2 Size => _size;
+        private Vector2 _size;
+        /// <summary>
+        /// 这个TP实体的碰撞矩形
+        /// </summary>
+        public virtual Rectangle HitBox => _hitBox;
+        private Rectangle _hitBox;
         /// <summary>
         /// 这个模块在世界实体坐标系上的中心位置
         /// </summary>
-        public Vector2 CenterInWorld => PosInWorld + Size / 2;
+        public Vector2 CenterInWorld => _centerInWorld;
+        private Vector2 _centerInWorld;
         #endregion
+
         /// <summary>
         /// 封闭内容
         /// </summary>
@@ -271,10 +276,15 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 在游戏加载末期调用一次，一般用于设置一些静态的值
+        /// 初始化位置和边界
         /// </summary>
-        [Obsolete("已经过时，应该使用 SetStaticDefaults")]
-        public virtual void SetStaticProperty() { }
+        public void InitializePositionAndBounds() {
+            LoadenTile();
+            _posInWorld = new Vector2(Position.X, Position.Y) * 16;
+            _size = new(Width, Height);
+            _hitBox = _posInWorld.GetRectangle(Size);
+            _centerInWorld = _posInWorld + Size / 2;
+        }
 
         /// <summary>
         /// 在模块被生成时调用一次，用于初始化一些实例数据
