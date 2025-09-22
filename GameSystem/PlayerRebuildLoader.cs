@@ -13,6 +13,7 @@ using Terraria.ID;
 using Terraria.ModLoader;
 using static InnoVault.GameSystem.PlayerOverride;
 using static Terraria.Player;
+using static InnoVault.VaultType<InnoVault.GameSystem.PlayerOverride>;
 
 namespace InnoVault.GameSystem
 {
@@ -40,9 +41,6 @@ namespace InnoVault.GameSystem
         public static MethodBase onCanBeHitByProjectileMethod;
         public static MethodBase onHurtMethod;
         void IVaultLoader.LoadData() {
-            Instances ??= [];
-            TypeToInstance ??= [];
-
             IL_Player.Update += Player_Update_Hook;
 
             On_LegacyPlayerRenderer.DrawPlayers += On_DrawPlayersHook;

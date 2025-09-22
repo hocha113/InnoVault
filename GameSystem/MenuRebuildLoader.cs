@@ -3,7 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Reflection;
 using Terraria;
-using static InnoVault.GameSystem.MenuOverride;
+using static InnoVault.VaultType<InnoVault.GameSystem.MenuOverride>;
 
 namespace InnoVault.GameSystem
 {

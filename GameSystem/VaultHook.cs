@@ -10,7 +10,7 @@ namespace InnoVault.GameSystem
     /// </summary>
     public class VaultHook : IVaultLoader
     {
-        private static ConcurrentDictionary<(MethodBase, Delegate), Hook> _hooks = new ConcurrentDictionary<(MethodBase, Delegate), Hook>();
+        private readonly static ConcurrentDictionary<(MethodBase, Delegate), Hook> _hooks = new ConcurrentDictionary<(MethodBase, Delegate), Hook>();
         /// <summary>
         /// 缓存的被添加过的钩子实例，目前没有其他作用，仅仅是延长生命周期
         /// </summary>

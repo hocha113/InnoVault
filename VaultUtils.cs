@@ -2227,7 +2227,7 @@ namespace InnoVault
         /// 若失败则为 <c>null</c>
         /// </param>
         /// <returns>
-        /// 如果当前不在主菜单中且成功从 <see cref="ItemOverride.ByID"/> 中获取到对应的映射，则返回 <c>true</c>；
+        /// 如果当前不在主菜单中且成功从 ItemOverride.ByID 中获取到对应的映射，则返回 <c>true</c>；
         /// 否则返回 <c>false</c>
         /// </returns>
         public static bool TryGetOverride(this Item item, out Dictionary<Type, ItemOverride> value) {
@@ -2371,7 +2371,7 @@ namespace InnoVault
 
         /// <summary>
         /// 获取指定类型 <typeparamref name="T"/> 的 <see cref="PlayerOverride"/> 实例<br/>
-        /// 若未在 <see cref="PlayerOverride.TypeToInstance"/> 中注册对应类型，会抛出异常
+        /// 若未在 PlayerOverride.TypeToInstance 中注册对应类型，会抛出异常
         /// </summary>
         /// <typeparam name="T">要获取的重制节点类型</typeparam>
         /// <param name="player">目标 玩家 实例</param>

@@ -10,15 +10,9 @@ namespace InnoVault.GameSystem
     public abstract class GlobalDust : VaultType<GlobalDust>
     {
         /// <summary>
-        /// 所有已注册的实例
-        /// </summary>
-        public readonly static List<GlobalDust> Instance = [];
-        /// <summary>
         /// 注册这个实例
         /// </summary>
-        protected override void VaultRegister() {
-            Instance.Add(this);
-        }
+        protected sealed override void VaultRegister() { }
         /// <summary>
         /// 封闭内容
         /// </summary>

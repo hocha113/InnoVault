@@ -2,7 +2,7 @@
 using System;
 using System.Reflection;
 using Terraria;
-using static InnoVault.GameSystem.GlobalDust;
+using static InnoVault.VaultType<InnoVault.GameSystem.GlobalDust>;
 
 namespace InnoVault.GameSystem
 {
@@ -24,13 +24,13 @@ namespace InnoVault.GameSystem
             On_Dust.NewDustDirect -= OnNewDustDirectHook;
             On_Dust.NewDustPerfect -= OnNewDustPerfectHook;
             On_Dust.UpdateDust -= OnUpdateDustHook;
-            Instance.Clear();
+            Instances.Clear();
         }
 
         private static int OnNewDustHook(On_Dust.orig_NewDust orig, Vector2 Position, int Width, int Height
             , int Type, float SpeedX, float SpeedY, int Alpha, Color newColor, float Scale) {
             int dustIndex = orig(Position, Width, Height, Type, SpeedX, SpeedY, Alpha, newColor, Scale);
-            foreach (var globalDust in Instance) {
+            foreach (var globalDust in Instances) {
                 globalDust.OnSpawn(Main.dust[dustIndex]);
             }
             return dustIndex;
@@ -39,7 +39,7 @@ namespace InnoVault.GameSystem
         private static Dust OnNewDustDirectHook(On_Dust.orig_NewDustDirect orig, Vector2 Position, int Width, int Height
             , int Type, float SpeedX, float SpeedY, int Alpha, Color newColor, float Scale) {
             Dust dust = orig(Position, Width, Height, Type, SpeedX, SpeedY, Alpha, newColor, Scale);
-            foreach (var globalDust in Instance) {
+            foreach (var globalDust in Instances) {
                 globalDust.OnSpawn(dust);
             }
             return dust;
@@ -47,7 +47,7 @@ namespace InnoVault.GameSystem
 
         private Dust OnNewDustPerfectHook(On_Dust.orig_NewDustPerfect orig, Vector2 Position, int Type, Vector2? Velocity, int Alpha, Color newColor, float Scale) {
             Dust dust = orig(Position, Type, Velocity, Alpha, newColor, Scale);
-            foreach (var globalDust in Instance) {
+            foreach (var globalDust in Instances) {
                 globalDust.OnSpawn(dust);
             }
             return dust;
@@ -55,7 +55,7 @@ namespace InnoVault.GameSystem
 
         private static void OnUpdateDustHook(On_Dust.orig_UpdateDust orig) {
             bool reset = true;
-            foreach (var globalDust in Instance) {
+            foreach (var globalDust in Instances) {
                 if (!globalDust.PreUpdateDustAll()) {
                     reset = false;
                 }
@@ -65,14 +65,14 @@ namespace InnoVault.GameSystem
                 orig.Invoke();
             }
 
-            foreach (var globalDust in Instance) {
+            foreach (var globalDust in Instances) {
                 globalDust.PostUpdateDustAll();
             }
         }
 
         private static void OnDrawDustHook(Action<Main> orig, Main main) {
             bool reset = true;
-            foreach (var globalDust in Instance) {
+            foreach (var globalDust in Instances) {
                 if (!globalDust.PreDrawAll()) {
                     reset = false;
                 }
@@ -82,7 +82,7 @@ namespace InnoVault.GameSystem
                 orig.Invoke(main);
             }
 
-            foreach (var globalDust in Instance) {
+            foreach (var globalDust in Instances) {
                 globalDust.PostDrawAll();
             }
         }

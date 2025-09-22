@@ -3,7 +3,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Terraria;
-using static InnoVault.GameSystem.SceneOverride;
+using static InnoVault.VaultType<InnoVault.GameSystem.SceneOverride>;
 
 namespace InnoVault.GameSystem
 {

@@ -18,14 +18,6 @@ namespace InnoVault.GameSystem
     public abstract class PlayerOverride : VaultType<PlayerOverride>
     {
         /// <summary>
-        /// 所有修改的实例集合
-        /// </summary>
-        public static List<PlayerOverride> Instances { get; internal set; } = [];
-        /// <summary>
-        /// 从类型映射到实例
-        /// </summary>
-        public static Dictionary<Type, PlayerOverride> TypeToInstance { get; internal set; } = [];
-        /// <summary>
         /// 所要操纵的玩家实例
         /// </summary>
         public Player Player { get; internal set; }
@@ -37,10 +29,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected override void VaultRegister() {
-            Instances.Add(this);
-            TypeToInstance.Add(GetType(), this);
-        }
+        protected sealed override void VaultRegister() { }
 
         /// <summary>
         /// 加载内容

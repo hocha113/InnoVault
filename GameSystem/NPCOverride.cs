@@ -19,18 +19,6 @@ namespace InnoVault.GameSystem
     {
         #region Data
         /// <summary>
-        /// 所有修改的实例集合
-        /// </summary>
-        public static List<NPCOverride> Instances { get; internal set; } = [];
-        /// <summary>
-        /// 一个字典，可以根据目标ID来获得对应的修改实例
-        /// </summary>
-        public static Dictionary<int, Dictionary<Type, NPCOverride>> ByID { get; internal set; } = [];
-        /// <summary>
-        /// 所有负指向的实例集合，只包含<see cref="TargetID"/>为 -1 的实例
-        /// </summary>
-        public static List<NPCOverride> UniversalInstances { get; internal set; } = [];
-        /// <summary>
         /// 要修改的NPC的ID值
         /// </summary>
         public virtual int TargetID => NPCID.None;
@@ -84,9 +72,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 封闭加载
         /// </summary>
-        protected sealed override void VaultRegister() {
-            Instances.Add(this);
-        }
+        protected sealed override void VaultRegister() { }
         /// <summary>
         /// 加载内容
         /// </summary>

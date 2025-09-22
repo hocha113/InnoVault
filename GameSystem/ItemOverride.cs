@@ -19,22 +19,6 @@ namespace InnoVault.GameSystem
     {
         #region Data
         /// <summary>
-        /// 所有修改的实例集合
-        /// </summary>
-        public static List<ItemOverride> Instances { get; internal set; } = [];
-        /// <summary>
-        /// 从类型映射到实例
-        /// </summary>
-        public static Dictionary<Type, ItemOverride> TypeToInstance { get; internal set; } = [];
-        /// <summary>
-        /// 一个字典，可以根据目标ID来获得对应的修改实例
-        /// </summary>
-        public static Dictionary<int, Dictionary<Type, ItemOverride>> ByID { get; internal set; } = [];
-        /// <summary>
-        /// 所有负指向的实例集合，只包含<see cref="TargetID"/>为 -1 的实例
-        /// </summary>
-        public static List<ItemOverride> UniversalInstances { get; internal set; } = [];
-        /// <summary>
         /// 控制指定物品类型是否允许任意前缀<br/>
         /// 该属性只在游戏加载阶段生效，应当在<see cref="ModType.SetStaticDefaults"/>或者其他调用时机合适的函数中修改<br/>
         /// 值为 <see langword="true"/>：强制允许所有前缀<br/>
@@ -125,11 +109,7 @@ namespace InnoVault.GameSystem
         /// 封闭内容
         /// </summary>
         protected sealed override void VaultRegister() {
-            if (TargetID > ItemID.None) {
-                Instances.Add(this);
-                TypeToInstance.Add(GetType(), this);
-            }
-            else if (TargetID == -1) {
+            if (TargetID == -1) {
                 UniversalInstances.Add(this);
             }
         }

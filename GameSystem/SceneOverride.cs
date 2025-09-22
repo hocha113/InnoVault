@@ -29,20 +29,9 @@ namespace InnoVault.GameSystem
     public class SceneOverride : VaultType<SceneOverride>
     {
         /// <summary>
-        /// 所有修改的实例集合
-        /// </summary>
-        public static List<SceneOverride> Instances { get; internal set; } = [];
-        /// <summary>
-        /// 从类型映射到实例
-        /// </summary>
-        public static Dictionary<Type, SceneOverride> TypeToInstance { get; internal set; } = [];
-        /// <summary>
         /// 封闭内容
         /// </summary>
-        protected sealed override void VaultRegister() {
-            Instances.Add(this);
-            TypeToInstance[GetType()] = this;
-        }
+        protected sealed override void VaultRegister() { }
         /// <summary>
         /// 加载内容
         /// </summary>

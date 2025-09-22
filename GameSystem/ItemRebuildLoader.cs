@@ -1,6 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Steamworks;
 using System;
 using System.Collections.Generic;
 using System.Reflection;
@@ -11,6 +10,7 @@ using Terraria.ModLoader;
 using Terraria.ModLoader.Core;
 using Terraria.ModLoader.IO;
 using static InnoVault.GameSystem.ItemOverride;
+using static InnoVault.VaultType<InnoVault.GameSystem.ItemOverride>;
 
 namespace InnoVault.GameSystem
 {
@@ -118,10 +118,6 @@ namespace InnoVault.GameSystem
             => (GlobalHookList<GlobalItem>)typeof(ItemLoader).GetField(key, BindingFlags.NonPublic | BindingFlags.Static)?.GetValue(null);
 
         void IVaultLoader.LoadData() {
-            Instances ??= [];
-            TypeToInstance ??= [];
-            ByID ??= [];
-
             TooltipLine_ModName_Field = typeof(TooltipLine).GetField("Mod", BindingFlags.Public | BindingFlags.Instance);
             TooltipLine_OneDropLogo_Field = typeof(TooltipLine).GetField("OneDropLogo", BindingFlags.NonPublic | BindingFlags.Instance);
 

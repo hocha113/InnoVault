@@ -12,23 +12,13 @@ namespace InnoVault.GameSystem
     public class TileOverride : VaultType<TileOverride>
     {
         /// <summary>
-        /// 所有修改的实例集合
-        /// </summary>
-        public static List<TileOverride> Instances { get; internal set; } = [];
-        /// <summary>
-        /// 一个字典，可以根据目标ID来获得对应的修改实例
-        /// </summary>
-        public static Dictionary<int, Dictionary<Type, TileOverride>> ByID { get; internal set; } = [];
-        /// <summary>
         /// 目标ID，如果为 -2 则会生效到所有物块上
         /// </summary>
         public virtual int TargetID => -1;
         /// <summary>
         /// 封闭加载
         /// </summary>
-        protected override void VaultRegister() {
-            Instances.Add(this);
-        }
+        protected override void VaultRegister() { }
         /// <summary>
         /// 加载内容
         /// </summary>

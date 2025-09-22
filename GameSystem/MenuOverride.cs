@@ -1,6 +1,4 @@
 ﻿using Microsoft.Xna.Framework;
-using System;
-using System.Collections.Generic;
 using Terraria;
 
 namespace InnoVault.GameSystem
@@ -11,20 +9,9 @@ namespace InnoVault.GameSystem
     public abstract class MenuOverride : VaultType<MenuOverride>
     {
         /// <summary>
-        /// 所有修改的实例集合
-        /// </summary>
-        public static List<MenuOverride> Instances { get; internal set; } = [];
-        /// <summary>
-        /// 从类型映射到实例
-        /// </summary>
-        public static Dictionary<Type, MenuOverride> TypeToInstance { get; internal set; } = [];
-        /// <summary>
         /// 封闭内容
         /// </summary>
-        protected sealed override void VaultRegister() {
-            Instances.Add(this);
-            TypeToInstance[GetType()] = this;
-        }
+        protected sealed override void VaultRegister() { }
         /// <summary>
         /// 加载内容
         /// </summary>

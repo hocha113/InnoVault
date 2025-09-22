@@ -1,4 +1,6 @@
 ﻿using InnoVault.GameSystem;
+using System;
+using System.Collections.Generic;
 using Terraria.ModLoader;
 
 namespace InnoVault
@@ -8,6 +10,22 @@ namespace InnoVault
     /// </summary>
     public abstract class VaultType<T> : ModType where T : VaultType<T>
     {
+        /// <summary>
+        /// 所有已注册的实例
+        /// </summary>
+        public readonly static List<T> Instances = [];
+        /// <summary>
+        /// 从类型映射到实例
+        /// </summary>
+        public static Dictionary<Type, T> TypeToInstance { get; internal set; } = [];
+        /// <summary>
+        /// 一个字典，可以根据目标ID来获得对应的修改实例
+        /// </summary>
+        public static Dictionary<int, Dictionary<Type, T>> ByID { get; internal set; } = [];
+        /// <summary>
+        /// 所有全局的实例集合
+        /// </summary>
+        public static List<T> UniversalInstances { get; internal set; } = [];
         /// <summary>
         /// 程序进行防御性处理时会用到的值，如果该实例内部发生错误，则会将该值设置为大于0的值，期间不会再自动调用该实例
         /// 这个值应当每帧减一，直到不再大于0
@@ -44,13 +62,9 @@ namespace InnoVault
                 return;
             }
             VaultList<T>.Register((T)this);
+            Instances.Add((T)this);
+            TypeToInstance[GetType()] = (T)this;
             VaultRegister();
-        }
-        /// <summary>
-        /// 如果继承了这个类，请重写这个函数以进行内容加载
-        /// </summary>
-        protected virtual void VaultRegister() {
-
         }
         /// <summary>
         /// 加载内容
@@ -63,7 +77,13 @@ namespace InnoVault
             VaultSetup();
         }
         /// <summary>
-        /// 如果继承了这个类，请重写这个函数以进行内容加载
+        /// 如果继承了这个类，重写这个函数以进行内容加载
+        /// </summary>
+        protected virtual void VaultRegister() {
+
+        }
+        /// <summary>
+        /// 如果继承了这个类，重写这个函数以进行内容加载
         /// </summary>
         public virtual void VaultSetup() {
 

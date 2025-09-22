@@ -5,7 +5,7 @@ using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
-using static InnoVault.GameSystem.ProjOverride;
+using static InnoVault.VaultType<InnoVault.GameSystem.ProjOverride>;
 
 namespace InnoVault.GameSystem
 {

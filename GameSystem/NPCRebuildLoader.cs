@@ -7,7 +7,7 @@ using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
-using static InnoVault.GameSystem.NPCOverride;
+using static InnoVault.VaultType<InnoVault.GameSystem.NPCOverride>;
 
 namespace InnoVault.GameSystem
 {
@@ -47,9 +47,7 @@ namespace InnoVault.GameSystem
 
         void IVaultLoader.LoadData() {
             npcLoaderType = typeof(NPCLoader);
-            Instances ??= [];
-            ByID ??= [];
-            UniversalInstances ??= [];
+
             LoaderMethodAndHook();
 
             On_Main.DrawNPCHeadBoss += OnDrawNPCHeadBossHook;
