@@ -42,7 +42,7 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="dust"></param>
         public virtual void OnSpawn(Dust dust) {
-            
+
         }
         /// <summary>
         /// 每帧调用一次，用于在尘埃更新之前进行一些操作，返回<see langword="false"/>会阻止尘埃的原版更新逻辑

@@ -30,7 +30,7 @@ namespace InnoVault.GameSystem
         private static int OnNewDustHook(On_Dust.orig_NewDust orig, Vector2 Position, int Width, int Height
             , int Type, float SpeedX, float SpeedY, int Alpha, Color newColor, float Scale) {
             int dustIndex = orig(Position, Width, Height, Type, SpeedX, SpeedY, Alpha, newColor, Scale);
-            foreach (var globalDust in  Instance) {
+            foreach (var globalDust in Instance) {
                 globalDust.OnSpawn(Main.dust[dustIndex]);
             }
             return dustIndex;

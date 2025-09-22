@@ -379,7 +379,7 @@ namespace InnoVault.GameSystem
                     }
                 }
             }
-            
+
             if (origResult) {//全部通过才执行原函数
                 itemRectangle = orig.Invoke(player, sItem, itemRectangle);
             }

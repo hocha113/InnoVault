@@ -168,7 +168,7 @@ namespace InnoVault.PRT
 
             PRT_InGame_World_Inds.Add(particle);
 
-            foreach(var global in GlobalPRT.Instance) {
+            foreach (var global in GlobalPRT.Instance) {
                 global.OnSpawn(particle);
             }
         }
@@ -358,7 +358,7 @@ namespace InnoVault.PRT
             }
 
             bool result = true;
-            foreach(var global in GlobalPRT.Instance) {
+            foreach (var global in GlobalPRT.Instance) {
                 if (!global.PreUpdatePRTAll()) {
                     result = false;
                 }
