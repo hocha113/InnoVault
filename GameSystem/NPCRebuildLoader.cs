@@ -24,11 +24,13 @@ namespace InnoVault.GameSystem
         public delegate bool On_NPCDelegate2(NPC npc);
         public delegate bool On_DrawDelegate(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor);
         public delegate void On_DrawDelegate2(NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor);
+        public delegate void On_OnHitByItemDelegate(NPC npc, Player player, Item item, in NPC.HitInfo hit, int damageDone);
         public delegate void On_OnHitByProjectileDelegate(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone);
         public delegate void On_ModifyIncomingHitDelegate(NPC npc, ref NPC.HitModifiers modifiers);
         public delegate void On_FindFrameDelegate(NPC npc, int frameHeight);
         public delegate void On_SetChatButtonsDelegate(ref string button, ref string button2);
         public delegate void On_NPCSetDefaultDelegate();
+        public delegate bool DelegateOn_OnHitByItem(Player player, Item item, in NPC.HitInfo hit, int damageDone);
         public delegate bool? DelegateOn_OnHitByProjectile(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone);
         public delegate void DelegateModifyHitByItem(Player player, Item item, ref NPC.HitModifiers modifiers);
         public delegate void DelegateModifyHitByProjectile(Projectile projectile, ref NPC.HitModifiers modifiers);
@@ -36,6 +38,7 @@ namespace InnoVault.GameSystem
         public static event On_NPCDelegate PreSetDefaultsEvent;
         public static event On_NPCDelegate PostSetDefaultsEvent;
         public static Type npcLoaderType;
+        public static MethodInfo onHitByItem_Method;
         public static MethodInfo onHitByProjectile_Method;
         public static MethodInfo modifyIncomingHit_Method;
         public static MethodInfo onFindFrame_Method;
@@ -97,7 +100,17 @@ namespace InnoVault.GameSystem
             On_NPC.GetBossHeadSpriteEffects += OnGetBossHeadSpriteEffectsHook;
         }
 
-        void IVaultLoader.SetupData() {
+        private static bool _loadHook;
+        private static void LoadHook() {
+            if (_loadHook) {
+                return;
+            }
+            _loadHook = true;
+
+            foreach(var type in VaultUtils.GetDerivedInstances<NPCOverride>()) {
+                VaultRegistry<NPCOverride>.Register(type);//这里提取手动加载好所有的NPCOverride实例
+            }
+
             //使用Lambda表达式创建钩子列表，这个过程只在Mod加载时执行一次
             HookAI = AddHook<Func<bool>>(n => n.AI);
             HookPostAI = AddHook<Action>(n => n.PostAI);
@@ -108,7 +121,7 @@ namespace InnoVault.GameSystem
             HookPostDraw = AddHook<Func<SpriteBatch, Vector2, Color, bool>>(n => n.PostDraw);
             HookFindFrame = AddHook<Func<int, bool>>(n => n.FindFrame);
             HookModifyNPCLoot = AddHook<Action<NPC, NPCLoot>>(n => n.ModifyNPCLoot);
-            HookOnHitByItem = AddHook<DelegateOn_OnHitByProjectile>(n => n.On_OnHitByItem);
+            HookOnHitByItem = AddHook<DelegateOn_OnHitByItem>(n => n.On_OnHitByItem);
             HookOnHitByProjectile = AddHook<DelegateOn_OnHitByProjectile>(n => n.On_OnHitByProjectile);
             HookModifyHitByItem = AddHook<DelegateModifyHitByItem>(n => n.ModifyHitByItem);
             HookModifyHitByProjectile = AddHook<DelegateModifyHitByProjectile>(n => n.ModifyHitByProjectile);
@@ -118,6 +131,7 @@ namespace InnoVault.GameSystem
         }
 
         void IVaultLoader.UnLoadData() {
+            _loadHook = false;
             Instances?.Clear();
             ByID?.Clear();
             UniversalInstances?.Clear();
@@ -164,6 +178,7 @@ namespace InnoVault.GameSystem
             rebuildLoader.ModifyHitByItemOverrides = [.. ModifyHitByItemOverrides];
             rebuildLoader.ModifyHitByProjectileOverrides = [.. ModifyHitByProjectileOverrides];
             rebuildLoader.CanBeHitByItemOverrides = [.. CanBeHitByItemOverrides];
+            rebuildLoader.CanBeHitByNPCOverrides = [.. CanBeHitByNPCOverrides];
             rebuildLoader.CanBeHitByProjectileOverrides = [.. CanBeHitByProjectileOverrides];
             rebuildLoader.NPCOverrides = NPCOverrides;
             return rebuildLoader;
@@ -218,10 +233,12 @@ namespace InnoVault.GameSystem
             ModifyHitByItemOverrides = [];
             ModifyHitByProjectileOverrides = [];
             CanBeHitByItemOverrides = [];
+            CanBeHitByNPCOverrides = [];
             CanBeHitByProjectileOverrides = [];
         }
 
         public override void SetDefaults(NPC npc) {
+            LoadHook();
             if (npc.Alives()) {
                 PreSetDefaultsEvent?.Invoke(npc);
             }
@@ -466,9 +483,18 @@ namespace InnoVault.GameSystem
 
         private static void LoaderMethodAndHook() {
             {
+                onHitByItem_Method = GetMethodInfo("OnHitByItem");
+                if (onHitByItem_Method != null) {
+                    VaultHook.Add(onHitByItem_Method, On_OnHitByItemHook);
+                }
+                else {
+                    DompLog("onHitByItem_Method");
+                }
+            }
+            {
                 onHitByProjectile_Method = GetMethodInfo("OnHitByProjectile");
                 if (onHitByProjectile_Method != null) {
-                    VaultHook.Add(onHitByProjectile_Method, OnHitByProjectileHook);
+                    VaultHook.Add(onHitByProjectile_Method, On_OnHitByProjectileHook);
                 }
                 else {
                     DompLog("onHitByProjectile_Method");
@@ -698,16 +724,38 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            orig.Invoke(npc, spriteBatch, screenPos, drawColor);
-
             if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+                bool reset = true;
                 foreach (var value in gNpc.PostDrawOverrides) {
-                    value.PostDraw(spriteBatch, screenPos, drawColor);
+                    if (!value.PostDraw(spriteBatch, screenPos, drawColor)) {
+                        reset = false;
+                    }
+                }
+                if (!reset) {
+                    return;
                 }
             }
+
+            orig.Invoke(npc, spriteBatch, screenPos, drawColor);
         }
 
-        public static void OnHitByProjectileHook(On_OnHitByProjectileDelegate orig, NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone) {
+        public static void On_OnHitByItemHook(On_OnHitByItemDelegate orig, NPC npc, Player player, Item item, in NPC.HitInfo hit, int damageDone) {
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader rebuildLoader)) {
+                bool reset = true;
+                foreach (var inds in rebuildLoader.OnHitByItemOverrides) {
+                    if (!inds.On_OnHitByItem(player, item, hit, damageDone)) {
+                        reset = false;
+                    }
+                }
+                if (!reset) {
+                    return;
+                }
+            }
+
+            orig.Invoke(npc, player, item, hit, damageDone);
+        }
+
+        public static void On_OnHitByProjectileHook(On_OnHitByProjectileDelegate orig, NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone) {
             if (npc.TryGetGlobalNPC(out NPCRebuildLoader rebuildLoader)) {
                 foreach (var inds in rebuildLoader.OnHitByProjectileOverrides) {
                     if (!inds.DoHitByProjectileByInstance(projectile, in hit, damageDone)) {

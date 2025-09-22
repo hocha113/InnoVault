@@ -9,6 +9,14 @@ namespace InnoVault
     public abstract class VaultType<T> : ModType where T : VaultType<T>
     {
         /// <summary>
+        /// 是否自动在<see cref="ModType.Register"/>中调用<see cref="VaultRegistry{T}.Register(T)"/>,默认返回<see langword="true"/>
+        /// </summary>
+        protected virtual bool AutoVaultRegistryRegister => true;
+        /// <summary>
+        /// 是否自动在<see cref="ModType.SetupContent"/>中调用<see cref="VaultRegistry{T}.FinishLoading"/>,默认返回<see langword="true"/>
+        /// </summary>
+        protected virtual bool AutoVaultRegistryFinishLoading => true;
+        /// <summary>
         /// 程序进行防御性处理时会用到的值，如果该实例内部发生错误，则会将该值设置为大于0的值，期间不会再自动调用该实例
         /// 这个值应当每帧减一，直到不再大于0
         /// </summary>
@@ -43,7 +51,9 @@ namespace InnoVault
             if (!CanLoad()) {
                 return;
             }
-            VaultList<T>.Register((T)this);
+            if (AutoVaultRegistryRegister) {
+                VaultRegistry<T>.Register((T)this);
+            }
             VaultRegister();
         }
         /// <summary>
@@ -59,7 +69,9 @@ namespace InnoVault
             if (!CanLoad()) {
                 return;
             }
-            VaultList<T>.FinishLoading();
+            if (AutoVaultRegistryFinishLoading) {
+                VaultRegistry<T>.FinishLoading();
+            }
             VaultSetup();
         }
         /// <summary>

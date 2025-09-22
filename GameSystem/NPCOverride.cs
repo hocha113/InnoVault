@@ -18,6 +18,10 @@ namespace InnoVault.GameSystem
     public class NPCOverride : VaultType<NPCOverride>
     {
         #region Data
+        /// <inheritdoc/>
+        protected sealed override bool AutoVaultRegistryRegister => false;//因为NPC需要在菜单界面里面加载，
+                                                                          //而SD函数运行在默认Register之前，
+                                                                          //所以这里禁止自动注册，改为手动注册
         /// <summary>
         /// 所有修改的实例集合
         /// </summary>
@@ -279,15 +283,13 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 用于覆盖NPC的物品受击行为
         /// </summary>
-        /// <param name="npc"></param>
-        /// <param name="projectile"></param>
+        /// <param name="player"></param>
+        /// <param name="item"></param>
         /// <param name="hit"></param>
         /// <param name="damageDone"></param>
-        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModNPC方法与G方法。
-        /// 返回<see langword="true"/>仅仅会继续执行原ModNPC方法而阻止全局NPC类的额外修改运行。
-        /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
-        public virtual bool? On_OnHitByItem(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone) {
-            return null;
+        /// <returns></returns>
+        public virtual bool On_OnHitByItem(Player player, Item item, in NPC.HitInfo hit, int damageDone) {
+            return true;
         }
         /// <summary>
         /// 在npc生成的时候调用一次，用于初始化一些实例数据

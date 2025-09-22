@@ -11,7 +11,7 @@ namespace InnoVault.GameSystem
     /// 负责在Mod加载时注册所有的 VaultType 实例
     /// 这是一个内部管理类，用于建立一个所有 VaultType 实例的“主列表”
     /// </summary>
-    public static class VaultList<TVault> where TVault : VaultType<TVault>
+    public static class VaultRegistry<TVault> where TVault : VaultType<TVault>
     {
         private static bool loadingFinished = false;
         private readonly static List<TVault> _globals = [];
@@ -83,7 +83,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 重新筛选此钩子列表
         /// </summary>
-        public void Filter() => hookGlobals = [.. VaultList<TVault>.Globals.Where(HookOverrideQuery.HasOverride)];
+        public void Filter() => hookGlobals = [.. VaultRegistry<TVault>.Globals.Where(HookOverrideQuery.HasOverride)];
         /// <summary>
         /// 创建一个新的钩子列表
         /// </summary>
