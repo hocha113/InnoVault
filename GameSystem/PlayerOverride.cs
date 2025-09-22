@@ -112,6 +112,7 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="target"></param>
         /// <returns></returns>
+        [Obsolete("该钩子因为性能消耗过大而弃用")]
         public virtual bool? On_CanHitNPC(NPC target) {
             return null;
         }

@@ -84,7 +84,7 @@ namespace InnoVault.GameSystem
                 VaultHook.Add(onModifyHitNPCWithProjMethod, On_ModifyHitNPCWithProjHook);
             }
             if (onCanHitNPCMethod != null) {
-                VaultHook.Add(onCanHitNPCMethod, On_CanHitNPCHook);
+                //VaultHook.Add(onCanHitNPCMethod, On_CanHitNPCHook);//此钩子因为性能问题被禁用
             }
             if (onOnHitNPCMethod != null) {
                 VaultHook.Add(onOnHitNPCMethod, On_OnHitNPCHook);
@@ -236,22 +236,22 @@ namespace InnoVault.GameSystem
             orig.Invoke(player, proj, target, ref modifiers);
         }
 
-        private static bool On_CanHitNPCHook(On_CanHitNPC_Dalegate orig, Player player, NPC target) {
-            if (TryFetchByPlayer(player, out var values)) {
-                bool? result = null;
-                foreach (var value in values.Values) {
-                    bool? newResult = value.On_CanHitNPC(target);
-                    if (newResult.HasValue) {
-                        result = newResult.Value;
-                    }
-                }
-                if (result.HasValue) {
-                    return result.Value;
-                }
-            }
+        //private static bool On_CanHitNPCHook(On_CanHitNPC_Dalegate orig, Player player, NPC target) {
+        //    if (TryFetchByPlayer(player, out var values)) {
+        //        bool? result = null;
+        //        foreach (var value in values.Values) {
+        //            bool? newResult = value.On_CanHitNPC(target);
+        //            if (newResult.HasValue) {
+        //                result = newResult.Value;
+        //            }
+        //        }
+        //        if (result.HasValue) {
+        //            return result.Value;
+        //        }
+        //    }
 
-            return orig.Invoke(player, target);
-        }
+        //    return orig.Invoke(player, target);
+        //}
 
         private static void On_OnHitNPCHook(On_OnHitNPC_Dalegate orig, Player player, NPC target, in NPC.HitInfo hit, int damageDone) {
             if (TryFetchByPlayer(player, out var values)) {
