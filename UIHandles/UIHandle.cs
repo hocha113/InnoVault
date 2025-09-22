@@ -94,10 +94,6 @@ namespace InnoVault.UIHandles
         /// 封闭内容
         /// </summary>
         protected override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
-
             int id = UIHandleLoader.UIHandles.Count;
             Type type = GetType();
             UIHandle_Type_To_ID.Add(type, id);
@@ -112,10 +108,6 @@ namespace InnoVault.UIHandles
         /// 加载内容
         /// </summary>
         public override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
-
             SetStaticDefaults();
         }
 

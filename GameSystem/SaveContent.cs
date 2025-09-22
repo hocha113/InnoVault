@@ -161,18 +161,10 @@ namespace InnoVault.GameSystem
         public bool HasSave => File.Exists(SavePath);
         /// <inheritdoc/>
         protected override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
-
             SaveContents.Add((T)(object)this);
         }
         /// <inheritdoc/>
         public override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
-
             ModToSaves.TryAdd(Mod, []);
             TypeToInstance.Add(GetType(), (T)(object)this);
             ModToSaves[Mod].Add((T)(object)this);

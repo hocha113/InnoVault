@@ -18,10 +18,6 @@ namespace InnoVault.UIHandles
         /// 封闭内容
         /// </summary>
         protected override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
-
             Type type = GetType();
             UIHandleGlobalHooks.Add(this);
             UIHandleGlobal_Type_To_Mod.Add(type, VaultUtils.FindModByType(type));
@@ -31,10 +27,6 @@ namespace InnoVault.UIHandles
         /// 加载内容
         /// </summary>
         public override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
-
             SetStaticDefaults();
         }
 

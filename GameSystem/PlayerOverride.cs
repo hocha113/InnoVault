@@ -38,10 +38,6 @@ namespace InnoVault.GameSystem
         /// 封闭内容
         /// </summary>
         protected override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
-
             Instances.Add(this);
             TypeToInstance.Add(GetType(), this);
         }
@@ -50,10 +46,6 @@ namespace InnoVault.GameSystem
         /// 加载内容
         /// </summary>
         public sealed override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
-
             SetStaticDefaults();
         }
 

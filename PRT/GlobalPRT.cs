@@ -16,18 +16,12 @@ namespace InnoVault.PRT
         /// 封闭内容
         /// </summary>
         protected override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
             Instance.Add(this);
         }
         /// <summary>
         /// 加载内容
         /// </summary>
         public override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
             SetStaticDefaults();
         }
         /// <summary>

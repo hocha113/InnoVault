@@ -52,10 +52,6 @@ namespace InnoVault.RenderHandles
         /// 密封内容
         /// </summary>
         protected override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
-
             if (!VaultUtils.isServer && ScreenSlot > 0) {
                 Main.QueueMainThreadAction(() => {
                     InitializeScreenTargets(true);
@@ -70,10 +66,6 @@ namespace InnoVault.RenderHandles
         /// 内容初始化方法，在加载内容时调用
         /// </summary>
         public override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
-
             SetStaticDefaults();
         }
 

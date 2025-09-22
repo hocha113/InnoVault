@@ -13,20 +13,12 @@ namespace InnoVault.TileProcessors
         /// 封闭内容
         /// </summary>
         protected sealed override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
-
             TileProcessorLoader.TPGlobalHooks.Add(this);
         }
         /// <summary>
         /// 加载内容
         /// </summary>
         public sealed override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
-
             SetStaticDefaults();
         }
         /// <summary>

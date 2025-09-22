@@ -85,20 +85,12 @@ namespace InnoVault.GameSystem
         /// 封闭加载
         /// </summary>
         protected sealed override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
-
             Instances.Add(this);
         }
         /// <summary>
         /// 加载内容
         /// </summary>
         public sealed override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
-
             SetStaticDefaults();
 
             if (TargetID > ItemID.None) {

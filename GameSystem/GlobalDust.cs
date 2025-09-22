@@ -17,18 +17,12 @@ namespace InnoVault.GameSystem
         /// 注册这个实例
         /// </summary>
         protected override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
             Instance.Add(this);
         }
         /// <summary>
         /// 封闭内容
         /// </summary>
         public override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
             SetStaticDefaults();
         }
         /// <summary>

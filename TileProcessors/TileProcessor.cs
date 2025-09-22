@@ -137,10 +137,6 @@ namespace InnoVault.TileProcessors
         /// 封闭内容
         /// </summary>
         protected sealed override void VaultRegister() {
-            if (!CanLoad()) {
-                return;
-            }
-
             Type type = GetType();
             TP_Instances.Add(this);
             TP_Type_To_ID.Add(type, TP_ID_Count);
@@ -157,10 +153,6 @@ namespace InnoVault.TileProcessors
         /// 加载内容
         /// </summary>
         public sealed override void VaultSetup() {
-            if (!CanLoad()) {
-                return;
-            }
-
             //这里的添加会稍微复杂些
             //如果没有获取到值，说明键刚被创建，这里就执行值序列的创建与初始化，并添加进第一个值
             if (!TargetTile_To_TPInstance.TryGetValue(TargetTileID, out List<TileProcessor> tps)) {
@@ -172,7 +164,6 @@ namespace InnoVault.TileProcessors
 
             try {
                 SetStaticDefaults();
-                SetStaticProperty();
             } catch {
                 VaultMod.Instance.Logger.Info(FullName + ": An error occurred while performing SetStaticDefaults, but it was skipped");
             }
