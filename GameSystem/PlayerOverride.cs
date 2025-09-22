@@ -197,6 +197,23 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
+        /// 运行在玩家使用物品的视觉效果被决定之前，返回 <see langword="false"/> 可以阻止后续逻辑运行
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="itemRectangle"></param>
+        /// <returns></returns>
+        public virtual bool On_PreEmitUseVisuals(Item item, ref Rectangle itemRectangle) {
+            return true;
+        }
+
+        /// <summary>
+        /// 运行在玩家使用物品的视觉效果被决定之后
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="itemRectangle"></param>
+        public virtual void On_PostEmitUseVisuals(Item item, ref Rectangle itemRectangle) { }
+
+        /// <summary>
         /// 运行在 <see cref="LegacyPlayerRenderer.DrawPlayers(Camera, IEnumerable{Player})"/> 之前，
         /// 返回 <see langword="false"/> 可以阻止后续逻辑运行
         /// </summary>

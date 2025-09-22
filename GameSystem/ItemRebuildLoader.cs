@@ -26,6 +26,17 @@ namespace InnoVault.GameSystem
             }
         }
 
+        public static bool UniversalForEach(Func<ItemOverride, bool> action, bool startBool = true) {
+            bool result = startBool;
+            foreach (var inds in UniversalInstances) {
+                bool newResult = action(inds);
+                if (newResult != startBool) {
+                    result = newResult;
+                }
+            }
+            return result;
+        }
+
         public static bool? UniversalForEach(Func<ItemOverride, bool?> action) {
             bool? result = null;
             foreach (var inds in UniversalInstances) {

@@ -103,6 +103,8 @@ namespace InnoVault.PRT
             PRT_NonPremultiplied_Draw = null;
             PRT_HasShader_Draw = null;
             On_Main.DrawInfernoRings -= DrawHook;
+
+            GlobalPRT.Instance.Clear();
         }
 
         void IVaultLoader.SetupData() {
@@ -165,6 +167,10 @@ namespace InnoVault.PRT
             particle.SetProperty();
 
             PRT_InGame_World_Inds.Add(particle);
+
+            foreach(var global in GlobalPRT.Instance) {
+                global.OnSpawn(particle);
+            }
         }
 
         /// <summary>
@@ -194,6 +200,10 @@ namespace InnoVault.PRT
             }
 
             PRT_InGame_World_Inds.Add(particle);
+
+            foreach (var global in GlobalPRT.Instance) {
+                global.OnSpawn(particle);
+            }
         }
 
         /// <summary>
@@ -347,31 +357,44 @@ namespace InnoVault.PRT
                 return;
             }
 
-            for (int i = 0; i < PRT_InGame_World_Inds.Count; i++) {
-                BasePRT particle = PRT_InGame_World_Inds[i];
-
-                if (particle == null || !particle.active) {
-                    continue;
+            bool result = true;
+            foreach(var global in GlobalPRT.Instance) {
+                if (!global.PreUpdatePRTAll()) {
+                    result = false;
                 }
+            }
 
-                try {
-                    UpdateParticleVelocity(particle);
-                    UpdateParticleTime(particle);
-                    particle.AI();
-                } catch (Exception) {
-                    VaultMod.Instance.Logger.Info($"ERROR:{particle} IS UPDATA");
-                    particle.active = false;
-                    continue;
-                }
+            if (result) {
+                for (int i = 0; i < PRT_InGame_World_Inds.Count; i++) {
+                    BasePRT particle = PRT_InGame_World_Inds[i];
 
-                if (particle.Lifetime >= 0 && particle.Time >= particle.Lifetime) {
-                    particle.active = false;
-                    continue;
-                }
+                    if (particle == null || !particle.active) {
+                        continue;
+                    }
 
-                if (particle.ShouldKillWhenOffScreen && !VaultUtils.IsPointOnScreen(particle.Position - Main.screenPosition, 160)) {
-                    particle.active = false;
+                    try {
+                        UpdateParticleVelocity(particle);
+                        UpdateParticleTime(particle);
+                        particle.AI();
+                    } catch (Exception) {
+                        VaultMod.Instance.Logger.Info($"ERROR:{particle} IS UPDATA");
+                        particle.active = false;
+                        continue;
+                    }
+
+                    if (particle.Lifetime >= 0 && particle.Time >= particle.Lifetime) {
+                        particle.active = false;
+                        continue;
+                    }
+
+                    if (particle.ShouldKillWhenOffScreen && !VaultUtils.IsPointOnScreen(particle.Position - Main.screenPosition, 160)) {
+                        particle.active = false;
+                    }
                 }
+            }
+
+            foreach (var global in GlobalPRT.Instance) {
+                global.PostUpdatePRTAll();
             }
 
             foreach (var particle in PRTInstances) {
@@ -436,11 +459,27 @@ namespace InnoVault.PRT
         }
 
         /// <summary>
+        /// 根据 <see cref="PRTDrawModeEnum"/> 获取对应的 <see cref="BlendState"/>
+        /// </summary>
+        /// <param name="drawMode">粒子的绘制模式</param>
+        /// <returns>对应的 BlendState 实例</returns>
+        public static BlendState GetBlendStateFor(PRTDrawModeEnum drawMode) {
+            return drawMode switch {
+                PRTDrawModeEnum.AdditiveBlend => BlendState.Additive,
+                PRTDrawModeEnum.NonPremultiplied => BlendState.NonPremultiplied,
+                PRTDrawModeEnum.AlphaBlend => BlendState.AlphaBlend,
+                // 提供一个默认值以防未来添加新的枚举成员
+                _ => BlendState.AlphaBlend,
+            };
+        }
+
+        /// <summary>
         /// 根据指定的绘制模式 <see cref="PRTDrawModeEnum"/>，为 <see cref="SpriteBatch"/> 设置适当的渲染状态并开始绘制
         /// </summary>
         /// <param name="drawMode">绘制模式枚举 <see cref="PRTDrawModeEnum"/></param>
         /// <param name="spriteBatch">用于进行绘制操作的 <see cref="SpriteBatch"/></param>
-        public static void BeginDrawingWithMode(PRTDrawModeEnum drawMode, SpriteBatch spriteBatch) {
+        /// <param name="spriteSortMode">是否立即应用绘制，默认为 <see cref="SpriteSortMode.Deferred"/></param>
+        public static void BeginDrawingWithMode(PRTDrawModeEnum drawMode, SpriteBatch spriteBatch, SpriteSortMode spriteSortMode = SpriteSortMode.Deferred) {
             var rasterizer = Main.Rasterizer;
             rasterizer.ScissorTestEnable = true;
             Main.instance.GraphicsDevice.RasterizerState.ScissorTestEnable = true;
@@ -448,15 +487,15 @@ namespace InnoVault.PRT
 
             switch (drawMode) {
                 case PRTDrawModeEnum.AlphaBlend:
-                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                    spriteBatch.Begin(spriteSortMode, BlendState.AlphaBlend, Main.DefaultSamplerState
                     , DepthStencilState.None, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
                     break;
                 case PRTDrawModeEnum.AdditiveBlend:
-                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.Additive, SamplerState.PointClamp
+                    spriteBatch.Begin(spriteSortMode, BlendState.Additive, SamplerState.PointClamp
                     , DepthStencilState.Default, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
                     break;
                 case PRTDrawModeEnum.NonPremultiplied:
-                    spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.NonPremultiplied, SamplerState.PointClamp
+                    spriteBatch.Begin(spriteSortMode, BlendState.NonPremultiplied, SamplerState.PointClamp
                     , DepthStencilState.Default, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
                     break;
             }
@@ -468,10 +507,22 @@ namespace InnoVault.PRT
         /// <param name="spriteBatch"></param>
         /// <param name="particle"></param>
         public static void PRTInstanceDraw(SpriteBatch spriteBatch, BasePRT particle) {
-            if (particle.PreDraw(spriteBatch)) {
+            bool result = true;
+            foreach (var global in GlobalPRT.Instance) {
+                if (!global.PreDrawPRT(spriteBatch, particle)) {
+                    result = false;
+                }
+            }
+
+            if (result && particle.PreDraw(spriteBatch)) {
                 DefaultDraw(spriteBatch, particle);
             }
+
             particle.PostDraw(spriteBatch);
+
+            foreach (var global in GlobalPRT.Instance) {
+                global.PostDrawPRT(spriteBatch, particle);
+            }
         }
 
         /// <summary>
@@ -480,15 +531,27 @@ namespace InnoVault.PRT
         /// <param name="spriteBatch">画布实例</param>
         /// <param name="particles">传入的粒子集合，其中所有的粒子要求<see cref="BasePRT.shader"/>不为<see langword="null"/></param>
         public static void HanderHasShaderPRTDrawList(SpriteBatch spriteBatch, List<BasePRT> particles) {
-            IEnumerable<IGrouping<ArmorShaderData, BasePRT>> groupedParticles = particles.GroupBy(p => p.shader);
-            foreach (IGrouping<ArmorShaderData, BasePRT> group in groupedParticles) {
-                spriteBatch.Begin(SpriteSortMode.Immediate, BlendState.AlphaBlend, SamplerState.PointClamp
-                    , DepthStencilState.None, RasterizerState.CullNone, null, Main.Transform);
-                group.Key?.Apply(null);
-                foreach (BasePRT particle in group) {
-                    PRTInstanceDraw(spriteBatch, particle);
+            //第一次分组：按着色器实例分组，这是最高代价的切换
+            var groupedByShader = particles.GroupBy(p => p.shader);
+
+            foreach (var shaderGroup in groupedByShader) {
+                //第二次分组：在每个着色器组内部，再按绘制模式分组
+                var groupedByDrawMode = shaderGroup.GroupBy(p => p.PRTDrawMode);
+
+                foreach (var drawModeGroup in groupedByDrawMode) {
+                    //设置当前组的绘制模式画布
+                    BeginDrawingWithMode(drawModeGroup.Key, spriteBatch, SpriteSortMode.Immediate);
+
+                    //应用当前组的着色器
+                    shaderGroup.Key?.Apply(null);
+
+                    //绘制所有属于这个子组（相同shader和相同drawMode）的粒子
+                    foreach (BasePRT particle in drawModeGroup) {
+                        PRTInstanceDraw(spriteBatch, particle);
+                    }
+
+                    spriteBatch.End();
                 }
-                spriteBatch.End();
             }
         }
 

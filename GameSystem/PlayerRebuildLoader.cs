@@ -28,7 +28,9 @@ namespace InnoVault.GameSystem
         public delegate void On_OnHitNPC_Dalegate(Player player, NPC target, in NPC.HitInfo hit, int damageDone);
         public delegate void On_GiveImmuneTimeForCollisionAttack_Dalegate(Player player, int time);
         public delegate bool On_CanBeHitByProjectile_Dalegate(Player player, Projectile proj);
-        public delegate double On_Hurt_Dalegate(Player player, PlayerDeathReason damageSource, int Damage, int hitDirection, out HurtInfo info, bool pvp = false, bool quiet = false, int cooldownCounter = -1, bool dodgeable = true, float armorPenetration = 0f, float scalingArmorPenetration = 0f, float knockback = 4.5f);
+        public delegate double On_Hurt_Dalegate(Player player, PlayerDeathReason damageSource, int Damage, int hitDirection, out HurtInfo info, bool pvp = false, bool quiet = false
+            , int cooldownCounter = -1, bool dodgeable = true, float armorPenetration = 0f, float scalingArmorPenetration = 0f, float knockback = 4.5f);
+        public delegate Rectangle On_ItemCheck_EmitUseVisuals_Delegate(Player player, Item sItem, Rectangle itemRectangle);
         public static Type playerLoaderType;
         public static MethodBase onModifyHitNPCWithItemMethod;
         public static MethodBase onModifyHitNPCWithProjMethod;
@@ -96,6 +98,8 @@ namespace InnoVault.GameSystem
             if (onHurtMethod != null) {
                 VaultHook.Add(onHurtMethod, On_HurtHook);
             }
+
+            VaultHook.Add(typeof(Player).GetMethod("ItemCheck_EmitUseVisuals", BindingFlags.Instance | BindingFlags.NonPublic), On_ItemCheck_EmitUseVisuals_Hook);
         }
 
         void IVaultLoader.UnLoadData() {
@@ -335,6 +339,73 @@ namespace InnoVault.GameSystem
             return orig.Invoke(player, proj);
         }
 
+        private static Rectangle On_ItemCheck_EmitUseVisuals_Hook(On_ItemCheck_EmitUseVisuals_Delegate orig, Player player, Item sItem, Rectangle itemRectangle) {
+            bool origResult = true;
+
+            bool hasPlayer = TryFetchByPlayer(player, out var values);
+            if (hasPlayer) {
+                bool result = true;
+                foreach (var value in values.Values) {
+                    if (value.TargetItemID != ItemID.None && value.TargetItemID != sItem.type) {
+                        continue;
+                    }
+                    bool newResult = value.On_PreEmitUseVisuals(sItem, ref itemRectangle);
+                    if (newResult == false) {
+                        result = false;
+                    }
+                }
+                if (!result) {
+                    origResult = false;
+                }
+            }
+
+            bool hasOverride = sItem.TryGetOverride(out var itemOverrides);
+
+            if (origResult) {//玩家钩子优先级别高于物品钩子
+                if (!ItemRebuildLoader.UniversalForEach(inds => inds.On_PreEmitUseVisuals(sItem, player, ref itemRectangle))) {
+                    origResult = false;
+                }
+
+                if (origResult && hasOverride) {//物品全局钩子有限级高于物品指向钩子
+                    bool result = true;
+                    foreach (var value in itemOverrides.Values) {
+                        bool newResult = value.On_PreEmitUseVisuals(sItem, player, ref itemRectangle);
+                        if (newResult == false) {
+                            result = false;
+                        }
+                    }
+                    if (!result) {
+                        origResult = false;
+                    }
+                }
+            }
+            
+            if (origResult) {//全部通过才执行原函数
+                itemRectangle = orig.Invoke(player, sItem, itemRectangle);
+            }
+
+            //下面执行Post操作，按优先级倒序执行
+
+            if (hasOverride) {
+                foreach (var value in itemOverrides.Values) {
+                    value.On_PostEmitUseVisuals(sItem, player, ref itemRectangle);
+                }
+            }
+
+            ItemRebuildLoader.UniversalForEach(inds => inds.On_PostEmitUseVisuals(sItem, player, ref itemRectangle));
+
+            if (hasPlayer) {
+                foreach (var value in values.Values) {
+                    if (value.TargetItemID != ItemID.None && value.TargetItemID != sItem.type) {
+                        continue;
+                    }
+                    value.On_PostEmitUseVisuals(sItem, ref itemRectangle);
+                }
+            }
+
+            return itemRectangle;
+        }
+
         private static void On_DrawPlayersHook(On_LegacyPlayerRenderer.orig_DrawPlayers orig
             , LegacyPlayerRenderer self, Camera camera, IEnumerable<Player> players) {
             if (TryFetchByPlayer(Main.LocalPlayer, out var values)) {
@@ -394,9 +465,10 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(Player, out var values)) {
                 bool result = true;
                 foreach (var value in values.Values) {
-                    if (value.TargetItemID == ItemID.None || value.TargetItemID == item.type) {
-                        result = value.CanUseItem(item);
+                    if (value.TargetItemID != ItemID.None && value.TargetItemID != item.type) {
+                        continue;
                     }
+                    result = value.CanUseItem(item);
                 }
                 return result;
             }
