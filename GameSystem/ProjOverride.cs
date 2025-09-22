@@ -109,13 +109,44 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            foreach (var npcOverrideInstance in inds.Values) {
-                npcOverrideInstance.projectile = proj;
-                npcOverrideInstance.SetProperty();
+            if (!proj.TryGetGlobalProjectile(out ProjRebuildLoader globalInstance)) {
+                return;
             }
 
-            if (proj.TryGetGlobalProjectile(out ProjRebuildLoader globalInstance)) {
-                globalInstance.ProjOverrides = inds;
+            //遍历所有克隆出的实例
+            foreach (var overrideInstance in inds.Values) {
+                //为实例设置弹幕上下文并初始化
+                overrideInstance.projectile = proj;
+                overrideInstance.SetProperty();
+
+                //使用已加载的静态钩子列表的高效查询能力，将实例分发到对应的专属列表中
+                if (ProjRebuildLoader.HookAI.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.AIOverrides.Add(overrideInstance);
+                }
+                if (ProjRebuildLoader.HookPostAI.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.PostAIOverrides.Add(overrideInstance);
+                }
+                if (ProjRebuildLoader.HookOnSpawn.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.OnSpawnOverrides.Add(overrideInstance);
+                }
+                if (ProjRebuildLoader.HookShouldUpdatePosition.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.ShouldUpdatePositionOverrides.Add(overrideInstance);
+                }
+                if (ProjRebuildLoader.HookOnHitNPC.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.OnHitNPCOverrides.Add(overrideInstance);
+                }
+                if (ProjRebuildLoader.HookOnHitPlayer.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.OnHitPlayerOverrides.Add(overrideInstance);
+                }
+                if (ProjRebuildLoader.HookOnKill.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.OnKillOverrides.Add(overrideInstance);
+                }
+                if (ProjRebuildLoader.HookDraw.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.DrawOverrides.Add(overrideInstance);
+                }
+                if (ProjRebuildLoader.HookPostDraw.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.PostDrawOverrides.Add(overrideInstance);
+                }
             }
         }
 

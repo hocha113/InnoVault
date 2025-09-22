@@ -53,7 +53,7 @@ namespace InnoVault.GameSystem
     }
 
     /// <summary>
-    /// 为某个特定的方法（钩子）创建一个预先筛选过的、高性能的实例列表
+    /// 为某个特定的钩子创建一个预先筛选过的、高性能的实例列表
     /// </summary>
     public class VaultHookList<TVault> where TVault : VaultType<TVault>
     {

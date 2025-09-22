@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
@@ -20,11 +21,44 @@ namespace InnoVault.GameSystem
         public delegate void On_PostDraw_Delegate(Projectile projectile, Color lightColor);
         public static event On_Projectile_Void_Delegate PreSetDefaultsEvent;
         public static event On_Projectile_Void_Delegate PostSetDefaultsEvent;
+        private delegate bool? DelegateDraw(ref Color drawColor);
         public static MethodInfo onProjectileAI_Method;
         public static MethodInfo onPreDraw_Method;
         public static MethodInfo onPostDraw_Method;
         public override bool InstancePerEntity => true;
+        private static readonly List<VaultHookList<ProjOverride>> hooks = [];
+        internal static VaultHookList<ProjOverride> HookAI;
+        internal static VaultHookList<ProjOverride> HookPostAI;
+        internal static VaultHookList<ProjOverride> HookOnSpawn;
+        internal static VaultHookList<ProjOverride> HookShouldUpdatePosition;
+        internal static VaultHookList<ProjOverride> HookOnHitNPC;
+        internal static VaultHookList<ProjOverride> HookOnHitPlayer;
+        internal static VaultHookList<ProjOverride> HookOnKill;
+        internal static VaultHookList<ProjOverride> HookDraw;
+        internal static VaultHookList<ProjOverride> HookPostDraw;
         public Dictionary<Type, ProjOverride> ProjOverrides { get; internal set; }
+        //这些列表属于每个ProjRebuildLoader的实例(即每个弹幕)，只存储对当前弹幕生效的、且重写了对应方法的ProjOverride实例
+        public List<ProjOverride> AIOverrides { get; private set; }
+        public List<ProjOverride> PostAIOverrides { get; private set; }
+        public List<ProjOverride> OnSpawnOverrides { get; private set; }
+        public List<ProjOverride> ShouldUpdatePositionOverrides { get; private set; }
+        public List<ProjOverride> OnHitNPCOverrides { get; private set; }
+        public List<ProjOverride> OnHitPlayerOverrides { get; private set; }
+        public List<ProjOverride> OnKillOverrides { get; private set; }
+        public List<ProjOverride> DrawOverrides { get; private set; }
+        public List<ProjOverride> PostDrawOverrides { get; private set; }
+
+        public void InitializeList() {
+            AIOverrides = [];
+            PostAIOverrides = [];
+            OnSpawnOverrides = [];
+            ShouldUpdatePositionOverrides = [];
+            OnHitNPCOverrides = [];
+            OnHitPlayerOverrides = [];
+            OnKillOverrides = [];
+            DrawOverrides = [];
+            PostDrawOverrides = [];
+        }
 
         void IVaultLoader.LoadData() {
             onProjectileAI_Method = typeof(ProjectileLoader).GetMethod("ProjectileAI", BindingFlags.Static | BindingFlags.Public);
@@ -35,12 +69,30 @@ namespace InnoVault.GameSystem
             VaultHook.Add(onPostDraw_Method, OnPostDrawHook);
         }
 
+        void IVaultLoader.SetupData() {
+            HookAI = AddHook<Func<bool>>(p => p.AI);
+            HookPostAI = AddHook<Action>(p => p.PostAI);
+            HookOnSpawn = AddHook<Action<IEntitySource>>(p => p.OnSpawn);
+            HookShouldUpdatePosition = AddHook<Func<bool?>>(p => p.ShouldUpdatePosition);
+            HookOnHitNPC = AddHook<Action<NPC, NPC.HitInfo, int>>(p => p.OnHitNPC);
+            HookOnHitPlayer = AddHook<Action<Player, Player.HurtInfo>>(p => p.OnHitPlayer);
+            HookOnKill = AddHook<Action<int>>(p => p.OnKill);
+            HookDraw = AddHook<DelegateDraw>(p => p.Draw);
+            HookPostDraw = AddHook<Func<Color, bool>>(p => p.PostDraw);
+        }
+
         void IVaultLoader.UnLoadData() {
             PreSetDefaultsEvent = null;
             PostSetDefaultsEvent = null;
             onProjectileAI_Method = null;
             onPreDraw_Method = null;
             onPostDraw_Method = null;
+        }
+
+        private static VaultHookList<ProjOverride> AddHook<F>(Expression<Func<ProjOverride, F>> func) where F : Delegate {
+            VaultHookList<ProjOverride> hook = VaultHookList<ProjOverride>.Create(func);
+            hooks.Add(hook);
+            return hook;
         }
 
         public override GlobalProjectile Clone(Projectile from, Projectile to) {
@@ -86,6 +138,7 @@ namespace InnoVault.GameSystem
             if (entity.Alives()) {
                 PreSetDefaultsEvent?.Invoke(entity);
             }
+            InitializeList();
             ProjOverride.SetDefaults(entity);
             if (entity.Alives()) {
                 PostSetDefaultsEvent?.Invoke(entity);
@@ -93,47 +146,37 @@ namespace InnoVault.GameSystem
         }
 
         public override void OnSpawn(Projectile proj, IEntitySource source) {
-            if (proj.TryGetOverride(out var values)) {
-                foreach (var value in values.Values) {
-                    value.OnSpawn(source);
-                }
+            foreach (var value in OnSpawnOverrides) {
+                value.OnSpawn(source);
             }
         }
 
         public override bool ShouldUpdatePosition(Projectile proj) {
-            if (proj.TryGetOverride(out var values)) {
-                bool? result = null;
-                foreach (var value in values.Values) {
-                    result = value.ShouldUpdatePosition();
-                }
-                if (result.HasValue) {
-                    return result.Value;
-                }
+            bool? result = null;
+            foreach (var value in ShouldUpdatePositionOverrides) {
+                result = value.ShouldUpdatePosition();
+            }
+            if (result.HasValue) {
+                return result.Value;
             }
             return true;
         }
 
         public override void OnHitNPC(Projectile proj, NPC target, NPC.HitInfo hit, int damageDone) {
-            if (proj.TryGetOverride(out var values)) {
-                foreach (var value in values.Values) {
-                    value.OnHitNPC(target, hit, damageDone);
-                }
+            foreach (var value in OnHitNPCOverrides) {
+                value.OnHitNPC(target, hit, damageDone);
             }
         }
 
         public override void OnHitPlayer(Projectile proj, Player target, Player.HurtInfo info) {
-            if (proj.TryGetOverride(out var values)) {
-                foreach (var value in values.Values) {
-                    value.OnHitPlayer(target, info);
-                }
+            foreach (var value in OnHitPlayerOverrides) {
+                value.OnHitPlayer(target, info);
             }
         }
 
         public override void OnKill(Projectile proj, int timeLeft) {
-            if (proj.TryGetOverride(out var values)) {
-                foreach (var value in values.Values) {
-                    value.OnKill(timeLeft);
-                }
+            foreach (var value in OnKillOverrides) {
+                value.OnKill(timeLeft);
             }
         }
 
@@ -142,11 +185,9 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            bool hasOverride = proj.TryGetOverride(out var values);
-
-            if (hasOverride) {
+            if (proj.TryGetGlobalProjectile(out ProjRebuildLoader gProj)) {
                 bool result = true;
-                foreach (var value in values.Values) {
+                foreach (var value in gProj.AIOverrides) {
                     if (!value.AI()) {
                         result = false;
                     }
@@ -158,8 +199,8 @@ namespace InnoVault.GameSystem
 
             orig.Invoke(proj);
 
-            if (hasOverride) {
-                foreach (var value in values.Values) {
+            if (gProj != null) {
+                foreach (var value in gProj.PostAIOverrides) {
                     value.PostAI();
                 }
             }
@@ -168,10 +209,13 @@ namespace InnoVault.GameSystem
         }
 
         public static bool OnPreDrawHook(On_PreDraw_Delegate orig, Projectile proj, ref Color lightColor) {
-            if (proj.TryGetOverride(out var values)) {
+            if (proj.TryGetGlobalProjectile(out ProjRebuildLoader gProj)) {
                 bool? result = null;
-                foreach (var value in values.Values) {
-                    result = value.Draw(ref lightColor);
+                foreach (var value in gProj.DrawOverrides) {
+                    bool? newResult = value.Draw(ref lightColor);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;
@@ -181,16 +225,13 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnPostDrawHook(On_PostDraw_Delegate orig, Projectile proj, Color lightColor) {
-            if (proj.TryGetOverride(out var values)) {
-                bool result = true;
-                foreach (var value in values.Values) {
-                    result = value.PostDraw(lightColor);
-                }
-                if (!result) {
-                    return;
+            orig.Invoke(proj, lightColor);
+
+            if (proj.TryGetGlobalProjectile(out ProjRebuildLoader gProj)) {
+                foreach (var value in gProj.PostDrawOverrides) {
+                    value.PostDraw(lightColor);
                 }
             }
-            orig.Invoke(proj, lightColor);
         }
 #pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
     }
