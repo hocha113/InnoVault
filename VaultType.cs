@@ -1,11 +1,12 @@
-﻿using Terraria.ModLoader;
+﻿using InnoVault.GameSystem;
+using Terraria.ModLoader;
 
 namespace InnoVault
 {
     /// <summary>
     /// 实现InnoVault的基本类型
     /// </summary>
-    public abstract class VaultType : ModType
+    public abstract class VaultType<T> : ModType where T : VaultType<T>
     {
         /// <summary>
         /// 程序进行防御性处理时会用到的值，如果该实例内部发生错误，则会将该值设置为大于0的值，期间不会再自动调用该实例
@@ -35,5 +36,37 @@ namespace InnoVault
         /// <param name="name"></param>
         /// <returns></returns>
         public static string GetFullName(string modName, string name) => modName + "/" + name;//设置这个函数是为了防止其他地方硬编码拼接内部名
+        /// <summary>
+        /// 注册这个实例到列表中
+        /// </summary>
+        protected sealed override void Register() {
+            if (!CanLoad()) {
+                return;
+            }
+            VaultList<T>.Register((T)this);
+            VaultRegister();
+        }
+        /// <summary>
+        /// 如果继承了这个类，请重写这个函数以进行内容加载
+        /// </summary>
+        protected virtual void VaultRegister() {
+
+        }
+        /// <summary>
+        /// 加载内容
+        /// </summary>
+        public sealed override void SetupContent() {
+            if (!CanLoad()) {
+                return;
+            }
+            VaultList<T>.FinishLoading();
+            VaultSetup();
+        }
+        /// <summary>
+        /// 如果继承了这个类，请重写这个函数以进行内容加载
+        /// </summary>
+        public virtual void VaultSetup() {
+
+        }
     }
 }

@@ -16,7 +16,7 @@ namespace InnoVault.TileProcessors
     /// 物块处理器，简称TP实体，它的功能目标类似于<see cref="TileEntity"/>
     /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-TP-Entity"/></br>
     /// </summary>
-    public abstract class TileProcessor : VaultType
+    public abstract class TileProcessor : VaultType<TileProcessor>
     {
         #region Data
         /// <summary>
@@ -136,7 +136,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected sealed override void Register() {
+        protected sealed override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -156,7 +156,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 加载内容
         /// </summary>
-        public sealed override void SetupContent() {
+        public sealed override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

@@ -7,7 +7,7 @@ namespace InnoVault.UIHandles
     /// <summary>
     /// 对于UI的一个全局类，你可以使用它来进行一些统一的操作
     /// </summary>
-    public abstract class GlobalUIHandle : VaultType
+    public abstract class GlobalUIHandle : VaultType<GlobalUIHandle>
     {
         /// <summary>
         /// 所属的Mod
@@ -17,7 +17,7 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected override void Register() {
+        protected override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -30,7 +30,7 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 加载内容
         /// </summary>
-        public override void SetupContent() {
+        public override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

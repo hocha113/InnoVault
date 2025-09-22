@@ -7,7 +7,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 用于修改所有尘埃的行为
     /// </summary>
-    public abstract class GlobalDust : VaultType
+    public abstract class GlobalDust : VaultType<GlobalDust>
     {
         /// <summary>
         /// 所有已注册的实例
@@ -16,7 +16,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 注册这个实例
         /// </summary>
-        protected override void Register() {
+        protected override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -25,7 +25,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 封闭内容
         /// </summary>
-        public override void SetupContent() {
+        public override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

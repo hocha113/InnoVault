@@ -123,7 +123,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 用于基本保存内容的基类
     /// </summary>
-    public abstract class SaveContent<T> : VaultType where T : SaveContent<T>
+    public abstract class SaveContent<T> : VaultType<SaveContent<T>> where T : SaveContent<T>
     {
         /// <summary>
         /// 所有实例以单例形式存储于此
@@ -160,7 +160,7 @@ namespace InnoVault.GameSystem
         /// </summary>
         public bool HasSave => File.Exists(SavePath);
         /// <inheritdoc/>
-        protected override void Register() {
+        protected override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -168,7 +168,7 @@ namespace InnoVault.GameSystem
             SaveContents.Add((T)(object)this);
         }
         /// <inheritdoc/>
-        public override void SetupContent() {
+        public override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

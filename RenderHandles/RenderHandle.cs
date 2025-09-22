@@ -9,7 +9,7 @@ namespace InnoVault.RenderHandles
     /// <summary>
     /// 在系统中注册和管理渲染实例
     /// </summary>
-    public abstract class RenderHandle : VaultType
+    public abstract class RenderHandle : VaultType<RenderHandle>
     {
         #region Data
         /// <remarks>
@@ -51,7 +51,7 @@ namespace InnoVault.RenderHandles
         /// <summary>
         /// 密封内容
         /// </summary>
-        protected override void Register() {
+        protected override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -69,7 +69,7 @@ namespace InnoVault.RenderHandles
         /// <summary>
         /// 内容初始化方法，在加载内容时调用
         /// </summary>
-        public override void SetupContent() {
+        public override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

@@ -11,7 +11,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 提供一个强行覆盖目标弹幕行为性质的基类，通过On钩子为基础运行
     /// </summary>
-    public abstract class ProjOverride : VaultType
+    public abstract class ProjOverride : VaultType<ProjOverride>
     {
         /// <summary>
         /// 所有修改的实例集合
@@ -36,7 +36,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 封闭加载
         /// </summary>
-        protected override void Register() {
+        protected override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -44,14 +44,9 @@ namespace InnoVault.GameSystem
             Instances.Add(this);
         }
         /// <summary>
-        /// 克隆这个实例，注意，克隆出的新对象与原实例将不再具有任何引用关系
-        /// </summary>
-        /// <returns></returns>
-        public ProjOverride Clone() => (ProjOverride)Activator.CreateInstance(GetType());
-        /// <summary>
         /// 加载内容
         /// </summary>
-        public override void SetupContent() {
+        public override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }
@@ -67,6 +62,11 @@ namespace InnoVault.GameSystem
                 UniversalInstances.Add(this);
             }
         }
+        /// <summary>
+        /// 克隆这个实例，注意，克隆出的新对象与原实例将不再具有任何引用关系
+        /// </summary>
+        /// <returns></returns>
+        public ProjOverride Clone() => (ProjOverride)Activator.CreateInstance(GetType());
         /// <summary>
         /// 寻找对应弹幕实例的重载实例
         /// </summary>

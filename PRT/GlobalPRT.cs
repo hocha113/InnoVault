@@ -6,7 +6,7 @@ namespace InnoVault.PRT
     /// <summary>
     /// 一个全局的粒子类，继承它用于修改全局粒子效果
     /// </summary>
-    public abstract class GlobalPRT : VaultType
+    public abstract class GlobalPRT : VaultType<GlobalPRT>
     {
         /// <summary>
         /// 所有全局粒子实例的列表
@@ -15,7 +15,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected override void Register() {
+        protected override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -24,7 +24,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 加载内容
         /// </summary>
-        public override void SetupContent() {
+        public override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

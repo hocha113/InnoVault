@@ -8,7 +8,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 用于修改游戏菜单的基类
     /// </summary>
-    public abstract class MenuOverride : VaultType
+    public abstract class MenuOverride : VaultType<MenuOverride>
     {
         /// <summary>
         /// 所有修改的实例集合
@@ -21,13 +21,23 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected override void Register() {
+        protected sealed override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
 
             Instances.Add(this);
             TypeToInstance[GetType()] = this;
+        }
+        /// <summary>
+        /// 加载内容
+        /// </summary>
+        public sealed override void VaultSetup() {
+            if (!CanLoad()) {
+                return;
+            }
+
+            SetStaticDefaults();
         }
         /// <summary>
         /// 绘制菜单主页，在这个函数中需要注意线程安全

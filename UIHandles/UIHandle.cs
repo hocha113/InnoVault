@@ -12,7 +12,7 @@ namespace InnoVault.UIHandles
     /// UI处理器，一个简易的UI基类，继承它用于自定义各种UI实现
     /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-UI"/></br>
     /// </summary>
-    public abstract class UIHandle : VaultType
+    public abstract class UIHandle : VaultType<UIHandle>
     {
         /// <summary>
         /// 一个纹理的占位，可以重写它用于获取UI的主要纹理
@@ -93,7 +93,7 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected override void Register() {
+        protected override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -111,7 +111,7 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 加载内容
         /// </summary>
-        public override void SetupContent() {
+        public override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

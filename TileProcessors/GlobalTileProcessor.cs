@@ -7,12 +7,12 @@ namespace InnoVault.TileProcessors
     /// <summary>
     /// 对于TP实体的一个全局类，你可以使用它来进行一些统一的操作
     /// </summary>
-    public abstract class GlobalTileProcessor : VaultType
+    public abstract class GlobalTileProcessor : VaultType<GlobalTileProcessor>
     {
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected sealed override void Register() {
+        protected sealed override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -22,7 +22,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 加载内容
         /// </summary>
-        public sealed override void SetupContent() {
+        public sealed override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

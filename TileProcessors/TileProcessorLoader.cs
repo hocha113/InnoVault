@@ -444,7 +444,7 @@ namespace InnoVault.TileProcessors
                     name = thisTag.GetString("name");
                 }
 
-                string fullName = VaultType.GetFullName(mod, name);
+                string fullName = VaultType<TileProcessor>.GetFullName(mod, name);
                 Point16 point = new(thisTag.GetShort("X"), thisTag.GetShort("Y"));
 
                 // 从字典中查找匹配项

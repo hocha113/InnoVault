@@ -15,7 +15,7 @@ namespace InnoVault.GameSystem
     /// 物品行为覆盖
     /// 该基类以单实例形式存在
     /// </summary>
-    public abstract class ItemOverride : VaultType, ILocalizedModType
+    public abstract class ItemOverride : VaultType<ItemOverride>, ILocalizedModType
     {
         #region Data
         /// <summary>
@@ -124,7 +124,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected override void Register() {
+        protected sealed override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -141,7 +141,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 加载内容
         /// </summary>
-        public sealed override void SetupContent() {
+        public sealed override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

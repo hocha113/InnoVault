@@ -9,7 +9,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 覆盖对应物块的行为
     /// </summary>
-    public class TileOverride : VaultType
+    public class TileOverride : VaultType<TileOverride>
     {
         /// <summary>
         /// 所有修改的实例集合
@@ -26,7 +26,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 封闭加载
         /// </summary>
-        protected override void Register() {
+        protected override void VaultRegister() {
             if (!CanLoad()) {
                 return;
             }
@@ -36,7 +36,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 加载内容
         /// </summary>
-        public override void SetupContent() {
+        public override void VaultSetup() {
             if (!CanLoad()) {
                 return;
             }

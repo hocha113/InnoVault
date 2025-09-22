@@ -11,7 +11,7 @@ namespace InnoVault.PRT
     /// 粒子基类，继承它用于实现各种高度自定义的粒子效果
     /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-PRT-System"/></br>
     /// </summary>
-    public abstract class BasePRT : VaultType
+    public abstract class BasePRT : VaultType<BasePRT>
     {
         #region Data
         /// <summary>
@@ -127,14 +127,14 @@ namespace InnoVault.PRT
         /// <summary>
         /// 封闭内容
         /// </summary>
-        protected sealed override void Register() {
+        protected sealed override void VaultRegister() {
 
         }
 
         /// <summary>
         /// 加载内容
         /// </summary>
-        public sealed override void SetupContent() {
+        public sealed override void VaultSetup() {
 
         }
 
