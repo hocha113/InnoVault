@@ -11,12 +11,12 @@ namespace InnoVault.PRT
         /// <summary>
         /// 所有全局粒子实例的列表
         /// </summary>
-        public readonly static List<GlobalPRT> Instance = [];
+        public readonly static List<GlobalPRT> Instances = [];
         /// <summary>
         /// 封闭内容
         /// </summary>
         protected override void VaultRegister() {
-            Instance.Add(this);
+            Instances.Add(this);
         }
         /// <summary>
         /// 加载内容

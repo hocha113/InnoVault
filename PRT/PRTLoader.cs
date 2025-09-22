@@ -104,7 +104,7 @@ namespace InnoVault.PRT
             PRT_HasShader_Draw = null;
             On_Main.DrawInfernoRings -= DrawHook;
 
-            GlobalPRT.Instance.Clear();
+            GlobalPRT.Instances.Clear();
         }
 
         void IVaultLoader.SetupData() {
@@ -168,7 +168,7 @@ namespace InnoVault.PRT
 
             PRT_InGame_World_Inds.Add(particle);
 
-            foreach (var global in GlobalPRT.Instance) {
+            foreach (var global in GlobalPRT.Instances) {
                 global.OnSpawn(particle);
             }
         }
@@ -201,7 +201,7 @@ namespace InnoVault.PRT
 
             PRT_InGame_World_Inds.Add(particle);
 
-            foreach (var global in GlobalPRT.Instance) {
+            foreach (var global in GlobalPRT.Instances) {
                 global.OnSpawn(particle);
             }
         }
@@ -358,7 +358,7 @@ namespace InnoVault.PRT
             }
 
             bool result = true;
-            foreach (var global in GlobalPRT.Instance) {
+            foreach (var global in GlobalPRT.Instances) {
                 if (!global.PreUpdatePRTAll()) {
                     result = false;
                 }
@@ -393,7 +393,7 @@ namespace InnoVault.PRT
                 }
             }
 
-            foreach (var global in GlobalPRT.Instance) {
+            foreach (var global in GlobalPRT.Instances) {
                 global.PostUpdatePRTAll();
             }
 
@@ -508,7 +508,7 @@ namespace InnoVault.PRT
         /// <param name="particle"></param>
         public static void PRTInstanceDraw(SpriteBatch spriteBatch, BasePRT particle) {
             bool result = true;
-            foreach (var global in GlobalPRT.Instance) {
+            foreach (var global in GlobalPRT.Instances) {
                 if (!global.PreDrawPRT(spriteBatch, particle)) {
                     result = false;
                 }
@@ -520,7 +520,7 @@ namespace InnoVault.PRT
 
             particle.PostDraw(spriteBatch);
 
-            foreach (var global in GlobalPRT.Instance) {
+            foreach (var global in GlobalPRT.Instances) {
                 global.PostDrawPRT(spriteBatch, particle);
             }
         }
