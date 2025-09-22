@@ -25,15 +25,15 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 所有修改的实例集合
         /// </summary>
-        public static List<NPCOverride> Instances { get; internal set; } = [];
+        public new static List<NPCOverride> Instances { get; internal set; } = [];
         /// <summary>
         /// 一个字典，可以根据目标ID来获得对应的修改实例
         /// </summary>
-        public static Dictionary<int, Dictionary<Type, NPCOverride>> ByID { get; internal set; } = [];
+        public new static Dictionary<int, Dictionary<Type, NPCOverride>> ByID { get; internal set; } = [];
         /// <summary>
-        /// 所有负指向的实例集合，只包含<see cref="TargetID"/>为 -1 的实例
+        /// 通用修改实例列表，这些实例会应用到所有目标上
         /// </summary>
-        public static List<NPCOverride> UniversalInstances { get; internal set; } = [];
+        public new static List<NPCOverride> UniversalInstances { get; internal set; } = [];
         /// <summary>
         /// 要修改的NPC的ID值
         /// </summary>

@@ -13,11 +13,11 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 所有修改的实例集合
         /// </summary>
-        public static List<MenuOverride> Instances { get; internal set; } = [];
+        public new static List<MenuOverride> Instances { get; internal set; } = [];
         /// <summary>
         /// 从类型映射到实例
         /// </summary>
-        public static Dictionary<Type, MenuOverride> TypeToInstance { get; internal set; } = [];
+        public new static Dictionary<Type, MenuOverride> TypeToInstance { get; internal set; } = [];
         /// <summary>
         /// 封闭内容
         /// </summary>

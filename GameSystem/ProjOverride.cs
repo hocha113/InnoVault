@@ -16,15 +16,15 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 所有修改的实例集合
         /// </summary>
-        public static List<ProjOverride> Instances { get; internal set; } = [];
+        public new static List<ProjOverride> Instances { get; internal set; } = [];
         /// <summary>
         /// 一个字典，可以根据目标ID来获得对应的修改实例
         /// </summary>
-        public static Dictionary<int, Dictionary<Type, ProjOverride>> ByID { get; internal set; } = [];
+        public new static Dictionary<int, Dictionary<Type, ProjOverride>> ByID { get; internal set; } = [];
         /// <summary>
         /// 所有负指向的实例集合，只包含<see cref="TargetID"/>为 -1 的实例
         /// </summary>
-        public static List<ProjOverride> UniversalInstances { get; internal set; } = [];
+        public new static List<ProjOverride> UniversalInstances { get; internal set; } = [];
         /// <summary>
         /// 要修改的Proj的ID值
         /// </summary>

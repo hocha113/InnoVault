@@ -17,7 +17,7 @@ namespace InnoVault.RenderHandles
         /// 所有 <see cref="RenderHandle"/> 的生命周期由 <see cref="RenderHandleLoader"/> 管理，
         /// 在卸载时会统一释放其持有的 <see cref="RenderTarget2D"/> 并清空 <see cref="Instances"/>
         /// </remarks>
-        public static List<RenderHandle> Instances { get; private set; } = [];
+        public new static List<RenderHandle> Instances { get; private set; } = [];
         /// <summary>
         /// 渲染权重，用于排序默认值为 1，Weight 越大，在排序中越靠后
         /// </summary>

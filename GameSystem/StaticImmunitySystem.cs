@@ -350,30 +350,29 @@ namespace InnoVault.GameSystem
         }
     }
 
-    internal sealed class StaticImmunityPlayer : PlayerOverride
+    internal sealed class StaticImmunityPlayer : ModPlayer
     {
-        public override bool? On_CanHitNPC(NPC target) {
+        public override bool CanHitNPC(NPC target) {
             if (target.HasStaticImmunity(Player.whoAmI)) {
                 return false;
             }
-            return null;
+            return base.CanHitNPC(target);
         }
 
-        public override bool On_OnHitNPC(NPC npc, in NPC.HitInfo hit, int damageDone) {
-            int sourceID = NPCID_To_SourceID[npc.type];
-            if (sourceID == -1 || !NPCID_To_UseStaticImmunity[npc.type]) {
-                return true;
+        public override void OnHitNPC(NPC target, NPC.HitInfo hit, int damageDone) {
+            int sourceID = NPCID_To_SourceID[target.type];
+            if (sourceID == -1 || !NPCID_To_UseStaticImmunity[target.type]) {
+                return;
             }
 
-            if (NPCID_To_HitType[npc.type] != HitType.Player) {
-                NPCID_To_HitType[npc.type] = HitType.Player;
-                return true;
+            if (NPCID_To_HitType[target.type] != HitType.Player) {
+                NPCID_To_HitType[target.type] = HitType.Player;
+                return;
             }
 
-            if (npc.AddStaticImmunity(Player.whoAmI)) {
-                npc.immune[Player.whoAmI] = 0;
+            if (target.AddStaticImmunity(Player.whoAmI)) {
+                target.immune[Player.whoAmI] = 0;
             }
-            return true;
         }
     }
 

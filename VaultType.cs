@@ -1,4 +1,6 @@
 ﻿using InnoVault.GameSystem;
+using System;
+using System.Collections.Generic;
 using Terraria.ModLoader;
 
 namespace InnoVault
@@ -16,6 +18,22 @@ namespace InnoVault
         /// 是否自动在<see cref="ModType.SetupContent"/>中调用<see cref="VaultTypeRegistry{T}.CompleteLoading"/>,默认返回<see langword="true"/>
         /// </summary>
         protected virtual bool AutoVaultRegistryFinishLoading => true;
+        /// <summary>
+        /// 所有修改的实例集合
+        /// </summary>
+        public static List<T> Instances { get; internal set; } = [];
+        /// <summary>
+        /// 从类型映射到实例
+        /// </summary>
+        public static Dictionary<Type, T> TypeToInstance { get; internal set; } = [];
+        /// <summary>
+        /// 按ID和类型分类的实例集合
+        /// </summary>
+        public static Dictionary<int, Dictionary<Type, T>> ByID { get; internal set; } = [];
+        /// <summary>
+        /// 所有的通用实例集合
+        /// </summary>
+        public static List<T> UniversalInstances { get; internal set; } = [];
         /// <summary>
         /// 程序进行防御性处理时会用到的值，如果该实例内部发生错误，则会将该值设置为大于0的值，期间不会再自动调用该实例
         /// 这个值应当每帧减一，直到不再大于0

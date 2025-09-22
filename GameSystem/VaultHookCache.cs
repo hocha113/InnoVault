@@ -32,9 +32,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 枚举此钩子列表中的所有实例
         /// </summary>
-        public ReadOnlySpan<TVault> Enumerate() {
-            return hookInstanceCache;
-        }
+        public ReadOnlySpan<TVault> Enumerate() => hookInstanceCache;
         /// <summary>
         /// 重新筛选此钩子列表
         /// </summary>

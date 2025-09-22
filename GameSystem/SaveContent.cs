@@ -138,7 +138,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 从类型映射到对应的实例
         /// </summary>
-        public static Dictionary<Type, T> TypeToInstance { get; private set; } = [];
+        public new static Dictionary<Type, T> TypeToInstance { get; private set; } = [];
         /// <summary>
         /// 从模组映射到对应的实例列表
         /// </summary>

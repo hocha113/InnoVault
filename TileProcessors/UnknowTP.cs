@@ -16,7 +16,7 @@ namespace InnoVault.TileProcessors
     public class UnknowTP : TileProcessor
     {
         /// <summary>
-        /// 标识名，和使用 <see cref="UnknowTP"/> 的 <see cref="VaultType.GetFullName(string, string)"/> 返回值相同
+        /// 标识名，和使用 <see cref="UnknowTP"/> 的 <see cref="VaultType{T}.GetFullName(string, string)"/> 返回值相同
         /// </summary>
         public const string UnknowTag = "InnoVault/UnknowTP";
         /// <summary>
