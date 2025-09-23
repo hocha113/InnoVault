@@ -18,10 +18,13 @@ namespace InnoVault.GameSystem
     public class NPCOverride : VaultType<NPCOverride>
     {
         #region Data
+        //因为NPC需要在菜单界面里面加载，
+        //而SD函数运行在默认Register之前，
+        //所以这里禁止自动注册，改为手动注册
         /// <inheritdoc/>
-        protected sealed override bool AutoVaultRegistryRegister => false;//因为NPC需要在菜单界面里面加载，
-                                                                          //而SD函数运行在默认Register之前，
-                                                                          //所以这里禁止自动注册，改为手动注册
+        protected sealed override bool AutoVaultRegistryRegister => false;
+        /// <inheritdoc/>
+        protected sealed override bool AutoVaultRegistryFinishLoading => false;
         /// <summary>
         /// 所有修改的实例集合
         /// </summary>

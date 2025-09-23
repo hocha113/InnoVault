@@ -4,6 +4,7 @@ using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using Terraria;
 using Terraria.DataStructures;
@@ -39,9 +40,20 @@ namespace InnoVault.GameSystem
         public static MethodBase onGiveImmuneTimeForCollisionAttackMethod;
         public static MethodBase onCanBeHitByProjectileMethod;
         public static MethodBase onHurtMethod;
+        private static readonly List<VaultHookMethodCache<PlayerOverride>> hooks = [];
+        internal static VaultHookMethodCache<PlayerOverride> HookPreIsSceneEffectActiveByPlayer;
+        internal static VaultHookMethodCache<PlayerOverride> HookPostIsSceneEffectActiveByPlayer;
         void IVaultLoader.LoadData() {
-            Instances ??= [];
-            TypeToInstance ??= [];
+            foreach (var playerOverride in VaultUtils.GetDerivedInstances<PlayerOverride>()) {
+                VaultTypeRegistry<PlayerOverride>.Register(playerOverride);
+                foreach (var name in playerOverride.GetActiveSceneEffectFullNames()) {
+                    SceneRebuildLoader.ActiveSceneEffects.Add(name);
+                }
+            }
+            VaultTypeRegistry<PlayerOverride>.CompleteLoading();
+
+            HookPreIsSceneEffectActiveByPlayer = AddHook<Func<ModSceneEffect, bool>>(player => player.PreIsSceneEffectActive);
+            HookPostIsSceneEffectActiveByPlayer = AddHook<Action<ModSceneEffect>>(player => player.PostIsSceneEffectActive);
 
             IL_Player.Update += Player_Update_Hook;
 
@@ -111,6 +123,12 @@ namespace InnoVault.GameSystem
             playerLoaderType = null;
             onModifyHitNPCWithItemMethod = null;
             onModifyHitNPCWithProjMethod = null;
+        }
+
+        private static VaultHookMethodCache<PlayerOverride> AddHook<F>(Expression<Func<PlayerOverride, F>> func) where F : Delegate {
+            VaultHookMethodCache<PlayerOverride> hook = VaultHookMethodCache<PlayerOverride>.Create(func);
+            hooks.Add(hook);
+            return hook;
         }
 
         private void Player_Update_Hook(ILContext il) {

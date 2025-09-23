@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using Terraria;
+using Terraria.ModLoader;
 
 namespace InnoVault.GameSystem
 {
@@ -28,6 +29,10 @@ namespace InnoVault.GameSystem
     /// </summary>
     public class SceneOverride : VaultType<SceneOverride>
     {
+        /// <inheritdoc/>
+        protected sealed override bool AutoVaultRegistryRegister => false;
+        /// <inheritdoc/>
+        protected sealed override bool AutoVaultRegistryFinishLoading => false;
         /// <summary>
         /// 所有修改的实例集合
         /// </summary>
@@ -61,5 +66,27 @@ namespace InnoVault.GameSystem
         public virtual void PostUpdateAudio() {
 
         }
+        /// <summary>
+        /// 返回要作用的<see cref="ModSceneEffect"/>的内部名数组<br/>
+        /// 这些场景效果会被 <see cref="PreIsSceneEffectActive"/> 修改，同时 <see cref="PostIsSceneEffectActive"/> 也将运行<br/>
+        /// </summary>
+        /// <returns></returns>
+        public virtual IEnumerable<string> GetActiveSceneEffectFullNames() => [];
+        /// <summary>
+        /// 如果要使这个钩子生效，必须重写 <see cref="GetActiveSceneEffectFullNames"/> 并返回有效的内部名数组<br/>
+        /// 在<see cref="ModSceneEffect.IsSceneEffectActive(Player)"/>调用前运行，用于决定该场景效果是否生效<br/>
+        /// 返回 <see langword="false"/> 可以阻止后续逻辑运行
+        /// </summary>
+        /// <param name="modSceneEffect"></param>
+        /// <param name="player"></param>
+        /// <returns></returns>
+        public virtual bool PreIsSceneEffectActive(ModSceneEffect modSceneEffect, Player player) { return true; }
+        /// <summary>
+        /// 如果要使这个钩子生效，必须重写 <see cref="GetActiveSceneEffectFullNames"/> 并返回有效的内部名数组<br/>
+        /// 在<see cref="ModSceneEffect.IsSceneEffectActive(Player)"/>调用后运行，用于在场景效果生效后执行额外逻辑
+        /// </summary>
+        /// <param name="modSceneEffect"></param>
+        /// <param name="player"></param>
+        public virtual void PostIsSceneEffectActive(ModSceneEffect modSceneEffect, Player player) { }
     }
 }

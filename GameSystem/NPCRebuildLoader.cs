@@ -110,6 +110,7 @@ namespace InnoVault.GameSystem
             foreach (var type in VaultUtils.GetDerivedInstances<NPCOverride>()) {
                 VaultTypeRegistry<NPCOverride>.Register(type);//这里提取手动加载好所有的NPCOverride实例
             }
+            VaultTypeRegistry<NPCOverride>.CompleteLoading();
 
             //使用Lambda表达式创建钩子列表，这个过程只在Mod加载时执行一次
             HookAI = AddHook<Func<bool>>(n => n.AI);

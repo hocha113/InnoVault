@@ -1,9 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Linq.Expressions;
 using System.Reflection;
 using Terraria;
-using static InnoVault.GameSystem.SceneOverride;
+using Terraria.ModLoader;
 
 namespace InnoVault.GameSystem
 {
@@ -14,7 +16,16 @@ namespace InnoVault.GameSystem
     {
 #pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
         public delegate void On_UpdateAudio_Dlelgate(Main main);
+        public delegate bool On_IsSceneEffectActive_Dlelgate(ModSceneEffect modSceneEffect, Player player);
+        public delegate bool DlelgatePreIsSceneEffectActive(ModSceneEffect modSceneEffect, Player player);
+        public delegate void DlelgatePostIsSceneEffectActive(ModSceneEffect modSceneEffect, Player player);
         public static List<IUpdateAudio> UpdateAudios { get; internal set; } = [];
+        internal static readonly HashSet<string> ActiveSceneEffects = [];
+        private static readonly List<VaultHookMethodCache<SceneOverride>> hooks = [];
+        internal static VaultHookMethodCache<SceneOverride> HookDecideMusic;
+        internal static VaultHookMethodCache<SceneOverride> HookPostUpdateAudio;
+        internal static VaultHookMethodCache<SceneOverride> HookPreIsSceneEffectActive;
+        internal static VaultHookMethodCache<SceneOverride> HookPostIsSceneEffectActive;
 #pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
         /// <summary>
         /// 存储声音接口内报错的时间戳
@@ -22,10 +33,28 @@ namespace InnoVault.GameSystem
         private static readonly Dictionary<object, DateTime> lastErrorByKey = [];
 
         void IVaultLoader.LoadData() {
+            foreach (var sceneOverride in VaultUtils.GetDerivedInstances<SceneOverride>()) {
+                VaultTypeRegistry<SceneOverride>.Register(sceneOverride);//这里提取手动加载好所有的SceneOverride实例
+                foreach (var name in sceneOverride.GetActiveSceneEffectFullNames()) {
+                    ActiveSceneEffects.Add(name);
+                }
+            }
+            VaultTypeRegistry<SceneOverride>.CompleteLoading();
+
+            HookDecideMusic = AddHook<Action>(scene => scene.DecideMusic);
+            HookPostUpdateAudio = AddHook<Action>(scene => scene.PostUpdateAudio);
+            HookPreIsSceneEffectActive = AddHook<DlelgatePreIsSceneEffectActive>(scene => scene.PreIsSceneEffectActive);
+            HookPostIsSceneEffectActive = AddHook<DlelgatePostIsSceneEffectActive>(scene => scene.PostIsSceneEffectActive);
+
             On_Main.UpdateAudio_DecideOnTOWMusic += DecideOnTOWMusicEvent;
-            On_Main.UpdateAudio_DecideOnNewMusic += DecideOnNewMusicEvent;
+            On_Main.UpdateAudio_DecideOnNewMusic += DecideOnNewMusicEvent;         
+
             UpdateAudios = VaultUtils.GetDerivedInstances<IUpdateAudio>();
             VaultHook.Add(typeof(Main).GetMethod("UpdateAudio", BindingFlags.Instance | BindingFlags.NonPublic), OnUpdateAudioHook);
+
+            foreach (var sceneEffect in VaultUtils.GetDerivedTypes<ModSceneEffect>()) {//fuck you red
+                VaultHook.Add(sceneEffect.GetMethod("IsSceneEffectActive", BindingFlags.Instance | BindingFlags.Public), OnIsSceneEffectActiveHook);
+            }
         }
 
         void IVaultLoader.UnLoadData() {
@@ -33,6 +62,12 @@ namespace InnoVault.GameSystem
             On_Main.UpdateAudio_DecideOnNewMusic -= DecideOnNewMusicEvent;
             UpdateAudios?.Clear();
             lastErrorByKey?.Clear();
+        }
+
+        private static VaultHookMethodCache<SceneOverride> AddHook<F>(Expression<Func<SceneOverride, F>> func) where F : Delegate {
+            VaultHookMethodCache<SceneOverride> hook = VaultHookMethodCache<SceneOverride>.Create(func);
+            hooks.Add(hook);
+            return hook;
         }
 
         private void DecideOnTOWMusicEvent(On_Main.orig_UpdateAudio_DecideOnTOWMusic orig, Main self) {
@@ -50,6 +85,52 @@ namespace InnoVault.GameSystem
             ProcessSceneActions(audio => audio.PostUpdateAudio(), inds => inds.PostUpdateAudio());
         }
 
+        private static bool OnIsSceneEffectActiveHook(On_IsSceneEffectActive_Dlelgate orig, ModSceneEffect modSceneEffect, Player player) {
+            if (!ActiveSceneEffects.Contains(modSceneEffect.FullName)) {
+                return orig.Invoke(modSceneEffect, player);//不包含则直接返回原逻辑
+            }
+
+            bool result = true;
+
+            foreach (var scene in HookPreIsSceneEffectActive.Enumerate()) {
+                HandleSceneAction(scene, () => {
+                    if (!scene.PreIsSceneEffectActive(modSceneEffect, player)) {
+                        result = false;
+                    }
+                });
+            }
+
+            if (result) {
+                foreach (var playerOverride in PlayerRebuildLoader.HookPreIsSceneEffectActiveByPlayer.Enumerate()) {
+                    HandleSceneAction(playerOverride, () => {
+                        playerOverride.Player = player;
+                        if (playerOverride.CanOverride() && !playerOverride.PreIsSceneEffectActive(modSceneEffect)) {
+                            result = false;
+                        }
+                    });
+                }
+            }
+
+            if (result) {
+                return orig.Invoke(modSceneEffect, player);
+            }
+
+            foreach (var playerOverride in PlayerRebuildLoader.HookPostIsSceneEffectActiveByPlayer.Enumerate()) {
+                HandleSceneAction(playerOverride, () => {
+                    playerOverride.Player = player;
+                    if (playerOverride.CanOverride()) {
+                        playerOverride.PostIsSceneEffectActive(modSceneEffect);
+                    }
+                });
+            }
+
+            foreach (var scene in HookPostIsSceneEffectActive.Enumerate()) {
+                HandleSceneAction(scene, () => scene.PostIsSceneEffectActive(modSceneEffect, player));
+            }
+
+            return false;
+        }
+
         /// <summary>
         /// 统一处理所有场景对象的行为，并包含错误处理逻辑
         /// </summary>
@@ -59,7 +140,7 @@ namespace InnoVault.GameSystem
             foreach (var audio in UpdateAudios) {
                 HandleSceneAction(audio, () => audioAction(audio));
             }
-            foreach (var inds in Instances) {
+            foreach (var inds in HookDecideMusic.Enumerate()) {
                 HandleSceneAction(inds, () => {
                     if (inds.CanOverride()) {
                         instanceAction(inds);
