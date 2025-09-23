@@ -59,26 +59,35 @@ namespace InnoVault.GameSystem
         private static int OnNewDustHook(On_Dust.orig_NewDust orig, Vector2 Position, int Width, int Height
             , int Type, float SpeedX, float SpeedY, int Alpha, Color newColor, float Scale) {
             int dustIndex = orig(Position, Width, Height, Type, SpeedX, SpeedY, Alpha, newColor, Scale);
-            foreach (var globalDust in HookOnSpawn.Enumerate()) {
-                globalDust.OnSpawn(Main.dust[dustIndex]);
+            if (VaultLoad.LoadenContent) {//为什么他妈的会有模组试图在mod加载前生成尘埃
+                foreach (var globalDust in HookOnSpawn.Enumerate()) {
+                    globalDust.OnSpawn(Main.dust[dustIndex]);
+                }
             }
+            
             return dustIndex;
         }
 
         private static Dust OnNewDustDirectHook(On_Dust.orig_NewDustDirect orig, Vector2 Position, int Width, int Height
             , int Type, float SpeedX, float SpeedY, int Alpha, Color newColor, float Scale) {
             Dust dust = orig(Position, Width, Height, Type, SpeedX, SpeedY, Alpha, newColor, Scale);
-            foreach (var globalDust in HookOnSpawn.Enumerate()) {
-                globalDust.OnSpawn(dust);
+            if (VaultLoad.LoadenContent) {//为什么他妈的会有模组试图在mod加载前生成尘埃
+                foreach (var globalDust in HookOnSpawn.Enumerate()) {
+                    globalDust.OnSpawn(dust);
+                }
             }
+            
             return dust;
         }
 
         private Dust OnNewDustPerfectHook(On_Dust.orig_NewDustPerfect orig, Vector2 Position, int Type, Vector2? Velocity, int Alpha, Color newColor, float Scale) {
             Dust dust = orig(Position, Type, Velocity, Alpha, newColor, Scale);
-            foreach (var globalDust in HookOnSpawn.Enumerate()) {
-                globalDust.OnSpawn(dust);
+            if (VaultLoad.LoadenContent) {//为什么他妈的会有模组试图在mod加载前生成尘埃
+                foreach (var globalDust in HookOnSpawn.Enumerate()) {
+                    globalDust.OnSpawn(dust);
+                }
             }
+            
             return dust;
         }
 
