@@ -99,7 +99,7 @@ namespace InnoVault.GameSystem
         }
 
         private static bool OnIsSceneEffectActiveHook(On_IsSceneEffectActive_Dlelgate orig, ModSceneEffect modSceneEffect, Player player) {
-            if (!ActiveSceneEffects.Contains(modSceneEffect.FullName)) {
+            if (!ActiveSceneEffects.Contains(modSceneEffect.GetType().FullName)) {
                 return orig.Invoke(modSceneEffect, player);//不包含则直接返回原逻辑
             }
 
