@@ -75,12 +75,12 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 如果要使这个钩子生效，必须重写 <see cref="GetActiveSceneEffectFullNames"/> 并返回有效的内部名数组<br/>
         /// 在<see cref="ModSceneEffect.IsSceneEffectActive(Player)"/>调用前运行，用于决定该场景效果是否生效<br/>
-        /// 返回 <see langword="false"/> 可以阻止后续逻辑运行
+        /// 返回有效值可以阻止后续逻辑运行，默认返回<see langword="null"/><br/>
         /// </summary>
         /// <param name="modSceneEffect"></param>
         /// <param name="player"></param>
         /// <returns></returns>
-        public virtual bool PreIsSceneEffectActive(ModSceneEffect modSceneEffect, Player player) { return true; }
+        public virtual bool? PreIsSceneEffectActive(ModSceneEffect modSceneEffect, Player player) { return null; }
         /// <summary>
         /// 如果要使这个钩子生效，必须重写 <see cref="GetActiveSceneEffectFullNames"/> 并返回有效的内部名数组<br/>
         /// 在<see cref="ModSceneEffect.IsSceneEffectActive(Player)"/>调用后运行，用于在场景效果生效后执行额外逻辑

@@ -17,8 +17,6 @@ namespace InnoVault.GameSystem
 #pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
         public delegate void On_UpdateAudio_Dlelgate(Main main);
         public delegate bool On_IsSceneEffectActive_Dlelgate(ModSceneEffect modSceneEffect, Player player);
-        public delegate bool DlelgatePreIsSceneEffectActive(ModSceneEffect modSceneEffect, Player player);
-        public delegate void DlelgatePostIsSceneEffectActive(ModSceneEffect modSceneEffect, Player player);
         public static List<IUpdateAudio> UpdateAudios { get; internal set; } = [];
         internal static readonly HashSet<string> ActiveSceneEffects = [];
         private static readonly List<VaultHookMethodCache<SceneOverride>> hooks = [];
@@ -43,8 +41,8 @@ namespace InnoVault.GameSystem
 
             HookDecideMusic = AddHook<Action>(scene => scene.DecideMusic);
             HookPostUpdateAudio = AddHook<Action>(scene => scene.PostUpdateAudio);
-            HookPreIsSceneEffectActive = AddHook<DlelgatePreIsSceneEffectActive>(scene => scene.PreIsSceneEffectActive);
-            HookPostIsSceneEffectActive = AddHook<DlelgatePostIsSceneEffectActive>(scene => scene.PostIsSceneEffectActive);
+            HookPreIsSceneEffectActive = AddHook<Func<ModSceneEffect, Player, bool?>>(scene => scene.PreIsSceneEffectActive);
+            HookPostIsSceneEffectActive = AddHook<Action<ModSceneEffect, Player>>(scene => scene.PostIsSceneEffectActive);
 
             On_Main.UpdateAudio_DecideOnTOWMusic += DecideOnTOWMusicEvent;
             On_Main.UpdateAudio_DecideOnNewMusic += DecideOnNewMusicEvent;         
@@ -90,37 +88,47 @@ namespace InnoVault.GameSystem
                 return orig.Invoke(modSceneEffect, player);//不包含则直接返回原逻辑
             }
 
-            bool result = true;
+            bool? result = null;
 
             foreach (var scene in HookPreIsSceneEffectActive.Enumerate()) {
                 HandleSceneAction(scene, () => {
-                    if (!scene.PreIsSceneEffectActive(modSceneEffect, player)) {
-                        result = false;
+                    bool? newResult = scene.PreIsSceneEffectActive(modSceneEffect, player);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
                     }
                 });
             }
 
-            if (result) {
-                foreach (var playerOverride in PlayerRebuildLoader.HookPreIsSceneEffectActiveByPlayer.Enumerate()) {
-                    HandleSceneAction(playerOverride, () => {
-                        playerOverride.Player = player;
-                        if (playerOverride.CanOverride() && !playerOverride.PreIsSceneEffectActive(modSceneEffect)) {
-                            result = false;
-                        }
-                    });
-                }
+            if (result.HasValue) {
+                return result.Value;
             }
 
-            if (result) {
-                return orig.Invoke(modSceneEffect, player);
+            foreach (var playerOverride in PlayerRebuildLoader.HookPreIsSceneEffectActiveByPlayer.Enumerate()) {
+                HandleSceneAction(playerOverride, () => {
+                    playerOverride.Player = player;
+                    if (!playerOverride.CanOverride()) {
+                        return;
+                    }
+                    bool? newResult = playerOverride.PreIsSceneEffectActive(modSceneEffect);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                });
             }
+
+            if (result.HasValue) {
+                return result.Value;
+            }
+
+            result = orig.Invoke(modSceneEffect, player);
 
             foreach (var playerOverride in PlayerRebuildLoader.HookPostIsSceneEffectActiveByPlayer.Enumerate()) {
                 HandleSceneAction(playerOverride, () => {
                     playerOverride.Player = player;
-                    if (playerOverride.CanOverride()) {
-                        playerOverride.PostIsSceneEffectActive(modSceneEffect);
+                    if (!playerOverride.CanOverride()) {
+                        return;
                     }
+                    playerOverride.PostIsSceneEffectActive(modSceneEffect);
                 });
             }
 
@@ -128,7 +136,7 @@ namespace InnoVault.GameSystem
                 HandleSceneAction(scene, () => scene.PostIsSceneEffectActive(modSceneEffect, player));
             }
 
-            return false;
+            return result.Value;
         }
 
         /// <summary>

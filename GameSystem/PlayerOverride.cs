@@ -231,11 +231,11 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 如果要使这个钩子生效，必须重写 <see cref="GetActiveSceneEffectFullNames"/> 并返回有效的内部名数组<br/>
         /// 在 <see cref="ModSceneEffect.IsSceneEffectActive(Player)"/> 调用前运行，用于决定该场景效果是否生效<br/>
-        /// 返回 <see langword="false"/> 可以阻止后续逻辑运行<br/>
+        /// 返回有效值可以阻止后续逻辑运行，默认返回<see langword="null"/><br/>
         /// 优先级次于 <see cref="SceneOverride.PreIsSceneEffectActive(ModSceneEffect, Player)"/>
         /// </summary>
         /// <returns></returns>
-        public virtual bool PreIsSceneEffectActive(ModSceneEffect modSceneEffect) { return true; }
+        public virtual bool? PreIsSceneEffectActive(ModSceneEffect modSceneEffect) { return null; }
 
         /// <summary>
         /// 如果要使这个钩子生效，必须重写 <see cref="GetActiveSceneEffectFullNames"/> 并返回有效的内部名数组<br/>

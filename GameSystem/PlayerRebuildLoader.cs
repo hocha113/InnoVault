@@ -52,7 +52,7 @@ namespace InnoVault.GameSystem
             }
             VaultTypeRegistry<PlayerOverride>.CompleteLoading();
 
-            HookPreIsSceneEffectActiveByPlayer = AddHook<Func<ModSceneEffect, bool>>(player => player.PreIsSceneEffectActive);
+            HookPreIsSceneEffectActiveByPlayer = AddHook<Func<ModSceneEffect, bool?>>(player => player.PreIsSceneEffectActive);
             HookPostIsSceneEffectActiveByPlayer = AddHook<Action<ModSceneEffect>>(player => player.PostIsSceneEffectActive);
 
             IL_Player.Update += Player_Update_Hook;
