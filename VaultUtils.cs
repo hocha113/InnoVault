@@ -3590,7 +3590,7 @@ namespace InnoVault
             //一个关于TP的G钩子，用于修改一些特殊物块对于TP的实体的判定
             if (TileProcessorLoader.TargetTileTypes.Contains(tile.TileType)) {
                 Point16? gPoint = null;
-                foreach (var gTP in TileProcessorLoader.TPGlobalHooks) {
+                foreach (var gTP in TileProcessorLoader.HookGetTopLeftOrNull.Enumerate()) {
                     Point16? newGPoint = gTP.GetTopLeftOrNull(tile, i, j);
                     if (newGPoint.HasValue) {
                         gPoint = newGPoint;

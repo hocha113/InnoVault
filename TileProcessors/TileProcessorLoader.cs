@@ -1,7 +1,9 @@
 ﻿using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using System.Threading.Tasks;
 using Terraria;
@@ -102,7 +104,33 @@ namespace InnoVault.TileProcessors
         private static MethodBase onTile_KillMultiTile_Method;
         //用于挂载KillMultiTile的委托类型
         private delegate void On_Tile_KillMultiTile_Dalegate(int i, int j, int frameX, int frameY, int type);
+        //用于加载TryIsTopLeftPoint的委托类型
+        internal delegate bool? DelegateTryIsTopLeftPoint(int x, int y, out Point16 position);
+        //关于GTP钩子的缓存
+        private static readonly List<VaultHookMethodCache<GlobalTileProcessor>> hooks = [];
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookInitialize;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookPreUpdate;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookPostUpdate;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookPreSingleInstanceUpdate;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookSingleInstanceUpdate;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookGetTopLeftPoint;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookTryIsTopLeftPoint;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookGetTopLeftOrNull;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookPreTileDrawEverything;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookPreDrawEverything;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookPreTileDraw;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookPreDraw;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookPostDraw;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookPostDrawEverything;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookIsDaed;
+        internal static VaultHookMethodCache<GlobalTileProcessor> HookOnKill;
         #endregion
+        
+        private static VaultHookMethodCache<GlobalTileProcessor> AddHook<F>(Expression<Func<GlobalTileProcessor, F>> func) where F : Delegate {
+            VaultHookMethodCache<GlobalTileProcessor> hook = VaultHookMethodCache<GlobalTileProcessor>.Create(func);
+            hooks.Add(hook);
+            return hook;
+        }
 
         void IVaultLoader.LoadData() {
             onTile_KillMultiTile_Method = typeof(TileLoader).GetMethod("KillMultiTile", BindingFlags.Public | BindingFlags.Static);
@@ -115,6 +143,23 @@ namespace InnoVault.TileProcessors
 
         void IVaultLoader.SetupData() {
             TargetTileTypes = [.. TargetTile_To_TPInstance.Keys];
+
+            HookInitialize = AddHook<Action<TileProcessor>>(tp => tp.Initialize);
+            HookPreUpdate = AddHook<Func<TileProcessor, bool>>(tp => tp.PreUpdate);
+            HookPostUpdate = AddHook<Action<TileProcessor>>(tp => tp.PostUpdate);
+            HookPreSingleInstanceUpdate = AddHook<Func<TileProcessor, bool>>(tp => tp.PreSingleInstanceUpdate);
+            HookSingleInstanceUpdate = AddHook<Action<TileProcessor>>(tp => tp.SingleInstanceUpdate);
+            HookGetTopLeftPoint = AddHook<Func<int, int, Point16?>>(tp => tp.GetTopLeftPoint);
+            HookTryIsTopLeftPoint = AddHook<DelegateTryIsTopLeftPoint>(tp => tp.TryIsTopLeftPoint);
+            HookGetTopLeftOrNull = AddHook<Func<Tile, int, int, Point16?>>(tp => tp.GetTopLeftOrNull);
+            HookPreTileDrawEverything = AddHook<Func<SpriteBatch, bool>>(tp => tp.PreTileDrawEverything);
+            HookPreDrawEverything = AddHook<Func<SpriteBatch, bool>>(tp => tp.PreDrawEverything);
+            HookPreTileDraw = AddHook<Func<TileProcessor, SpriteBatch, bool>>(tp => tp.PreTileDraw);
+            HookPreDraw = AddHook<Func<TileProcessor, SpriteBatch, bool>>(tp => tp.PreDraw);
+            HookPostDraw = AddHook<Action<TileProcessor, SpriteBatch>>(tp => tp.PostDraw);
+            HookPostDrawEverything = AddHook<Action<SpriteBatch>>(tp => tp.PostDrawEverything);
+            HookIsDaed = AddHook<Func<TileProcessor, bool?>>(tp => tp.IsDaed);
+            HookOnKill = AddHook<Action<TileProcessor>>(tp => tp.OnKill);
         }
 
         void IVaultLoader.UnLoadData() {
@@ -140,7 +185,6 @@ namespace InnoVault.TileProcessors
 
             WorldGen.Hooks.OnWorldLoad -= LoadWorldTileProcessor;
             On_Main.DrawBackgroundBlackFill -= On_TileDrawing_DrawHook;
-            //On_Main.Initialize_AlmostEverything -= On_Main_Initialize_AlmostEverything;
         }
 
         //集中管理所有KillMultiTileSet钩子
@@ -486,7 +530,7 @@ namespace InnoVault.TileProcessors
         internal static bool? TileProcessorPlaceInWorldTryIsTopLeftPoint(int i, int j, out Point16 position) {
             bool? reset = null;
             position = default;
-            foreach (var tpGlobal in TPGlobalHooks) {
+            foreach (var tpGlobal in HookTryIsTopLeftPoint.Enumerate()) {
                 bool? newReset = tpGlobal.TryIsTopLeftPoint(i, j, out var newPosition);
                 if (newReset.HasValue) {
                     reset = newReset.Value;
@@ -520,7 +564,7 @@ namespace InnoVault.TileProcessors
         //集中管理所有GetTopLeftPoint钩子
         internal static Point16? TileProcessorPlaceInWorldGetTopLeftPoint(int i, int j) {
             Point16? point16 = null;
-            foreach (var tpGlobal in TPGlobalHooks) {
+            foreach (var tpGlobal in HookGetTopLeftPoint.Enumerate()) {
                 Point16? newPoint16 = tpGlobal.GetTopLeftPoint(i, j);
                 if (newPoint16.HasValue) {
                     point16 = newPoint16;

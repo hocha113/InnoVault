@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -71,7 +72,7 @@ namespace InnoVault.TileProcessors
             }
 
             //全局绘制前的钩子
-            bool canContinue = ExecuteGlobalHook(g => g.PreDrawEverything(Main.spriteBatch), "PreDrawEverything");
+            bool canContinue = ExecuteGlobalHook(g => g.PreDrawEverything(Main.spriteBatch), "PreDrawEverything", TileProcessorLoader.HookPreDrawEverything);
             if (!canContinue) {
                 return;
             }
@@ -87,7 +88,7 @@ namespace InnoVault.TileProcessors
             Main.spriteBatch.End();
 
             //全局绘制后的钩子
-            ExecuteGlobalHook(g => g.PostDrawEverything(Main.spriteBatch), "PostDrawEverything");
+            ExecuteGlobalHook(g => g.PostDrawEverything(Main.spriteBatch), "PostDrawEverything", TileProcessorLoader.HookPostDrawEverything);
         }
 
         /// <summary>
@@ -98,7 +99,7 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
-            bool canContinue = ExecuteGlobalHook(g => g.PreTileDrawEverything(Main.spriteBatch), "PreTileDrawEverything");
+            bool canContinue = ExecuteGlobalHook(g => g.PreTileDrawEverything(Main.spriteBatch), "PreTileDrawEverything", TileProcessorLoader.HookPreTileDrawEverything);
             if (!canContinue) {
                 return;
             }
@@ -120,7 +121,7 @@ namespace InnoVault.TileProcessors
             }
 
             bool canDraw = true;
-            foreach (var gTP in TileProcessorLoader.TPGlobalHooks) {
+            foreach (var gTP in TileProcessorLoader.HookPreTileDraw.Enumerate()) {
                 if (!gTP.PreTileDraw(tileProcessor, Main.spriteBatch)) {
                     canDraw = false;
                 }
@@ -160,7 +161,7 @@ namespace InnoVault.TileProcessors
                 }
 
                 bool canDraw = true;
-                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                foreach (var tpGlobal in TileProcessorLoader.HookPreDraw.Enumerate()) {
                     try {
                         if (!tpGlobal.PreDraw(tileProcessor, Main.spriteBatch)) {
                             canDraw = false;
@@ -174,7 +175,7 @@ namespace InnoVault.TileProcessors
                     DoRun(tileProcessor, tp => tp.Draw(Main.spriteBatch), "Draw");
                 }
 
-                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                foreach (var tpGlobal in TileProcessorLoader.HookPostDraw.Enumerate()) {
                     try {
                         tpGlobal.PostDraw(tileProcessor, Main.spriteBatch);
                     } catch (Exception ex) {
@@ -256,17 +257,21 @@ namespace InnoVault.TileProcessors
         private static void UpdateSingleInstanceProcessors() {
             //使用.ToList()创建快照，防止在遍历中修改集合
             foreach (TileProcessor tpInstance in TileProcessorLoader.TP_Instances.ToList()) {
-                if (tpInstance.GetInWorldHasNum() <= 0) continue;
+                if (tpInstance.GetInWorldHasNum() <= 0) {
+                    continue;
+                }
 
                 //执行全局钩子的PreSingleInstanceUpdate
-                bool canUpdate = ExecuteGlobalHook(g => g.PreSingleInstanceUpdate(tpInstance), "PreSingleInstanceUpdate");
-                if (!canUpdate) continue;
+                bool canUpdate = ExecuteGlobalHook(g => g.PreSingleInstanceUpdate(tpInstance), "PreSingleInstanceUpdate", TileProcessorLoader.HookPreSingleInstanceUpdate);
+                if (!canUpdate) {
+                    continue;
+                }
 
                 //执行自身的单例更新
                 DoRun(tpInstance, tp => tp.SingleInstanceUpdate(), "SingleInstanceUpdate");
 
                 //执行全局钩子的SingleInstanceUpdate
-                ExecuteGlobalHook(g => g.SingleInstanceUpdate(tpInstance), "SingleInstanceUpdate");
+                ExecuteGlobalHook(g => g.SingleInstanceUpdate(tpInstance), "SingleInstanceUpdate", TileProcessorLoader.HookSingleInstanceUpdate);
             }
         }
 
@@ -277,7 +282,7 @@ namespace InnoVault.TileProcessors
             try {
                 bool isDead = tileProcessor.IsDaed();
 
-                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                foreach (var tpGlobal in TileProcessorLoader.HookIsDaed.Enumerate()) {
                     bool? reset = tpGlobal.IsDaed(tileProcessor);
                     if (reset.HasValue) {
                         isDead = reset.Value;
@@ -306,7 +311,7 @@ namespace InnoVault.TileProcessors
             //初始化
             if (!tileProcessor.Spwan) {
                 tileProcessor.Initialize();
-                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                foreach (var tpGlobal in TileProcessorLoader.HookInitialize.Enumerate()) {
                     tpGlobal.Initialize(tileProcessor);
                 }
                 if (VaultUtils.isClient && tileProcessor.PlaceNet && tileProcessor.TrackItem != null) {
@@ -337,7 +342,7 @@ namespace InnoVault.TileProcessors
 
             //执行更新前钩子
             bool canUpdate = true;
-            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+            foreach (var tpGlobal in TileProcessorLoader.HookPreUpdate.Enumerate()) {
                 if (!tpGlobal.PreUpdate(tileProcessor)) {
                     canUpdate = false;
                 }
@@ -349,7 +354,7 @@ namespace InnoVault.TileProcessors
             }
 
             //执行更新后钩子
-            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+            foreach (var tpGlobal in TileProcessorLoader.HookPostUpdate.Enumerate()) {
                 tpGlobal.PostUpdate(tileProcessor);
             }
 
@@ -385,23 +390,44 @@ namespace InnoVault.TileProcessors
         /// </summary>
         /// <param name="hookAction">要对每个全局钩子执行的操作，返回false可中断后续操作</param>
         /// <param name="context">当前操作的上下文，用于错误报告</param>
+        /// <param name="hooks">使用的钩子列表</param>
         /// <returns>如果所有钩子都允许继续，则返回true，否则返回false</returns>
-        private static bool ExecuteGlobalHook(Func<GlobalTileProcessor, bool> hookAction, string context) {
+        private static bool ExecuteGlobalHook(Func<GlobalTileProcessor, bool> hookAction, string context, VaultHookMethodCache<GlobalTileProcessor> hooks = null) {
             bool canContinue = true;
-            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
-                if (tpGlobal.ignoreBug > 0) {
-                    continue;
-                }
 
-                try {
-                    //如果需要聚合结果，并且有一个钩子返回false，则最终结果为false
-                    if (!hookAction.Invoke(tpGlobal)) {
-                        canContinue = false;
+            if (hooks == null) {
+                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                    if (tpGlobal.ignoreBug > 0) {
+                        continue;
                     }
-                } catch (Exception ex) {
-                    TPErrorHandle(tpGlobal, ex, context);
+
+                    try {
+                        //如果需要聚合结果，并且有一个钩子返回false，则最终结果为false
+                        if (!hookAction.Invoke(tpGlobal)) {
+                            canContinue = false;
+                        }
+                    } catch (Exception ex) {
+                        TPErrorHandle(tpGlobal, ex, context);
+                    }
                 }
             }
+            else {
+                foreach (var tpGlobal in hooks.Enumerate()) {
+                    if (tpGlobal.ignoreBug > 0) {
+                        continue;
+                    }
+
+                    try {
+                        //如果需要聚合结果，并且有一个钩子返回false，则最终结果为false
+                        if (!hookAction.Invoke(tpGlobal)) {
+                            canContinue = false;
+                        }
+                    } catch (Exception ex) {
+                        TPErrorHandle(tpGlobal, ex, context);
+                    }
+                }
+            }
+            
             return canContinue;
         }
 
@@ -410,17 +436,33 @@ namespace InnoVault.TileProcessors
         /// </summary>
         /// <param name="hookAction">要对每个全局钩子执行的操作，返回false可中断后续操作</param>
         /// <param name="context">当前操作的上下文，用于错误报告</param>
+        /// <param name="hooks">使用的钩子列表</param>
         /// <returns>如果所有钩子都允许继续，则返回true，否则返回false</returns>
-        private static void ExecuteGlobalHook(Action<GlobalTileProcessor> hookAction, string context) {
-            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
-                if (tpGlobal.ignoreBug > 0) {
-                    continue;
-                }
+        private static void ExecuteGlobalHook(Action<GlobalTileProcessor> hookAction, string context, VaultHookMethodCache<GlobalTileProcessor> hooks = null) {
+            if (hooks == null) {
+                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                    if (tpGlobal.ignoreBug > 0) {
+                        continue;
+                    }
 
-                try {
-                    hookAction.Invoke(tpGlobal);
-                } catch (Exception ex) {
-                    TPErrorHandle(tpGlobal, ex, context);
+                    try {
+                        hookAction.Invoke(tpGlobal);
+                    } catch (Exception ex) {
+                        TPErrorHandle(tpGlobal, ex, context);
+                    }
+                }
+            }
+            else {
+                foreach (var tpGlobal in hooks.Enumerate()) {
+                    if (tpGlobal.ignoreBug > 0) {
+                        continue;
+                    }
+
+                    try {
+                        hookAction.Invoke(tpGlobal);
+                    } catch (Exception ex) {
+                        TPErrorHandle(tpGlobal, ex, context);
+                    }
                 }
             }
         }

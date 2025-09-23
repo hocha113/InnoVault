@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Terraria;
@@ -39,6 +38,12 @@ namespace InnoVault.GameSystem
             }
             VaultTypeRegistry<SceneOverride>.CompleteLoading();
 
+            foreach (var playerOverride in VaultUtils.GetDerivedInstances<PlayerOverride>()) {
+                foreach (var name in playerOverride.GetActiveSceneEffectFullNames()) {
+                    ActiveSceneEffects.Add(name);
+                }
+            }
+
             HookDecideMusic = AddHook<Action>(scene => scene.DecideMusic);
             HookPostUpdateAudio = AddHook<Action>(scene => scene.PostUpdateAudio);
             HookPreIsSceneEffectActive = AddHook<Func<ModSceneEffect, Player, bool?>>(scene => scene.PreIsSceneEffectActive);
@@ -50,7 +55,10 @@ namespace InnoVault.GameSystem
             UpdateAudios = VaultUtils.GetDerivedInstances<IUpdateAudio>();
             VaultHook.Add(typeof(Main).GetMethod("UpdateAudio", BindingFlags.Instance | BindingFlags.NonPublic), OnUpdateAudioHook);
 
-            foreach (var sceneEffect in VaultUtils.GetDerivedTypes<ModSceneEffect>()) {//fuck you red
+            foreach (var sceneEffect in VaultUtils.GetDerivedTypes<ModSceneEffect>()) {
+                if (!ActiveSceneEffects.Contains(sceneEffect.FullName)) {
+                    continue;//如果不包含则跳过挂载钩子，节省性能
+                }
                 VaultHook.Add(sceneEffect.GetMethod("IsSceneEffectActive", BindingFlags.Instance | BindingFlags.Public), OnIsSceneEffectActiveHook);
             }
         }

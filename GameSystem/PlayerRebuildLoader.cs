@@ -46,9 +46,6 @@ namespace InnoVault.GameSystem
         void IVaultLoader.LoadData() {
             foreach (var playerOverride in VaultUtils.GetDerivedInstances<PlayerOverride>()) {
                 VaultTypeRegistry<PlayerOverride>.Register(playerOverride);
-                foreach (var name in playerOverride.GetActiveSceneEffectFullNames()) {
-                    SceneRebuildLoader.ActiveSceneEffects.Add(name);
-                }
             }
             VaultTypeRegistry<PlayerOverride>.CompleteLoading();
 

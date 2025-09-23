@@ -234,7 +234,7 @@ namespace InnoVault.TileProcessors
             OnKill();
             Active = false;
 
-            foreach (var tpGlobal in TPGlobalHooks) {
+            foreach (var tpGlobal in HookOnKill.Enumerate()) {
                 tpGlobal.OnKill(this);
             }
 
