@@ -255,11 +255,12 @@ namespace InnoVault.TileProcessors
         /// 更新所有单例TP实例
         /// </summary>
         private static void UpdateSingleInstanceProcessors() {
-            //使用.ToList()创建快照，防止在遍历中修改集合
-            foreach (TileProcessor tpInstance in TileProcessorLoader.TP_Instances.ToList()) {
-                if (tpInstance.GetInWorldHasNum() <= 0) {
+            foreach (var tpKeyValue in TileProcessorLoader.TP_ID_To_InWorld_Count) {
+                if (tpKeyValue.Value <= 0) {
                     continue;
                 }
+
+                var tpInstance = TileProcessorLoader.TP_ID_To_Instance[tpKeyValue.Key];
 
                 //执行全局钩子的PreSingleInstanceUpdate
                 bool canUpdate = ExecuteGlobalHook(g => g.PreSingleInstanceUpdate(tpInstance), "PreSingleInstanceUpdate", TileProcessorLoader.HookPreSingleInstanceUpdate);

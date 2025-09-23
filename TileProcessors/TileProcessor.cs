@@ -25,11 +25,6 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public virtual int TargetTileID => -1;
         /// <summary>
-        /// 显示这个实例的填装名，如InnoVault/TileProcessor
-        /// </summary>
-        [Obsolete("已经过时，应当使用 ModType.FullName")]
-        public string LoadenName => FullName;
-        /// <summary>
         /// 这个实体所要跟随的物块结构，如果对象是一个多结构物块，那么这个块一般代表左上角
         /// 这个值只在实体加载或被放置时更新一次
         /// 在客户端上，这个值可能并没有加载，在使用时需要考虑环境验证或者编写一些防御代码，防止出现一些意料之外的情况
@@ -42,7 +37,15 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 这个TP实体的内部填充名
         /// </summary>
-        public new string FullName => GetFullName(Mod.Name, Name);
+        public new string FullName {
+            get {
+                if (_fullName == string.Empty) {
+                    _fullName = GetFullName(Mod.Name, Name);
+                }
+                return _fullName;
+            }
+        }
+        private string _fullName = string.Empty;
         /// <summary>
         /// 如果是玩家中途手动放置的物块所生成的模块，这个值会标记为放置所用的物品
         /// ，否则为<see langword="null"/>，比如进入世界初始化生成的模块
@@ -95,7 +98,15 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 实体的ID，在游戏加载时会给每个实体分配一个唯一的ID值
         /// </summary>
-        public int ID => TP_Type_To_ID[GetType()];
+        public int ID {
+            get {
+                if (_id == -1) {
+                    _id = TP_Type_To_ID[GetType()];
+                }
+                return _id;
+            }
+        }
+        private int _id = -1;
         /// <summary>
         /// 宽度，默认为16，如果<see cref="Tile"/>存在，则会在初始化时自动设置为其宽度，注意，单位是像素，比如如果一个多结构物块有两个物块宽，这个值会是32
         /// </summary>
