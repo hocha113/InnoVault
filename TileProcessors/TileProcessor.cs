@@ -180,6 +180,7 @@ namespace InnoVault.TileProcessors
 
             try {
                 SetStaticDefaults();
+                SetStaticProperty();
             } catch {
                 VaultMod.Instance.Logger.Info(FullName + ": An error occurred while performing SetStaticDefaults, but it was skipped");
             }
@@ -295,6 +296,14 @@ namespace InnoVault.TileProcessors
             _size = new(Width, Height);
             _hitBox = _posInWorld.GetRectangle(Size);
             _centerInWorld = _posInWorld + Size / 2;
+        }
+
+        /// <summary>
+        /// 用于初始化一些静态信息，只会在实体注册时调用一次
+        /// </summary>
+        [Obsolete("已经弃用，应当使用 SetStaticDefaults")]
+        public virtual void SetStaticProperty() {
+
         }
 
         /// <summary>

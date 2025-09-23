@@ -67,7 +67,7 @@ namespace InnoVault.GameSystem
 
         }
         /// <summary>
-        /// 返回要作用的<see cref="ModSceneEffect"/>的内部名数组<br/>
+        /// 返回要作用的<see cref="ModSceneEffect"/>的内部名数组，注意，内部名为 <see cref="Type.FullName"/> <br/>
         /// 这些场景效果会被 <see cref="PreIsSceneEffectActive"/> 修改，同时 <see cref="PostIsSceneEffectActive"/> 也将运行<br/>
         /// </summary>
         /// <returns></returns>

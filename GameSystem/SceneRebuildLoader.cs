@@ -68,6 +68,13 @@ namespace InnoVault.GameSystem
             On_Main.UpdateAudio_DecideOnNewMusic -= DecideOnNewMusicEvent;
             UpdateAudios?.Clear();
             lastErrorByKey?.Clear();
+            ActiveSceneEffects.Clear();
+            hooks.Clear();
+            HookDecideMusic = null;
+            HookPostUpdateAudio = null;
+            HookPreIsSceneEffectActive = null;
+            HookPostIsSceneEffectActive = null;
+            VaultTypeRegistry<SceneOverride>.ClearRegisteredVaults();
         }
 
         private static VaultHookMethodCache<SceneOverride> AddHook<F>(Expression<Func<SceneOverride, F>> func) where F : Delegate {

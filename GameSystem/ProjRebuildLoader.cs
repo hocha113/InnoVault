@@ -87,6 +87,18 @@ namespace InnoVault.GameSystem
             onProjectileAI_Method = null;
             onPreDraw_Method = null;
             onPostDraw_Method = null;
+            Instances.Clear();
+            hooks.Clear();
+            HookAI = null;
+            HookPostAI = null;
+            HookOnSpawn = null;
+            HookShouldUpdatePosition = null;
+            HookOnHitNPC = null;
+            HookOnHitPlayer = null;
+            HookOnKill = null;
+            HookDraw = null;
+            HookPostDraw = null;
+            VaultTypeRegistry<ProjOverride>.ClearRegisteredVaults();
         }
 
         private static VaultHookMethodCache<ProjOverride> AddHook<F>(Expression<Func<ProjOverride, F>> func) where F : Delegate {

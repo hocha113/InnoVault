@@ -154,6 +154,24 @@ namespace InnoVault.GameSystem
             On_NPC.GetBossHeadTextureIndex -= OnGetBossHeadTextureIndexHook;
             On_NPC.GetBossHeadRotation -= OnGetBossHeadRotationHook;
             On_NPC.GetBossHeadSpriteEffects -= OnGetBossHeadSpriteEffectsHook;
+            hooks.Clear();
+            HookAI = null;
+            HookPostAI = null;
+            HookOn_PreKill = null;
+            HookCheckActive = null;
+            HookCheckDead = null;
+            HookDraw = null;
+            HookPostDraw = null;
+            HookFindFrame = null;
+            HookModifyNPCLoot = null;
+            HookOnHitByItem = null;
+            HookOnHitByProjectile = null;
+            HookModifyHitByItem = null;
+            HookModifyHitByProjectile = null;
+            HookCanBeHitByItem = null;
+            HookCanBeHitByNPC = null;
+            HookCanBeHitByProjectile = null;
+            VaultTypeRegistry<NPCOverride>.ClearRegisteredVaults();
         }
 
         private static VaultHookMethodCache<NPCOverride> AddHook<F>(Expression<Func<NPCOverride, F>> func) where F : Delegate {

@@ -41,6 +41,13 @@ namespace InnoVault.GameSystem
             On_Dust.NewDustPerfect -= OnNewDustPerfectHook;
             On_Dust.UpdateDust -= OnUpdateDustHook;
             Instance.Clear();
+            hooks.Clear();
+            HookOnSpawn = null;
+            HookPreUpdateDustAll = null;
+            HookPostUpdateDustAll = null;
+            HookPreDrawAll = null;
+            HookPostDrawAll = null;
+            VaultTypeRegistry<GlobalDust>.ClearRegisteredVaults();
         }
 
         private static VaultHookMethodCache<GlobalDust> AddHook<F>(Expression<Func<GlobalDust, F>> func) where F : Delegate {
