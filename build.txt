@@ -2,3 +2,4 @@
 author = HoCha113
 homepage = https://github.com/hocha113/InnoVault/wiki
 version = 1.9.64
+includeSource = true
