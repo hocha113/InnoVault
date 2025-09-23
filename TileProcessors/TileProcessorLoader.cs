@@ -125,7 +125,7 @@ namespace InnoVault.TileProcessors
         internal static VaultHookMethodCache<GlobalTileProcessor> HookIsDaed;
         internal static VaultHookMethodCache<GlobalTileProcessor> HookOnKill;
         #endregion
-        
+
         private static VaultHookMethodCache<GlobalTileProcessor> AddHook<F>(Expression<Func<GlobalTileProcessor, F>> func) where F : Delegate {
             VaultHookMethodCache<GlobalTileProcessor> hook = VaultHookMethodCache<GlobalTileProcessor>.Create(func);
             hooks.Add(hook);

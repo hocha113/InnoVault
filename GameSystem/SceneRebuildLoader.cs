@@ -50,7 +50,7 @@ namespace InnoVault.GameSystem
             HookPostIsSceneEffectActive = AddHook<Action<ModSceneEffect, Player>>(scene => scene.PostIsSceneEffectActive);
 
             On_Main.UpdateAudio_DecideOnTOWMusic += DecideOnTOWMusicEvent;
-            On_Main.UpdateAudio_DecideOnNewMusic += DecideOnNewMusicEvent;         
+            On_Main.UpdateAudio_DecideOnNewMusic += DecideOnNewMusicEvent;
 
             UpdateAudios = VaultUtils.GetDerivedInstances<IUpdateAudio>();
             VaultHook.Add(typeof(Main).GetMethod("UpdateAudio", BindingFlags.Instance | BindingFlags.NonPublic), OnUpdateAudioHook);

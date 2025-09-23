@@ -428,7 +428,7 @@ namespace InnoVault.TileProcessors
                     }
                 }
             }
-            
+
             return canContinue;
         }
 
