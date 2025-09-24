@@ -1,4 +1,5 @@
-﻿using InnoVault.TileProcessors;
+﻿using InnoVault.GameSystem;
+using InnoVault.TileProcessors;
 using InnoVault.UIHandles;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -10,6 +11,7 @@ namespace InnoVault
         public override void OnEnterWorld() {
             UIHandleLoader.OnEnterWorld();
             TileProcessorNetWork.ClientRequest_TPData_Send();
+            NPCOverride.GetSever_NPCOverrideRequestAllData();
         }
 
         public override void SaveData(TagCompound tag) {

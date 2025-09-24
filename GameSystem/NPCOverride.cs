@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Terraria;
 using Terraria.Graphics.Renderers;
 using Terraria.ID;
@@ -647,12 +648,94 @@ namespace InnoVault.GameSystem
             }
         }
 
-        internal static void HandlePacket(MessageType type, BinaryReader reader) {
+        /// <summary>
+        /// 请求服务器发送所有已加载的NPC重制数据
+        /// </summary>
+        public static void GetSever_NPCOverrideRequestAllData() {
+            if (!VaultUtils.isClient) {
+                return;
+            }
+            var netMessage = VaultMod.Instance.GetPacket();
+            netMessage.Write((byte)MessageType.SendToClient_NPCOverrideRequestAllData);
+            netMessage.Send();
+        }
+        /// <summary>
+        /// 向指定客户端发送所有已加载的NPC重制数据
+        /// </summary>
+        /// <param name="whoAmI"></param>
+        internal static void SendToClient_NPCOverrideRequestAllData(int whoAmI) {
+            List<NPC> npcs = [.. Main.npc.Where(npc => npc.Alives() && ByID.ContainsKey(npc.type))];
+            List<NPCOverride> npcOverrides = [];
+            for (int i = 0; i < npcs.Count; i++) {
+                if (!npcs[i].TryGetOverride(out var values)) {
+                    continue;
+                }
+                npcOverrides.AddRange(values.Values);
+            }
+
+            if (npcOverrides.Count <= 0) {
+                return;
+            }
+
+            var netMessage = VaultMod.Instance.GetPacket();
+            netMessage.Write((byte)MessageType.Handler_NPCOverrideRequestAllData);
+            netMessage.Write(npcOverrides.Count);
+
+            foreach (var npcOverride in npcOverrides) {
+                netMessage.Write(npcOverride.npc.whoAmI);
+                netMessage.Write(npcOverride.FullName);
+                foreach (var aiValue in npcOverride.ai) {
+                    netMessage.Write(aiValue);
+                }
+                npcOverride.OtherNetWorkSend(netMessage);
+            }
+
+            netMessage.Send(whoAmI);
+        }
+        /// <summary>
+        /// 处理接收到的所有NPC重制数据
+        /// </summary>
+        /// <param name="reader"></param>
+        internal static void Handler_NPCOverrideRequestAllData(BinaryReader reader) {
+            int count = reader.ReadInt32();
+            for (int i = 0; i < count; i++) {
+                int npcIndex = reader.ReadInt32();
+                string fullName = reader.ReadString();
+
+                if (!npcIndex.TryGetNPC(out NPC npc)) {
+                    continue;
+                }
+
+                if (!npc.TryGetOverride(out var values)) {
+                    continue;
+                }
+
+                foreach (var value in values.Values) {
+                    if (value.FullName != fullName) {
+                        continue;
+                    }
+
+                    for (int j = 0; j < MaxAISlot; j++) {
+                        value.ai[j] = reader.ReadSingle();
+                    }
+
+                    value.OtherNetWorkReceive(reader);
+                }
+            }
+        }
+
+        internal static void HandlePacket(MessageType type, BinaryReader reader, int whoAmI) {
             if (type == MessageType.NPCOverrideAI) {
                 NetAIReceive(reader);
             }
             else if (type == MessageType.NPCOverrideOtherAI) {
                 OtherNetWorkReceiveHander(reader);
+            }
+            else if (type == MessageType.SendToClient_NPCOverrideRequestAllData) {
+                SendToClient_NPCOverrideRequestAllData(whoAmI);
+            }
+            else if (type == MessageType.Handler_NPCOverrideRequestAllData) {
+                Handler_NPCOverrideRequestAllData(reader);
             }
         }
 

@@ -12,6 +12,8 @@ namespace InnoVault
         {
             NPCOverrideAI,
             NPCOverrideOtherAI,
+            SendToClient_NPCOverrideRequestAllData,
+            Handler_NPCOverrideRequestAllData,
             TetheredPlayer,
             TetheredPlayer_DownLeft,
             TetheredPlayer_DownRight,
@@ -35,7 +37,7 @@ namespace InnoVault
 
         internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
             MessageType type = (MessageType)reader.ReadByte();
-            NPCOverride.HandlePacket(type, reader);
+            NPCOverride.HandlePacket(type, reader, whoAmI);
             StaticImmunitySystem.HandlePacket(type, reader, whoAmI);
             TetheredPlayer.HandlePacket(type, reader, whoAmI);
             TileProcessorNetWork.HandlePacket(type, mod, reader, whoAmI);
