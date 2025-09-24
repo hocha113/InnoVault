@@ -36,11 +36,11 @@ namespace InnoVault.UIHandles
         /// </summary>
         public static bool downR;
         /// <summary>
-        /// 左键按键状态
+        /// 左键按键状态，此值伴随于绘制线程更新，不建议在绘制线程以外的地方使用
         /// </summary>
         public static KeyPressState keyLeftPressState;
         /// <summary>
-        /// 右键按键状态
+        /// 右键按键状态，此值伴随于绘制线程更新，不建议在绘制线程以外的地方使用
         /// </summary>
         public static KeyPressState keyRightPressState;
         /// <summary>

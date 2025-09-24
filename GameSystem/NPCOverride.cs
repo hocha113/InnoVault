@@ -662,7 +662,6 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 向指定客户端发送所有已加载的NPC重制数据
         /// </summary>
-        /// <param name="whoAmI"></param>
         internal static void SendToClient_NPCOverrideRequestAllData(int whoAmI) {
             List<NPC> npcs = [.. Main.npc.Where(npc => npc.Alives() && ByID.ContainsKey(npc.type))];
             List<NPCOverride> npcOverrides = [];
@@ -677,20 +676,36 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            var netMessage = VaultMod.Instance.GetPacket();
-            netMessage.Write((byte)MessageType.Handler_NPCOverrideRequestAllData);
-            netMessage.Write(npcOverrides.Count);
+            const int batchSize = 25; //每包最多多少个
+            int total = npcOverrides.Count;
+            int batches = (total + batchSize - 1) / batchSize;
 
-            foreach (var npcOverride in npcOverrides) {
-                netMessage.Write(npcOverride.npc.whoAmI);
-                netMessage.Write(npcOverride.FullName);
-                foreach (var aiValue in npcOverride.ai) {
-                    netMessage.Write(aiValue);
+            for (int b = 0; b < batches; b++) {//一般来讲用拼图式请求是最好的，但NPC的数据不太可能会这样的大，所以不用那么复杂了
+                int start = b * batchSize;
+                int end = Math.Min(start + batchSize, total);
+                int count = end - start;
+
+                var netMessage = VaultMod.Instance.GetPacket();
+                netMessage.Write((byte)MessageType.Handler_NPCOverrideRequestAllData);
+
+                //写入当前批次的数量
+                netMessage.Write(count);
+
+                for (int i = start; i < end; i++) {
+                    var npcOverride = npcOverrides[i];
+
+                    netMessage.Write(npcOverride.npc.whoAmI);
+                    netMessage.Write(npcOverride.FullName);
+
+                    foreach (var aiValue in npcOverride.ai) {
+                        netMessage.Write(aiValue);
+                    }
+
+                    npcOverride.OtherNetWorkSend(netMessage);
                 }
-                npcOverride.OtherNetWorkSend(netMessage);
-            }
 
-            netMessage.Send(whoAmI);
+                netMessage.Send(whoAmI);
+            }
         }
         /// <summary>
         /// 处理接收到的所有NPC重制数据
