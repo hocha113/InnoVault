@@ -1,9 +1,11 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.GameSystem;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using Terraria;
 using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
@@ -61,6 +63,14 @@ namespace InnoVault.PRT
         public static List<BasePRT> PRT_HasShader_Draw;
 
         internal static readonly PRTDrawModeEnum[] allDrawModes = (PRTDrawModeEnum[])Enum.GetValues(typeof(PRTDrawModeEnum));
+
+        private static readonly List<VaultHookMethodCache<GlobalPRT>> hooks = [];
+        internal static VaultHookMethodCache<GlobalPRT> HookOnSpawn;
+        internal static VaultHookMethodCache<GlobalPRT> HookPreUpdatePRTAll;
+        internal static VaultHookMethodCache<GlobalPRT> HookPostUpdatePRTAll;
+        internal static VaultHookMethodCache<GlobalPRT> HookPreDrawPRT;
+        internal static VaultHookMethodCache<GlobalPRT> HookPostDrawPRT;
+        
         #endregion
         /// <summary>
         /// 加载和初始化数据
@@ -105,9 +115,23 @@ namespace InnoVault.PRT
             On_Main.DrawInfernoRings -= DrawHook;
 
             GlobalPRT.Instances.Clear();
+
+            hooks.Clear();
+            HookOnSpawn = null;
+            HookPreUpdatePRTAll = null;
+            HookPostUpdatePRTAll = null;
+            HookPreDrawPRT = null;
+            HookPostDrawPRT = null;
+            VaultTypeRegistry<GlobalPRT>.ClearRegisteredVaults();
         }
 
         void IVaultLoader.SetupData() {
+            HookOnSpawn = AddHook<Action<BasePRT>>(d => d.OnSpawn);
+            HookPreUpdatePRTAll = AddHook<Func<bool>>(d => d.PreUpdatePRTAll);
+            HookPostUpdatePRTAll = AddHook<Action>(d => d.PostUpdatePRTAll);
+            HookPreDrawPRT = AddHook<Func<SpriteBatch, BasePRT, bool>>(d => d.PreDrawPRT);
+            HookPostDrawPRT = AddHook<Action<SpriteBatch, BasePRT>>(d => d.PostDrawPRT);
+
             foreach (var prt in PRTInstances) {
                 try {
                     prt.SetStaticDefaults();
@@ -126,6 +150,12 @@ namespace InnoVault.PRT
                 }
                 PRT_IDToTexture[PRT_TypeToID[type]] = ModContent.Request<Texture2D>(texturePath, AssetRequestMode.ImmediateLoad).Value;
             }
+        }
+
+        private static VaultHookMethodCache<GlobalPRT> AddHook<F>(Expression<Func<GlobalPRT, F>> func) where F : System.Delegate {
+            VaultHookMethodCache<GlobalPRT> hook = VaultHookMethodCache<GlobalPRT>.Create(func);
+            hooks.Add(hook);
+            return hook;
         }
 
         /// <summary>

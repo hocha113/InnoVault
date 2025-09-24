@@ -2378,9 +2378,10 @@ namespace InnoVault
         /// <returns><typeparamref name="T"/> 类型对应的 <see cref="PlayerOverride"/> 实例</returns>
         /// <exception cref="KeyNotFoundException">如果未注册指定类型的节点</exception>
         public static T GetOverride<T>(this Player player) where T : PlayerOverride {
-            var reset = PlayerOverride.GetOverride<T>();
-            reset.Player = player;
-            return reset;
+            if (!PlayerOverride.TryFetchByPlayer(player, out var keyValuePairs)) {
+                return null;
+            }
+            return keyValuePairs[typeof(T)] as T;
         }
 
         /// <summary>
@@ -2392,14 +2393,13 @@ namespace InnoVault
         /// <returns>若成功获取到指定类型的 Override，返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
         public static bool TryGetOverride<T>(this Player player, out T value) where T : PlayerOverride {
             value = null;
-            if (Main.gameMenu) {
+            if (!VaultLoad.LoadenContent) {
                 return false;
             }
-            if (!PlayerOverride.TypeToInstance.TryGetValue(typeof(T), out var value2)) {
-                return false;
+            if (PlayerOverride.TryFetchByPlayer(player, out var keyValuePairs) 
+                && keyValuePairs.TryGetValue(typeof(T), out var playerOverride)) {
+                value = playerOverride as T;
             }
-            value2.Player = player;
-            value = value2 as T;
             return value != null;
         }
 

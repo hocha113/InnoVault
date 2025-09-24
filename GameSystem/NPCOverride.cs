@@ -38,6 +38,10 @@ namespace InnoVault.GameSystem
         /// </summary>
         public new static List<NPCOverride> UniversalInstances { get; internal set; } = [];
         /// <summary>
+        /// 该重制阶段所属的Mod
+        /// </summary>
+        public new Mod Mod => TypeToMod[GetType()];
+        /// <summary>
         /// 要修改的NPC的ID值
         /// </summary>
         public virtual int TargetID => NPCID.None;
@@ -133,6 +137,7 @@ namespace InnoVault.GameSystem
                 if (!npcOverrideInstance.CanOverride()) {
                     continue;
                 }
+
                 result ??= [];
                 result[npcOverrideInstance.GetType()] = npcOverrideInstance.Clone();
             }

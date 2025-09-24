@@ -1,5 +1,6 @@
 ﻿using InnoVault.StateStruct;
 using Microsoft.Xna.Framework;
+using Stubble.Core.Settings;
 using System;
 using System.Collections.Generic;
 using Terraria;
@@ -13,7 +14,6 @@ namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 玩家行为覆盖，用于修改玩家的各种相关行为<br/>
-    /// 该基类以单实例形式存在
     /// </summary>
     public abstract class PlayerOverride : VaultType<PlayerOverride>
     {
@@ -30,6 +30,10 @@ namespace InnoVault.GameSystem
         /// </summary>
         public new static Dictionary<Type, PlayerOverride> TypeToInstance { get; internal set; } = [];
         /// <summary>
+        /// 该重制阶段所属的Mod
+        /// </summary>
+        public new Mod Mod => TypeToMod[GetType()];
+        /// <summary>
         /// 所要操纵的玩家实例
         /// </summary>
         public Player Player { get; internal set; }
@@ -37,6 +41,12 @@ namespace InnoVault.GameSystem
         /// 生效在对于关于物品的钩子函数上，如果为默认值<see cref="ItemID.None"/>则对所有物品生效
         /// </summary>
         public virtual int TargetItemID => ItemID.None;
+
+        /// <summary>
+        /// 克隆这个实例，注意，克隆出的新对象与原实例将不再具有任何引用关系
+        /// </summary>
+        /// <returns></returns>
+        public PlayerOverride Clone() => (PlayerOverride)Activator.CreateInstance(GetType());
 
         /// <summary>
         /// 封闭内容
@@ -60,17 +70,13 @@ namespace InnoVault.GameSystem
         /// <param name="values"></param>
         /// <returns></returns>
         public static bool TryFetchByPlayer(Player player, out Dictionary<Type, PlayerOverride> values) {
-            values = [];
-
-            foreach (var pCC in Instances) {
-                pCC.Player = player;
-                if (!pCC.CanOverride()) {
-                    continue;
-                }
-                values.Add(pCC.GetType(), pCC);
+            if (player.TryGetModPlayer<PlayerRebuildLoader>(out var playerRebuildLoader)) {
+                values = playerRebuildLoader.ActivePlayerOverrides;
+                return values.Count > 0;
             }
 
-            return values.Count > 0;
+            values = [];
+            return false;
         }
 
         /// <summary>
@@ -80,6 +86,43 @@ namespace InnoVault.GameSystem
         /// <typeparam name="T"></typeparam>
         /// <returns></returns>
         public static T GetOverride<T>() where T : PlayerOverride => TypeToInstance[typeof(T)] as T;
+
+        /// <summary>
+        /// 为指定玩家设置默认的重制节点实例
+        /// </summary>
+        /// <param name="player"></param>
+        public static void SetDefaultsForPlayer(PlayerRebuildLoader player) {
+            player.PlayerOverrides.Clear();
+            foreach (var playerOverride in Instances) {
+                if (!playerOverride.CanOverride()) {
+                    continue;
+                }
+                var newInstance = playerOverride.Clone();
+                newInstance.Player = player.Player;
+                newInstance.SetDefaults();
+                player.PlayerOverrides.Add(newInstance.GetType(), newInstance);
+            }
+        }
+
+        /// <summary>
+        /// 为指定玩家激活重制节点实例
+        /// </summary>
+        /// <param name="player"></param>
+        public static void ApplyActiveOverrides(PlayerRebuildLoader player) {
+            player.ActivePlayerOverrides.Clear();
+            foreach (var playerOverride in player.PlayerOverrides) {
+                if (!playerOverride.Value.CanOverride()) {
+                    continue;
+                }
+                playerOverride.Value.Player = player.Player;
+                player.ActivePlayerOverrides.Add(playerOverride.Key, playerOverride.Value);
+            }
+        }
+
+        /// <summary>
+        /// 在玩家重制节点被载入时调用一次，用于设置默认值
+        /// </summary>
+        public virtual void SetDefaults() { }
 
         /// <summary>
         /// 修改玩家物品击中NPC时的伤害数据
@@ -217,7 +260,7 @@ namespace InnoVault.GameSystem
         /// <param name="camera">相机实例</param>
         /// <param name="players">所有要绘制的玩家实例</param>
         /// <returns></returns>
-        public virtual bool PreDrawPlayers(Camera camera, IEnumerable<Player> players) {
+        public virtual bool PreDrawPlayers(Camera camera, ref IEnumerable<Player> players) {
             return true;
         }
 

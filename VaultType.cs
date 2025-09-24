@@ -11,6 +11,10 @@ namespace InnoVault
     public abstract class VaultType<T> : ModType where T : VaultType<T>
     {
         /// <summary>
+        /// 是否自动加载<see cref="TypeToMod"/>,默认返回<see langword="true"/>
+        /// </summary>
+        protected virtual bool AutoMapMod => true;
+        /// <summary>
         /// 是否自动在<see cref="ModType.Register"/>中调用<see cref="VaultTypeRegistry{T}.Register(T)"/>,默认返回<see langword="true"/>
         /// </summary>
         protected virtual bool AutoVaultRegistryRegister => true;
@@ -26,6 +30,10 @@ namespace InnoVault
         /// 从类型映射到实例
         /// </summary>
         public static Dictionary<Type, T> TypeToInstance { get; internal set; } = [];
+        /// <summary>
+        /// 从类型映射到Mod实例
+        /// </summary>
+        public static Dictionary<Type, Mod> TypeToMod { get; internal set; } = [];
         /// <summary>
         /// 按ID和类型分类的实例集合
         /// </summary>
@@ -68,6 +76,9 @@ namespace InnoVault
         protected sealed override void Register() {
             if (!CanLoad()) {
                 return;
+            }
+            if (AutoMapMod) {
+                TypeToMod[GetType()] = Mod;
             }
             if (AutoVaultRegistryRegister) {
                 VaultTypeRegistry<T>.Register((T)this);

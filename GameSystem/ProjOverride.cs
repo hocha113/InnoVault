@@ -26,6 +26,10 @@ namespace InnoVault.GameSystem
         /// </summary>
         public new static List<ProjOverride> UniversalInstances { get; internal set; } = [];
         /// <summary>
+        /// 该重制阶段所属的Mod
+        /// </summary>
+        public new Mod Mod => TypeToMod[GetType()];
+        /// <summary>
         /// 要修改的Proj的ID值
         /// </summary>
         public virtual int TargetID => NPCID.None;

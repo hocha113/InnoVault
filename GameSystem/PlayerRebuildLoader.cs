@@ -43,6 +43,21 @@ namespace InnoVault.GameSystem
         private static readonly List<VaultHookMethodCache<PlayerOverride>> hooks = [];
         internal static VaultHookMethodCache<PlayerOverride> HookPreIsSceneEffectActiveByPlayer;
         internal static VaultHookMethodCache<PlayerOverride> HookPostIsSceneEffectActiveByPlayer;
+        /// <summary>
+        /// 所有已注册的玩家重制节点实例
+        /// </summary>
+        public Dictionary<Type, PlayerOverride> PlayerOverrides { get; internal set; } = [];
+        /// <summary>
+        /// 当前生效的玩家重制节点实例
+        /// </summary>
+        public Dictionary<Type, PlayerOverride> ActivePlayerOverrides { get; internal set; } = [];
+
+        public override void SetStaticDefaults() => SetDefaultsForPlayer(this);
+
+        public override void Initialize() => SetDefaultsForPlayer(this);
+
+        public override void PreUpdate() => ApplyActiveOverrides(this);
+
         void IVaultLoader.LoadData() {
             foreach (var playerOverride in VaultUtils.GetDerivedInstances<PlayerOverride>()) {
                 VaultTypeRegistry<PlayerOverride>.Register(playerOverride);
@@ -114,6 +129,7 @@ namespace InnoVault.GameSystem
         void IVaultLoader.UnLoadData() {
             Instances?.Clear();
             TypeToInstance?.Clear();
+            PlayerOverrides?.Clear();
 
             IL_Player.Update -= Player_Update_Hook;
             On_LegacyPlayerRenderer.DrawPlayers -= On_DrawPlayersHook;
@@ -254,23 +270,6 @@ namespace InnoVault.GameSystem
             }
             orig.Invoke(player, proj, target, ref modifiers);
         }
-
-        //private static bool On_CanHitNPCHook(On_CanHitNPC_Dalegate orig, Player player, NPC target) {
-        //    if (TryFetchByPlayer(player, out var values)) {
-        //        bool? result = null;
-        //        foreach (var value in values.Values) {
-        //            bool? newResult = value.On_CanHitNPC(target);
-        //            if (newResult.HasValue) {
-        //                result = newResult.Value;
-        //            }
-        //        }
-        //        if (result.HasValue) {
-        //            return result.Value;
-        //        }
-        //    }
-
-        //    return orig.Invoke(player, target);
-        //}
 
         private static void On_OnHitNPCHook(On_OnHitNPC_Dalegate orig, Player player, NPC target, in NPC.HitInfo hit, int damageDone) {
             if (TryFetchByPlayer(player, out var values)) {
@@ -430,7 +429,7 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(Main.LocalPlayer, out var values)) {
                 bool reset = true;
                 foreach (var value in values.Values) {
-                    if (!value.PreDrawPlayers(camera, players)) {
+                    if (!value.PreDrawPlayers(camera, ref players)) {
                         reset = false;
                     }
                 }
