@@ -77,7 +77,6 @@ namespace InnoVault.PRT
         /// </summary>
         public override void Load() {
             PRT_TypeToID = [];
-            PRT_TypeToMod = [];
             PRT_IDToTexture = [];
             PRT_IDToInGame_World_Count = [];
             PRT_IDToInstances = [];
@@ -96,33 +95,6 @@ namespace InnoVault.PRT
             }
 
             On_Main.DrawInfernoRings += DrawHook;
-        }
-        /// <summary>
-        /// 卸载数据
-        /// </summary>
-        public override void Unload() {
-            PRT_TypeToID = null;
-            PRT_TypeToMod = null;
-            PRT_IDToTexture = null;
-            PRT_IDToInGame_World_Count = null;
-            PRT_IDToInstances = null;
-            PRTInstances = null;
-            PRT_InGame_World_Inds = null;
-            PRT_AlphaBlend_Draw = null;
-            PRT_AdditiveBlend_Draw = null;
-            PRT_NonPremultiplied_Draw = null;
-            PRT_HasShader_Draw = null;
-            On_Main.DrawInfernoRings -= DrawHook;
-
-            GlobalPRT.Instances.Clear();
-
-            hooks.Clear();
-            HookOnSpawn = null;
-            HookPreUpdatePRTAll = null;
-            HookPostUpdatePRTAll = null;
-            HookPreDrawPRT = null;
-            HookPostDrawPRT = null;
-            VaultTypeRegistry<GlobalPRT>.ClearRegisteredVaults();
         }
 
         void IVaultLoader.SetupData() {
@@ -150,6 +122,34 @@ namespace InnoVault.PRT
                 }
                 PRT_IDToTexture[PRT_TypeToID[type]] = ModContent.Request<Texture2D>(texturePath, AssetRequestMode.ImmediateLoad).Value;
             }
+        }
+
+        /// <summary>
+        /// 卸载数据
+        /// </summary>
+        public override void Unload() {
+            PRT_TypeToID = null;
+            PRT_IDToTexture = null;
+            PRT_IDToInGame_World_Count = null;
+            PRT_IDToInstances = null;
+            PRTInstances = null;
+            PRT_InGame_World_Inds = null;
+            PRT_AlphaBlend_Draw = null;
+            PRT_AdditiveBlend_Draw = null;
+            PRT_NonPremultiplied_Draw = null;
+            PRT_HasShader_Draw = null;
+            On_Main.DrawInfernoRings -= DrawHook;
+
+            GlobalPRT.Instances.Clear();
+
+            hooks.Clear();
+            HookOnSpawn = null;
+            HookPreUpdatePRTAll = null;
+            HookPostUpdatePRTAll = null;
+            HookPreDrawPRT = null;
+            HookPostDrawPRT = null;
+            VaultTypeRegistry<GlobalPRT>.ClearRegisteredVaults();
+            VaultType<GlobalPRT>.TypeToMod.Clear();
         }
 
         private static VaultHookMethodCache<GlobalPRT> AddHook<F>(Expression<Func<GlobalPRT, F>> func) where F : System.Delegate {
@@ -198,7 +198,7 @@ namespace InnoVault.PRT
 
             PRT_InGame_World_Inds.Add(particle);
 
-            foreach (var global in GlobalPRT.Instances) {
+            foreach (var global in HookOnSpawn.Enumerate()) {
                 global.OnSpawn(particle);
             }
         }
@@ -231,7 +231,7 @@ namespace InnoVault.PRT
 
             PRT_InGame_World_Inds.Add(particle);
 
-            foreach (var global in GlobalPRT.Instances) {
+            foreach (var global in HookOnSpawn.Enumerate()) {
                 global.OnSpawn(particle);
             }
         }
@@ -388,7 +388,7 @@ namespace InnoVault.PRT
             }
 
             bool result = true;
-            foreach (var global in GlobalPRT.Instances) {
+            foreach (var global in HookPreUpdatePRTAll.Enumerate()) {
                 if (!global.PreUpdatePRTAll()) {
                     result = false;
                 }
@@ -423,7 +423,7 @@ namespace InnoVault.PRT
                 }
             }
 
-            foreach (var global in GlobalPRT.Instances) {
+            foreach (var global in HookPostUpdatePRTAll.Enumerate()) {
                 global.PostUpdatePRTAll();
             }
 
@@ -538,7 +538,7 @@ namespace InnoVault.PRT
         /// <param name="particle"></param>
         public static void PRTInstanceDraw(SpriteBatch spriteBatch, BasePRT particle) {
             bool result = true;
-            foreach (var global in GlobalPRT.Instances) {
+            foreach (var global in HookPreDrawPRT.Enumerate()) {
                 if (!global.PreDrawPRT(spriteBatch, particle)) {
                     result = false;
                 }
@@ -550,7 +550,7 @@ namespace InnoVault.PRT
 
             particle.PostDraw(spriteBatch);
 
-            foreach (var global in GlobalPRT.Instances) {
+            foreach (var global in HookPostDrawPRT.Enumerate()) {
                 global.PostDrawPRT(spriteBatch, particle);
             }
         }

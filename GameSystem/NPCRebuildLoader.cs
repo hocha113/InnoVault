@@ -172,6 +172,7 @@ namespace InnoVault.GameSystem
             HookCanBeHitByNPC = null;
             HookCanBeHitByProjectile = null;
             VaultTypeRegistry<NPCOverride>.ClearRegisteredVaults();
+            VaultType<NPCOverride>.TypeToMod.Clear();
         }
 
         private static VaultHookMethodCache<NPCOverride> AddHook<F>(Expression<Func<NPCOverride, F>> func) where F : Delegate {

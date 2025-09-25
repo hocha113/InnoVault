@@ -116,14 +116,6 @@ namespace InnoVault.UIHandles
         /// </summary>
         public static List<UIHandle> UIHandles_Mod_UIModItem { get; private set; } = [];
         /// <summary>
-        /// UI关于Type到所属模组的映射
-        /// </summary>
-        internal static Dictionary<Type, Mod> UIHandle_Type_To_Mod { get; private set; } = [];
-        /// <summary>
-        /// <see cref="GlobalUIHandle"/>关于Type到所属模组的映射
-        /// </summary>
-        internal static Dictionary<Type, Mod> UIHandleGlobal_Type_To_Mod { get; private set; } = [];
-        /// <summary>
         /// 从内部名到ID的映射
         /// </summary>
         internal static Dictionary<string, int> UIHandle_Name_To_ID { get; private set; } = [];
@@ -308,8 +300,6 @@ namespace InnoVault.UIHandles
             UIHandles_Vanilla_Diagnose_Net?.Clear();
             UIHandles_Mod_MenuLoad?.Clear();
             UIHandles_Mod_UIModItem?.Clear();
-            UIHandle_Type_To_Mod?.Clear();
-            UIHandleGlobal_Type_To_Mod?.Clear();
             UIHandle_Name_To_ID?.Clear();
             UIHandle_Type_To_ID?.Clear();
             UIHandle_ID_To_Instance?.Clear();

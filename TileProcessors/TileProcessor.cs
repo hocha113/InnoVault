@@ -33,7 +33,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 这个TP实体所属的模组的实例
         /// </summary>
-        public new Mod Mod => TP_Type_To_Mod[GetType()];
+        public new Mod Mod => TypeToMod[GetType()];
         /// <summary>
         /// 这个TP实体的内部填充名
         /// </summary>
@@ -157,7 +157,6 @@ namespace InnoVault.TileProcessors
             TP_Instances.Add(this);
             TP_Type_To_ID.Add(type, TP_ID_Count);
             TP_Type_To_Instance.Add(type, this);
-            TP_Type_To_Mod.Add(type, VaultUtils.FindModByType(type, ModLoader.Mods));//写在这里提醒自己，在这里不要使用Mod属性自己进行加载
             TP_FullName_To_ID.Add(FullName, TP_ID_Count);
             TP_ID_To_Instance.Add(ID, this);
             TP_ID_To_InWorld_Count.Add(ID, 0);

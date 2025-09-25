@@ -30,7 +30,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 该粒子所来自的模组的实例
         /// </summary>
-        public new Mod Mod => PRT_TypeToMod[GetType()];
+        public new Mod Mod => TypeToMod[GetType()];
         /// <summary>
         /// 这个粒子的内部填充名
         /// </summary>
@@ -143,7 +143,6 @@ namespace InnoVault.PRT
             Type type = GetType();
             ID = PRT_TypeToID.Count;
             PRT_TypeToID[type] = ID;
-            PRT_TypeToMod[type] = VaultUtils.FindModByType(type, ModLoader.Mods);
             PRT_IDToInstances.Add(ID, this);
             PRT_IDToInGame_World_Count.Add(ID, 0);
         }

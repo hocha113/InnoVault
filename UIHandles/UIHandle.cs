@@ -29,7 +29,7 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 这个UI集成来自于什么模组
         /// </summary>
-        public new Mod Mod => UIHandle_Type_To_Mod[GetType()];
+        public new Mod Mod => TypeToMod[GetType()];
         /// <summary>
         /// 这个UI的内部填充名
         /// </summary>
@@ -99,7 +99,6 @@ namespace InnoVault.UIHandles
             UIHandle_Type_To_ID.Add(type, id);
             UIHandle_ID_To_Instance.Add(id, this);
             UIHandleLoader.UIHandles.Add(this);
-            UIHandle_Type_To_Mod.Add(type, VaultUtils.FindModByType(type));
             GetLayerModeHandlers(LayersMode).Add(this);
             GetLayerModeHandlers(LayersMode).Sort((x, y) => x.RenderPriority.CompareTo(y.RenderPriority));//按照升序排列
         }

@@ -48,6 +48,7 @@ namespace InnoVault.GameSystem
             HookPreDrawAll = null;
             HookPostDrawAll = null;
             VaultTypeRegistry<GlobalDust>.ClearRegisteredVaults();
+            VaultType<GlobalDust>.TypeToMod.Clear();
         }
 
         private static VaultHookMethodCache<GlobalDust> AddHook<F>(Expression<Func<GlobalDust, F>> func) where F : Delegate {

@@ -72,10 +72,6 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static Dictionary<Type, TileProcessor> TP_Type_To_Instance { get; private set; } = [];
         /// <summary>
-        /// 将<see cref="TileProcessor"/>对应的Type映射到所属模组
-        /// </summary>
-        public static Dictionary<Type, Mod> TP_Type_To_Mod { get; private set; } = [];
-        /// <summary>
         /// 记录当前世界中每个模块ID对应的TP实体数量
         /// </summary>
         public static Dictionary<int, int> TP_ID_To_InWorld_Count { get; internal set; } = [];
@@ -175,7 +171,6 @@ namespace InnoVault.TileProcessors
             TP_Type_To_ID?.Clear();
             TP_FullName_To_ID?.Clear();
             TP_Type_To_Instance?.Clear();
-            TP_Type_To_Mod?.Clear();
             TP_ID_To_Instance?.Clear();
             TP_ID_To_InWorld_Count?.Clear();
             TargetTile_To_TPInstance?.Clear();

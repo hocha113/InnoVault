@@ -45,7 +45,7 @@ namespace InnoVault
         /// <returns>匹配模组和名称的 <see cref="BasePRT"/> 实例，若未找到则返回 <see langword="null"/></returns>
         /// <exception cref="System.Collections.Generic.KeyNotFoundException">若类型或 ID 在 <see cref="PRTLoader.PRT_TypeToID"/> 或 <see cref="PRTLoader.PRT_IDToInstances"/> 中不存在，可能抛出此异常</exception>
         public static BasePRT FindPRT(this Mod mod, string name) {
-            foreach (var typed in PRTLoader.PRT_TypeToMod) {
+            foreach (var typed in VaultType<BasePRT>.TypeToMod) {
                 if (typed.Value != mod) {
                     continue;
                 }
@@ -64,7 +64,7 @@ namespace InnoVault
         /// <returns>匹配模组和名称的 <see cref="UIHandle"/> 实例，若未找到则返回 <see langword="null"/></returns>
         /// <exception cref="System.Collections.Generic.KeyNotFoundException">若类型或 ID 在 <see cref="UIHandleLoader.UIHandle_Type_To_ID"/> 或 <see cref="UIHandleLoader.UIHandle_ID_To_Instance"/> 中不存在，可能抛出此异常</exception>
         public static UIHandle FindUI(this Mod mod, string name) {
-            foreach (var typed in UIHandleLoader.UIHandle_Type_To_Mod) {
+            foreach (var typed in VaultType<UIHandle>.TypeToMod) {
                 if (typed.Value != mod) {
                     continue;
                 }
@@ -83,7 +83,7 @@ namespace InnoVault
         /// <returns>匹配模组和名称的 <see cref="TileProcessor"/> 实例，若未找到则返回 <see langword="null"/></returns>
         /// <exception cref="System.Collections.Generic.KeyNotFoundException">若类型或 ID 在 <see cref="TileProcessorLoader.TP_Type_To_ID"/> 或 <see cref="TileProcessorLoader.TP_ID_To_Instance"/> 中不存在，可能抛出此异常</exception>
         public static TileProcessor FindTP(this Mod mod, string name) {
-            foreach (var typed in TileProcessorLoader.TP_Type_To_Mod) {
+            foreach (var typed in VaultType<TileProcessor>.TypeToMod) {
                 if (typed.Value != mod) {
                     continue;
                 }

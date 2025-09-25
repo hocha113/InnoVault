@@ -99,6 +99,7 @@ namespace InnoVault.GameSystem
             HookDraw = null;
             HookPostDraw = null;
             VaultTypeRegistry<ProjOverride>.ClearRegisteredVaults();
+            VaultType<ProjOverride>.TypeToMod.Clear();
         }
 
         private static VaultHookMethodCache<ProjOverride> AddHook<F>(Expression<Func<ProjOverride, F>> func) where F : Delegate {

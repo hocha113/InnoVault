@@ -140,6 +140,7 @@ namespace InnoVault.GameSystem
             HookPreIsSceneEffectActiveByPlayer = null;
             HookPostIsSceneEffectActiveByPlayer = null;
             VaultTypeRegistry<PlayerOverride>.ClearRegisteredVaults();
+            VaultType<PlayerOverride>.TypeToMod.Clear();
         }
 
         private static VaultHookMethodCache<PlayerOverride> AddHook<F>(Expression<Func<PlayerOverride, F>> func) where F : Delegate {

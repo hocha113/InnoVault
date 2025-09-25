@@ -12,15 +12,13 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 所属的Mod
         /// </summary>
-        public new Mod Mod => UIHandleGlobal_Type_To_Mod[GetType()];
+        public new Mod Mod => TypeToMod[GetType()];
 
         /// <summary>
         /// 封闭内容
         /// </summary>
         protected override void VaultRegister() {
-            Type type = GetType();
             UIHandleGlobalHooks.Add(this);
-            UIHandleGlobal_Type_To_Mod.Add(type, VaultUtils.FindModByType(type));
         }
 
         /// <summary>
