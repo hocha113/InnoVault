@@ -12,6 +12,7 @@ namespace InnoVault
         {
             NPCOverrideAI,
             NPCOverrideOtherAI,
+            NPCOverrideNetWork,
             SendToClient_NPCOverrideRequestAllData,
             Handler_NPCOverrideRequestAllData,
             TetheredPlayer,

@@ -547,6 +547,7 @@ namespace InnoVault.TileProcessors
             TPDataChunks_IndexToChunks[whoAmI].Clear();
         }
 
+        private static string lastSuccessfulTPName;
         private static void Handle_TPData_ReceiveInner(BinaryReader reader) {
             int tpCount = reader.ReadInt32(); //读取 TP 数量
             if (tpCount < 0 || tpCount > MaxTPInWorldCount) {
@@ -555,13 +556,16 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
+            lastSuccessfulTPName = "";//这个值用于记录上一次成功读取的TP的内部名，方便调试
             for (int i = 0; i < tpCount; i++) {
                 NetworkLoadProgress = 96f + (i * 4f / tpCount);
 
                 //确保是合法的标记
-                if (reader.ReadUInt32() != TP_START_MARKER) {
+                uint marker = reader.ReadUInt32();
+                if (marker != TP_START_MARKER) {
                     VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
-                        $"Invalid markID: {i}, skipping to the next node");
+                        $"Invalid markID: {i}, Marker: {marker}, last Success fulTPName: {lastSuccessfulTPName}" +
+                        $", skipping to the next node");
                     SkipToNextMarker(reader);
                     continue;
                 }
@@ -574,6 +578,7 @@ namespace InnoVault.TileProcessors
                 //先检查字典中是否已有该 TileProcessor
                 if (ByPositionGetTP(loadenName, position, out TileProcessor tp)) {
                     TileProcessorInstanceDoReceiveData(tp, reader, -1);
+                    lastSuccessfulTPName = loadenName;
                     continue;
                 }
 
@@ -588,6 +593,7 @@ namespace InnoVault.TileProcessors
                 //先尝试从现有的 TileProcessor 列表中查找
                 if (ByPositionGetTP(tpID, position.X, position.Y, out TileProcessor existingTP)) {
                     TileProcessorInstanceDoReceiveData(existingTP, reader, -1);
+                    lastSuccessfulTPName = loadenName;
                     continue;
                 }
 
@@ -599,6 +605,7 @@ namespace InnoVault.TileProcessors
                         newTP.Width = widthByTile * 16;//乘以16转化为像素宽度
                         newTP.Height = heightByTile * 16;
                         TileProcessorInstanceDoReceiveData(newTP, reader, -1);
+                        lastSuccessfulTPName = loadenName;
                         continue;
                     }
                 }

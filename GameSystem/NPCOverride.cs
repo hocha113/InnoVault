@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -649,6 +650,74 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
+        /// 允许客户端主动将数据发送网络数据到服务器，启动服务器广播给其他客户端
+        /// </summary>
+        public void SendNetworkData() {
+            ModPacket netMessage = VaultMod.Instance.GetPacket();
+            netMessage.Write((byte)MessageType.NPCOverrideNetWork);
+            netMessage.Write(npc.whoAmI);
+            netMessage.Write(FullName);
+            for (int i = 0; i < MaxAISlot; i++) {
+                netMessage.Write(ai[i]);
+            }
+            OtherNetWorkSend(netMessage);//手动发送网络数据
+            netMessage.Send();
+        }
+
+        /// <summary>
+        /// 接收网络数据，允许服务器将数据广播给所有客户端
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <param name="whoAmI"></param>
+        public static void ReceiveNetworkData(BinaryReader reader, int whoAmI) {
+            int npcIndex = reader.ReadInt32();
+            string fullName = reader.ReadString();
+            float[] newAI = new float[MaxAISlot];
+            for (int i = 0; i < MaxAISlot; i++) {
+                newAI[i] = reader.ReadSingle();
+            }
+
+            if (!npcIndex.TryGetNPC(out NPC npc)) {
+                return;
+            }
+
+            NPCOverride npcModify = null;
+            if (npc.TryGetOverride(out var values)) {
+                foreach(var value in values.Values) {
+                    if (value.FullName != fullName) {
+                        continue;
+                    }
+                    npcModify = value;
+                    break;
+                }
+            }
+
+            if (npcModify == null) {
+                return;
+            }
+
+            for (int i = 0; i < MaxAISlot; i++) {
+                npcModify.ai[i] = newAI[i];
+            }
+
+            npcModify.OtherNetWorkReceive(reader);
+
+            if (VaultUtils.isServer) {
+                return;
+            }
+
+            ModPacket netMessage = VaultMod.Instance.GetPacket();
+            netMessage.Write((byte)MessageType.NPCOverrideNetWork);
+            netMessage.Write(npc.whoAmI);
+            netMessage.Write(fullName);
+            for (int i = 0; i < MaxAISlot; i++) {
+                netMessage.Write(newAI[i]);
+            }
+            npcModify.OtherNetWorkSend(netMessage);
+            netMessage.Send(-1, whoAmI);
+        }
+
+        /// <summary>
         /// 请求服务器发送所有已加载的NPC重制数据
         /// </summary>
         public static void GetSever_NPCOverrideRequestAllData() {
@@ -745,6 +814,9 @@ namespace InnoVault.GameSystem
             }
             else if (type == MessageType.NPCOverrideOtherAI) {
                 OtherNetWorkReceiveHander(reader);
+            }
+            else if (type == MessageType.NPCOverrideNetWork) {
+                ReceiveNetworkData(reader, whoAmI);
             }
             else if (type == MessageType.SendToClient_NPCOverrideRequestAllData) {
                 SendToClient_NPCOverrideRequestAllData(whoAmI);
