@@ -260,7 +260,7 @@ namespace InnoVault.GameSystem
         /// <param name="camera">相机实例</param>
         /// <param name="players">所有要绘制的玩家实例</param>
         /// <returns></returns>
-        public virtual bool PreDrawPlayers(Camera camera, ref IEnumerable<Player> players) {
+        public virtual bool PreDrawPlayers(ref Camera camera, ref IEnumerable<Player> players) {
             return true;
         }
 

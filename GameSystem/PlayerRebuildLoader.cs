@@ -430,7 +430,7 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(Main.LocalPlayer, out var values)) {
                 bool reset = true;
                 foreach (var value in values.Values) {
-                    if (!value.PreDrawPlayers(camera, ref players)) {
+                    if (!value.PreDrawPlayers(ref camera, ref players)) {
                         reset = false;
                     }
                 }
