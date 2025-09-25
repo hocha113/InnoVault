@@ -150,6 +150,8 @@ namespace InnoVault.PRT
             HookPostDrawPRT = null;
             VaultTypeRegistry<GlobalPRT>.ClearRegisteredVaults();
             VaultType<GlobalPRT>.TypeToMod.Clear();
+            VaultTypeRegistry<BasePRT>.ClearRegisteredVaults();
+            VaultType<BasePRT>.TypeToMod.Clear();
         }
 
         private static VaultHookMethodCache<GlobalPRT> AddHook<F>(Expression<Func<GlobalPRT, F>> func) where F : System.Delegate {
