@@ -7,7 +7,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
 using Terraria;
-using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
 
 namespace InnoVault.PRT
@@ -93,6 +92,7 @@ namespace InnoVault.PRT
             foreach (var prt in PRTInstances) {
                 prt.DoRegister();
             }
+            VaultTypeRegistry<BasePRT>.CompleteLoading();
 
             On_Main.DrawInfernoRings += DrawHook;
         }
@@ -157,6 +157,27 @@ namespace InnoVault.PRT
             hooks.Add(hook);
             return hook;
         }
+
+        /// <summary>
+        /// 初始化所有粒子相关的列表和计数器
+        /// </summary>
+        public static void InitializeWorldPRT() {
+            //确保所有与世界相关的列表是全新的
+            PRT_InGame_World_Inds.Clear();
+            PRT_AlphaBlend_Draw.Clear();
+            PRT_AdditiveBlend_Draw.Clear();
+            PRT_NonPremultiplied_Draw.Clear();
+            PRT_HasShader_Draw.Clear();
+            //重置粒子计数器
+            foreach (var key in PRT_IDToInGame_World_Count.Keys.ToList()) {
+                PRT_IDToInGame_World_Count[key] = 0;
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void OnWorldLoad() => InitializeWorldPRT();
+        /// <inheritdoc/>
+        public override void OnWorldUnload() => InitializeWorldPRT();
 
         /// <summary>
         /// 根据指定的粒子绘制模式，返回对应的粒子实例列表

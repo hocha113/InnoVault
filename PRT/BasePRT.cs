@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.GameSystem;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria.Graphics.Shaders;
@@ -14,6 +15,12 @@ namespace InnoVault.PRT
     public abstract class BasePRT : VaultType<BasePRT>
     {
         #region Data
+        /// <inheritdoc/>
+        protected override bool AutoMapMod => false;
+        /// <inheritdoc/>
+        protected override bool AutoVaultRegistryFinishLoading => false;
+        /// <inheritdoc/>
+        protected override bool AutoVaultRegistryRegister => false;
         /// <summary>
         /// 这个粒子使用什么纹理
         /// </summary>
@@ -143,8 +150,10 @@ namespace InnoVault.PRT
             Type type = GetType();
             ID = PRT_TypeToID.Count;
             PRT_TypeToID[type] = ID;
+            TypeToMod[type] = VaultUtils.FindModByType(type);
             PRT_IDToInstances.Add(ID, this);
             PRT_IDToInGame_World_Count.Add(ID, 0);
+            VaultTypeRegistry<BasePRT>.Register(this);//这里提取手动加载好所有的粒子实例
         }
 
         /// <summary>
