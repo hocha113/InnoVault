@@ -1693,9 +1693,11 @@ namespace InnoVault
         /// <summary>
         /// 检查索引是否在数组范围内
         /// </summary>
-        public static bool IsValidIndex(this int index, Array array) {
-            return index >= 0 && index < array.Length;
-        }
+        public static bool IsValidIndex(this int index, Array array) => index >= 0 && index < array.Length;
+        /// <summary>
+        /// 检查索引是否在数组范围内
+        /// </summary>
+        public static bool IsValidIndex(this float index, Array array) => IsValidIndex(((int)index), array);
 
         /// <summary>
         /// 尝试根据索引获取玩家实例
@@ -1715,6 +1717,13 @@ namespace InnoVault
             player = instance;
             return true;
         }
+        /// <summary>
+        /// 尝试根据索引获取玩家实例
+        /// </summary>
+        /// <param name="playerIndex">玩家索引</param>
+        /// <param name="player">输出的玩家实例</param>
+        /// <returns>若索引有效且玩家存活则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
+        public static bool TryGetPlayer(this float playerIndex, out Player player) => TryGetPlayer((int)playerIndex, out player);
 
         /// <summary>
         /// 尝试根据索引获取NPC实例
@@ -1734,6 +1743,13 @@ namespace InnoVault
             npc = instance;
             return true;
         }
+        /// <summary>
+        /// 尝试根据索引获取NPC实例
+        /// </summary>
+        /// <param name="npcIndex">NPC索引</param>
+        /// <param name="npc">输出的NPC实例</param>
+        /// <returns>若索引有效且NPC存活则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
+        public static bool TryGetNPC(this float npcIndex, out NPC npc) => TryGetNPC((int)npcIndex, out npc);
 
         /// <summary>
         /// 尝试根据索引获取弹幕实例
@@ -1753,6 +1769,13 @@ namespace InnoVault
             proj = instance;
             return true;
         }
+        /// <summary>
+        /// 尝试根据索引获取弹幕实例
+        /// </summary>
+        /// <param name="projectileIndex">弹幕索引</param>
+        /// <param name="proj">输出的弹幕实例</param>
+        /// <returns>若索引有效且弹幕存活则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
+        public static bool TryGetProjectile(this float projectileIndex, out Projectile proj) => TryGetProjectile((int)projectileIndex, out proj);
 
         /// <summary>
         /// 赋予玩家无敌状态，这个函数与<see cref="Player.SetImmuneTimeForAllTypes(int)"/>类似
