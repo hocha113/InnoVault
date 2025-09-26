@@ -100,19 +100,7 @@ namespace InnoVault.GameSystem
             On_NPC.GetBossHeadSpriteEffects += OnGetBossHeadSpriteEffectsHook;
         }
 
-        private static bool _loadHook;
-        private static void LoadHook() {
-            if (_loadHook) {
-                return;
-            }
-            _loadHook = true;
-
-            foreach (var type in VaultUtils.GetDerivedInstances<NPCOverride>()) {
-                VaultTypeRegistry<NPCOverride>.Register(type);//这里提取手动加载好所有的NPCOverride实例
-            }
-            VaultTypeRegistry<NPCOverride>.CompleteLoading();
-
-            //使用Lambda表达式创建钩子列表，这个过程只在Mod加载时执行一次
+        void IVaultLoader.SetupData() {
             HookAI = AddHook<Func<bool>>(n => n.AI);
             HookPostAI = AddHook<Action>(n => n.PostAI);
             HookOn_PreKill = AddHook<Func<bool?>>(n => n.On_PreKill);
@@ -132,7 +120,6 @@ namespace InnoVault.GameSystem
         }
 
         void IVaultLoader.UnLoadData() {
-            _loadHook = false;
             Instances?.Clear();
             ByID?.Clear();
             UniversalInstances?.Clear();
@@ -258,7 +245,6 @@ namespace InnoVault.GameSystem
         }
 
         public override void SetDefaults(NPC npc) {
-            LoadHook();
             if (npc.Alives()) {
                 PreSetDefaultsEvent?.Invoke(npc);
             }
@@ -640,6 +626,7 @@ namespace InnoVault.GameSystem
                     }
                 }
                 if (result.HasValue) {
+                    NPCLoader.blockLoot?.Clear();//这里因为提前返回，所以手动清理一下物品ban位
                     return result.Value;
                 }
             }
