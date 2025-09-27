@@ -109,6 +109,7 @@ namespace InnoVault.GameSystem
             TileProcessorLoader.SaveWorldData(tpTag);
             SaveMod.SaveTagToFile(tpTag, SaveWorld.SaveTPDataPath);
             SaveMod.SaveTagToZip(tpTag, SaveWorld.BackupTPDataPath, true);
+            TileProcessorLoader.InitializeWorldTP();
         }
         //读取TP实体存储的NBT数据，并将其赋值给ActiveWorldTagData用于后续加载读取
         //TP实体真正加载数据在步骤WorldGen.Hooks.OnWorldLoad中，运行在该加载钩子之后

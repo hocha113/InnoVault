@@ -307,15 +307,7 @@ namespace InnoVault.TileProcessors
             return reset;
         }
 
-        /// <summary>
-        /// 加载世界中的所有 <see cref="TileProcessor"/>，初始化和激活它们
-        /// </summary>
-        /// <remarks>
-        /// 此方法会首先移除不再活跃的模块，然后扫描整个世界的每一个 Tile，
-        /// 识别出多结构物块的左上角 Tile，并将其添加到世界中的模块列表中
-        /// 最后，加载所有处于激活状态的模块
-        /// </remarks>
-        public static void LoadWorldTileProcessor() {
+        internal static void InitializeWorldTP() {
             if (TP_InWorld == null) {
                 TP_InWorld = [];
             }
@@ -343,6 +335,18 @@ namespace InnoVault.TileProcessors
             else {
                 TP_Point_To_Instance.Clear();
             }
+        }
+
+        /// <summary>
+        /// 加载世界中的所有 <see cref="TileProcessor"/>，初始化和激活它们
+        /// </summary>
+        /// <remarks>
+        /// 此方法会首先移除不再活跃的模块，然后扫描整个世界的每一个 Tile，
+        /// 识别出多结构物块的左上角 Tile，并将其添加到世界中的模块列表中
+        /// 最后，加载所有处于激活状态的模块
+        /// </remarks>
+        public static void LoadWorldTileProcessor() {
+            InitializeWorldTP();
 
             WorldLoadProgress = 0;
 
@@ -397,7 +401,8 @@ namespace InnoVault.TileProcessors
                 }
             }
 
-            if (ActiveWorldTagData != null) {
+            //需要再次明确一个论点，世界加载钩子会在客户端和服务端上被调用，而客户端并不需要加载存档数据
+            if (!VaultUtils.isClient && ActiveWorldTagData != null) {
                 LoadWorldData(ActiveWorldTagData);
             }
 

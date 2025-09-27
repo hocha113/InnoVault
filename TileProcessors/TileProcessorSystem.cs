@@ -2,7 +2,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -10,6 +9,7 @@ using Terraria;
 using Terraria.GameContent;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
+using static InnoVault.TileProcessors.TileProcessorLoader;
 
 namespace InnoVault.TileProcessors
 {
@@ -29,13 +29,13 @@ namespace InnoVault.TileProcessors
             //如果不存在对应的NBT存档数据，说明是第一次进行有效加载
             //那么就按照老版本去读取.twd的内容将老存档的数据加载进游戏的TP实体，以便保存时可以成功将老存档的数据保存进NBT
             if (!File.Exists(SaveWorld.SaveTPDataPath)) {
-                TileProcessorLoader.ActiveWorldTagData = tag;
+                ActiveWorldTagData = tag;
             }
         }
 
         /// <inheritdoc/>
         public override void OnWorldUnload() {
-            foreach (TileProcessor tp in TileProcessorLoader.TP_InWorld) {
+            foreach (TileProcessor tp in TP_InWorld) {
                 if (tp.Active) {
                     tp.UnLoadInWorld();
                 }
@@ -43,8 +43,16 @@ namespace InnoVault.TileProcessors
         }
 
         /// <inheritdoc/>
+        public override void PreSaveAndQuit() {
+            //客户端不会调用SaveWorldData钩子，所以在这里确保TP在离开服务器后被清理，避免静态数据污染其他世界
+            if (VaultUtils.isClient) {
+                InitializeWorldTP();
+            }
+        }
+
+        /// <inheritdoc/>
         public override void PostUpdateEverything() {
-            if (!TileProcessorLoader.CanRunByWorld()) {
+            if (!CanRunByWorld()) {
                 return;
             }
 
@@ -53,7 +61,7 @@ namespace InnoVault.TileProcessors
             }
 
             //全局钩子的冷却逻辑
-            foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+            foreach (var tpGlobal in TPGlobalHooks) {
                 if (tpGlobal.ignoreBug > 0) {
                     tpGlobal.ignoreBug--;
                 }
@@ -67,12 +75,12 @@ namespace InnoVault.TileProcessors
 
         /// <inheritdoc/>
         public override void PostDrawTiles() {
-            if (!TileProcessorLoader.CanRunByWorld()) {
+            if (!CanRunByWorld()) {
                 return;
             }
 
             //全局绘制前的钩子
-            bool canContinue = ExecuteGlobalHook(g => g.PreDrawEverything(Main.spriteBatch), "PreDrawEverything", TileProcessorLoader.HookPreDrawEverything);
+            bool canContinue = ExecuteGlobalHook(g => g.PreDrawEverything(Main.spriteBatch), "PreDrawEverything", HookPreDrawEverything);
             if (!canContinue) {
                 return;
             }
@@ -88,24 +96,24 @@ namespace InnoVault.TileProcessors
             Main.spriteBatch.End();
 
             //全局绘制后的钩子
-            ExecuteGlobalHook(g => g.PostDrawEverything(Main.spriteBatch), "PostDrawEverything", TileProcessorLoader.HookPostDrawEverything);
+            ExecuteGlobalHook(g => g.PostDrawEverything(Main.spriteBatch), "PostDrawEverything", HookPostDrawEverything);
         }
 
         /// <summary>
         /// 在原版物块绘制之前执行的TP绘制
         /// </summary>
         public static void PreDrawTiles() {
-            if (!TileProcessorLoader.CanRunByWorld()) {
+            if (!CanRunByWorld()) {
                 return;
             }
 
-            bool canContinue = ExecuteGlobalHook(g => g.PreTileDrawEverything(Main.spriteBatch), "PreTileDrawEverything", TileProcessorLoader.HookPreTileDrawEverything);
+            bool canContinue = ExecuteGlobalHook(g => g.PreTileDrawEverything(Main.spriteBatch), "PreTileDrawEverything", HookPreTileDrawEverything);
             if (!canContinue) {
                 return;
             }
 
-            for (int i = 0; i < TileProcessorLoader.TP_InWorld.Count; i++) {
-                TileProcessor tileProcessor = TileProcessorLoader.TP_InWorld[i];
+            for (int i = 0; i < TP_InWorld.Count; i++) {
+                TileProcessor tileProcessor = TP_InWorld[i];
                 if (tileProcessor.Active) {
                     DoRun(tileProcessor, TileProcessorPreTileDraw, "PreTileDraw");
                 }
@@ -121,7 +129,7 @@ namespace InnoVault.TileProcessors
             }
 
             bool canDraw = true;
-            foreach (var gTP in TileProcessorLoader.HookPreTileDraw.Enumerate()) {
+            foreach (var gTP in HookPreTileDraw.Enumerate()) {
                 if (!gTP.PreTileDraw(tileProcessor, Main.spriteBatch)) {
                     canDraw = false;
                 }
@@ -135,7 +143,7 @@ namespace InnoVault.TileProcessors
         /// 绘制TP的背景层
         /// </summary>
         private static void DrawBackLayer() {
-            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+            foreach (TileProcessor tileProcessor in TP_InWorld) {
                 tileProcessor.InScreen = false;
                 if (!tileProcessor.Active) {
                     continue;
@@ -155,13 +163,13 @@ namespace InnoVault.TileProcessors
         /// 绘制TP的主体层
         /// </summary>
         private static void DrawMainLayer() {
-            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+            foreach (TileProcessor tileProcessor in TP_InWorld) {
                 if (!tileProcessor.Active || !tileProcessor.InScreen) {
                     continue;
                 }
 
                 bool canDraw = true;
-                foreach (var tpGlobal in TileProcessorLoader.HookPreDraw.Enumerate()) {
+                foreach (var tpGlobal in HookPreDraw.Enumerate()) {
                     try {
                         if (!tpGlobal.PreDraw(tileProcessor, Main.spriteBatch)) {
                             canDraw = false;
@@ -175,7 +183,7 @@ namespace InnoVault.TileProcessors
                     DoRun(tileProcessor, tp => tp.Draw(Main.spriteBatch), "Draw");
                 }
 
-                foreach (var tpGlobal in TileProcessorLoader.HookPostDraw.Enumerate()) {
+                foreach (var tpGlobal in HookPostDraw.Enumerate()) {
                     try {
                         tpGlobal.PostDraw(tileProcessor, Main.spriteBatch);
                     } catch (Exception ex) {
@@ -189,7 +197,7 @@ namespace InnoVault.TileProcessors
         /// 绘制TP的前景层和调试信息
         /// </summary>
         private static void DrawFrontLayer() {
-            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_InWorld) {
+            foreach (TileProcessor tileProcessor in TP_InWorld) {
                 if (!tileProcessor.Active || !tileProcessor.InScreen) {
                     continue;
                 }
@@ -225,20 +233,20 @@ namespace InnoVault.TileProcessors
         /// </summary>
         private static void UpdateInWorldProcessors() {
             //重置计数器
-            foreach (TileProcessor tileProcessor in TileProcessorLoader.TP_Instances) {
-                TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID] = 0;
+            foreach (TileProcessor tileProcessor in TP_Instances) {
+                TP_ID_To_InWorld_Count[tileProcessor.ID] = 0;
             }
 
             Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);
             //使用for循环以安全地处理更新过程中集合的增删
-            for (int i = 0; i < TileProcessorLoader.TP_InWorld.Count; i++) {
-                TileProcessor tileProcessor = TileProcessorLoader.TP_InWorld[i];
+            for (int i = 0; i < TP_InWorld.Count; i++) {
+                TileProcessor tileProcessor = TP_InWorld[i];
                 if (!tileProcessor.Active) continue;
 
                 //更新鼠标悬浮状态
                 tileProcessor.HoverTP = tileProcessor.InScreen && tileProcessor.HitBox.Intersects(mouseRec);
 
-                TileProcessorLoader.TP_ID_To_InWorld_Count[tileProcessor.ID]++;
+                TP_ID_To_InWorld_Count[tileProcessor.ID]++;
 
                 if (TileProcessorIsDead(tileProcessor)) continue;
 
@@ -255,15 +263,15 @@ namespace InnoVault.TileProcessors
         /// 更新所有单例TP实例
         /// </summary>
         private static void UpdateSingleInstanceProcessors() {
-            foreach (var tpKeyValue in TileProcessorLoader.TP_ID_To_InWorld_Count) {
+            foreach (var tpKeyValue in TP_ID_To_InWorld_Count) {
                 if (tpKeyValue.Value <= 0) {
                     continue;
                 }
 
-                var tpInstance = TileProcessorLoader.TP_ID_To_Instance[tpKeyValue.Key];
+                var tpInstance = TP_ID_To_Instance[tpKeyValue.Key];
 
                 //执行全局钩子的PreSingleInstanceUpdate
-                bool canUpdate = ExecuteGlobalHook(g => g.PreSingleInstanceUpdate(tpInstance), "PreSingleInstanceUpdate", TileProcessorLoader.HookPreSingleInstanceUpdate);
+                bool canUpdate = ExecuteGlobalHook(g => g.PreSingleInstanceUpdate(tpInstance), "PreSingleInstanceUpdate", HookPreSingleInstanceUpdate);
                 if (!canUpdate) {
                     continue;
                 }
@@ -272,7 +280,7 @@ namespace InnoVault.TileProcessors
                 DoRun(tpInstance, tp => tp.SingleInstanceUpdate(), "SingleInstanceUpdate");
 
                 //执行全局钩子的SingleInstanceUpdate
-                ExecuteGlobalHook(g => g.SingleInstanceUpdate(tpInstance), "SingleInstanceUpdate", TileProcessorLoader.HookSingleInstanceUpdate);
+                ExecuteGlobalHook(g => g.SingleInstanceUpdate(tpInstance), "SingleInstanceUpdate", HookSingleInstanceUpdate);
             }
         }
 
@@ -283,7 +291,7 @@ namespace InnoVault.TileProcessors
             try {
                 bool isDead = tileProcessor.IsDaed();
 
-                foreach (var tpGlobal in TileProcessorLoader.HookIsDaed.Enumerate()) {
+                foreach (var tpGlobal in HookIsDaed.Enumerate()) {
                     bool? reset = tpGlobal.IsDaed(tileProcessor);
                     if (reset.HasValue) {
                         isDead = reset.Value;
@@ -312,7 +320,7 @@ namespace InnoVault.TileProcessors
             //初始化
             if (!tileProcessor.Spwan) {
                 tileProcessor.Initialize();
-                foreach (var tpGlobal in TileProcessorLoader.HookInitialize.Enumerate()) {
+                foreach (var tpGlobal in HookInitialize.Enumerate()) {
                     tpGlobal.Initialize(tileProcessor);
                 }
                 if (VaultUtils.isClient && tileProcessor.PlaceNet && tileProcessor.TrackItem != null) {
@@ -343,7 +351,7 @@ namespace InnoVault.TileProcessors
 
             //执行更新前钩子
             bool canUpdate = true;
-            foreach (var tpGlobal in TileProcessorLoader.HookPreUpdate.Enumerate()) {
+            foreach (var tpGlobal in HookPreUpdate.Enumerate()) {
                 if (!tpGlobal.PreUpdate(tileProcessor)) {
                     canUpdate = false;
                 }
@@ -355,7 +363,7 @@ namespace InnoVault.TileProcessors
             }
 
             //执行更新后钩子
-            foreach (var tpGlobal in TileProcessorLoader.HookPostUpdate.Enumerate()) {
+            foreach (var tpGlobal in HookPostUpdate.Enumerate()) {
                 tpGlobal.PostUpdate(tileProcessor);
             }
 
@@ -397,7 +405,7 @@ namespace InnoVault.TileProcessors
             bool canContinue = true;
 
             if (hooks == null) {
-                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                foreach (var tpGlobal in TPGlobalHooks) {
                     if (tpGlobal.ignoreBug > 0) {
                         continue;
                     }
@@ -441,7 +449,7 @@ namespace InnoVault.TileProcessors
         /// <returns>如果所有钩子都允许继续，则返回true，否则返回false</returns>
         private static void ExecuteGlobalHook(Action<GlobalTileProcessor> hookAction, string context, VaultHookMethodCache<GlobalTileProcessor> hooks = null) {
             if (hooks == null) {
-                foreach (var tpGlobal in TileProcessorLoader.TPGlobalHooks) {
+                foreach (var tpGlobal in TPGlobalHooks) {
                     if (tpGlobal.ignoreBug > 0) {
                         continue;
                     }

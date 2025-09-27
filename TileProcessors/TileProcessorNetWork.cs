@@ -288,6 +288,8 @@ namespace InnoVault.TileProcessors
             if (!VaultUtils.isClient) {
                 return;
             }
+            //因为是在客户端，LoadWorldTileProcessor并不会允许，为了避免客户端带来的静态数据污染游戏，这里也清理一次世界TP数据
+            InitializeWorldTP();
 
             initializeWorldTickCounter = 0;
             loadTPNetworkTickCounter = 0;
@@ -490,7 +492,7 @@ namespace InnoVault.TileProcessors
             modPacket.Send();//写入当前数量，作为下一个拼图的序号发送给服务器继续请求拼图
 
             NetChunkIdleTime = 0;
-            NetworkLoadProgress = 10f + (MaxTPDataChunkCount / (float)LocalTPDataChunks_IndexToChunks.Count) * 80f;
+            NetworkLoadProgress = 10f + (LocalTPDataChunks_IndexToChunks.Count / (float)MaxTPDataChunkCount) * 80f;
         }
 
         //客户端在收集完拼图后，将其进行处理

@@ -22,11 +22,11 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 暂存的模组名
         /// </summary>
-        public string UnModName { get; set; }
+        public string UnModName { get; set; } = "unknown";
         /// <summary>
         /// 暂存的实体名
         /// </summary>
-        public string UnTypeName { get; set; }
+        public string UnTypeName { get; set; } = "unknown";
         /// <summary>
         /// 暂存的数据
         /// </summary>
