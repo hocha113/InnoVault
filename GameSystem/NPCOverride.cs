@@ -1,6 +1,5 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -24,6 +23,18 @@ namespace InnoVault.GameSystem
         /// 所有修改的实例集合
         /// </summary>
         public new static List<NPCOverride> Instances { get; internal set; } = [];
+        /// <summary>
+        /// 从ID映射到实例
+        /// </summary>
+        public static Dictionary<ushort, NPCOverride> OverrideIDToInstances { get; internal set; } = [];
+        /// <summary>
+        /// 从类型映射到ID
+        /// </summary>
+        public static Dictionary<Type, ushort> TypeToOverrideID { get; internal set; } = [];
+        /// <summary>
+        /// 从ID映射到类型
+        /// </summary>
+        public static Dictionary<ushort, Type> OverrideIDToType { get; internal set; } = [];
         /// <summary>
         /// 一个字典，可以根据目标ID来获得对应的修改实例
         /// </summary>
@@ -56,6 +67,10 @@ namespace InnoVault.GameSystem
         /// 这个实例对应的NPC实例
         /// </summary>
         public NPC npc { get; private set; }
+        /// <summary>
+        /// 这个重制节点的ID，在多人模式中共享服务端的结果
+        /// </summary>
+        public ushort OverrideID;
         //不要直接设置这个
         private bool _netOtherWorkSend;
         //不要直接设置这个
@@ -91,6 +106,10 @@ namespace InnoVault.GameSystem
         /// 封闭加载
         /// </summary>
         protected sealed override void VaultRegister() {
+            OverrideID = (ushort)Instances.Count;//从0开始的ID
+            OverrideIDToInstances.Add(OverrideID, this);
+            TypeToOverrideID.Add(GetType(), OverrideID);
+            OverrideIDToType.Add(OverrideID, GetType());
             Instances.Add(this);
         }
         /// <summary>
@@ -171,6 +190,7 @@ namespace InnoVault.GameSystem
             //遍历所有克隆出的实例
             foreach (var overrideInstance in inds.Values) {
                 //为实例设置NPC上下文并初始化
+                overrideInstance.OverrideID = TypeToOverrideID[overrideInstance.GetType()];
                 overrideInstance.ai = new float[MaxAISlot];
                 overrideInstance.localAI = new float[MaxAISlot];
                 overrideInstance.npc = npc;
@@ -581,7 +601,7 @@ namespace InnoVault.GameSystem
             var netMessage = VaultMod.Instance.GetPacket();
             netMessage.Write((byte)MessageType.NPCOverrideAI);
             netMessage.Write(npc.whoAmI);
-            netMessage.Write(FullName);
+            netMessage.Write(OverrideID);
             foreach (var aiValue in ai) {
                 netMessage.Write(aiValue);
             }
@@ -606,7 +626,7 @@ namespace InnoVault.GameSystem
                 var netMessage = VaultMod.Instance.GetPacket();
                 netMessage.Write((byte)MessageType.NPCOverrideAI);
                 netMessage.Write(npc.whoAmI);
-                netMessage.Write(value.FullName);
+                netMessage.Write(value.OverrideID);
                 foreach (var aiValue in value.ai) {
                     netMessage.Write(aiValue);
                 }
@@ -621,7 +641,7 @@ namespace InnoVault.GameSystem
         /// <param name="reader"></param>
         internal static void NetAIReceive(BinaryReader reader) {
             NPC npc = Main.npc[reader.ReadInt32()];
-            string fullName = reader.ReadString();
+            ushort overrideID = reader.ReadUInt16();
             float[] receiveAI = new float[MaxAISlot];
             for (int i = 0; i < MaxAISlot; i++) {
                 receiveAI[i] = reader.ReadSingle();
@@ -635,14 +655,9 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            foreach (var value in values.Values) {
-                if (value.FullName != fullName) {
-                    continue;
-                }
-                for (int i = 0; i < MaxAISlot; i++) {
-                    value.ai[i] = receiveAI[i];
-                }
-                break;
+            NPCOverride value = values[OverrideIDToType[overrideID]];
+            for (int i = 0; i < MaxAISlot; i++) {
+                value.ai[i] = receiveAI[i];
             }
         }
 
@@ -656,7 +671,7 @@ namespace InnoVault.GameSystem
             ModPacket netMessage = VaultMod.Instance.GetPacket();
             netMessage.Write((byte)MessageType.NPCOverrideNetWork);
             netMessage.Write(npc.whoAmI);
-            netMessage.Write(FullName);
+            netMessage.Write(OverrideID);
             for (int i = 0; i < MaxAISlot; i++) {
                 netMessage.Write(ai[i]);
             }
@@ -671,7 +686,7 @@ namespace InnoVault.GameSystem
         /// <param name="whoAmI"></param>
         public static void ReceiveNetworkData(BinaryReader reader, int whoAmI) {
             int npcIndex = reader.ReadInt32();
-            string fullName = reader.ReadString();
+            ushort overrideID = reader.ReadUInt16();
             float[] newAI = new float[MaxAISlot];
             for (int i = 0; i < MaxAISlot; i++) {
                 newAI[i] = reader.ReadSingle();
@@ -683,13 +698,7 @@ namespace InnoVault.GameSystem
 
             NPCOverride npcModify = null;
             if (npc.TryGetOverride(out var values)) {
-                foreach(var value in values.Values) {
-                    if (value.FullName != fullName) {
-                        continue;
-                    }
-                    npcModify = value;
-                    break;
-                }
+                npcModify = values[OverrideIDToType[overrideID]];
             }
 
             if (npcModify == null) {
@@ -709,7 +718,7 @@ namespace InnoVault.GameSystem
             ModPacket netMessage = VaultMod.Instance.GetPacket();
             netMessage.Write((byte)MessageType.NPCOverrideNetWork);
             netMessage.Write(npc.whoAmI);
-            netMessage.Write(fullName);
+            netMessage.Write(overrideID);
             for (int i = 0; i < MaxAISlot; i++) {
                 netMessage.Write(newAI[i]);
             }
@@ -764,7 +773,7 @@ namespace InnoVault.GameSystem
                     var npcOverride = npcOverrides[i];
 
                     netMessage.Write(npcOverride.npc.whoAmI);
-                    netMessage.Write(npcOverride.FullName);
+                    netMessage.Write(npcOverride.OverrideID);
 
                     foreach (var aiValue in npcOverride.ai) {
                         netMessage.Write(aiValue);
@@ -784,7 +793,7 @@ namespace InnoVault.GameSystem
             int count = reader.ReadInt32();
             for (int i = 0; i < count; i++) {
                 int npcIndex = reader.ReadInt32();
-                string fullName = reader.ReadString();
+                ushort overrideID = reader.ReadUInt16();
 
                 if (!npcIndex.TryGetNPC(out NPC npc)) {
                     continue;
@@ -794,18 +803,162 @@ namespace InnoVault.GameSystem
                     continue;
                 }
 
-                foreach (var value in values.Values) {
-                    if (value.FullName != fullName) {
-                        continue;
-                    }
-
-                    for (int j = 0; j < MaxAISlot; j++) {
-                        value.ai[j] = reader.ReadSingle();
-                    }
-
-                    value.OtherNetWorkReceive(reader);
+                NPCOverride value = values[OverrideIDToType[overrideID]];
+                for (int j = 0; j < MaxAISlot; j++) {
+                    value.ai[j] = reader.ReadSingle();
                 }
+                value.OtherNetWorkReceive(reader);
             }
+        }
+
+        /// <summary>
+        /// [客户端侧]向服务器请求验证数据
+        /// </summary>
+        internal static void RequestValidationDataFromServer() {
+            if (!VaultUtils.isClient) {
+                return;
+            }
+            var netMessage = VaultMod.Instance.GetPacket();
+            //请求验证
+            netMessage.Write((byte)MessageType.RequestNPCOverrideValidation);
+            netMessage.Send();
+        }
+
+        /// <summary>
+        /// [服务端侧]收到客户端请求后，发送标准数据给该客户端
+        /// </summary>
+        internal static void SendValidationDataToClient(int whoAmI) {
+            if (!VaultUtils.isServer) {
+                return;
+            }
+
+            var netMessage = VaultMod.Instance.GetPacket();
+            netMessage.Write((byte)MessageType.SyncNPCOverrideValidation);
+
+            //写入总数作为第一道保险
+            netMessage.Write(Instances.Count);
+
+            //写入每一个Override的FullName和对应的ID
+            //这里的Instances列表顺序就是服务端的权威顺序
+            foreach (var instance in Instances) {
+                netMessage.Write(instance.FullName);
+                netMessage.Write(TypeToOverrideID[instance.GetType()]);
+            }
+
+            netMessage.Send(whoAmI); //只发送给请求的那个客户端
+        }
+
+        /// <summary>
+        /// [客户端侧]接收服务端的标准数据并进行比对与恢复
+        /// </summary>
+        internal static void ReceiveAndValidateServerData(BinaryReader reader) {
+            if (!VaultUtils.isClient) {
+                return;
+            }
+
+            try {
+                int serverCount = reader.ReadInt32();
+                var serverMap = new Dictionary<string, ushort>();
+                for (int i = 0; i < serverCount; i++) {
+                    serverMap.Add(reader.ReadString(), reader.ReadUInt16());
+                }
+
+                //致命错误检查1: 实例总数是否一致
+                if (serverCount != Instances.Count) {
+                    string errorMsg = $"NPCOverride validation failed: Instance count mismatch. Server: {serverCount}" +
+                        $", Client: {Instances.Count}. This is a critical error, likely due to different mod lists or versions.";
+                    VaultMod.Instance.Logger.Error(errorMsg);
+                    VaultUtils.Text(errorMsg, Color.Red);
+                    return;
+                }
+
+                if (serverCount == 0) {
+                    return;//如果确定服务端没有任何实例，则不需要进行后续检查
+                }
+
+                //致命错误检查2: 实例内容是否完全一致
+                var clientNames = new HashSet<string>(Instances.Select(inst => inst.FullName));
+                var serverNames = new HashSet<string>(serverMap.Keys);
+                if (!clientNames.SetEquals(serverNames)) {
+                    //找出差异项用于提供更详细的日志
+                    var missingOnClient = serverNames.Except(clientNames).ToList();
+                    var extraOnClient = clientNames.Except(serverNames).ToList();
+                    string errorMsg = "NPCOverride validation failed: Instance sets do not match.";
+                    VaultMod.Instance.Logger.Error(errorMsg);
+                    VaultUtils.Text(errorMsg, Color.Red);
+                    if (missingOnClient.Count != 0) {
+                        VaultMod.Instance.Logger.Error($"Client is missing overrides present on server: [{string.Join(", ", missingOnClient)}]");
+                    }
+                    if (extraOnClient.Count != 0) {
+                        VaultMod.Instance.Logger.Error($"Client has extra overrides not present on server: [{string.Join(", ", extraOnClient)}]");
+                    }
+                    return;
+                }
+
+                //检查顺序是否一致，如果不一致则尝试恢复
+                bool needsResort = false;
+                foreach (var instance in Instances) {
+                    if (TypeToOverrideID[instance.GetType()] != serverMap[instance.FullName]) {
+                        needsResort = true;
+                        break;
+                    }
+                }
+
+                if (needsResort) {
+                    VaultMod.Instance.Logger.Warn("NPCOverride mismatch detected. Client-side instances will be re-sorted to match the server's authoritative order.");
+
+                    //开始重排
+                    var nameToInstanceMap = Instances.ToDictionary(inst => inst.FullName);
+                    var sortedInstances = new NPCOverride[serverCount];
+
+                    foreach (var serverEntry in serverMap) {
+                        //serverEntry.Value是权威ID, serverEntry.Key是FullName
+                        //根据权威ID作为索引，将客户端对应的实例放到正确的位置上
+                        sortedInstances[serverEntry.Value] = nameToInstanceMap[serverEntry.Key];
+                    }
+
+                    //用排好序的列表重建本地的映射表
+                    RebuildOverrideMappings([.. sortedInstances]);
+                    VaultMod.Instance.Logger.Info("NPCOverride client data successfully re-synced with the server.");
+                }
+                else {
+                    VaultMod.Instance.Logger.Info("NPCOverride validation successful. Client data matches server.");
+                }
+            } catch (Exception e) {
+                string errorMsg = "A critical error occurred during NPCOverride validation process. Disconnecting.";
+                VaultMod.Instance.Logger.Error($"{errorMsg}\n{e}");
+                VaultUtils.Text(errorMsg, Color.Red);
+            }
+        }
+
+        /// <summary>
+        /// 根据一个排好序的列表，重建所有相关的静态数据结构
+        /// </summary>
+        /// <param name="sortedInstances">已经按照服务端顺序排好的实例列表</param>
+        private static void RebuildOverrideMappings(List<NPCOverride> sortedInstances) {
+            //清空旧数据
+            Instances.Clear();
+            OverrideIDToInstances.Clear();
+            TypeToOverrideID.Clear();
+
+            //重新填充
+            for (int i = 0; i < sortedInstances.Count; i++) {
+                var instance = sortedInstances[i];
+                var newID = (ushort)i;
+
+                instance.OverrideID = newID;
+                Instances.Add(instance);
+                OverrideIDToInstances.Add(newID, instance);
+                TypeToOverrideID[instance.GetType()] = newID;
+            }
+        }
+
+        /// <summary>
+        /// 在进入游戏世界时请求验证数据与所有NPC数据
+        /// </summary>
+        internal static void OnEnterWorldNetwork() {
+            RequestValidationDataFromServer();
+            GetSever_NPCOverrideRequestAllData();
         }
 
         internal static void HandlePacket(MessageType type, BinaryReader reader, int whoAmI) {
@@ -823,6 +976,12 @@ namespace InnoVault.GameSystem
             }
             else if (type == MessageType.Handler_NPCOverrideRequestAllData) {
                 Handler_NPCOverrideRequestAllData(reader);
+            }
+            else if (type == MessageType.RequestNPCOverrideValidation) {
+                SendValidationDataToClient(whoAmI);
+            }
+            else if (type == MessageType.SyncNPCOverrideValidation) {
+                ReceiveAndValidateServerData(reader);
             }
         }
 

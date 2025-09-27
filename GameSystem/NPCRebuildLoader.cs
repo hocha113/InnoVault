@@ -121,6 +121,9 @@ namespace InnoVault.GameSystem
 
         void IVaultLoader.UnLoadData() {
             Instances?.Clear();
+            OverrideIDToInstances?.Clear();
+            TypeToOverrideID?.Clear();
+            OverrideIDToType?.Clear();
             ByID?.Clear();
             UniversalInstances?.Clear();
             PreSetDefaultsEvent = null;

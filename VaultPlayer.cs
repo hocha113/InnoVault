@@ -11,7 +11,7 @@ namespace InnoVault
         public override void OnEnterWorld() {
             UIHandleLoader.OnEnterWorld();
             TileProcessorNetWork.ClientRequest_TPData_Send();
-            NPCOverride.GetSever_NPCOverrideRequestAllData();
+            NPCOverride.OnEnterWorldNetwork();
         }
 
         public override void SaveData(TagCompound tag) {

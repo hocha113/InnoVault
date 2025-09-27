@@ -15,6 +15,8 @@ namespace InnoVault
             NPCOverrideNetWork,
             SendToClient_NPCOverrideRequestAllData,
             Handler_NPCOverrideRequestAllData,
+            RequestNPCOverrideValidation,
+            SyncNPCOverrideValidation,
             TetheredPlayer,
             TetheredPlayer_DownLeft,
             TetheredPlayer_DownRight,
