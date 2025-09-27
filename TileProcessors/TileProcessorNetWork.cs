@@ -20,6 +20,10 @@ namespace InnoVault.TileProcessors
     {
         #region Data
         /// <summary>
+        /// 调试开关：开启后会输出每个TP的发送与接收的字节范围、以及错位时的十六进制预览
+        /// </summary>
+        public const bool EnableTPNetDebug = true; // 可按需要改为 false 或者用 #if DEBUG 包裹
+        /// <summary>
         /// 属于TP实体网络工作的独特魔术标签，更加节省空间
         /// </summary>
         public const uint TP_START_MARKER = 0xDEADCAFE;
@@ -189,11 +193,24 @@ namespace InnoVault.TileProcessors
         /// <param name="whoAmI"></param>
         public static void TileProcessorInstanceDoReceiveData(TileProcessor tileProcessor, BinaryReader reader, int whoAmI) {
             try {
+                long before = -1;
+                if (EnableTPNetDebug && whoAmI == -1) before = reader.BaseStream.Position;
                 tileProcessor.ReceiveData(reader, whoAmI);
+                if (EnableTPNetDebug && whoAmI == -1) {
+                    long after = reader.BaseStream.Position;
+                    VaultMod.Instance.Logger.Debug($"[TPNetDebug][RECV] name={tileProcessor.FullName} dataRange=[{before}-{after}) size={after-before}");
+                }
             } catch (Exception ex) {
                 tileProcessor.SendCooldownTicks = 60;
                 string msg = $"TileProcessorInstanceDoReceiveData-Data Reception Failure: {ex.Message}\n{ex.StackTrace}";
                 VaultMod.LoggerError($"{tileProcessor.FullName}:NullRef@ReceiveData", msg);
+                if (EnableTPNetDebug) {
+                    try {
+                        long pos = reader.BaseStream.Position;
+                        long remain = reader.BaseStream.Length - pos;
+                        VaultMod.Instance.Logger.Warn($"[TPNetDebug][RECV-EX] name={tileProcessor.FullName} streamPos={pos} remain={remain} next8={PeekBytes(reader,8)}");
+                    } catch { }
+                }
             }
         }
 
@@ -316,7 +333,7 @@ namespace InnoVault.TileProcessors
         }
 
         //另一个需要注意的概念是，世界数据存储在服务端上，退出世界、进入世界的相关钩子如OnWorldLoad和OnWorldUnLoad不会在客户端上运行
-        //而存档数据会在服务端关闭后自动写入存档文件，这意味着任意客户端的退出都不能主动更新自己本地的存档数据，只有等待服务端被关闭，这是存储世界数据的一个网络特点
+        //而存档数据会在服務端关闭后自动写入存档文件，这意味着任意客户端的退出都不能主动更新自己本地的存档数据，只有等待服務端被关闭，这是存储世界数据的一个网络特点
         //所以，不需要试图在卸载世界或者玩家退出服务器时进行任何世界网络数据的同步请求，没必要也没用，服务器自身在开启和关闭时便会处理这一切
 
         /// <summary>
@@ -366,22 +383,35 @@ namespace InnoVault.TileProcessors
             }
 
             ModPacket fullPacket = VaultMod.Instance.GetPacket();
-            //fullPacket.Write((byte)MessageType.Handle_TPData_Receive);
-            //fullPacket.Write(InitializeWorld);
             long packStartPos = fullPacket.BaseStream.Position;
             SendToClient_TPDataChunkPacketStartPos(whoAmI, packStartPos);
 
             fullPacket.Write(sendTPCount);
 
+            int debugIndex = 0;
             foreach (TileProcessor tp in activeTPs) {
+                long entityStart = fullPacket.BaseStream.Position; // marker 前位置
                 fullPacket.Write(TP_START_MARKER);
                 fullPacket.Write(tp.FullName);
                 fullPacket.WritePoint16(tp.Position);
-                //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
                 fullPacket.Write((byte)(tp.Width / 16));
                 fullPacket.Write((byte)(tp.Height / 16));
+                long dataStart = fullPacket.BaseStream.Position;
                 // 发送TileProcessor数据
-                tp.SendData(fullPacket);
+                try {
+                    tp.SendData(fullPacket);
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"[TPNetDebug][SEND-EX] {tp.FullName} exception: {ex.Message}\n{ex.StackTrace}");
+                }
+                long entityEnd = fullPacket.BaseStream.Position;
+                if (EnableTPNetDebug) {
+                    VaultMod.Instance.Logger.Debug($"[TPNetDebug][SEND] idx={debugIndex} name={tp.FullName} posRange=[{entityStart}-{entityEnd}) body={entityEnd-entityStart} payload={entityEnd-dataStart}");
+                }
+                debugIndex++;
+            }
+            if (EnableTPNetDebug) {
+                long finalLen = fullPacket.BaseStream.Position;
+                VaultMod.Instance.Logger.Debug($"[TPNetDebug][SEND] totalTP={sendTPCount} packetBytes={finalLen - packStartPos} startPos={packStartPos}");
             }
 
             using MemoryStream stream = fullPacket.BaseStream as MemoryStream;
@@ -551,30 +581,45 @@ namespace InnoVault.TileProcessors
         private static string lastSuccessfulTPName;
         private static void Handle_TPData_ReceiveInner(BinaryReader reader) {
             int tpCount = reader.ReadInt32(); //读取 TP 数量
+            if (EnableTPNetDebug) {
+                long cur = reader.BaseStream.Position;
+                VaultMod.Instance.Logger.Debug($"[TPNetDebug][RECV] tpCount={tpCount} startPayloadPos={cur} startDeclaredPos={TPDataChunkPacketStartPos}");
+            }
             if (tpCount < 0 || tpCount > MaxTPInWorldCount) {
-                VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
-                    $"Received invalid TP count:{tpCount}, terminating read");
+                VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: Received invalid TP count:{tpCount}, terminating read");
                 return;
             }
 
             lastSuccessfulTPName = "";//这个值用于记录上一次成功读取的TP的内部名，方便调试
             for (int i = 0; i < tpCount; i++) {
                 NetworkLoadProgress = 96f + (i * 4f / tpCount);
-
-                //确保是合法的标记
-                uint marker = reader.ReadUInt32();
+                long posBeforeMarker = reader.BaseStream.Position;
+                uint marker = 0;
+                try {
+                    marker = reader.ReadUInt32();
+                } catch (EndOfStreamException) {
+                    if (EnableTPNetDebug) {
+                        VaultMod.Instance.Logger.Warn($"[TPNetDebug][RECV] EOF when trying to read marker at tpIndex={i} pos={posBeforeMarker}");
+                    }
+                    break;
+                }
                 if (marker != TP_START_MARKER) {
-                    VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
-                        $"Invalid markID: {i}, Marker: {marker}, last Success fulTPName: {lastSuccessfulTPName}" +
-                        $", skipping to the next node");
+                    if (EnableTPNetDebug) {
+                        VaultMod.Instance.Logger.Warn($"[TPNetDebug][RECV] InvalidMarker idx={i} pos={posBeforeMarker} got=0x{marker:X8} lastTP={lastSuccessfulTPName} next16={PeekBytes(reader,16)}");
+                    }
+                    VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: Invalid markID: {i}, Marker: {marker}, last Success fulTPName: {lastSuccessfulTPName}, skipping to the next node");
                     SkipToNextMarker(reader);
                     continue;
                 }
-
+                long afterMarkerPos = reader.BaseStream.Position;
                 string loadenName = reader.ReadString();
                 Point16 position = reader.ReadPoint16();
                 byte widthByTile = reader.ReadByte();
                 byte heightByTile = reader.ReadByte();
+                long beforeDataCall = reader.BaseStream.Position;
+                if (EnableTPNetDebug) {
+                    VaultMod.Instance.Logger.Debug($"[TPNetDebug][RECV] idx={i} name={loadenName} markerPos={posBeforeMarker} afterMarker={afterMarkerPos} headerEnd={beforeDataCall}");
+                }
 
                 //先检查字典中是否已有该 TileProcessor
                 if (ByPositionGetTP(loadenName, position, out TileProcessor tp)) {
@@ -583,26 +628,21 @@ namespace InnoVault.TileProcessors
                     continue;
                 }
 
-                //通过 name 获取 TP ID
                 if (!TryGetTpID(loadenName, out int tpID)) {
-                    VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
-                    $"No corresponding TileProcessor instance found: {loadenName}-position[{position}]，Skip");
+                    VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {loadenName}-position[{position}]，Skip");
                     SkipToNextMarker(reader);
                     continue;
                 }
 
-                //先尝试从现有的 TileProcessor 列表中查找
                 if (ByPositionGetTP(tpID, position.X, position.Y, out TileProcessor existingTP)) {
                     TileProcessorInstanceDoReceiveData(existingTP, reader, -1);
                     lastSuccessfulTPName = loadenName;
                     continue;
                 }
 
-                //如果找不到，尝试新建
                 if (TP_ID_To_Instance.TryGetValue(tpID, out TileProcessor template)) {
                     TileProcessor newTP = AddInWorld(template.TargetTileID, position, null);
                     if (newTP != null) {
-                        //因为客户端上的物块加载不完整，所以客户端生成的TP大小很可能不正确，这里接收服务器的数据来进行覆盖矫正
                         newTP.Width = widthByTile * 16;//乘以16转化为像素宽度
                         newTP.Height = heightByTile * 16;
                         TileProcessorInstanceDoReceiveData(newTP, reader, -1);
@@ -611,9 +651,7 @@ namespace InnoVault.TileProcessors
                     }
                 }
 
-                //仍然失败，则记录日志并跳过
-                VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: " +
-                    $"No corresponding TileProcessor instance found: {loadenName}-position[{position}]，Skip");
+                VaultMod.Instance.Logger.Warn($"TileProcessorLoader-ClientRequest_TPData_Receive: No corresponding TileProcessor instance found: {loadenName}-position[{position}]，Skip");
                 SkipToNextMarker(reader);
             }
         }
@@ -715,6 +753,21 @@ namespace InnoVault.TileProcessors
             }
             else if (type == MessageType.GetSever_ResetTPDataChunkNet && VaultUtils.isClient) {
                 ResetTPDataChunkNet();//这个消息由服务器单方面发送，只由客户端来接收处理
+            }
+        }
+
+        private static string PeekBytes(BinaryReader reader, int count)
+        {
+            try {
+                long pos = reader.BaseStream.Position;
+                long remain = reader.BaseStream.Length - pos;
+                if (remain <= 0) return string.Empty;
+                int real = (int)Math.Min(count, remain);
+                byte[] bytes = reader.ReadBytes(real);
+                reader.BaseStream.Position = pos; // 复位
+                return BitConverter.ToString(bytes);
+            } catch {
+                return "<peek-failed>";
             }
         }
     }
