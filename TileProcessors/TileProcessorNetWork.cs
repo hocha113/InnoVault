@@ -212,7 +212,6 @@ namespace InnoVault.TileProcessors
                 TileProcessorInstanceDoReceiveData(tileProcessor, reader, whoAmI);
             }
             else {//如果没找到就临时新建一个
-                VaultMod.Instance.Logger.Error($"TileProcessorLoader-ReceiveData: No Corresponding TileProcessor Instance Found: {loadenName}-Position [{position}]");
                 if (!TP_FullName_To_ID.TryGetValue(loadenName, out var tpID)) {
                     VaultMod.Instance.Logger.Error($"TileProcessorLoader-ReceiveData: Unknown TileProcessor Type: {loadenName}");
                     return;
