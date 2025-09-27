@@ -2419,7 +2419,7 @@ namespace InnoVault
             if (!VaultLoad.LoadenContent) {
                 return false;
             }
-            if (PlayerOverride.TryFetchByPlayer(player, out var keyValuePairs) 
+            if (PlayerOverride.TryFetchByPlayer(player, out var keyValuePairs)
                 && keyValuePairs.TryGetValue(typeof(T), out var playerOverride)) {
                 value = playerOverride as T;
             }

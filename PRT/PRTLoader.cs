@@ -69,7 +69,7 @@ namespace InnoVault.PRT
         internal static VaultHookMethodCache<GlobalPRT> HookPostUpdatePRTAll;
         internal static VaultHookMethodCache<GlobalPRT> HookPreDrawPRT;
         internal static VaultHookMethodCache<GlobalPRT> HookPostDrawPRT;
-        
+
         #endregion
         /// <summary>
         /// 加载和初始化数据

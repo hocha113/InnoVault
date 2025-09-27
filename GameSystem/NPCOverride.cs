@@ -863,7 +863,7 @@ namespace InnoVault.GameSystem
                     serverMap.Add(reader.ReadString(), reader.ReadUInt16());
                 }
 
-                //致命错误检查1: 实例总数是否一致
+                //检查实例总数是否一致
                 if (serverCount != Instances.Count) {
                     string errorMsg = $"NPCOverride validation failed: Instance count mismatch. Server: {serverCount}" +
                         $", Client: {Instances.Count}. This is a critical error, likely due to different mod lists or versions.";
@@ -876,7 +876,7 @@ namespace InnoVault.GameSystem
                     return;//如果确定服务端没有任何实例，则不需要进行后续检查
                 }
 
-                //致命错误检查2: 实例内容是否完全一致
+                //检查实例内容是否完全一致
                 var clientNames = new HashSet<string>(Instances.Select(inst => inst.FullName));
                 var serverNames = new HashSet<string>(serverMap.Keys);
                 if (!clientNames.SetEquals(serverNames)) {

@@ -65,7 +65,7 @@ namespace InnoVault.GameSystem
                     globalDust.OnSpawn(Main.dust[dustIndex]);
                 }
             }
-            
+
             return dustIndex;
         }
 
@@ -77,7 +77,7 @@ namespace InnoVault.GameSystem
                     globalDust.OnSpawn(dust);
                 }
             }
-            
+
             return dust;
         }
 
@@ -88,7 +88,7 @@ namespace InnoVault.GameSystem
                     globalDust.OnSpawn(dust);
                 }
             }
-            
+
             return dust;
         }
 
