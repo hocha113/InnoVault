@@ -54,8 +54,6 @@ namespace InnoVault.TileProcessors
                 }
                 tp.ClientSaveAndQuit();
             }
-            //客户端不会调用SaveWorldData钩子，所以在这里确保TP在离开服务器后被清理，避免静态数据污染其他世界
-            InitializeWorldTP();
         }
 
         /// <inheritdoc/>
