@@ -12,7 +12,7 @@ You can expect an initial response within 72 hours of reporting the issue. Secur
 
 ## Additional Information
 
-InnoVault is an API mod providing foundational support for developers, such as UI, Tile Processor, and Particle APIs. For more information, visit the following resources:
+For more information, visit the following resources:
 
 - **[InnoVault GitHub Repository](https://github.com/hocha113/InnoVault)** for source code and project updates.
 - **[InnoVault Wiki](https://github.com/hocha113/InnoVault/wiki)** for basic API introductions and usage demonstrations.
