@@ -212,14 +212,22 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 这个TP实体如果在加载世界时已经存在，这个函数会在加载世界时被调用一次，用以用来初始化一些信息
+        /// 在加载世界时被调用一次，用以用来初始化一些信息<br/>
+        /// 在客户端和服务端上都会运行，但客户端上运行此函数时，存档数据并未被加载
         /// </summary>
         public virtual void LoadInWorld() { }
 
         /// <summary>
-        /// 在世界被卸载时调用一次
+        /// 在世界被卸载时调用一次，用以清理一些信息<br/>
+        /// 不会在客户端上运行
         /// </summary>
         public virtual void UnLoadInWorld() { }
+
+        /// <summary>
+        /// 当用户按下保存并退出时调用一次<br/>
+        /// 仅在客户端上运行
+        /// </summary>
+        public virtual void ClientSaveAndQuit() { }
 
         /// <summary>
         /// 这个模块在世界中的存在数量

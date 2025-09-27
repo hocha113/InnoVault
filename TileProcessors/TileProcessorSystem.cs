@@ -35,19 +35,27 @@ namespace InnoVault.TileProcessors
 
         /// <inheritdoc/>
         public override void OnWorldUnload() {
-            foreach (TileProcessor tp in TP_InWorld) {
-                if (tp.Active) {
-                    tp.UnLoadInWorld();
+            foreach (TileProcessor tp in TP_InWorld.ToList()) {
+                if (!tp.Active) {
+                    continue;
                 }
+                tp.UnLoadInWorld();
             }
         }
 
         /// <inheritdoc/>
         public override void PreSaveAndQuit() {
-            //客户端不会调用SaveWorldData钩子，所以在这里确保TP在离开服务器后被清理，避免静态数据污染其他世界
-            if (VaultUtils.isClient) {
-                InitializeWorldTP();
+            if (!VaultUtils.isClient) {
+                return;
             }
+            foreach (TileProcessor tp in TP_InWorld.ToList()) {
+                if (!tp.Active) {
+                    continue;
+                }
+                tp.ClientSaveAndQuit();
+            }
+            //客户端不会调用SaveWorldData钩子，所以在这里确保TP在离开服务器后被清理，避免静态数据污染其他世界
+            InitializeWorldTP();
         }
 
         /// <inheritdoc/>
