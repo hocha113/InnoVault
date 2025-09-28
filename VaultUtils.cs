@@ -1631,6 +1631,51 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 给玩家添加或延长Buff
+        /// </summary>
+        /// <param name="player">目标玩家对象</param>
+        /// <param name="buffID">Buff 的 ID</param>
+        /// <param name="addBuffTime">要增加的持续时间</param>
+        /// <param name="maxBuffTime">Buff 的最大允许时间，-1 表示不限制</param>
+        /// <param name="netUpdate">是否同步网络消息（多人模式时需要）</param>
+        /// <returns>该Buff在玩家身上的最终持续时间</returns>
+        public static int AddBuff(this Player player, int buffID, int addBuffTime, int maxBuffTime = -1, bool netUpdate = true) {
+            if (!player.Alives() || buffID <= 0 || addBuffTime <= 0) {
+                return 0;
+            }
+
+            int finalTime = 0;
+
+            if (player.HasBuff(buffID)) {
+                //玩家已经拥有该 Buff → 延长时间
+                for (int i = 0; i < player.buffTime.Length; i++) {
+                    if (player.buffType[i] != buffID) {
+                        continue;
+                    }
+                    //增加持续时间
+                    player.buffTime[i] += addBuffTime;
+                    //如果设置了最大值，进行上限限制
+                    if (maxBuffTime > 0 && player.buffTime[i] > maxBuffTime) {
+                        player.buffTime[i] = maxBuffTime;
+                    }
+                    finalTime = player.buffTime[i];
+                    if (netUpdate) {
+                        NetMessage.SendData(MessageID.AddPlayerBuff, -1, -1, null, player.whoAmI, buffID, player.buffTime[i]);
+                    }
+                    break;//找到对应Buff后即可退出循环
+                }
+            }
+            else {
+                //玩家尚未拥有该Buff就添加新Buff
+                player.AddBuff(buffID, addBuffTime, netUpdate);
+                //新增Buff的时间即为最终时间
+                finalTime = addBuffTime;
+            }
+
+            return finalTime;
+        }
+
+        /// <summary>
         /// 将 <see cref="ModKeybind"/> 转换为可读字符串，用于在物品提示中显示玩家的实际按键绑定<br/>
         /// 支持多重绑定，以 “/” 分隔显示
         /// </summary>
