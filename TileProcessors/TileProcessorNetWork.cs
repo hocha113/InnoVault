@@ -559,7 +559,7 @@ namespace InnoVault.TileProcessors
 
             lastSuccessfulTPName = "";//这个值用于记录上一次成功读取的TP的内部名，方便调试
             for (int i = 0; i < tpCount; i++) {
-                NetworkLoadProgress = 96f + (i * 4f / tpCount);
+                NetworkLoadProgress = 96f + (i * 4f / tpCount);//这里的4f表示从96%到100%的进度，tpCount如果为0是不会进入循环的
 
                 //确保是合法的标记
                 uint marker = reader.ReadUInt32();

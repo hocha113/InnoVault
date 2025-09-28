@@ -397,7 +397,7 @@ namespace InnoVault.TileProcessors
                 var data = collectedDatas[i];
                 if (TileProcessorIsTopLeft(data.Item1, data.Item2, out Point16 point)) {
                     AddInWorld(data.Item3, point, null);
-                    WorldLoadProgress = 15 + i * 75 / count;
+                    WorldLoadProgress = 15 + i * 75f / count;
                 }
             }
 
