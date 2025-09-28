@@ -32,10 +32,10 @@ namespace InnoVault
             SendToClient_TPData,
             SendToClient_TPDataChunk,
             SendToClient_MaxTPDataChunkCount,
-            GetSever_TPDataChunk,
-            GetSever_MaxTPDataChunkCount,
-            GetSever_TPDataChunkPacketStartPos,
-            GetSever_ResetTPDataChunkNet,
+            GetServer_TPDataChunk,
+            GetServer_MaxTPDataChunkCount,
+            GetServer_TPDataChunkPacketStartPos,
+            GetServer_ResetTPDataChunkNet,
         }
 
         internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {

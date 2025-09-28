@@ -360,7 +360,7 @@ namespace InnoVault.TileProcessors
                 ResetTPDataChunkNet(whoAmI);
                 //这里的总断是在服务器上的单方面重置，需要发包告诉客户端
                 ModPacket modPacket = VaultMod.Instance.GetPacket();
-                modPacket.Write((byte)MessageType.GetSever_ResetTPDataChunkNet);
+                modPacket.Write((byte)MessageType.GetServer_ResetTPDataChunkNet);
                 modPacket.Send(whoAmI);
                 return;
             }
@@ -396,7 +396,7 @@ namespace InnoVault.TileProcessors
                 return;
             }
             ModPacket modPacket = VaultMod.Instance.GetPacket();
-            modPacket.Write((byte)MessageType.GetSever_TPDataChunkPacketStartPos);
+            modPacket.Write((byte)MessageType.GetServer_TPDataChunkPacketStartPos);
             modPacket.Write(pos);
             modPacket.Send(whoAmI);
         }
@@ -408,7 +408,7 @@ namespace InnoVault.TileProcessors
             }
 
             ModPacket modPacket = VaultMod.Instance.GetPacket();
-            modPacket.Write((byte)MessageType.GetSever_MaxTPDataChunkCount);
+            modPacket.Write((byte)MessageType.GetServer_MaxTPDataChunkCount);
             modPacket.Write((ushort)TPDataChunks[whoAmI].Count);
             modPacket.Send(whoAmI);
         }
@@ -421,7 +421,7 @@ namespace InnoVault.TileProcessors
 
             ushort index = reader.ReadUInt16();
             ModPacket modPacket = VaultMod.Instance.GetPacket();
-            modPacket.Write((byte)MessageType.GetSever_TPDataChunk);
+            modPacket.Write((byte)MessageType.GetServer_TPDataChunk);
             modPacket.Write(index);
             modPacket.Write(TPDataChunks[whoAmI][index].Length);
             modPacket.Write(TPDataChunks[whoAmI][index]);
@@ -432,7 +432,7 @@ namespace InnoVault.TileProcessors
             }
         }
 
-        internal static void GetSever_TPDataChunkPacketStartPos(BinaryReader reader) {
+        internal static void GetServer_TPDataChunkPacketStartPos(BinaryReader reader) {
             if (!VaultUtils.isClient) {
                 return;
             }
@@ -441,7 +441,7 @@ namespace InnoVault.TileProcessors
         }
 
         //客户端接收拼图总数，为后续逐一请求拼图做准备
-        internal static void GetSever_MaxTPDataChunkCount(BinaryReader reader) {
+        internal static void GetServer_MaxTPDataChunkCount(BinaryReader reader) {
             if (!VaultUtils.isClient) {
                 return;
             }
@@ -456,7 +456,7 @@ namespace InnoVault.TileProcessors
         }
 
         //客户端接收拼图
-        internal static void GetSever_TPDataChunk(BinaryReader reader) {
+        internal static void GetServer_TPDataChunk(BinaryReader reader) {
             if (!VaultUtils.isClient) {
                 return;
             }
@@ -713,16 +713,16 @@ namespace InnoVault.TileProcessors
             else if (type == MessageType.SendToClient_MaxTPDataChunkCount) {
                 SendToClient_MaxTPDataChunkCount(whoAmI);
             }
-            else if (type == MessageType.GetSever_TPDataChunk) {
-                GetSever_TPDataChunk(reader);
+            else if (type == MessageType.GetServer_TPDataChunk) {
+                GetServer_TPDataChunk(reader);
             }
-            else if (type == MessageType.GetSever_MaxTPDataChunkCount) {
-                GetSever_MaxTPDataChunkCount(reader);
+            else if (type == MessageType.GetServer_MaxTPDataChunkCount) {
+                GetServer_MaxTPDataChunkCount(reader);
             }
-            else if (type == MessageType.GetSever_TPDataChunkPacketStartPos) {
-                GetSever_TPDataChunkPacketStartPos(reader);
+            else if (type == MessageType.GetServer_TPDataChunkPacketStartPos) {
+                GetServer_TPDataChunkPacketStartPos(reader);
             }
-            else if (type == MessageType.GetSever_ResetTPDataChunkNet && VaultUtils.isClient) {
+            else if (type == MessageType.GetServer_ResetTPDataChunkNet && VaultUtils.isClient) {
                 ResetTPDataChunkNet();//这个消息由服务器单方面发送，只由客户端来接收处理
             }
         }
