@@ -1,6 +1,8 @@
-﻿using Microsoft.Xna.Framework.Graphics;
+﻿using InnoVault.TileProcessors;
+using Microsoft.Xna.Framework.Graphics;
 using System.Reflection;
 using Terraria;
+using Terraria.DataStructures;
 using Terraria.ModLoader;
 
 namespace InnoVault.GameSystem
@@ -32,6 +34,11 @@ namespace InnoVault.GameSystem
                 if (reset.HasValue) {
                     return reset.Value;
                 }
+            }
+            if (TileProcessorLoader.TargetTileTypes.Contains(tile.TileType)
+                && TPUtils.TryGetTP(new Point16(i, j), out var tp)
+                && !tp.RightClick(i, j, tile)) {
+                return false;
             }
 
             return orig.Invoke(i, j);

@@ -179,7 +179,6 @@ namespace InnoVault.TileProcessors
 
             try {
                 SetStaticDefaults();
-                SetStaticProperty();
             } catch {
                 VaultMod.Instance.Logger.Info(FullName + ": An error occurred while performing SetStaticDefaults, but it was skipped");
             }
@@ -228,6 +227,16 @@ namespace InnoVault.TileProcessors
         /// 仅在客户端上运行
         /// </summary>
         public virtual void ClientSaveAndQuit() { }
+
+        /// <summary>
+        /// 当附着的物块被右键点击时调用这个函数，如果返回<see langword="true"/>，
+        /// 那么将继续运行物块的右键点击事件，否则将阻止物块的右键点击事件
+        /// </summary>
+        /// <param name="i"></param>
+        /// <param name="j"></param>
+        /// <param name="tile"></param>
+        /// <returns></returns>
+        public virtual bool RightClick(int i, int j, Tile tile) => true;
 
         /// <summary>
         /// 这个模块在世界中的存在数量
@@ -303,14 +312,6 @@ namespace InnoVault.TileProcessors
             _size = new(Width, Height);
             _hitBox = _posInWorld.GetRectangle(Size);
             _centerInWorld = _posInWorld + Size / 2;
-        }
-
-        /// <summary>
-        /// 用于初始化一些静态信息，只会在实体注册时调用一次
-        /// </summary>
-        [Obsolete("已经弃用，应当使用 SetStaticDefaults")]
-        public virtual void SetStaticProperty() {
-
         }
 
         /// <summary>
