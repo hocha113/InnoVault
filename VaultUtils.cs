@@ -1639,7 +1639,7 @@ namespace InnoVault
         /// <param name="maxBuffTime">Buff 的最大允许时间，-1 表示不限制</param>
         /// <param name="netUpdate">是否同步网络消息（多人模式时需要）</param>
         /// <returns>该Buff在玩家身上的最终持续时间</returns>
-        public static int AddBuff(this Player player, int buffID, int addBuffTime, int maxBuffTime = -1, bool netUpdate = true) {
+        public static int AddOrExtendBuff(this Player player, int buffID, int addBuffTime, int maxBuffTime = -1, bool netUpdate = true) {
             if (!player.Alives() || buffID <= 0 || addBuffTime <= 0) {
                 return 0;
             }
