@@ -22,22 +22,27 @@ namespace InnoVault.GameSystem
 
         private static bool HookRightClick(OnRightClickDelegate orig, int i, int j) {
             Tile tile = Framing.GetTileSafely(i, j);
+            bool? result = null;
             if (TileOverride.TryFetchByID(tile.TileType, out var tileOverrides)) {
-                bool? reset = null;
                 foreach (var rTile in tileOverrides.Values) {
-                    bool? newReset = rTile.RightClick(i, j, tile);
-                    if (newReset.HasValue) {
-                        reset = newReset.Value;
+                    bool? newResult = rTile.RightClick(i, j, tile);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
                     }
                 }
 
-                if (reset.HasValue) {
-                    return reset.Value;
+                if (result.HasValue) {
+                    return result.Value;
                 }
             }
-            if (TileProcessorLoader.TargetTileTypes.Contains(tile.TileType)
-                && TPUtils.TryGetTP(new Point16(i, j), out var tp)
-                && !tp.RightClick(i, j, tile)) {
+            if (TileProcessorLoader.TargetTileTypes.Contains(tile.TileType) 
+                && VaultUtils.SafeGetTopLeft(i, j, out var point) 
+                && TPUtils.TryGetTP(point, out var tp)) {
+                result = tp.RightClick(i, j, tile, Main.LocalPlayer);
+                TileProcessorNetWork.SendTPRightClick(i, j, Main.myPlayer);
+                if (result.HasValue) {
+                    return result.Value;
+                }
                 return false;
             }
 

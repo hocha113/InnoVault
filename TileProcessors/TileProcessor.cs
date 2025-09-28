@@ -229,14 +229,16 @@ namespace InnoVault.TileProcessors
         public virtual void ClientSaveAndQuit() { }
 
         /// <summary>
-        /// 当附着的物块被右键点击时调用这个函数，如果返回<see langword="true"/>，
-        /// 那么将继续运行物块的右键点击事件，否则将阻止物块的右键点击事件
+        /// 当附着的物块被右键点击时调用这个函数，如果返回<see langword="null"/>，
+        /// 那么将继续运行物块的右键点击事件，否则将阻止物块的右键点击事件<br/>
+        /// 运行在所有客户端和服务器上
         /// </summary>
-        /// <param name="i"></param>
-        /// <param name="j"></param>
-        /// <param name="tile"></param>
+        /// <param name="i">被右键点击的物块图格横坐标</param>
+        /// <param name="j">被右键点击的物块图格纵坐标</param>
+        /// <param name="tile">被右键点击的物块</param>
+        /// <param name="player">进行右键点击的玩家</param>
         /// <returns></returns>
-        public virtual bool RightClick(int i, int j, Tile tile) => true;
+        public virtual bool? RightClick(int i, int j, Tile tile, Player player) => null;
 
         /// <summary>
         /// 这个模块在世界中的存在数量

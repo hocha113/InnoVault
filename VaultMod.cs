@@ -86,6 +86,6 @@ namespace InnoVault
         }
 
         /// <inheritdoc/>
-        public override void HandlePacket(BinaryReader reader, int whoAmI) => VaultNetWork.HandlePacket(this, reader, whoAmI);
+        public override void HandlePacket(BinaryReader reader, int whoAmI) => VaultNetwork.HandlePacket(this, reader, whoAmI);
     }
 }

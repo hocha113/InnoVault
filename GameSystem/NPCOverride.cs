@@ -9,7 +9,7 @@ using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
-using static InnoVault.VaultNetWork;
+using static InnoVault.VaultNetwork;
 
 namespace InnoVault.GameSystem
 {

@@ -9,7 +9,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using static InnoVault.TileProcessors.TileProcessorLoader;
-using static InnoVault.VaultNetWork;
+using static InnoVault.VaultNetwork;
 
 namespace InnoVault.TileProcessors
 {
@@ -148,6 +148,44 @@ namespace InnoVault.TileProcessors
                 packet.WritePoint16(point);
                 packet.Send(-1, whoAmI); //广播给所有其他客户端
             }
+        }
+
+        /// <summary>
+        /// 发送TP实体右键交互的消息
+        /// </summary>
+        /// <param name="i"></param>
+        /// <param name="j"></param>
+        /// <param name="playerIndex"></param>
+        public static void SendTPRightClick(int i, int j, int playerIndex) {
+            if (VaultUtils.isSinglePlayer) {
+                return;
+            }
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.Handler_TPRightClick);
+            modPacket.WritePoint16(new Point16(i, j));
+            modPacket.Write(playerIndex);
+            modPacket.Send();
+        }
+        /// <summary>
+        /// 接收TP实体右键交互的消息
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <param name="whoAmI"></param>
+        public static void Handler_TPRightClick(BinaryReader reader, int whoAmI) {
+            Point16 point = reader.ReadPoint16();
+            int playerIndex = reader.ReadInt32();
+            if (ByPositionGetTP(point, out var tp)) {
+                Tile tile = Framing.GetTileSafely(point.X, point.Y);
+                tp.RightClick(point.X, point.Y, tile, Main.player[playerIndex]);
+            }
+            if (!VaultUtils.isServer) {
+                return;
+            }
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.Handler_TPRightClick);
+            modPacket.WritePoint16(point);
+            modPacket.Write(playerIndex);
+            modPacket.Send(-1, playerIndex);
         }
 
         /// <summary>
@@ -724,6 +762,9 @@ namespace InnoVault.TileProcessors
             }
             else if (type == MessageType.GetServer_ResetTPDataChunkNet && VaultUtils.isClient) {
                 ResetTPDataChunkNet();//这个消息由服务器单方面发送，只由客户端来接收处理
+            }
+            else if (type == MessageType.Handler_TPRightClick) {
+                Handler_TPRightClick(reader, whoAmI);
             }
         }
     }

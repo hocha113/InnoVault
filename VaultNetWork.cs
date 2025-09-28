@@ -6,7 +6,7 @@ using Terraria.ModLoader;
 
 namespace InnoVault
 {
-    internal class VaultNetWork : IVaultLoader
+    internal class VaultNetwork : IVaultLoader
     {
         internal enum MessageType : byte
         {
@@ -36,6 +36,7 @@ namespace InnoVault
             GetServer_MaxTPDataChunkCount,
             GetServer_TPDataChunkPacketStartPos,
             GetServer_ResetTPDataChunkNet,
+            Handler_TPRightClick,
         }
 
         internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
