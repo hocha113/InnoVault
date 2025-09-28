@@ -57,7 +57,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 在加载世界时调用
         /// </summary>
-        public static TileProcessor Place(TagCompound data, string mod, string name, Point16 point) {
+        public static TileProcessor Place(Point16 point, TagCompound data, string mod, string name) {
             TileProcessor newTP = NewTPInWorld(GetModuleID<UnknowTP>(), point, null);
             if (newTP is UnknowTP unknowTP) {
                 unknowTP.UnModName = mod;

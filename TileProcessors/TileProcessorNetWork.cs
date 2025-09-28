@@ -577,7 +577,7 @@ namespace InnoVault.TileProcessors
                 byte heightByTile = reader.ReadByte();
 
                 //先检查字典中是否已有该 TileProcessor
-                if (ByPositionGetTP(loadenName, position, out TileProcessor tp)) {
+                if (ByPositionGetTP(loadenName, position, out TileProcessor tp) && tp.FullName == loadenName) {
                     TileProcessorInstanceDoReceiveData(tp, reader, -1);
                     lastSuccessfulTPName = loadenName;
                     continue;
@@ -592,16 +592,25 @@ namespace InnoVault.TileProcessors
                 }
 
                 //先尝试从现有的 TileProcessor 列表中查找
-                if (ByPositionGetTP(tpID, position.X, position.Y, out TileProcessor existingTP)) {
+                if (ByPositionGetTP(tpID, position.X, position.Y, out TileProcessor existingTP) && existingTP.FullName == loadenName) {
                     TileProcessorInstanceDoReceiveData(existingTP, reader, -1);
                     lastSuccessfulTPName = loadenName;
                     continue;
                 }
 
                 //如果找不到，尝试新建
-                if (TP_ID_To_Instance.TryGetValue(tpID, out TileProcessor template)) {
-                    TileProcessor newTP = AddInWorld(template.TargetTileID, position, null);
-                    if (newTP != null) {
+                //2025.9.28: 首先我得理解到有该死的一个位置可能存在多个TP实体的情况，所以这些字典到了这一步并不完全可靠
+                if (TP_ID_To_Instance.TryGetValue(tpID, out TileProcessor template) && template.FullName == loadenName) {
+                    TileProcessor newTP;
+                    //如果这个TP是未知TP，那么就强制生成一个未知TP
+                    if (template.ID == TPUtils.GetID<UnknowTP>()) {
+                        newTP = UnknowTP.Place(position, [], "unknown", "unknown");
+                    }
+                    else {
+                        newTP = AddInWorld(template.TargetTileID, position, null);
+                    }
+
+                    if (newTP != null && newTP.FullName == loadenName) {
                         //因为客户端上的物块加载不完整，所以客户端生成的TP大小很可能不正确，这里接收服务器的数据来进行覆盖矫正
                         newTP.Width = widthByTile * 16;//乘以16转化为像素宽度
                         newTP.Height = heightByTile * 16;

@@ -502,7 +502,7 @@ namespace InnoVault.TileProcessors
                 }
                 else {
                     try {
-                        _ = UnknowTP.Place(data, mod, name, point);
+                        _ = UnknowTP.Place(point, data, mod, name);
                     } catch (Exception ex) {
                         VaultMod.LoggerError($"@LoadWorldData-{tp.ID}", $"LoadWorldData: " +
                             $"An error occurred while trying to save the TP {tp}: {ex.Message}");
