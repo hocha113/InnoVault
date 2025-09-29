@@ -46,17 +46,33 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 所有已注册的玩家重制节点实例
         /// </summary>
-        public Dictionary<Type, PlayerOverride> PlayerOverrides { get; internal set; } = [];
+        public Dictionary<Type, PlayerOverride> PlayerOverrides { get; private set; } = [];
         /// <summary>
         /// 当前生效的玩家重制节点实例
         /// </summary>
-        public Dictionary<Type, PlayerOverride> ActivePlayerOverrides { get; internal set; } = [];
+        public Dictionary<Type, PlayerOverride> ActivePlayerOverrides { get; private set; } = [];
 
         public override void SetStaticDefaults() => SetDefaultsForPlayer(this);
 
         public override void Initialize() => SetDefaultsForPlayer(this);
 
         public override void PreUpdate() => ApplyActiveOverrides(this);
+
+        /// <summary>
+        /// 为指定玩家激活重制节点实例
+        /// </summary>
+        /// <param name="player"></param>
+        public static void ApplyActiveOverrides(PlayerRebuildLoader player) {
+            Dictionary<Type, PlayerOverride> value = [];
+            foreach (var playerOverride in player.PlayerOverrides) {
+                if (!playerOverride.Value.CanOverride()) {
+                    continue;
+                }
+                playerOverride.Value.Player = player.Player;
+                value.Add(playerOverride.Key, playerOverride.Value);
+            }
+            player.ActivePlayerOverrides = value;
+        }
 
         void IVaultLoader.LoadData() {
             foreach (var playerOverride in VaultUtils.GetDerivedInstances<PlayerOverride>()) {

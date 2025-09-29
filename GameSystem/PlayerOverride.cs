@@ -72,7 +72,7 @@ namespace InnoVault.GameSystem
         /// <returns></returns>
         public static bool TryFetchByPlayer(Player player, out Dictionary<Type, PlayerOverride> values) {
             if (player.TryGetModPlayer<PlayerRebuildLoader>(out var playerRebuildLoader)) {
-                values = new Dictionary<Type, PlayerOverride>(playerRebuildLoader.ActivePlayerOverrides);
+                values = playerRebuildLoader.ActivePlayerOverrides;
                 return values.Count > 0;
             }
 
@@ -102,21 +102,6 @@ namespace InnoVault.GameSystem
                 newInstance.Player = player.Player;
                 newInstance.SetDefaults();
                 player.PlayerOverrides.Add(newInstance.GetType(), newInstance);
-            }
-        }
-
-        /// <summary>
-        /// 为指定玩家激活重制节点实例
-        /// </summary>
-        /// <param name="player"></param>
-        public static void ApplyActiveOverrides(PlayerRebuildLoader player) {
-            player.ActivePlayerOverrides.Clear();
-            foreach (var playerOverride in player.PlayerOverrides) {
-                if (!playerOverride.Value.CanOverride()) {
-                    continue;
-                }
-                playerOverride.Value.Player = player.Player;
-                player.ActivePlayerOverrides.Add(playerOverride.Key, playerOverride.Value);
             }
         }
 
