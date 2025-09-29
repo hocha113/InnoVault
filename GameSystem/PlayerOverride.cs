@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using Stubble.Core.Settings;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using Terraria;
 using Terraria.DataStructures;
 using Terraria.Graphics;
@@ -71,7 +72,7 @@ namespace InnoVault.GameSystem
         /// <returns></returns>
         public static bool TryFetchByPlayer(Player player, out Dictionary<Type, PlayerOverride> values) {
             if (player.TryGetModPlayer<PlayerRebuildLoader>(out var playerRebuildLoader)) {
-                values = playerRebuildLoader.ActivePlayerOverrides;
+                values = new Dictionary<Type, PlayerOverride>(playerRebuildLoader.ActivePlayerOverrides);
                 return values.Count > 0;
             }
 
