@@ -92,7 +92,7 @@ namespace InnoVault.GameSystem
         /// <returns></returns>
         public virtual bool? PreDraw(int i, int j, int type, SpriteBatch spriteBatch) => null;
         /// <summary>
-        /// 在所有物块绘制之前调用
+        /// 在所有物块绘制之前调用，此钩子不受 <see cref="TargetID"/> 限制，会运行在所有物块上
         /// </summary>
         /// <param name="spriteBatch"></param>
         public virtual void PreTileDraw(SpriteBatch spriteBatch) { }

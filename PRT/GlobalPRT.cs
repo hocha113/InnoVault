@@ -1,9 +1,5 @@
-﻿using InnoVault.GameSystem;
-using Microsoft.Xna.Framework.Graphics;
-using System;
+﻿using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq.Expressions;
 
 namespace InnoVault.PRT
 {

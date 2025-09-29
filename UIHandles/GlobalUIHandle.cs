@@ -1,5 +1,4 @@
-﻿using System;
-using Terraria.ModLoader;
+﻿using Terraria.ModLoader;
 using static InnoVault.UIHandles.UIHandleLoader;
 
 namespace InnoVault.UIHandles

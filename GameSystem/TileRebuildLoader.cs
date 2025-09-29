@@ -55,8 +55,8 @@ namespace InnoVault.GameSystem
                     return result.Value;
                 }
             }
-            if (TileProcessorLoader.TargetTileTypes.Contains(tile.TileType) 
-                && VaultUtils.SafeGetTopLeft(i, j, out var point) 
+            if (TileProcessorLoader.TargetTileTypes.Contains(tile.TileType)
+                && VaultUtils.SafeGetTopLeft(i, j, out var point)
                 && TPUtils.TryGetTP(point, out var tp)) {
                 result = tp.RightClick(i, j, tile, Main.LocalPlayer);
                 TileProcessorNetWork.SendTPRightClick(i, j, Main.myPlayer);
