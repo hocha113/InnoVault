@@ -293,7 +293,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 检查一个TP实例是否应被销毁
         /// </summary>
-        private static bool TileProcessorIsDead(TileProcessor tileProcessor) {
+        internal static bool TileProcessorIsDead(TileProcessor tileProcessor) {
             try {
                 bool isDead = tileProcessor.IsDaed();
 

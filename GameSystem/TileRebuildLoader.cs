@@ -1,8 +1,10 @@
 ﻿using InnoVault.TileProcessors;
 using Microsoft.Xna.Framework.Graphics;
+using System;
+using System.Collections.Generic;
+using System.Linq.Expressions;
 using System.Reflection;
 using Terraria;
-using Terraria.DataStructures;
 using Terraria.ModLoader;
 
 namespace InnoVault.GameSystem
@@ -13,14 +15,32 @@ namespace InnoVault.GameSystem
     public class TileRebuildLoader : GlobalTile, IVaultLoader
     {
         private delegate bool OnRightClickDelegate(int i, int j);
+        private static readonly List<VaultHookMethodCache<TileOverride>> hooks = [];
+        internal static VaultHookMethodCache<TileOverride> HookPreTileDraw;
         void IVaultLoader.LoadData() {
             MethodInfo method = typeof(TileLoader).GetMethod("RightClick", BindingFlags.Static | BindingFlags.Public);
             if (method != null) {
-                VaultHook.Add(method, HookRightClick);
+                VaultHook.Add(method, OnRightClickHook);
             }
+            On_Main.DrawBackgroundBlackFill += On_TileDrawing_DrawHook;
+        }
+        void IVaultLoader.SetupData() {
+            HookPreTileDraw = AddHook<Action<SpriteBatch>>(t => t.PreTileDraw);
+        }
+        void IVaultLoader.UnLoadData() {
+            On_Main.DrawBackgroundBlackFill -= On_TileDrawing_DrawHook;
+            hooks.Clear();
+            HookPreTileDraw = null;
+            VaultTypeRegistry<TileOverride>.ClearRegisteredVaults();
         }
 
-        private static bool HookRightClick(OnRightClickDelegate orig, int i, int j) {
+        private static VaultHookMethodCache<TileOverride> AddHook<F>(Expression<Func<TileOverride, F>> func) where F : Delegate {
+            VaultHookMethodCache<TileOverride> hook = VaultHookMethodCache<TileOverride>.Create(func);
+            hooks.Add(hook);
+            return hook;
+        }
+
+        private static bool OnRightClickHook(OnRightClickDelegate orig, int i, int j) {
             Tile tile = Framing.GetTileSafely(i, j);
             bool? result = null;
             if (TileOverride.TryFetchByID(tile.TileType, out var tileOverrides)) {
@@ -47,6 +67,19 @@ namespace InnoVault.GameSystem
             }
 
             return orig.Invoke(i, j);
+        }
+
+        //集中管理所有TileDrawing_Draw钩子
+        private static void On_TileDrawing_DrawHook(On_Main.orig_DrawBackgroundBlackFill orig, Main self) {
+            orig.Invoke(self);
+            //不要在主页面进行绘制，也不要在全屏地图界面进行绘制
+            if (Main.gameMenu || Main.mapFullscreen) {
+                return;
+            }
+            TileProcessorSystem.PreDrawTiles();
+            foreach (var tileOverride in HookPreTileDraw.Enumerate()) {
+                tileOverride.PreTileDraw(Main.spriteBatch);
+            }
         }
 
         /// <inheritdoc/>

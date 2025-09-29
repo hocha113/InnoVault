@@ -258,7 +258,7 @@ namespace InnoVault.TileProcessors
         /// 调用这个函数，将会让模块变得不活跃，同时运行<see cref="OnKill"/>设置死亡事件
         /// 在大多数情况下，并不推荐自行调用该函数来杀死TP实体，而是应该摧毁该TP实体依赖的物块
         /// 该函数并不自带网络适配逻辑，也不会运行<see cref="GlobalTileProcessor"/>的钩子，
-        /// 如果有必要，你应该调用<see cref="TileProcessorSystem.TileProcessorIsDead(TileProcessor)"/>而不是调用这个
+        /// 如果有必要，你应该调用<see cref="CheckDeath"/>而不是调用这个
         /// </summary>
         public void Kill() {
             OnKill();
@@ -272,6 +272,12 @@ namespace InnoVault.TileProcessors
 
             RemoveFromDictionaries(this);
         }
+
+        /// <summary>
+        /// 检查这个TP实体是否应该被标记为死亡
+        /// </summary>
+        /// <returns></returns>
+        public bool CheckDeath() => TileProcessorSystem.TileProcessorIsDead(this);
 
         /// <summary>
         /// 重写这个函数设置一些特殊的死亡事件或者整理数据逻辑。

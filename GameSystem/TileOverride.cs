@@ -91,5 +91,10 @@ namespace InnoVault.GameSystem
         /// <param name="spriteBatch"></param>
         /// <returns></returns>
         public virtual bool? PreDraw(int i, int j, int type, SpriteBatch spriteBatch) => null;
+        /// <summary>
+        /// 在所有物块绘制之前调用
+        /// </summary>
+        /// <param name="spriteBatch"></param>
+        public virtual void PreTileDraw(SpriteBatch spriteBatch) { }
     }
 }
