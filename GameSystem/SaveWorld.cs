@@ -40,10 +40,10 @@ namespace InnoVault.GameSystem
         public override string SavePath => Path.Combine(VaultSave.RootPath, "WorldDatas", $"world_{WorldFullName}.nbt");
 
         /// <summary>
-        /// 扫描 VaultSave 根目录下 WorldDatas / TPDatas（含其 Backups 子目录）中失去对应原版 .wld 世界文件的存档：<br/>
-        /// 1. world_*.nbt / tp_*.nbt<br/>
-        /// 2. world_*.zip / tp_*.zip（含时间戳前缀：yyyy-MM-dd-world_... / yyyy-MM-dd-tp_...）<br/>
-        /// 将它们移动到 RootPath/Orphaned 目录，并删除该目录下超过保留天数 (默认7天) 未修改的 .nbt/.zip 文件
+        /// 扫描 VaultSave 根目录下 WorldDatas / TPDatas（含其 Backups 子目录）中失去对应原版 .wld 世界文件的存档：
+        /// 1. world_*.nbt / tp_*.nbt
+        /// 2. world_*.zip / tp_*.zip（含时间戳前缀：yyyy-MM-dd-world_... / yyyy-MM-dd-tp_...）
+        /// 将它们移动到 RootPath/Orphaned 目录，并删除该目录下超过保留天数 (默认7天) 未修改的 .nbt/.zip 文件。
         /// </summary>
         /// <param name="retentionDays">孤立文件保留天数，默认 7 天</param>
         /// <returns>被移动到 Orphaned 的文件数量</returns>
@@ -59,7 +59,7 @@ namespace InnoVault.GameSystem
 
                 Directory.CreateDirectory(orphanDir);
 
-                //收集当前仍存在的世界基名 (不带扩展)
+                // 收集当前仍存在的世界基名 (不带扩展)
                 HashSet<string> existingWorlds = new();
                 try {
                     var currentWorldDir = Path.GetDirectoryName(Main.worldPathName);
@@ -73,14 +73,14 @@ namespace InnoVault.GameSystem
                     }
                 } catch { /* 忽略收集错误 */ }
 
-                //处理 nbt 主目录
+                // 处理 nbt 主目录
                 void ScanAndMoveNBT(string baseDir, string prefix) {
                     if (!Directory.Exists(baseDir)) return;
                     foreach (var file in Directory.GetFiles(baseDir, prefix + "*.nbt", SearchOption.TopDirectoryOnly)) {
                         string fileName = Path.GetFileName(file);
                         if (string.Equals(Path.GetDirectoryName(file)?.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), orphanDir, StringComparison.OrdinalIgnoreCase))
                             continue;
-                        if (fileName.Length <= prefix.Length + 4) continue; //防御
+                        if (fileName.Length <= prefix.Length + 4) continue; // 防御
                         string worldNamePart = fileName.Substring(prefix.Length, fileName.Length - prefix.Length - 4);
                         if (existingWorlds.Contains(worldNamePart)) continue;
                         try {
@@ -97,21 +97,19 @@ namespace InnoVault.GameSystem
                     }
                 }
 
-                //处理 Backups 下 zip（包含时间戳）
+                // 处理 Backups 下 zip（包含时间戳）
                 void ScanAndMoveZip(string backupDir, string logicalPrefix) {
                     if (!Directory.Exists(backupDir)) return;
                     foreach (var file in Directory.GetFiles(backupDir, "*.zip", SearchOption.TopDirectoryOnly)) {
                         string fileName = Path.GetFileName(file);
-                        //在文件名中寻找 world_ 或 tp_ 的真正前缀位置
                         int idx = fileName.IndexOf(logicalPrefix, StringComparison.OrdinalIgnoreCase);
-                        if (idx < 0) continue; //不匹配
-                        //去除扩展
+                        if (idx < 0) continue; // 不匹配
                         string noExt = Path.GetFileNameWithoutExtension(fileName);
                         int prefixStart = noExt.IndexOf(logicalPrefix, StringComparison.OrdinalIgnoreCase);
                         if (prefixStart < 0) continue;
-                        string afterPrefix = noExt.Substring(prefixStart + logicalPrefix.Length); //worldName 部分（可能包含ID）
+                        string afterPrefix = noExt.Substring(prefixStart + logicalPrefix.Length);
                         if (string.IsNullOrEmpty(afterPrefix)) continue;
-                        if (existingWorlds.Contains(afterPrefix)) continue; //仍存在对应世界
+                        if (existingWorlds.Contains(afterPrefix)) continue; // 仍存在对应世界
                         try {
                             string destPath = Path.Combine(orphanDir, fileName);
                             if (File.Exists(destPath)) {
@@ -131,7 +129,7 @@ namespace InnoVault.GameSystem
                 ScanAndMoveZip(worldBackups, "world_");
                 ScanAndMoveZip(tpBackups, "tp_");
 
-                //删除过期的孤立 nbt / zip 文件
+                // 删除过期的孤立 nbt / zip 文件
                 DateTime threshold = DateTime.UtcNow - TimeSpan.FromDays(Math.Max(0, retentionDays));
                 try {
                     foreach (var file in Directory.GetFiles(orphanDir, "*.*", SearchOption.TopDirectoryOnly)) {

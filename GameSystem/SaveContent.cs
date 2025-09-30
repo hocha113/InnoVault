@@ -2,6 +2,7 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
@@ -262,6 +263,42 @@ namespace InnoVault.GameSystem
                 TagIO.ToStream(tag, entryStream);//直接写入 zip 内的 entry
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"[SaveTagToZip] Failed to save NBT into zip: {ex}");
+            }
+        }
+        /// <summary>
+        /// 修剪同一世界（或TP数据）备份数量，按 LastWriteTime 升序删除最旧的，保留最新的指定数量
+        /// 期望文件命名：yyyy-MM-dd-world_xxx.zip 或 world_xxx.zip（无时间戳残留）
+        /// </summary>
+        /// <param name="baseZipPath">调用时传入的基础备份路径（未加时间戳版本）</param>
+        /// <param name="maxCount">最大保留数量</param>
+        public static void PruneBackups(string baseZipPath, int maxCount = 7) {
+            try {
+                if (string.IsNullOrEmpty(baseZipPath) || maxCount <= 0) {
+                    return;
+                }
+                string dir = Path.GetDirectoryName(baseZipPath);
+                if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) {
+                    return;
+                }
+                string baseName = Path.GetFileNameWithoutExtension(baseZipPath);
+                string pattern = "*" + baseName + ".zip"; // 匹配含时间戳及无时间戳
+                var files = Directory.GetFiles(dir, pattern, SearchOption.TopDirectoryOnly)
+                                      .Select(f => new FileInfo(f))
+                                      .OrderBy(f => f.LastWriteTimeUtc)
+                                      .ToList();
+                if (files.Count <= maxCount) {
+                    return;
+                }
+                int remove = files.Count - maxCount;
+                for (int i = 0; i < remove; i++) {
+                    try {
+                        files[i].Delete();
+                    } catch (Exception ex) {
+                        VaultMod.Instance.Logger.Warn($"[PruneBackups] Failed to delete old backup {files[i].FullName}: {ex.Message}");
+                    }
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"[PruneBackups] Unexpected error: {ex}");
             }
         }
         /// <summary>
