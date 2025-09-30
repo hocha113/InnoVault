@@ -391,8 +391,9 @@ namespace InnoVault.TileProcessors
             }
 
             //需要再次明确一个论点，世界加载钩子会在客户端和服务端上被调用，而客户端并不需要加载存档数据
-            if (!VaultUtils.isClient && ActiveWorldTagData != null) {
+            if (!VaultUtils.isClient && ActiveWorldTagData?.Count > 0) {
                 LoadWorldData(ActiveWorldTagData);
+                ActiveWorldTagData.Clear();//用完释放
             }
 
             WorldLoadProgress = 100;

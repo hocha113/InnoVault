@@ -1148,7 +1148,7 @@ namespace InnoVault
             float distance = maxDistanceToCheck;
             bool bossFound = false;
 
-            foreach (var npc in Main.npc) {
+            foreach (var npc in Main.ActiveNPCs) {
                 bool canChased = npc.CanBeChasedBy();
                 if (onHitNPCs != null && onHitNPCs.Contains(npc)) {
                     canChased = false;
@@ -1159,8 +1159,8 @@ namespace InnoVault
                     canChased = false;
                 }
 
-                if (chasedByNPC != null) {
-                    canChased = chasedByNPC.Invoke(npc);
+                if (chasedByNPC != null && !chasedByNPC.Invoke(npc)) {
+                    canChased = false;
                 }
 
                 if (!canChased) {
@@ -1216,7 +1216,7 @@ namespace InnoVault
             Player closestPlayer = null;
             float minDistance = maxRange == -1f ? float.MaxValue : maxRange;
 
-            foreach (Player player in Main.player) {
+            foreach (Player player in Main.ActivePlayers) {
                 if (!player.Alives()) {
                     continue;
                 }
