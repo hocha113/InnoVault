@@ -241,6 +241,12 @@ namespace InnoVault.TileProcessors
         public virtual bool? RightClick(int i, int j, Tile tile, Player player) => null;
 
         /// <summary>
+        /// 当用户光标悬停在TP实体上时调用这个函数，这个钩子运行在物块的 MouseOver 之上，通常是用于设置光标悬停图标<br/>
+        /// 只在悬停的客户端上运行，与此同时，<see cref="HoverTP"/>会被设置为<see langword="true"/>
+        /// </summary>
+        public virtual void HoverTile() { }
+
+        /// <summary>
         /// 这个模块在世界中的存在数量
         /// </summary>
         /// <returns></returns>
