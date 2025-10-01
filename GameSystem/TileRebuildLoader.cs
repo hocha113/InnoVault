@@ -107,7 +107,8 @@ namespace InnoVault.GameSystem
                     rTile.MouseOver(i, j);
                 }
             }
-            if (TPUtils.IsTopLeft(i, j, out var point) && TPUtils.TryGetTP(point, out var tp)) {
+            
+            if (VaultUtils.SafeGetTopLeft(i, j, out var point) && TPUtils.TryGetTP(point, out var tp)) {
                 tp.HoverTile();
             }
         }
