@@ -1631,6 +1631,23 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 对NPC造成伤害
+        /// </summary>
+        /// <param name="npc"></param>
+        /// <param name="damage"></param>
+        /// <param name="knockback"></param>
+        /// <param name="hitDirection"></param>
+        /// <returns></returns>
+        public static int StrikeNPCNoInteraction(this NPC npc, int damage, float knockback, int hitDirection) {
+            NPC.HitInfo hitInfo = new() {
+                Damage = damage,
+                Knockback = knockback,
+                HitDirection = hitDirection
+            };
+            return npc.StrikeNPC(hitInfo);
+        }
+
+        /// <summary>
         /// 给玩家添加或延长Buff
         /// </summary>
         /// <param name="player">目标玩家对象</param>
@@ -3061,7 +3078,7 @@ namespace InnoVault
                         Point16 newPoint = point16 + new Point16(i, j);
                         Tile newTile = Main.tile[newPoint];
                         if (newTile.TileType == 378) {
-                            newTile.TileType = 0;
+                            newTile.TileType = TileID.Dirt;
                             newTile.HasTile = false;
                             WorldGen.SquareTileFrame(newPoint.X, newPoint.Y);
                         }
