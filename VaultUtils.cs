@@ -3874,12 +3874,16 @@ namespace InnoVault
         public static bool InWorld(params Point16[] points) {
             foreach (var point in points) {
                 if (!WorldGen.InWorld(point.X, point.Y)) {
-                    return false; // 只要有一个点不在世界范围内，就返回 false
+                    return false; //只要有一个点不在世界范围内，就返回 false
                 }
             }
-            return true; // 所有点都在世界范围内
+            return true; //所有点都在世界范围内
         }
 
+        /// <summary>
+        /// 检测该位置是否存在一个实心的固体方块
+        /// </summary>
+        public static bool HasSolidTile(this Tile tile) => tile.HasTile && Main.tileSolid[tile.TileType] && !Main.tileSolidTop[tile.TileType];
         #endregion
 
         #region Draw
