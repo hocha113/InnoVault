@@ -4,6 +4,7 @@ using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Linq.Expressions;
 using System.Reflection;
 using Terraria;
@@ -59,6 +60,24 @@ namespace InnoVault.GameSystem
         public override void PreUpdate() => ApplyActiveOverrides(this);
 
         /// <summary>
+        /// 为指定玩家设置默认的重制节点实例
+        /// </summary>
+        /// <param name="player"></param>
+        public static void SetDefaultsForPlayer(PlayerRebuildLoader player) {
+            Dictionary<Type, PlayerOverride> list = [];
+            foreach (var playerOverride in Instances) {
+                if (!playerOverride.CanOverride()) {
+                    continue;
+                }
+                var newInstance = playerOverride.Clone();
+                newInstance.Player = player.Player;
+                newInstance.SetDefaults();
+                list.Add(newInstance.GetType(), newInstance);
+            }
+            player.PlayerOverrides = list;
+        }
+
+        /// <summary>
         /// 为指定玩家激活重制节点实例
         /// </summary>
         /// <param name="player"></param>
@@ -73,6 +92,14 @@ namespace InnoVault.GameSystem
             }
             player.ActivePlayerOverrides = value;
         }
+
+        /// <summary>
+        /// 创建当前快照，防止遍历过程集合被修改导致的异常
+        /// </summary>
+        /// <param name="dict"></param>
+        /// <returns></returns>
+        private static List<PlayerOverride> SnapshotOverrides(Dictionary<Type, PlayerOverride> dict) 
+            => dict == null || dict.Count == 0 ? [] : [.. dict.Values];
 
         void IVaultLoader.LoadData() {
             foreach (var playerOverride in VaultUtils.GetDerivedInstances<PlayerOverride>()) {
@@ -223,7 +250,7 @@ namespace InnoVault.GameSystem
         public static bool CanSwitchWeaponHook(Player player) {
             bool? result = null;
             if (TryFetchByPlayer(player, out var values)) {
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     bool? result2 = value.CanSwitchWeapon();
                     if (result2.HasValue) {
                         result = result2;
@@ -258,7 +285,7 @@ namespace InnoVault.GameSystem
             , Player player, Item item, NPC target, ref NPC.HitModifiers modifiers) {
             if (TryFetchByPlayer(player, out var values)) {
                 bool result = true;
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     bool newResult = value.On_ModifyHitNPCWithItem(item, target, ref modifiers);
                     if (newResult == false) {
                         result = false;
@@ -275,7 +302,7 @@ namespace InnoVault.GameSystem
             , Player player, Projectile proj, NPC target, ref NPC.HitModifiers modifiers) {
             if (TryFetchByPlayer(player, out var values)) {
                 bool result = true;
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     bool newResult = value.On_ModifyHitNPCWithProj(proj, target, ref modifiers);
                     if (newResult == false) {
                         result = false;
@@ -291,7 +318,7 @@ namespace InnoVault.GameSystem
         private static void On_OnHitNPCHook(On_OnHitNPC_Dalegate orig, Player player, NPC target, in NPC.HitInfo hit, int damageDone) {
             if (TryFetchByPlayer(player, out var values)) {
                 bool result = true;
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     bool? newResult = value.On_OnHitNPC(target, hit, damageDone);
                     if (newResult == false) {
                         result = false;
@@ -324,7 +351,7 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(player, out var values)) {
                 info = default;
                 bool result = true;
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     bool? newResult = value.On_Hurt(ref hurtState);
                     if (newResult == false) {
                         result = false;
@@ -344,7 +371,7 @@ namespace InnoVault.GameSystem
         private static void On_GiveImmuneTimeForCollisionAttackHook(On_GiveImmuneTimeForCollisionAttack_Dalegate orig, Player player, int time) {
             if (TryFetchByPlayer(player, out var values)) {
                 bool result = true;
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     bool? newResult = value.On_GiveImmuneTimeForCollisionAttack(time);
                     if (newResult == false) {
                         result = false;
@@ -360,7 +387,7 @@ namespace InnoVault.GameSystem
         private static bool On_CanBeHitByProjectileHook(On_CanBeHitByProjectile_Dalegate orig, Player player, Projectile proj) {
             if (TryFetchByPlayer(player, out var values)) {
                 bool? result = null;
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     bool? newResult = value.On_CanBeHitByProjectile(proj);
                     if (newResult.HasValue) {
                         result = newResult.Value;
@@ -380,7 +407,7 @@ namespace InnoVault.GameSystem
             bool hasPlayer = TryFetchByPlayer(player, out var values);
             if (hasPlayer) {
                 bool result = true;
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     if (value.TargetItemID != ItemID.None && value.TargetItemID != sItem.type) {
                         continue;
                     }
@@ -403,7 +430,9 @@ namespace InnoVault.GameSystem
 
                 if (origResult && hasOverride) {//物品全局钩子有限级高于物品指向钩子
                     bool result = true;
-                    foreach (var value in itemOverrides.Values) {
+                    // 为保持一致，也做一次快照
+                    var overrideSnapshot = itemOverrides.Values.ToArray();
+                    foreach (var value in overrideSnapshot) {
                         bool newResult = value.On_PreEmitUseVisuals(sItem, player, ref itemRectangle);
                         if (newResult == false) {
                             result = false;
@@ -422,7 +451,7 @@ namespace InnoVault.GameSystem
             //下面执行Post操作，按优先级倒序执行
 
             if (hasOverride) {
-                foreach (var value in itemOverrides.Values) {
+                foreach (var value in itemOverrides.Values.ToArray()) {
                     value.On_PostEmitUseVisuals(sItem, player, ref itemRectangle);
                 }
             }
@@ -430,7 +459,7 @@ namespace InnoVault.GameSystem
             ItemRebuildLoader.UniversalForEach(inds => inds.On_PostEmitUseVisuals(sItem, player, ref itemRectangle));
 
             if (hasPlayer) {
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     if (value.TargetItemID != ItemID.None && value.TargetItemID != sItem.type) {
                         continue;
                     }
@@ -445,7 +474,7 @@ namespace InnoVault.GameSystem
             , LegacyPlayerRenderer self, Camera camera, IEnumerable<Player> players) {
             if (TryFetchByPlayer(Main.LocalPlayer, out var values)) {
                 bool reset = true;
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     if (!value.PreDrawPlayers(ref camera, ref players)) {
                         reset = false;
                     }
@@ -459,7 +488,7 @@ namespace InnoVault.GameSystem
 
         public override void ResetEffects() {
             if (TryFetchByPlayer(Player, out var values)) {
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     value.ResetEffects();
                 }
             }
@@ -467,7 +496,7 @@ namespace InnoVault.GameSystem
 
         public override void PostUpdate() {
             if (TryFetchByPlayer(Player, out var values)) {
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     value.PostUpdate();
                 }
             }
@@ -481,9 +510,12 @@ namespace InnoVault.GameSystem
 
             if (TryFetchByPlayer(Player, out var values)) {
                 bool result = true;
-                foreach (var value in values.Values) {
-                    if (value.TargetItemID == ItemID.None || value.TargetItemID == item.type) {
-                        result = value.ItemShoot(item, source, position, velocity, type, damage, knockback);
+                foreach (var value in SnapshotOverrides(values)) {
+                    if (value.TargetItemID != ItemID.None && value.TargetItemID != item.type) {
+                        continue;
+                    }
+                    if (!value.ItemShoot(item, source, position, velocity, type, damage, knockback)) {
+                        result = false;
                     }
                 }
                 return result;
@@ -499,11 +531,13 @@ namespace InnoVault.GameSystem
 
             if (TryFetchByPlayer(Player, out var values)) {
                 bool result = true;
-                foreach (var value in values.Values) {
+                foreach (var value in SnapshotOverrides(values)) {
                     if (value.TargetItemID != ItemID.None && value.TargetItemID != item.type) {
                         continue;
                     }
-                    result = value.CanUseItem(item);
+                    if (!value.CanUseItem(item)) {
+                        result = false;
+                    }
                 }
                 return result;
             }

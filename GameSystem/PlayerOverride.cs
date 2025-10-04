@@ -87,23 +87,6 @@ namespace InnoVault.GameSystem
         public static T GetOverride<T>() where T : PlayerOverride => TypeToInstance[typeof(T)] as T;
 
         /// <summary>
-        /// 为指定玩家设置默认的重制节点实例
-        /// </summary>
-        /// <param name="player"></param>
-        public static void SetDefaultsForPlayer(PlayerRebuildLoader player) {
-            player.PlayerOverrides.Clear();
-            foreach (var playerOverride in Instances) {
-                if (!playerOverride.CanOverride()) {
-                    continue;
-                }
-                var newInstance = playerOverride.Clone();
-                newInstance.Player = player.Player;
-                newInstance.SetDefaults();
-                player.PlayerOverrides.Add(newInstance.GetType(), newInstance);
-            }
-        }
-
-        /// <summary>
         /// 在玩家重制节点被载入时调用一次，用于设置默认值
         /// </summary>
         public virtual void SetDefaults() { }
