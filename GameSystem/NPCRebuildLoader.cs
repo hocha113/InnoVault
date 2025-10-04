@@ -328,8 +328,10 @@ namespace InnoVault.GameSystem
         }
 
         public override void ModifyNPCLoot(NPC npc, NPCLoot npcLoot) {
-            foreach (var value in ModifyNPCLootOverrides) {
-                value.ModifyNPCLoot(npc, npcLoot);
+            foreach (var value in Instances) {
+                if (value.TargetID == -1 || value.TargetID == npc.type) {
+                    value.ModifyNPCLoot(npc, npcLoot);
+                }
             }
         }
 
