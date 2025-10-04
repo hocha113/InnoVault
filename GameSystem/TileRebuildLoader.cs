@@ -63,7 +63,6 @@ namespace InnoVault.GameSystem
                 if (result.HasValue) {
                     return result.Value;
                 }
-                return false;
             }
 
             return orig.Invoke(i, j);
