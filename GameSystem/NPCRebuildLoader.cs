@@ -775,16 +775,6 @@ namespace InnoVault.GameSystem
                 }
             }
 
-            foreach (var inds in Instances) {//临时性，后面删
-                if (inds.TargetID != NPCID.None) {
-                    continue;
-                }
-
-                if (!inds.DoHitByProjectileByInstance(projectile, in hit, damageDone)) {
-                    return;
-                }
-            }
-
             foreach (var inds in UniversalInstances) {
                 inds.UniversalSetNPCInstance(npc);
                 if (!inds.DoHitByProjectileByInstance(projectile, in hit, damageDone)) {
@@ -801,16 +791,6 @@ namespace InnoVault.GameSystem
                     if (!inds.DoModifyIncomingHitByInstance(ref modifiers)) {
                         return;
                     }
-                }
-            }
-
-            foreach (var inds in Instances) {//临时性，后面删
-                if (inds.TargetID != NPCID.None) {
-                    continue;
-                }
-
-                if (!inds.DoModifyIncomingHitByInstance(ref modifiers)) {
-                    return;
                 }
             }
 
