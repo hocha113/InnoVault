@@ -98,7 +98,7 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="dict"></param>
         /// <returns></returns>
-        private static List<PlayerOverride> SnapshotOverrides(Dictionary<Type, PlayerOverride> dict) 
+        private static PlayerOverride[] SnapshotOverrides(Dictionary<Type, PlayerOverride> dict) 
             => dict == null || dict.Count == 0 ? [] : [.. dict.Values];
 
         void IVaultLoader.LoadData() {
@@ -505,7 +505,7 @@ namespace InnoVault.GameSystem
         public override bool Shoot(Item item, EntitySource_ItemUse_WithAmmo source
             , Vector2 position, Vector2 velocity, int type, int damage, float knockback) {
             if (item.type == ItemID.None || item.IsAir) {
-                return false;
+                return true;
             }
 
             if (TryFetchByPlayer(Player, out var values)) {
