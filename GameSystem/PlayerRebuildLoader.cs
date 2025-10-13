@@ -13,6 +13,7 @@ using Terraria.Graphics;
 using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
+using Terraria.ModLoader.IO;
 using static InnoVault.GameSystem.PlayerOverride;
 using static Terraria.Player;
 
@@ -75,6 +76,7 @@ namespace InnoVault.GameSystem
                 list.Add(newInstance.GetType(), newInstance);
             }
             player.PlayerOverrides = list;
+            ApplyActiveOverrides(player);
         }
 
         /// <summary>
