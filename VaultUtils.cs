@@ -167,6 +167,27 @@ namespace InnoVault
         public static float EaseCircularInOut(float x) => (x < 0.5f) ? (1f - (float)Math.Sqrt(1.0 - Math.Pow(x * 2, 2))) * 0.5f : (float)((Math.Sqrt(1.0 - Math.Pow(-2 * x + 2, 2)) + 1) * 0.5);
 
         /// <summary>
+        /// 三次缓动的入场效果
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        public static float EaseInCubic(float t) => t * t * t;
+
+        /// <summary>
+        /// 三次缓动的出场效果
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        public static float EaseOutCubic(float t) => 1f - (float)Math.Pow(1f - t, 3);
+
+        /// <summary>
+        /// 三次缓动的入场和出场效果
+        /// </summary>
+        /// <param name="t"></param>
+        /// <returns></returns>
+        public static float EaseInOutQuad(float t) => t < 0.5f ? 2f * t * t : 1f - (float)Math.Pow(-2f * t + 2f, 2) / 2f;
+
+        /// <summary>
         /// 两点间简略取值
         /// </summary>
         /// <param name="vr1"></param>
