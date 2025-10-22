@@ -5,6 +5,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.ModLoader;
+using Terraria.ModLoader.Default;
 using Terraria.ModLoader.IO;
 using static InnoVault.TileProcessors.TileProcessorLoader;
 
@@ -48,6 +49,10 @@ namespace InnoVault.TileProcessors
 
             if (!Tile.HasTile) {
                 return true;
+            }
+
+            if (Tile.TileType != ModContent.TileType<UnloadedTile>()) {
+                return true;//只有卸载物块上才允许存在这个实体
             }
 
             //删除关于目标物块ID的判定
