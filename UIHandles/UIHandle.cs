@@ -91,6 +91,11 @@ namespace InnoVault.UIHandles
         private bool downR;
 
         /// <summary>
+        /// 当前更新周期是否为逻辑更新
+        /// </summary>
+        public static bool IsLogicUpdate { get; set; }
+
+        /// <summary>
         /// 封闭内容
         /// </summary>
         protected override void VaultRegister() {
@@ -150,9 +155,14 @@ namespace InnoVault.UIHandles
         public virtual void UnLoad() { }
 
         /// <summary>
-        /// 更新逻辑相关
+        /// 更新逻辑相关，该更新钩子运行在绘制逻辑中，调用在 <see cref="Draw"/> 之前
         /// </summary>
         public virtual void Update() { }
+
+        /// <summary>
+        /// 更新逻辑相关，该更新钩子运行在游戏主循环的逻辑更新中，在主菜单中不会被调用，因为主菜单只有绘制线程更新可用
+        /// </summary>
+        public virtual void LogicUpdate() { }
 
         /// <summary>
         /// 玩家进入世界时调用一次该方法，可以用于一些UI的初始化操作
