@@ -73,13 +73,13 @@ namespace InnoVault.UIHandles
         /// </summary>
         public Rectangle MouseHitBox => MousePosition.GetRectangle(1);
         /// <summary>
-        /// 左键按键状态
+        /// 左键按键状态，此值伴随于绘制线程更新
         /// </summary>
-        public KeyPressState keyLeftPressState => UIHandleLoader.keyLeftPressState;
+        public KeyPressState keyLeftPressState => IsLogicUpdate ? logicKeyLeftPressState : UIHandleLoader.keyLeftPressState;
         /// <summary>
-        /// 右键按键状态
+        /// 右键按键状态，此值伴随于绘制线程更新
         /// </summary>
-        public KeyPressState keyRightPressState => UIHandleLoader.keyRightPressState;
+        public KeyPressState keyRightPressState => IsLogicUpdate ? logicKeyRightPressState : UIHandleLoader.keyRightPressState;
         /// <summary>
         /// 预留的判定主页悬浮的字段，相关的数据建议往这里存储，以确保可能的UI元素之间的交互通畅
         /// </summary>

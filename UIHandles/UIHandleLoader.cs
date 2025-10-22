@@ -36,6 +36,11 @@ namespace InnoVault.UIHandles
         /// 当前的右键按下状态
         /// </summary>
         public static bool downR;
+        //逻辑线程状态
+        private static bool oldDownL_Logic;
+        private static bool downL_Logic;
+        private static bool oldDownR_Logic;
+        private static bool downR_Logic;
         /// <summary>
         /// 左键按键状态，此值伴随于绘制线程更新，不建议在绘制线程以外的地方使用
         /// </summary>
@@ -44,6 +49,14 @@ namespace InnoVault.UIHandles
         /// 右键按键状态，此值伴随于绘制线程更新，不建议在绘制线程以外的地方使用
         /// </summary>
         public static KeyPressState keyRightPressState;
+        /// <summary>
+        /// 左键按键状态，此值伴随于逻辑线程更新，不建议在逻辑线程以外的地方使用
+        /// </summary>
+        public static KeyPressState logicKeyLeftPressState;
+        /// <summary>
+        /// 右键按键状态，此值伴随于逻辑线程更新，不建议在逻辑线程以外的地方使用
+        /// </summary>
+        public static KeyPressState logicKeyRightPressState;
         /// <summary>
         /// 当左键保持按下时触发的事件用于捕捉玩家持续按住左键的行为
         /// </summary>
@@ -340,6 +353,30 @@ namespace InnoVault.UIHandles
             return KeyPressState.None;
         }
 
+        /// <summary>
+        /// 检查左键按键状态的变化(逻辑线程)
+        /// </summary>
+        private static KeyPressState CheckLeftKeyState_Logic() {
+            oldDownL_Logic = downL_Logic;
+            downL_Logic = Main.LocalPlayer.PressKey();
+            if (downL_Logic && oldDownL_Logic) return KeyPressState.Held;
+            if (downL_Logic && !oldDownL_Logic) return KeyPressState.Pressed;
+            if (!downL_Logic && oldDownL_Logic) return KeyPressState.Released;
+            return KeyPressState.None;
+        }
+
+        /// <summary>
+        /// 检查右键按键状态的变化(逻辑线程)
+        /// </summary>
+        private static KeyPressState CheckRightKeyState_Logic() {
+            oldDownL_Logic = downL_Logic;
+            downL_Logic = Main.LocalPlayer.PressKey(false);
+            if (downL_Logic && oldDownL_Logic) return KeyPressState.Held;
+            if (downL_Logic && !oldDownL_Logic) return KeyPressState.Pressed;
+            if (!downL_Logic && oldDownL_Logic) return KeyPressState.Released;
+            return KeyPressState.None;
+        }
+
         internal static void UpdateKeyState() {
             keyLeftPressState = CheckLeftKeyState();
             if (keyLeftPressState != KeyPressState.None) {
@@ -478,6 +515,45 @@ namespace InnoVault.UIHandles
             foreach (var global in UIHandleGlobalHooks) {
                 global.PostUpdataInUIEverything();
             }
+        }
+
+        /// <inheritdoc/>
+        public override void PostUpdateEverything() {
+            if (Main.dedServ) {//不要在服务器上更新逻辑
+                return;
+            }
+
+            //更新逻辑线程的按键状态
+            logicKeyLeftPressState = CheckLeftKeyState_Logic();
+            logicKeyRightPressState = CheckRightKeyState_Logic();
+
+            //在逻辑更新中调用UIHandle的LogicUpdate
+            UIHandle.IsLogicUpdate = true;
+
+            foreach (var ui in UIHandles) {
+                if (!ShouldModifyInterfaceLayers(ui.LayersMode)) {
+                    continue;
+                }
+
+                if (!ui.Active) {
+                    continue;
+                }
+
+                if (ui.ignoreBug > 0) {
+                    ui.ignoreBug--;
+                    continue;
+                }
+
+                try {
+                    ui.LogicUpdate();
+                } catch (Exception ex) {
+                    ui.ignoreBug = 600;
+                    ui.errorCount++;
+                    VaultMod.Instance.Logger.Error($"{ui} encountered an error {ui.errorCount} times in LogicUpdate: {ex}");
+                }
+            }
+
+            UIHandle.IsLogicUpdate = false;
         }
 
         private static void IL_MenuLoadDraw_Hook(ILContext il) {
