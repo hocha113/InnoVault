@@ -13,7 +13,6 @@ using Terraria.Graphics;
 using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
-using Terraria.ModLoader.IO;
 using static InnoVault.GameSystem.PlayerOverride;
 using static Terraria.Player;
 
@@ -100,7 +99,7 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="dict"></param>
         /// <returns></returns>
-        private static PlayerOverride[] SnapshotOverrides(Dictionary<Type, PlayerOverride> dict) 
+        private static PlayerOverride[] SnapshotOverrides(Dictionary<Type, PlayerOverride> dict)
             => dict == null || dict.Count == 0 ? [] : [.. dict.Values];
 
         void IVaultLoader.LoadData() {
