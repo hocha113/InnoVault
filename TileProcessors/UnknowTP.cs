@@ -51,10 +51,6 @@ namespace InnoVault.TileProcessors
                 return true;
             }
 
-            if (Tile.TileType != ModContent.TileType<UnloadedTile>()) {
-                return true;//只有卸载物块上才允许存在这个实体
-            }
-
             //删除关于目标物块ID的判定
             return false;
         }
