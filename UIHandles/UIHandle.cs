@@ -102,6 +102,7 @@ namespace InnoVault.UIHandles
             int id = UIHandleLoader.UIHandles.Count;
             Type type = GetType();
             UIHandle_Type_To_ID.Add(type, id);
+            UIHandle_Name_To_ID.Add(FullName, id);
             UIHandle_ID_To_Instance.Add(id, this);
             UIHandleLoader.UIHandles.Add(this);
             GetLayerModeHandlers(LayersMode).Add(this);
