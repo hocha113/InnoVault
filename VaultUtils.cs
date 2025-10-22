@@ -167,15 +167,15 @@ namespace InnoVault
         public static float EaseCircularInOut(float x) => (x < 0.5f) ? (1f - (float)Math.Sqrt(1.0 - Math.Pow(x * 2, 2))) * 0.5f : (float)((Math.Sqrt(1.0 - Math.Pow(-2 * x + 2, 2)) + 1) * 0.5);
 
         /// <summary>
-        /// 指数缓出函数
-        /// 速度起初极快并迅速减缓，在接近结束时趋于平缓
+        /// 指数缓出函数<br/>
+        /// 速度起初极快并迅速减缓，在接近结束时趋于平缓<br/>
         /// 常用于需要强烈减速感的动画
         /// </summary>
         public static float EaseOutExpo(float t) => t >= 1f ? 1f : 1f - (float)Math.Pow(2, -10 * t);
 
         /// <summary>
-        /// 三次缓出函数
-        /// 起初快速加速，随后平滑减速
+        /// 三次缓出函数<br/>
+        /// 起初快速加速，随后平滑减速<br/>
         /// 常用于自然的物体停止效果
         /// </summary>
         public static float EaseOutCubic(float t) {
@@ -185,7 +185,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 三次缓出函数的简化版
+        /// 三次缓出函数的简化版<br/>
         /// 功能等同于 EaseOutCubic
         /// </summary>
         public static float EaseOut(float t) {
@@ -193,20 +193,20 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 二次缓入函数
+        /// 二次缓入函数<br/>
         /// 从慢到快加速，适合平滑启动的动画
         /// </summary>
         public static float EaseInQuad(float t) => t * t;
 
         /// <summary>
-        /// 二次缓出函数
+        /// 二次缓出函数<br/>
         /// 从快到慢减速，适合平滑停止的动画
         /// </summary>
         public static float EaseOutQuad(float t) => 1f - (1f - t) * (1f - t);
 
         /// <summary>
-        /// 反向缓入缓出函数
-        /// 在开始和结束阶段略有“回弹”效果
+        /// 反向缓入缓出函数<br/>
+        /// 在开始和结束阶段略有“回弹”效果<br/>
         /// 常用于强调弹性或动感的过渡
         /// </summary>
         public static float EaseInOutBack(float t) {
@@ -219,8 +219,8 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 反向缓出函数
-        /// 在结束阶段会略微超出目标后反弹回终点
+        /// 反向缓出函数<br/>
+        /// 在结束阶段会略微超出目标后反弹回终点<br/>
         /// 常用于产生弹性离场的视觉效果
         /// </summary>
         public static float EaseOutBack(float t) {
@@ -230,8 +230,8 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 三次缓入缓出函数
-        /// 前半段加速 后半段减速
+        /// 三次缓入缓出函数<br/>
+        /// 前半段加速 后半段减速<br/>
         /// 常用于平滑的镜像对称运动
         /// </summary>
         public static float EaseInOutCubic(float t) {
@@ -241,7 +241,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 三次缓入函数
+        /// 三次缓入函数<br/>
         /// 起始阶段缓慢 加速度随时间增加
         /// </summary>
         public static float EaseInCubic(float t) {
@@ -249,8 +249,8 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 二次缓入缓出函数
-        /// 前半部分加速 后半部分减速
+        /// 二次缓入缓出函数<br/>
+        /// 前半部分加速 后半部分减速<br/>
         /// 常用于平滑自然的过渡动画
         /// </summary>
         public static float EaseInOutQuad(float t) {
@@ -258,8 +258,8 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 二次贝塞尔曲线
-        /// 由三个控制点定义的平滑曲线
+        /// 二次贝塞尔曲线<br/>
+        /// 由三个控制点定义的平滑曲线<br/>
         /// 用于简单插值或平滑路径计算
         /// </summary>
         public static Vector2 Bezier(Vector2 a, Vector2 b, Vector2 c, float t) {
@@ -268,8 +268,8 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 三次贝塞尔曲线
-        /// 由四个控制点定义的高阶平滑曲线
+        /// 三次贝塞尔曲线<br/>
+        /// 由四个控制点定义的高阶平滑曲线<br/>
         /// 适用于复杂轨迹与自然运动插值
         /// </summary>
         public static Vector2 CubicBezier(float t, Vector2 p0, Vector2 p1, Vector2 p2, Vector2 p3) {
@@ -286,8 +286,8 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 正弦缓出函数
-        /// 使用正弦曲线模拟平滑的停止运动
+        /// 正弦缓出函数<br/>
+        /// 使用正弦曲线模拟平滑的停止运动<br/>
         /// 常用于自然的轻缓收尾效果
         /// </summary>
         public static float EaseOutSine(float t) {
