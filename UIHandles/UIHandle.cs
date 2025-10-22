@@ -73,11 +73,11 @@ namespace InnoVault.UIHandles
         /// </summary>
         public Rectangle MouseHitBox => MousePosition.GetRectangle(1);
         /// <summary>
-        /// 左键按键状态，此值伴随于绘制线程更新
+        /// 左键按键状态
         /// </summary>
         public KeyPressState keyLeftPressState => IsLogicUpdate ? logicKeyLeftPressState : UIHandleLoader.keyLeftPressState;
         /// <summary>
-        /// 右键按键状态，此值伴随于绘制线程更新
+        /// 右键按键状态
         /// </summary>
         public KeyPressState keyRightPressState => IsLogicUpdate ? logicKeyRightPressState : UIHandleLoader.keyRightPressState;
         /// <summary>

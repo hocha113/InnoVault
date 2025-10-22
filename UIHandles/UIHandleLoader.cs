@@ -318,6 +318,16 @@ namespace InnoVault.UIHandles
             UIHandle_Type_To_ID?.Clear();
             UIHandle_ID_To_Instance?.Clear();
 
+            //重置按键状态
+            oldDownL = downL = false;
+            oldDownR = downR = false;
+            oldDownL_Logic = downL_Logic = false;
+            oldDownR_Logic = downR_Logic = false;
+            keyLeftPressState = KeyPressState.None;
+            keyRightPressState = KeyPressState.None;
+            logicKeyLeftPressState = KeyPressState.None;
+            logicKeyRightPressState = KeyPressState.None;
+
             LeftHeldEvent = null;
             LeftPressedEvent = null;
             LeftReleasedEvent = null;
@@ -369,11 +379,11 @@ namespace InnoVault.UIHandles
         /// 检查右键按键状态的变化(逻辑线程)
         /// </summary>
         private static KeyPressState CheckRightKeyState_Logic() {
-            oldDownL_Logic = downL_Logic;
-            downL_Logic = Main.LocalPlayer.PressKey(false);
-            if (downL_Logic && oldDownL_Logic) return KeyPressState.Held;
-            if (downL_Logic && !oldDownL_Logic) return KeyPressState.Pressed;
-            if (!downL_Logic && oldDownL_Logic) return KeyPressState.Released;
+            oldDownR_Logic = downR_Logic;
+            downR_Logic = Main.LocalPlayer.PressKey(false);
+            if (downR_Logic && oldDownR_Logic) return KeyPressState.Held;
+            if (downR_Logic && !oldDownR_Logic) return KeyPressState.Pressed;
+            if (!downR_Logic && oldDownR_Logic) return KeyPressState.Released;
             return KeyPressState.None;
         }
 
