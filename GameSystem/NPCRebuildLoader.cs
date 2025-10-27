@@ -610,7 +610,7 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            string npcMsg = $"An error occurred in original AI for NPC {npc.FullName}. Deactivating it.";
+            string npcMsg = $"An error occurred in original AI for NPC {npc.GetType().FullName}. Deactivating it.";
             VaultUtils.Text($"{npcMsg} For detailed error information, please refer to the log file", Color.Red);
             VaultMod.Instance.Logger.Error($"{npcMsg} Error: {ex}");
             npc.active = false;
