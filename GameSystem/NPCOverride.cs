@@ -212,6 +212,9 @@ namespace InnoVault.GameSystem
                 if (NPCRebuildLoader.HookCheckDead.HookOverrideQuery.HasOverride(overrideInstance)) {
                     globalInstance.CheckDeadOverrides.Add(overrideInstance);
                 }
+                if (NPCRebuildLoader.HookSpecialOnKill.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.SpecialOnKillOverrides.Add(overrideInstance);
+                }
                 if (NPCRebuildLoader.HookDraw.HookOverrideQuery.HasOverride(overrideInstance)) {
                     globalInstance.DrawOverrides.Add(overrideInstance);
                 }
@@ -342,6 +345,11 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <returns></returns>
         public virtual bool? CheckDead() { return null; }
+        /// <summary>
+        /// 允许编辑击杀事件，返回非null值可以阻断后续逻辑的运行
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool? SpecialOnKill() { return null; }
         /// <summary>
         /// 允许编辑活跃检测逻辑
         /// </summary>

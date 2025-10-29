@@ -56,6 +56,7 @@ namespace InnoVault.GameSystem
         internal static VaultHookMethodCache<NPCOverride> HookOn_PreKill;
         internal static VaultHookMethodCache<NPCOverride> HookCheckActive;
         internal static VaultHookMethodCache<NPCOverride> HookCheckDead;
+        internal static VaultHookMethodCache<NPCOverride> HookSpecialOnKill;
         internal static VaultHookMethodCache<NPCOverride> HookDraw;
         internal static VaultHookMethodCache<NPCOverride> HookPostDraw;
         internal static VaultHookMethodCache<NPCOverride> HookFindFrame;
@@ -73,6 +74,7 @@ namespace InnoVault.GameSystem
         public List<NPCOverride> On_PreKillOverrides { get; private set; }
         public List<NPCOverride> CheckActiveOverrides { get; private set; }
         public List<NPCOverride> CheckDeadOverrides { get; private set; }
+        public List<NPCOverride> SpecialOnKillOverrides { get; private set; }
         public List<NPCOverride> DrawOverrides { get; private set; }
         public List<NPCOverride> PostDrawOverrides { get; private set; }
         public List<NPCOverride> FindFrameOverrides { get; private set; }
@@ -105,6 +107,7 @@ namespace InnoVault.GameSystem
             HookOn_PreKill = AddHook<Func<bool?>>(n => n.On_PreKill);
             HookCheckActive = AddHook<Func<bool>>(n => n.CheckActive);
             HookCheckDead = AddHook<Func<bool?>>(n => n.CheckDead);
+            HookSpecialOnKill = AddHook<Func<bool?>>(n => n.SpecialOnKill);
             HookDraw = AddHook<Func<SpriteBatch, Vector2, Color, bool?>>(n => n.Draw);
             HookPostDraw = AddHook<Func<SpriteBatch, Vector2, Color, bool>>(n => n.PostDraw);
             HookFindFrame = AddHook<Func<int, bool>>(n => n.FindFrame);
@@ -178,6 +181,7 @@ namespace InnoVault.GameSystem
             rebuildLoader.On_PreKillOverrides = [.. On_PreKillOverrides];
             rebuildLoader.CheckActiveOverrides = [.. CheckActiveOverrides];
             rebuildLoader.CheckDeadOverrides = [.. CheckDeadOverrides];
+            rebuildLoader.SpecialOnKillOverrides = [.. SpecialOnKillOverrides];
             rebuildLoader.DrawOverrides = [.. DrawOverrides];
             rebuildLoader.PostDrawOverrides = [.. PostDrawOverrides];
             rebuildLoader.FindFrameOverrides = [.. FindFrameOverrides];
@@ -647,6 +651,26 @@ namespace InnoVault.GameSystem
                 bool? result = null;
                 foreach (var value in gNpc.CheckDeadOverrides) {
                     bool? newResult = value.CheckDead();
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                }
+                if (result.HasValue) {
+                    return result.Value;
+                }
+            }
+            return orig.Invoke(npc);
+        }
+
+        public static bool OnSpecialOnKillHook(On_NPCDelegate2 orig, NPC npc) {
+            if (npc.type == NPCID.None || !npc.active) {
+                return orig.Invoke(npc);
+            }
+
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+                bool? result = null;
+                foreach (var value in gNpc.SpecialOnKillOverrides) {
+                    bool? newResult = value.SpecialOnKill();
                     if (newResult.HasValue) {
                         result = newResult.Value;
                     }
