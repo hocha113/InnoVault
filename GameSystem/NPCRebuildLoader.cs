@@ -57,6 +57,7 @@ namespace InnoVault.GameSystem
         internal static VaultHookMethodCache<NPCOverride> HookCheckActive;
         internal static VaultHookMethodCache<NPCOverride> HookCheckDead;
         internal static VaultHookMethodCache<NPCOverride> HookSpecialOnKill;
+        internal static VaultHookMethodCache<NPCOverride> HookOnCheckDead;
         internal static VaultHookMethodCache<NPCOverride> HookDraw;
         internal static VaultHookMethodCache<NPCOverride> HookPostDraw;
         internal static VaultHookMethodCache<NPCOverride> HookFindFrame;
@@ -75,6 +76,7 @@ namespace InnoVault.GameSystem
         public List<NPCOverride> CheckActiveOverrides { get; private set; }
         public List<NPCOverride> CheckDeadOverrides { get; private set; }
         public List<NPCOverride> SpecialOnKillOverrides { get; private set; }
+        public List<NPCOverride> OnCheckActiveOverrides { get; private set; }
         public List<NPCOverride> DrawOverrides { get; private set; }
         public List<NPCOverride> PostDrawOverrides { get; private set; }
         public List<NPCOverride> FindFrameOverrides { get; private set; }
@@ -108,6 +110,7 @@ namespace InnoVault.GameSystem
             HookCheckActive = AddHook<Func<bool>>(n => n.CheckActive);
             HookCheckDead = AddHook<Func<bool?>>(n => n.CheckDead);
             HookSpecialOnKill = AddHook<Func<bool?>>(n => n.SpecialOnKill);
+            HookOnCheckDead = AddHook<Func<bool?>>(n => n.On_CheckActive);
             HookDraw = AddHook<Func<SpriteBatch, Vector2, Color, bool?>>(n => n.Draw);
             HookPostDraw = AddHook<Func<SpriteBatch, Vector2, Color, bool>>(n => n.PostDraw);
             HookFindFrame = AddHook<Func<int, bool>>(n => n.FindFrame);
@@ -595,6 +598,25 @@ namespace InnoVault.GameSystem
                     DompLog("onCheckDead_Method");
                 }
             }
+            MethodInfo methodInfo;
+            {
+                methodInfo = GetMethodInfo("SpecialOnKill");
+                if (methodInfo != null) {
+                    VaultHook.Add(methodInfo, OnSpecialOnKillHook);
+                }
+                else {
+                    DompLog("onSpecialOnKill_Method");
+                }
+            }
+            {
+                methodInfo = GetMethodInfo("CheckActive");
+                if (methodInfo != null) {
+                    VaultHook.Add(methodInfo, OnCheckActiveHook);
+                }
+                else {
+                    DompLog("onCheckActive_Method");
+                }
+            }
             {
                 onPreKill_Method = GetMethodInfo("PreKill");
                 if (onPreKill_Method != null) {
@@ -682,13 +704,29 @@ namespace InnoVault.GameSystem
             return orig.Invoke(npc);
         }
 
+        public static bool OnCheckActiveHook(On_NPCDelegate2 orig, NPC npc) {
+            if (npc.type == NPCID.None || !npc.active) {
+                return orig.Invoke(npc);
+            }
+
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+                bool? result = null;
+                foreach (var value in gNpc.OnCheckActiveOverrides) {
+                    bool? newResult = value.On_CheckActive();
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                }
+                if (result.HasValue) {
+                    return result.Value;
+                }
+            }
+            return orig.Invoke(npc);
+        }
+
         public static void OnNPCAIHook(On_NPCDelegate orig, NPC npc) {
             if (npc.type == NPCID.None || !npc.active) {
-                try {
-                    orig.Invoke(npc);
-                } catch (Exception ex) {
-                    LogAndDeactivateNPC(npc, ex);
-                }
+                orig.Invoke(npc);
                 return;
             }
 
@@ -723,11 +761,7 @@ namespace InnoVault.GameSystem
                 }
             }
             else {
-                try {
-                    orig.Invoke(npc);
-                } catch (Exception ex) {
-                    LogAndDeactivateNPC(npc, ex);
-                }
+                orig.Invoke(npc);
             }
 
             UniversalForEach(npc, inds => inds.PostAI());

@@ -215,6 +215,9 @@ namespace InnoVault.GameSystem
                 if (NPCRebuildLoader.HookSpecialOnKill.HookOverrideQuery.HasOverride(overrideInstance)) {
                     globalInstance.SpecialOnKillOverrides.Add(overrideInstance);
                 }
+                if (NPCRebuildLoader.HookOnCheckDead.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.OnCheckActiveOverrides.Add(overrideInstance);
+                }
                 if (NPCRebuildLoader.HookDraw.HookOverrideQuery.HasOverride(overrideInstance)) {
                     globalInstance.DrawOverrides.Add(overrideInstance);
                 }
@@ -355,6 +358,11 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <returns></returns>
         public virtual bool CheckActive() => true;
+        /// <summary>
+        /// 允许编辑活跃检测逻辑，返回非null值可以阻断后续逻辑的运行
+        /// </summary>
+        /// <returns></returns>
+        public virtual bool? On_CheckActive() => null;
         /// <summary>
         /// 编辑NPC在地图上的图标ID
         /// </summary>
