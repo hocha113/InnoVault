@@ -185,6 +185,7 @@ namespace InnoVault.GameSystem
             rebuildLoader.CheckActiveOverrides = [.. CheckActiveOverrides];
             rebuildLoader.CheckDeadOverrides = [.. CheckDeadOverrides];
             rebuildLoader.SpecialOnKillOverrides = [.. SpecialOnKillOverrides];
+            rebuildLoader.OnCheckActiveOverrides = [.. OnCheckActiveOverrides];
             rebuildLoader.DrawOverrides = [.. DrawOverrides];
             rebuildLoader.PostDrawOverrides = [.. PostDrawOverrides];
             rebuildLoader.FindFrameOverrides = [.. FindFrameOverrides];
@@ -198,6 +199,28 @@ namespace InnoVault.GameSystem
             rebuildLoader.CanBeHitByProjectileOverrides = [.. CanBeHitByProjectileOverrides];
             rebuildLoader.NPCOverrides = NPCOverrides;
             return rebuildLoader;
+        }
+
+        public void InitializeNPC() {
+            //当GlobalNPC实例被创建时，初始化它的列表字段
+            AIOverrides = [];
+            PostAIOverrides = [];
+            On_PreKillOverrides = [];
+            CheckActiveOverrides = [];
+            CheckDeadOverrides = [];
+            SpecialOnKillOverrides = [];
+            OnCheckActiveOverrides = [];
+            DrawOverrides = [];
+            PostDrawOverrides = [];
+            FindFrameOverrides = [];
+            ModifyNPCLootOverrides = [];
+            OnHitByItemOverrides = [];
+            OnHitByProjectileOverrides = [];
+            ModifyHitByItemOverrides = [];
+            ModifyHitByProjectileOverrides = [];
+            CanBeHitByItemOverrides = [];
+            CanBeHitByNPCOverrides = [];
+            CanBeHitByProjectileOverrides = [];
         }
 
         public override bool AppliesToEntity(NPC entity, bool lateInstantiation) => lateInstantiation && ByID.ContainsKey(entity.type);
@@ -231,26 +254,6 @@ namespace InnoVault.GameSystem
                 }
             }
             return result;
-        }
-
-        public void InitializeNPC() {
-            //当GlobalNPC实例被创建时，初始化它的列表字段
-            AIOverrides = [];
-            PostAIOverrides = [];
-            On_PreKillOverrides = [];
-            CheckActiveOverrides = [];
-            CheckDeadOverrides = [];
-            DrawOverrides = [];
-            PostDrawOverrides = [];
-            FindFrameOverrides = [];
-            ModifyNPCLootOverrides = [];
-            OnHitByItemOverrides = [];
-            OnHitByProjectileOverrides = [];
-            ModifyHitByItemOverrides = [];
-            ModifyHitByProjectileOverrides = [];
-            CanBeHitByItemOverrides = [];
-            CanBeHitByNPCOverrides = [];
-            CanBeHitByProjectileOverrides = [];
         }
 
         public override void SetDefaults(NPC npc) {
@@ -778,7 +781,7 @@ namespace InnoVault.GameSystem
                     bool? newResult = value.Draw(spriteBatch, screenPos, drawColor);
                     if (newResult.HasValue) {
                         result = newResult.Value;
-                    }
+                      }
                 }
                 if (result.HasValue) {
                     return result.Value;
