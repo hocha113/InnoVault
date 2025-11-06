@@ -3205,7 +3205,7 @@ namespace InnoVault
                     for (int j = 0; j < data.Height; j++) {
                         Point16 newPoint = point16 + new Point16(i, j);
                         Tile newTile = Main.tile[newPoint];
-                        if (newTile.TileType == 378) {
+                        if (newTile.TileType == TileID.TargetDummy) {
                             newTile.TileType = TileID.Dirt;
                             newTile.HasTile = false;
                             WorldGen.SquareTileFrame(newPoint.X, newPoint.Y);
