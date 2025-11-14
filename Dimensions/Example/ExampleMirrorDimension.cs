@@ -201,7 +201,7 @@ namespace InnoVault.Dimensions.Example
         public override bool OnPlayerDeath(Player player) {
             //玩家死亡时自动返回主世界
             Main.NewText("镜像维度排斥了你的灵魂...", Color.Red);
-            DimensionSystem.Exit();
+            DimensionLoader.Exit();
             return true; //自定义死亡处理
         }
 
@@ -217,12 +217,12 @@ namespace InnoVault.Dimensions.Example
 
         public override void CopyFromMainWorld() {
             //从主世界复制某些数据
-            DimensionSystem.CopyData("ExampleBossDefeated", NPC.downedBoss1);
+            DimensionLoader.CopyData("ExampleBossDefeated", NPC.downedBoss1);
         }
 
         public override void ReadMainWorldData() {
             //读取从主世界复制的数据
-            bool bossDefeated = DimensionSystem.ReadData<bool>("ExampleBossDefeated");
+            bool bossDefeated = DimensionLoader.ReadData<bool>("ExampleBossDefeated");
 
             if (bossDefeated) {
                 //基于主世界进度调整维度
@@ -231,12 +231,12 @@ namespace InnoVault.Dimensions.Example
 
         public override void CopyDimensionData() {
             //复制维度数据传回主世界
-            DimensionSystem.CopyData("MirrorExplorationProgress", 0.5f);
+            DimensionLoader.CopyData("MirrorExplorationProgress", 0.5f);
         }
 
         public override void ReadDimensionData() {
             //读取维度数据
-            float progress = DimensionSystem.ReadData<float>("MirrorExplorationProgress");
+            float progress = DimensionLoader.ReadData<float>("MirrorExplorationProgress");
         }
 
         #endregion

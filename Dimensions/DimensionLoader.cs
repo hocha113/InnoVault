@@ -15,7 +15,7 @@ namespace InnoVault.Dimensions
     /// <summary>
     /// 维度系统管理器,负责维度的切换、加载和数据管理
     /// </summary>
-    public class DimensionSystem : ModSystem
+    public class DimensionLoader : ModSystem
     {
         #region 静态字段
 

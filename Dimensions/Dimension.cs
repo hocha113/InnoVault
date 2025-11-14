@@ -136,34 +136,34 @@ namespace InnoVault.Dimensions
         /// 注册维度到系统并建立快速查找索引
         /// </summary>
         protected sealed override void VaultRegister() {
-            ID = DimensionSystem.registeredDimensions.Count;
-            DimensionSystem.registeredDimensions.Add(this);
+            ID = DimensionLoader.registeredDimensions.Count;
+            DimensionLoader.registeredDimensions.Add(this);
 
             //往总列表中添加实例
             Instances.Add(this);
 
             //建立FullName索引
-            DimensionSystem.dimensionsByFullName[FullName] = this;
+            DimensionLoader.dimensionsByFullName[FullName] = this;
 
             //建立Type索引
-            DimensionSystem.dimensionsByType[GetType()] = this;
+            DimensionLoader.dimensionsByType[GetType()] = this;
 
             //建立索引号索引
-            DimensionSystem.dimensionsByIndex[ID] = this;
+            DimensionLoader.dimensionsByIndex[ID] = this;
 
             //建立Mod索引
             {
-                if (!DimensionSystem.dimensionsByMod.TryGetValue(Mod, out List<Dimension> value)) {
+                if (!DimensionLoader.dimensionsByMod.TryGetValue(Mod, out List<Dimension> value)) {
                     value = [];
-                    DimensionSystem.dimensionsByMod[Mod] = value;
+                    DimensionLoader.dimensionsByMod[Mod] = value;
                 }
                 value.Add(this);
             }
             //建立Layer索引
             {
-                if (!DimensionSystem.dimensionsByLayer.TryGetValue(Layer, out List<Dimension> value)) {
+                if (!DimensionLoader.dimensionsByLayer.TryGetValue(Layer, out List<Dimension> value)) {
                     value = [];
-                    DimensionSystem.dimensionsByLayer[Layer] = value;
+                    DimensionLoader.dimensionsByLayer[Layer] = value;
                 }
                 value.Add(this);
             }

@@ -17,7 +17,7 @@ namespace InnoVault.Dimensions
         /// 通过完整名称查找维度
         /// </summary>
         public static Dimension FindDimension(string fullName) {
-            DimensionSystem.dimensionsByFullName.TryGetValue(fullName, out Dimension dimension);
+            DimensionLoader.dimensionsByFullName.TryGetValue(fullName, out Dimension dimension);
             return dimension;
         }
 
@@ -25,7 +25,7 @@ namespace InnoVault.Dimensions
         /// 通过类型查找维度
         /// </summary>
         public static T FindDimension<T>() where T : Dimension {
-            if (DimensionSystem.dimensionsByType.TryGetValue(typeof(T), out Dimension dimension)) {
+            if (DimensionLoader.dimensionsByType.TryGetValue(typeof(T), out Dimension dimension)) {
                 return dimension as T;
             }
             return null;
@@ -35,7 +35,7 @@ namespace InnoVault.Dimensions
         /// 获取所有指定模组的维度
         /// </summary>
         public static List<Dimension> GetDimensionsFromMod(Mod mod) {
-            if (DimensionSystem.dimensionsByMod.TryGetValue(mod, out List<Dimension> dimensions)) {
+            if (DimensionLoader.dimensionsByMod.TryGetValue(mod, out List<Dimension> dimensions)) {
                 return new List<Dimension>(dimensions); // 返回副本以防止外部修改
             }
             return new List<Dimension>();
@@ -45,7 +45,7 @@ namespace InnoVault.Dimensions
         /// 获取所有指定层级的维度
         /// </summary>
         public static List<Dimension> GetDimensionsByLayer(DimensionLayerEnum layer) {
-            if (DimensionSystem.dimensionsByLayer.TryGetValue(layer, out List<Dimension> dimensions)) {
+            if (DimensionLoader.dimensionsByLayer.TryGetValue(layer, out List<Dimension> dimensions)) {
                 return new List<Dimension>(dimensions); // 返回副本以防止外部修改
             }
             return new List<Dimension>();
@@ -118,7 +118,7 @@ namespace InnoVault.Dimensions
             if (dimension == null || !dimension.CanEnter(player))
                 return false;
 
-            bool success = DimensionSystem.Enter(dimensionFullName);
+            bool success = DimensionLoader.Enter(dimensionFullName);
 
             if (success && spawnPosition.HasValue) {
                 //设置玩家生成位置
@@ -133,10 +133,10 @@ namespace InnoVault.Dimensions
         /// 将玩家踢回主世界
         /// </summary>
         public static void KickToMainWorld(Player player) {
-            if (player == null || !DimensionSystem.AnyActive())
+            if (player == null || !DimensionLoader.AnyActive())
                 return;
 
-            DimensionSystem.Exit();
+            DimensionLoader.Exit();
         }
 
         #endregion
@@ -199,10 +199,10 @@ namespace InnoVault.Dimensions
         /// 设置维度时间
         /// </summary>
         public static void SetDimensionTime(double time, bool isDayTime) {
-            if (!DimensionSystem.AnyActive())
+            if (!DimensionLoader.AnyActive())
                 return;
 
-            if (DimensionSystem.Current.EnableTimeOfDay) {
+            if (DimensionLoader.Current.EnableTimeOfDay) {
                 Main.time = time;
                 Main.dayTime = isDayTime;
             }
@@ -212,7 +212,7 @@ namespace InnoVault.Dimensions
         /// 加速或减慢维度时间
         /// </summary>
         public static void ModifyTimeScale(float newScale) {
-            if (!DimensionSystem.AnyActive())
+            if (!DimensionLoader.AnyActive())
                 return;
 
             //通过反射或其他方式修改时间流速
@@ -271,7 +271,7 @@ namespace InnoVault.Dimensions
         /// 获取维度中的玩家数量
         /// </summary>
         public static int GetPlayerCountInDimension(Dimension dimension) {
-            if (dimension != DimensionSystem.Current)
+            if (dimension != DimensionLoader.Current)
                 return 0;
 
             int count = 0;
@@ -290,7 +290,7 @@ namespace InnoVault.Dimensions
         /// 保存维度自定义数据
         /// </summary>
         public static void SaveCustomData(string key, object value) {
-            DimensionSystem.CopyData(key, value);
+            DimensionLoader.CopyData(key, value);
         }
 
         /// <summary>
@@ -298,7 +298,7 @@ namespace InnoVault.Dimensions
         /// </summary>
         public static T LoadCustomData<T>(string key, T defaultValue = default) {
             try {
-                return DimensionSystem.ReadData<T>(key);
+                return DimensionLoader.ReadData<T>(key);
             } catch {
                 return defaultValue;
             }
@@ -316,7 +316,7 @@ namespace InnoVault.Dimensions
                 return null;
 
             int parentIndex = dimension.ParentDimensionIndex;
-            if (DimensionSystem.dimensionsByIndex.TryGetValue(parentIndex, out Dimension parent)) {
+            if (DimensionLoader.dimensionsByIndex.TryGetValue(parentIndex, out Dimension parent)) {
                 return parent;
             }
             return null;
@@ -329,10 +329,10 @@ namespace InnoVault.Dimensions
             if (dimension == null)
                 return new List<Dimension>();
 
-            int parentIndex = DimensionSystem.GetIndex(dimension.FullName);
+            int parentIndex = DimensionLoader.GetIndex(dimension.FullName);
 
             List<Dimension> children = new List<Dimension>();
-            if (DimensionSystem.dimensionsByLayer.TryGetValue(DimensionLayerEnum.Sub, out List<Dimension> subDimensions)) {
+            if (DimensionLoader.dimensionsByLayer.TryGetValue(DimensionLayerEnum.Sub, out List<Dimension> subDimensions)) {
                 foreach (Dimension subDim in subDimensions) {
                     if (subDim.ParentDimensionIndex == parentIndex) {
                         children.Add(subDim);
@@ -403,14 +403,14 @@ namespace InnoVault.Dimensions
         public static void ListAllDimensions() {
             Main.NewText("=== 已注册维度列表 ===", Color.Gold);
 
-            if (DimensionSystem.registeredDimensions == null || DimensionSystem.registeredDimensions.Count == 0) {
+            if (DimensionLoader.registeredDimensions == null || DimensionLoader.registeredDimensions.Count == 0) {
                 Main.NewText("没有已注册的维度", Color.Gray);
                 return;
             }
 
-            for (int i = 0; i < DimensionSystem.registeredDimensions.Count; i++) {
-                Dimension dim = DimensionSystem.registeredDimensions[i];
-                string current = dim == DimensionSystem.Current ? " [当前]" : "";
+            for (int i = 0; i < DimensionLoader.registeredDimensions.Count; i++) {
+                Dimension dim = DimensionLoader.registeredDimensions[i];
+                string current = dim == DimensionLoader.Current ? " [当前]" : "";
                 Main.NewText($"{i}. {dim.DisplayName.Value} ({dim.Layer}){current}", Color.White);
             }
         }

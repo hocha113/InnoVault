@@ -49,7 +49,7 @@ namespace InnoVault
         }
 
         public override bool? UseItem(Player player) {
-            DimensionSystem.Enter<ExampleMirrorDimension>();
+            DimensionLoader.Enter<ExampleMirrorDimension>();
             //if (player.altFunctionUse == 2) {
             //    MySaveStructure.DoSave<MySaveStructure>();
             //}
