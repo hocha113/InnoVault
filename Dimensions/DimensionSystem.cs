@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading.Tasks;
 using Terraria;
 using Terraria.ID;
@@ -23,6 +24,31 @@ namespace InnoVault.Dimensions
         /// 所有已注册的维度
         /// </summary>
         internal readonly static List<Dimension> registeredDimensions = [];
+
+        /// <summary>
+        /// FullName到维度的映射字典,用于快速查找
+        /// </summary>
+        internal readonly static Dictionary<string, Dimension> dimensionsByFullName = new();
+
+        /// <summary>
+        /// Type到维度的映射字典,用于快速查找
+        /// </summary>
+        internal readonly static Dictionary<Type, Dimension> dimensionsByType = new();
+
+        /// <summary>
+        /// Mod到维度列表的映射字典,用于快速查找
+        /// </summary>
+        internal readonly static Dictionary<Mod, List<Dimension>> dimensionsByMod = new();
+
+        /// <summary>
+        /// 层级到维度列表的映射字典,用于快速查找
+        /// </summary>
+        internal readonly static Dictionary<DimensionLayer, List<Dimension>> dimensionsByLayer = new();
+
+        /// <summary>
+        /// 维度索引到维度的映射字典,用于快速查找
+        /// </summary>
+        internal readonly static Dictionary<int, Dimension> dimensionsByIndex = new();
 
         /// <summary>
         /// 维度切换队列
@@ -73,6 +99,11 @@ namespace InnoVault.Dimensions
         /// </summary>
         public override void Unload() {
             registeredDimensions?.Clear();
+            dimensionsByFullName?.Clear();
+            dimensionsByType?.Clear();
+            dimensionsByMod?.Clear();
+            dimensionsByLayer?.Clear();
+            dimensionsByIndex?.Clear();
             switchQueue?.Clear();
             dimensionLifeTimers?.Clear();
             dimensionPlayerCounts?.Clear();
@@ -139,11 +170,10 @@ namespace InnoVault.Dimensions
             if (currentDimension != cachedDimension)
                 return false;
 
-            for (int i = 0; i < registeredDimensions.Count; i++) {
-                if (registeredDimensions[i].FullName == fullName) {
-                    BeginTransition(i);
-                    return true;
-                }
+            if (dimensionsByFullName.TryGetValue(fullName, out Dimension dimension)) {
+                int index = dimensionsByIndex.FirstOrDefault(kvp => kvp.Value == dimension).Key;
+                BeginTransition(index);
+                return true;
             }
             return false;
         }
@@ -155,11 +185,10 @@ namespace InnoVault.Dimensions
             if (currentDimension != cachedDimension)
                 return false;
 
-            for (int i = 0; i < registeredDimensions.Count; i++) {
-                if (registeredDimensions[i].GetType() == typeof(T)) {
-                    BeginTransition(i);
-                    return true;
-                }
+            if (dimensionsByType.TryGetValue(typeof(T), out Dimension dimension)) {
+                int index = dimensionsByIndex.FirstOrDefault(kvp => kvp.Value == dimension).Key;
+                BeginTransition(index);
+                return true;
             }
             return false;
         }
@@ -210,9 +239,8 @@ namespace InnoVault.Dimensions
         /// 获取维度索引
         /// </summary>
         public static int GetIndex(string fullName) {
-            for (int i = 0; i < registeredDimensions.Count; i++) {
-                if (registeredDimensions[i].FullName == fullName)
-                    return i;
+            if (dimensionsByFullName.TryGetValue(fullName, out Dimension dimension)) {
+                return dimensionsByIndex.FirstOrDefault(kvp => kvp.Value == dimension).Key;
             }
             return int.MinValue;
         }
@@ -221,9 +249,8 @@ namespace InnoVault.Dimensions
         /// 获取维度索引
         /// </summary>
         public static int GetIndex<T>() where T : Dimension {
-            for (int i = 0; i < registeredDimensions.Count; i++) {
-                if (registeredDimensions[i].GetType() == typeof(T))
-                    return i;
+            if (dimensionsByType.TryGetValue(typeof(T), out Dimension dimension)) {
+                return dimensionsByIndex.FirstOrDefault(kvp => kvp.Value == dimension).Key;
             }
             return int.MinValue;
         }

@@ -17,28 +17,38 @@ namespace InnoVault.Dimensions
         /// 通过完整名称查找维度
         /// </summary>
         public static Dimension FindDimension(string fullName) {
-            return DimensionSystem.registeredDimensions?.Find(d => d.FullName == fullName);
+            DimensionSystem.dimensionsByFullName.TryGetValue(fullName, out Dimension dimension);
+            return dimension;
         }
 
         /// <summary>
         /// 通过类型查找维度
         /// </summary>
         public static T FindDimension<T>() where T : Dimension {
-            return DimensionSystem.registeredDimensions?.Find(d => d is T) as T;
+            if (DimensionSystem.dimensionsByType.TryGetValue(typeof(T), out Dimension dimension)) {
+                return dimension as T;
+            }
+            return null;
         }
 
         /// <summary>
         /// 获取所有指定模组的维度
         /// </summary>
         public static List<Dimension> GetDimensionsFromMod(Mod mod) {
-            return DimensionSystem.registeredDimensions?.FindAll(d => d.Mod == mod) ?? new List<Dimension>();
+            if (DimensionSystem.dimensionsByMod.TryGetValue(mod, out List<Dimension> dimensions)) {
+                return new List<Dimension>(dimensions); // 返回副本以防止外部修改
+            }
+            return new List<Dimension>();
         }
 
         /// <summary>
         /// 获取所有指定层级的维度
         /// </summary>
         public static List<Dimension> GetDimensionsByLayer(DimensionLayer layer) {
-            return DimensionSystem.registeredDimensions?.FindAll(d => d.Layer == layer) ?? new List<Dimension>();
+            if (DimensionSystem.dimensionsByLayer.TryGetValue(layer, out List<Dimension> dimensions)) {
+                return new List<Dimension>(dimensions); // 返回副本以防止外部修改
+            }
+            return new List<Dimension>();
         }
 
         #endregion
@@ -306,10 +316,10 @@ namespace InnoVault.Dimensions
                 return null;
 
             int parentIndex = dimension.ParentDimensionIndex;
-            if (parentIndex < 0 || parentIndex >= DimensionSystem.registeredDimensions.Count)
-                return null;
-
-            return DimensionSystem.registeredDimensions[parentIndex];
+            if (DimensionSystem.dimensionsByIndex.TryGetValue(parentIndex, out Dimension parent)) {
+                return parent;
+            }
+            return null;
         }
 
         /// <summary>
@@ -320,9 +330,16 @@ namespace InnoVault.Dimensions
                 return new List<Dimension>();
 
             int parentIndex = DimensionSystem.GetIndex(dimension.FullName);
-            return DimensionSystem.registeredDimensions?
-                .FindAll(d => d.Layer == DimensionLayer.Sub && d.ParentDimensionIndex == parentIndex)
-                ?? new List<Dimension>();
+            
+            List<Dimension> children = new List<Dimension>();
+            if (DimensionSystem.dimensionsByLayer.TryGetValue(DimensionLayer.Sub, out List<Dimension> subDimensions)) {
+                foreach (Dimension subDim in subDimensions) {
+                    if (subDim.ParentDimensionIndex == parentIndex) {
+                        children.Add(subDim);
+                    }
+                }
+            }
+            return children;
         }
 
         /// <summary>

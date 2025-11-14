@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Graphics;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Terraria;
@@ -149,6 +150,11 @@ namespace InnoVault.Dimensions
         public abstract int Height { get; }
 
         /// <summary>
+        /// 维度ID
+        /// </summary>
+        public int ID { get; private set; }
+
+        /// <summary>
         /// 维度的层级类型
         /// </summary>
         public virtual DimensionLayer Layer => DimensionLayer.Parallel;
@@ -225,10 +231,45 @@ namespace InnoVault.Dimensions
 
         #endregion
 
+        /// <summary>
+        /// 注册维度到系统并建立快速查找索引
+        /// </summary>
         protected sealed override void VaultRegister() {
+            ID = DimensionSystem.registeredDimensions.Count;
             DimensionSystem.registeredDimensions.Add(this);
-        }
 
+            //往总列表中添加实例
+            Instances.Add(this);
+            
+            //建立FullName索引
+            DimensionSystem.dimensionsByFullName[FullName] = this;
+            
+            //建立Type索引
+            DimensionSystem.dimensionsByType[GetType()] = this;
+            
+            //建立索引号索引
+            DimensionSystem.dimensionsByIndex[ID] = this;
+
+            //建立Mod索引
+            {
+                if (!DimensionSystem.dimensionsByMod.TryGetValue(Mod, out List<Dimension> value)) {
+                    value = [];
+                    DimensionSystem.dimensionsByMod[Mod] = value;
+                }
+                value.Add(this);
+            }
+            //建立Layer索引
+            {
+                if (!DimensionSystem.dimensionsByLayer.TryGetValue(Layer, out List<Dimension> value)) {
+                    value = [];
+                    DimensionSystem.dimensionsByLayer[Layer] = value;
+                }
+                value.Add(this);
+            }
+        }
+        /// <summary>
+        /// 加载内容
+        /// </summary>
         public sealed override void VaultSetup() {
             SetStaticDefaults();
         }

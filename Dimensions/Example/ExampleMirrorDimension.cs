@@ -6,7 +6,7 @@ using Terraria.IO;
 using Terraria.Utilities;
 using Terraria.WorldBuilding;
 
-namespace InnoVault.Dimensions
+namespace InnoVault.Dimensions.Example
 {
     /// <summary>
     /// 示例维度，先瞎几把搓一个，能跑就行，镜像维度
