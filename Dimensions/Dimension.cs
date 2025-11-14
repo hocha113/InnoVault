@@ -24,6 +24,11 @@ namespace InnoVault.Dimensions
         public string LocalizationCategory => "Dimensions";
 
         /// <summary>
+        /// 是否加载本地化文本,默认为<see langword="true"/>
+        /// </summary>
+        public virtual bool LoadLocalized => true;
+
+        /// <summary>
         /// 维度显示名称
         /// </summary>
         public virtual LocalizedText DisplayName => this.GetLocalization(nameof(DisplayName), PrettyPrintName);
@@ -172,6 +177,10 @@ namespace InnoVault.Dimensions
         /// 加载内容
         /// </summary>
         public sealed override void VaultSetup() {
+            if (LoadLocalized) {
+                _ = DisplayName;
+                _ = Description;
+            }
             SetStaticDefaults();
         }
 

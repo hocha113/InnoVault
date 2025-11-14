@@ -22,6 +22,8 @@ namespace InnoVault.Dimensions.Example
 
         public override DimensionLayerEnum Layer => DimensionLayerEnum.Parallel;
 
+        public override bool LoadLocalized => false;//别加载本地化
+
         #endregion
 
         #region 环境设置
