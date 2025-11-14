@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.Dimensions;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
 using Terraria.ID;
@@ -11,7 +12,7 @@ namespace InnoVault
         public override string Texture => "InnoVault/icon";
 
         public override bool IsLoadingEnabled(Mod mod) {
-            return false;
+            return true;
         }
 
         public override void SetDefaults() {
@@ -47,6 +48,7 @@ namespace InnoVault
         }
 
         public override bool? UseItem(Player player) {
+            DimensionSystem.Enter<ExampleMirrorDimension>();
             //if (player.altFunctionUse == 2) {
             //    MySaveStructure.DoSave<MySaveStructure>();
             //}

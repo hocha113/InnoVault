@@ -1,4 +1,4 @@
-﻿Configs: {
+Configs: {
 	VaultClientConfig: {
 		DisplayName: Client Config
 
@@ -36,5 +36,12 @@ Loadings: {
 			This may lead to incomplete world entities or inconsistent state.
 			Please Check your network connection and consider rejoining the server.
 			'''
+	}
+}
+
+Items: {
+	TestItem: {
+		DisplayName: Test Item
+		Tooltip: ""
 	}
 }

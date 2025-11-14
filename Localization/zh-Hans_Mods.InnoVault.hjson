@@ -1,4 +1,4 @@
-﻿Configs: {
+Configs: {
 	VaultClientConfig: {
 		DisplayName: 客户端设置
 
@@ -36,5 +36,12 @@ Loadings: {
 			这可能导致世界实体不完整或状态不一致
 			建议检查您的网络连接，并尝试重新加入服务器
 			'''
+	}
+}
+
+Items: {
+	TestItem: {
+		// DisplayName: Test Item
+		// Tooltip: ""
 	}
 }

@@ -781,7 +781,7 @@ namespace InnoVault.GameSystem
                     bool? newResult = value.Draw(spriteBatch, screenPos, drawColor);
                     if (newResult.HasValue) {
                         result = newResult.Value;
-                      }
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;

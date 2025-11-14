@@ -1,4 +1,4 @@
-﻿Configs: {
+Configs: {
 	VaultClientConfig: {
 		DisplayName: Paramètres du client
 
@@ -36,5 +36,12 @@ Loadings: {
 			Cela peut entraîner une présence incomplète des entités du monde ou un état incohérent.
 			Veuillez vérifier votre connexion réseau et envisager de rejoindre à nouveau le serveur.
 			'''
+	}
+}
+
+Items: {
+	TestItem: {
+		// DisplayName: Test Item
+		// Tooltip: ""
 	}
 }
