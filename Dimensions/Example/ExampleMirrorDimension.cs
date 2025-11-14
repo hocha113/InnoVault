@@ -20,7 +20,7 @@ namespace InnoVault.Dimensions.Example
 
         public override int Height => 1200;
 
-        public override DimensionLayer Layer => DimensionLayer.Parallel;
+        public override DimensionLayerEnum Layer => DimensionLayerEnum.Parallel;
 
         #endregion
 

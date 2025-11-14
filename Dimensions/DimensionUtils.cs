@@ -44,7 +44,7 @@ namespace InnoVault.Dimensions
         /// <summary>
         /// 获取所有指定层级的维度
         /// </summary>
-        public static List<Dimension> GetDimensionsByLayer(DimensionLayer layer) {
+        public static List<Dimension> GetDimensionsByLayer(DimensionLayerEnum layer) {
             if (DimensionSystem.dimensionsByLayer.TryGetValue(layer, out List<Dimension> dimensions)) {
                 return new List<Dimension>(dimensions); // 返回副本以防止外部修改
             }
@@ -312,7 +312,7 @@ namespace InnoVault.Dimensions
         /// 获取维度的父维度
         /// </summary>
         public static Dimension GetParentDimension(Dimension dimension) {
-            if (dimension == null || dimension.Layer != DimensionLayer.Sub)
+            if (dimension == null || dimension.Layer != DimensionLayerEnum.Sub)
                 return null;
 
             int parentIndex = dimension.ParentDimensionIndex;
@@ -330,9 +330,9 @@ namespace InnoVault.Dimensions
                 return new List<Dimension>();
 
             int parentIndex = DimensionSystem.GetIndex(dimension.FullName);
-            
+
             List<Dimension> children = new List<Dimension>();
-            if (DimensionSystem.dimensionsByLayer.TryGetValue(DimensionLayer.Sub, out List<Dimension> subDimensions)) {
+            if (DimensionSystem.dimensionsByLayer.TryGetValue(DimensionLayerEnum.Sub, out List<Dimension> subDimensions)) {
                 foreach (Dimension subDim in subDimensions) {
                     if (subDim.ParentDimensionIndex == parentIndex) {
                         children.Add(subDim);
@@ -364,7 +364,7 @@ namespace InnoVault.Dimensions
                 return null;
 
             Dimension current = dimension;
-            while (current.Layer == DimensionLayer.Sub) {
+            while (current.Layer == DimensionLayerEnum.Sub) {
                 Dimension parent = GetParentDimension(current);
                 if (parent == null)
                     break;

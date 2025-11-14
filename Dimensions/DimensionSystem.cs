@@ -4,7 +4,6 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 using Terraria;
-using Terraria.ID;
 using Terraria.IO;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -43,7 +42,7 @@ namespace InnoVault.Dimensions
         /// <summary>
         /// 层级到维度列表的映射字典,用于快速查找
         /// </summary>
-        internal readonly static Dictionary<DimensionLayer, List<Dimension>> dimensionsByLayer = new();
+        internal readonly static Dictionary<DimensionLayerEnum, List<Dimension>> dimensionsByLayer = new();
 
         /// <summary>
         /// 维度索引到维度的映射字典,用于快速查找
@@ -297,7 +296,7 @@ namespace InnoVault.Dimensions
             transferData[nameof(Main.zenithWorld)] = Main.zenithWorld;
 
             //调用所有IDimensionDataTransfer实现
-            foreach (IDimensionDataTransfer transfer in ModContent.GetContent<IDimensionDataTransfer>()) {
+            foreach (IDimensionDataTransfer transfer in VaultUtils.GetDerivedInstances<IDimensionDataTransfer>()) {
                 transfer.CopyFromMainWorld();
             }
         }
@@ -326,7 +325,7 @@ namespace InnoVault.Dimensions
             Main.noTrapsWorld = transferData.Get<bool>(nameof(Main.noTrapsWorld));
             Main.zenithWorld = transferData.Get<bool>(nameof(Main.zenithWorld));
 
-            foreach (IDimensionDataTransfer transfer in ModContent.GetContent<IDimensionDataTransfer>()) {
+            foreach (IDimensionDataTransfer transfer in VaultUtils.GetDerivedInstances<IDimensionDataTransfer>()) {
                 transfer.ReadMainWorldData();
             }
         }

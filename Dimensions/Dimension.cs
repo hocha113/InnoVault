@@ -1,7 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Graphics;
-using System;
 using System.Collections.Generic;
 using System.IO;
 using Terraria;
@@ -14,104 +13,6 @@ using Terraria.WorldBuilding;
 
 namespace InnoVault.Dimensions
 {
-    /// <summary>
-    /// 维度数据复制接口,用于在维度间传输数据
-    /// </summary>
-    public interface IDimensionDataTransfer : ILoadable
-    {
-        /// <summary>
-        /// 从主世界复制数据到当前维度
-        /// </summary>
-        void CopyFromMainWorld() { }
-
-        /// <summary>
-        /// 读取从主世界复制的数据
-        /// </summary>
-        void ReadMainWorldData() { }
-
-        /// <summary>
-        /// 复制当前维度的数据以传输到其他维度
-        /// </summary>
-        void CopyDimensionData() { }
-
-        /// <summary>
-        /// 读取从其他维度传输的数据
-        /// </summary>
-        void ReadDimensionData() { }
-    }
-
-    /// <summary>
-    /// 维度环境特性,定义维度的特殊环境效果
-    /// </summary>
-    public class DimensionEnvironment
-    {
-        /// <summary>
-        /// 环境色调,影响整个维度的颜色滤镜
-        /// </summary>
-        public Color ColorTint { get; set; } = Color.White;
-
-        /// <summary>
-        /// 雾效强度(0-1)
-        /// </summary>
-        public float FogDensity { get; set; } = 0f;
-
-        /// <summary>
-        /// 雾效颜色
-        /// </summary>
-        public Color FogColor { get; set; } = Color.Gray;
-
-        /// <summary>
-        /// 环境粒子类型ID列表
-        /// </summary>
-        public List<int> AmbientParticles { get; set; } = new List<int>();
-
-        /// <summary>
-        /// 粒子生成频率(每帧生成概率)
-        /// </summary>
-        public float ParticleSpawnRate { get; set; } = 0.01f;
-
-        /// <summary>
-        /// 是否显示星空背景
-        /// </summary>
-        public bool ShowStars { get; set; } = true;
-
-        /// <summary>
-        /// 是否显示太阳/月亮
-        /// </summary>
-        public bool ShowCelestialBodies { get; set; } = true;
-    }
-
-    /// <summary>
-    /// 维度层级,用于组织维度的层次结构
-    /// </summary>
-    public enum DimensionLayer
-    {
-        /// <summary>
-        /// 主世界层
-        /// </summary>
-        MainWorld = 0,
-
-        /// <summary>
-        /// 平行维度层,与主世界同级但独立
-        /// </summary>
-        Parallel = 1,
-
-        /// <summary>
-        /// 子维度层,依附于某个父维度
-        /// </summary>
-        Sub = 2,
-
-        /// <summary>
-        /// 口袋维度层,小型独立空间
-        /// </summary>
-        Pocket = 3,
-
-        /// <summary>
-        /// 临时维度层,短期存在的维度
-        /// </summary>
-        Temporary = 4
-    }
-
     /// <summary>
     /// 维度系统的抽象基类
     /// </summary>
@@ -157,7 +58,7 @@ namespace InnoVault.Dimensions
         /// <summary>
         /// 维度的层级类型
         /// </summary>
-        public virtual DimensionLayer Layer => DimensionLayer.Parallel;
+        public virtual DimensionLayerEnum Layer => DimensionLayerEnum.Parallel;
 
         /// <summary>
         /// 父维度的索引,仅当Layer为Sub时有效
@@ -240,13 +141,13 @@ namespace InnoVault.Dimensions
 
             //往总列表中添加实例
             Instances.Add(this);
-            
+
             //建立FullName索引
             DimensionSystem.dimensionsByFullName[FullName] = this;
-            
+
             //建立Type索引
             DimensionSystem.dimensionsByType[GetType()] = this;
-            
+
             //建立索引号索引
             DimensionSystem.dimensionsByIndex[ID] = this;
 
@@ -484,7 +385,7 @@ namespace InnoVault.Dimensions
         /// <summary>
         /// 是否为临时维度,临时维度在所有玩家离开后会被销毁
         /// </summary>
-        public virtual bool IsTemporary => Layer == DimensionLayer.Temporary;
+        public virtual bool IsTemporary => Layer == DimensionLayerEnum.Temporary;
 
         /// <summary>
         /// 维度最大同时在线玩家数,-1为无限制
@@ -497,31 +398,5 @@ namespace InnoVault.Dimensions
         public virtual float LifeTime => -1f;
 
         #endregion
-    }
-
-    /// <summary>
-    /// 维度规则基类,用于定义维度的特殊规则
-    /// </summary>
-    public abstract class DimensionRule
-    {
-        /// <summary>
-        /// 规则名称
-        /// </summary>
-        public abstract string Name { get; }
-
-        /// <summary>
-        /// 规则是否激活
-        /// </summary>
-        public virtual bool IsActive => true;
-
-        /// <summary>
-        /// 应用规则
-        /// </summary>
-        public abstract void Apply();
-
-        /// <summary>
-        /// 移除规则效果
-        /// </summary>
-        public abstract void Remove();
     }
 }
