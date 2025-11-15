@@ -93,6 +93,11 @@ namespace InnoVault.Dimensions
 
         #region º”‘ÿ∫Õ–∂‘ÿ
 
+        public override void Load()
+        {
+            On_NPC.UpdateNPC_UpdateGravity += UpdateDimensionNPCGravity;
+        }
+
         /// <summary>
         /// 
         /// </summary>
@@ -112,7 +117,7 @@ namespace InnoVault.Dimensions
             mainWorldData = null;
             transferData = null;
 
-            On_NPC.UpdateNPC_UpdateGravity += UpdateDimensionNPCGravity;
+            On_NPC.UpdateNPC_UpdateGravity -= UpdateDimensionNPCGravity;
         }
 
         #endregion
