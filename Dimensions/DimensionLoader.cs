@@ -111,6 +111,8 @@ namespace InnoVault.Dimensions
             cachedDimension = null;
             mainWorldData = null;
             transferData = null;
+
+            On_NPC.UpdateNPC_UpdateGravity += UpdateDimensionNPCGravity;
         }
 
         #endregion
@@ -618,6 +620,21 @@ namespace InnoVault.Dimensions
                 dimensionLifeTimers.Remove(index);
             }
         }
+
+        private void UpdateDimensionNPCGravity(On_NPC.orig_UpdateNPC_UpdateGravity orig, NPC self)
+        {
+            orig.Invoke(self);
+            if (currentDimension != null)
+                self.GravityMultiplier *= currentDimension.GetGravityMultiplier(self);
+        }
+
+        internal static void UpdateDimensionPlayerGravity(Player player)
+        {
+            if (currentDimension != null)
+                player.gravity *= currentDimension.GetGravityMultiplier(player);
+        }
+
+
 
         #endregion
     }

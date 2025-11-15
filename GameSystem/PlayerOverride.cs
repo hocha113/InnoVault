@@ -254,5 +254,11 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <returns></returns>
         public virtual void PostIsSceneEffectActive(ModSceneEffect modSceneEffect) { }
+
+        /// <summary>
+        /// 自定义重力，会受到维度的缩放，和其他原版改变重力大小的效果影响
+        /// </summary>
+        /// <param name="gravity"></param>
+        public virtual void ModifyGravity(ref float gravity) { }
     }
 }
