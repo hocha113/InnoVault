@@ -21,6 +21,7 @@ using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.GameContent.Events;
 using Terraria.GameContent.ItemDropRules;
+using Terraria.GameContent.UI.States;
 using Terraria.GameInput;
 using Terraria.Graphics.Shaders;
 using Terraria.ID;
@@ -4623,6 +4624,150 @@ namespace InnoVault
             Vector2 remainingBarPos = drawPos + Vector2.UnitX * (progress - 0.5f) * barWidth;
             spriteBatch.Draw(pixel, remainingBarPos, new Rectangle(0, 0, 1, 1), Color.Black * size
                 , 0f, Vector2.UnitY * 0.5f, new Vector2(barWidth * (1f - progress), 8) * size, SpriteEffects.None, 0f);
+        }
+
+        /// <summary>
+        /// 菜单状态枚举
+        /// </summary>
+        public enum MenuState
+        {
+            MainMenu,              // 主菜单
+            CharacterSelect,       // 角色选择
+            WorldSelect,           // 世界选择
+            ModManagement,         // 模组管理
+            ModBrowser,            // 模组浏览器
+            Settings,              // 设置
+            Multiplayer,           // 多人游戏
+            InGame,                // 游戏中（不在菜单）
+            Other                  // 其他界面
+        }
+
+        /// <summary>
+        /// 获取当前菜单状态
+        /// </summary>
+        public static MenuState GetCurrentMenuState() {
+            // 如果不在游戏菜单中，返回游戏中
+            if (!Main.gameMenu)
+                return MenuState.InGame;
+
+            // 检查标准 menuMode
+            switch (Main.menuMode) {
+                case 0:
+                    return MenuState.MainMenu;
+
+                case 1:
+                    return MenuState.CharacterSelect;
+
+                case 6:
+                    return MenuState.WorldSelect;
+
+                case 11:
+                    return MenuState.Settings;
+
+                case 12:
+                    return MenuState.Multiplayer;
+
+                case 888:
+                    // menuMode 888 表示使用 MenuUI 系统
+                    return GetMenuUIState();
+
+                default:
+                    return MenuState.Other;
+            }
+        }
+
+        /// <summary>
+        /// 获取 MenuUI 的具体状态
+        /// </summary>
+        private static MenuState GetMenuUIState() {
+            if (Main.MenuUI == null || !Main.MenuUI.IsVisible)
+                return MenuState.Other;
+
+            var currentState = Main.MenuUI.CurrentState;
+
+            if (currentState == null)
+                return MenuState.Other;
+
+            //检查是否是角色选择界面
+            if (currentState.GetType() == typeof(UICharacterSelect))
+                return MenuState.CharacterSelect;
+
+            //检查是否是世界选择界面
+            if (currentState.GetType() == typeof(UIWorldSelect))
+                return MenuState.WorldSelect;
+
+            //检查是否是模组管理界面
+            if (currentState.GetType().Name == "UIMods")
+                return MenuState.ModManagement;
+
+            //检查是否是模组浏览器
+            if (currentState.GetType().Name == "UIModBrowser")
+                return MenuState.ModBrowser;
+
+            return MenuState.Other;
+        }
+
+        /// <summary>
+        /// 检查是否在主菜单
+        /// </summary>
+        public static bool IsInMainMenu() {
+            return Main.gameMenu && Main.menuMode == 0;
+        }
+
+        /// <summary>
+        /// 检查是否在角色选择界面
+        /// </summary>
+        public static bool IsInCharacterSelect() {
+            return GetCurrentMenuState() == MenuState.CharacterSelect;
+        }
+
+        /// <summary>
+        /// 检查是否在世界选择界面
+        /// </summary>
+        public static bool IsInWorldSelect() {
+            return GetCurrentMenuState() == MenuState.WorldSelect;
+        }
+
+        /// <summary>
+        /// 检查是否在模组管理界面
+        /// </summary>
+        public static bool IsInModManagement() {
+            return GetCurrentMenuState() == MenuState.ModManagement;
+        }
+
+        /// <summary>
+        /// 检查是否在模组浏览器
+        /// </summary>
+        public static bool IsInModBrowser() {
+            return GetCurrentMenuState() == MenuState.ModBrowser;
+        }
+
+        /// <summary>
+        /// 检查是否在任何菜单界面（不包括游戏中）
+        /// </summary>
+        public static bool IsInAnyMenu() {
+            return Main.gameMenu;
+        }
+
+        /// <summary>
+        /// 检查是否应该显示自定义主页UI
+        /// 例如：只在主菜单显示，在其他界面隐藏
+        /// </summary>
+        public static bool ShouldShowCustomMainMenuUI() {
+            // 只在主菜单显示
+            return IsInMainMenu();
+        }
+
+        /// <summary>
+        /// 检查是否应该隐藏自定义主页UI
+        /// 例如：在角色选择、世界选择、模组管理等界面隐藏
+        /// </summary>
+        public static bool ShouldHideCustomMainMenuUI() {
+            var state = GetCurrentMenuState();
+            return state == MenuState.CharacterSelect ||
+                   state == MenuState.WorldSelect ||
+                   state == MenuState.ModManagement ||
+                   state == MenuState.ModBrowser;
         }
 
         #endregion
