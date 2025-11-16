@@ -1695,22 +1695,22 @@ namespace InnoVault
             if (obj is Projectile projectile) {
                 return projectile.GetSource_FromAI();
             }
-            if (obj is NPC nPC) {
+            else if (obj is NPC nPC) {
                 return nPC.GetSource_FromAI();
             }
-            if (obj is Player player) {
+            else if (obj is Player player) {
                 return player.GetSource_FromAI();
             }
-            if (obj is Item item) {
+            else if (obj is Item item) {
                 return item.GetSource_FromAI();
             }
-            if (obj is TileProcessor tp) {
+            else if (obj is TileProcessor tp) {
                 return new EntitySource_WorldEvent($"{tp.Position.X}:{tp.Position.Y}");
             }
-            if (obj is Chest chest) {
+            else if (obj is Chest chest) {
                 return new EntitySource_WorldEvent($"{chest.x}:{chest.y}");
             }
-            if (obj is Point16 point) {
+            else if (obj is Point16 point) {
                 return new EntitySource_WorldEvent($"{point.X}:{point.Y}");
             }
             return new EntitySource_Parent(Main.LocalPlayer, "NullSource");
