@@ -37,7 +37,7 @@ namespace InnoVault.GameSystem
         /// <param name="gameTime"></param>
         /// <returns></returns>
         public virtual bool? DrawMenu(GameTime gameTime) {
-            return true;
+            return null;
         }
         /// <summary>
         /// 绘制菜单主页，在这个函数中需要注意线程安全
