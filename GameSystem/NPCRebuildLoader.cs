@@ -1001,7 +1001,7 @@ namespace InnoVault.GameSystem
         }
 
         public static int OnGetBossHeadTextureIndexHook(On_NPC.orig_GetBossHeadTextureIndex orig, NPC npc) {
-            if (!npc.active) {//不需要判定ID
+            if (Main.gameMenu || !npc.active) {//不需要判定ID
                 return orig.Invoke(npc);
             }
 
@@ -1036,7 +1036,7 @@ namespace InnoVault.GameSystem
         }
 
         public static float OnGetBossHeadRotationHook(On_NPC.orig_GetBossHeadRotation orig, NPC npc) {
-            if (!npc.active) {//不需要判定ID
+            if (Main.gameMenu || !npc.active) {//不需要判定ID
                 return orig.Invoke(npc);
             }
 
@@ -1070,7 +1070,7 @@ namespace InnoVault.GameSystem
         }
 
         public static SpriteEffects OnGetBossHeadSpriteEffectsHook(On_NPC.orig_GetBossHeadSpriteEffects orig, NPC npc) {
-            if (!npc.active) {//不需要判定ID
+            if (Main.gameMenu || !npc.active) {//不需要判定ID
                 return orig.Invoke(npc);
             }
 
