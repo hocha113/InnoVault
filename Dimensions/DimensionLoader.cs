@@ -121,6 +121,12 @@ namespace InnoVault.Dimensions
             }
         }
 
+        public override void OnWorldLoad() {
+            if (currentDimension != null) {
+                //Enter(currentDimension.FullName);
+            }
+        }
+
         /// <summary>
         /// 模组卸载时的最终清理
         /// </summary>
@@ -748,7 +754,9 @@ namespace InnoVault.Dimensions
                 }
 
                 WorldGen.loadSuccess = true;
+                MenuLoaded = false;
                 SystemLoader.OnWorldLoad();
+                MenuLoaded = true;
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Error generating dimension: {ex}");
                 WorldGen.loadFailed = true;
@@ -779,7 +787,9 @@ namespace InnoVault.Dimensions
 
                 if (status == 0) {
                     WorldGen.loadSuccess = true;
+                    MenuLoaded = false;
                     SystemLoader.OnWorldLoad();
+                    MenuLoaded = true;
 
                     if (currentDimension != null) {
                         currentDimension.PostReadFile();
