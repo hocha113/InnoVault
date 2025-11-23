@@ -106,7 +106,37 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// 
+        /// 世界卸载时清理维度状态
+        /// </summary>
+        public override void OnWorldUnload() {
+            //清理当前维度状态
+            if (currentDimension != null) {
+                try {
+                    currentDimension.OnExit();
+                    currentDimension.OnUnload();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"Error during dimension cleanup on world unload: {ex}");
+                }
+            }
+
+            //重置所有维度相关的状态
+            currentDimension = null;
+            cachedDimension = null;
+            mainWorldData = null;
+            transferData = null;
+
+            //清理维度切换队列
+            switchQueue?.Clear();
+
+            //清理维度计时器和玩家计数
+            dimensionLifeTimers?.Clear();
+            dimensionPlayerCounts?.Clear();
+
+            VaultMod.Instance.Logger.Info("Dimension states cleared on world unload.");
+        }
+
+        /// <summary>
+        /// 模组卸载时的最终清理
         /// </summary>
         public override void Unload() {
             registeredDimensions?.Clear();
