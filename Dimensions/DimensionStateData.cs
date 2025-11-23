@@ -9,7 +9,7 @@ namespace InnoVault.Dimensions
     /// <summary>
     /// 维度状态数据类，继承 SaveContent 以实现稳定的存档隔离
     /// </summary>
-    internal class DimensionStateData : SaveContent<DimensionStateData>
+    internal class DimensionStateData : SaveWorld
     {
         /// <summary>
         /// 当前维度索引
@@ -30,8 +30,6 @@ namespace InnoVault.Dimensions
         /// 重写保存前缀，使其与世界存档关联
         /// </summary>
         public override string SavePrefix => "DimensionLoader";
-
-        public override string SavePath => SaveWorld.GetInstance<SaveWorld>().SavePath;
 
         public override bool PreSaveData(TagCompound tag, int style) {
             return style == 1;
@@ -85,6 +83,9 @@ namespace InnoVault.Dimensions
 
                 //使用 SaveContent 系统保存维度状态，自动实现存档隔离
                 DoSave<DimensionStateData>();
+                //保存完成后恢复默认值防止污染其他存档的状态，因为是单实例模式
+                stateData.CurrentDimensionIndex = -1;
+                stateData.CurrentDimensionFullName = "MainWorld";
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Error saving dimension state: {ex}");
             }

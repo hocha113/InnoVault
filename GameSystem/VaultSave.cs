@@ -57,7 +57,6 @@ namespace InnoVault.GameSystem
         public override void SaveWorldData(TagCompound tag) {
             tag["root:worldData"] = "";
             Task.Run(() => {
-                SaveWorld.CleanupOrphanedSaves();
                 SavedWorld = false;
                 try {
                     DoSaveWorld();
@@ -81,7 +80,12 @@ namespace InnoVault.GameSystem
             );
         }
         /// <inheritdoc/>
+        public override void Load() {
+            SaveWorld.CleanupOrphanedSaves();
+        }
+        /// <inheritdoc/>
         public override void Unload() {
+            SaveWorld.CleanupOrphanedSaves();
             LoadWorldEvent = null;
             SaveWorldEvent = null;
         }
