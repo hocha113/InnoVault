@@ -257,8 +257,7 @@ namespace InnoVault.GameSystem
                 x => x.MatchLdarg0(),
                 x => x.MatchLdsfld(defaultGravity),
                 x => x.MatchStfld(gravity)
-                ))
-            {
+                )) {
                 return;
             }
 
@@ -300,8 +299,7 @@ namespace InnoVault.GameSystem
             return true;
         }
 
-        public static void ModifyGravity(Player player)
-        {
+        public static void ModifyGravity(Player player) {
             if (TryFetchByPlayer(player, out var values))
                 foreach (var value in SnapshotOverrides(values))
                     value.ModifyGravity(ref player.gravity);

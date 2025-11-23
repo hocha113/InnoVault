@@ -59,14 +59,6 @@ namespace InnoVault.Dimensions.Example
         public override bool EnableWeather => false; //禁用天气
 
         public override float GetGravityMultiplier(Entity entity) {
-            //玩家重力反转
-            if (entity is Player)
-                return -0.6f;
-
-            //NPC正常重力但稍微减弱
-            if (entity is NPC)
-                return 0.6f;
-
             return 1.0f;
         }
 

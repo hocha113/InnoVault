@@ -50,6 +50,11 @@ namespace InnoVault.Dimensions
         internal readonly static Dictionary<int, Dimension> dimensionsByIndex = new();
 
         /// <summary>
+        /// 网络包类型常量
+        /// </summary>
+        internal const byte PACKET_DIMENSION_SWITCH = 1;
+
+        /// <summary>
         /// 维度切换队列
         /// </summary>
         private readonly static Queue<(int dimensionIndex, int playerWhoAmI)> switchQueue = new();
@@ -93,8 +98,10 @@ namespace InnoVault.Dimensions
 
         #region 加载和卸载
 
-        public override void Load()
-        {
+        /// <summary>
+        /// 
+        /// </summary>
+        public override void Load() {
             On_NPC.UpdateNPC_UpdateGravity += UpdateDimensionNPCGravity;
         }
 
@@ -159,9 +166,17 @@ namespace InnoVault.Dimensions
         /// </summary>
         public static string CurrentPath {
             get {
-                if (currentDimension == null || mainWorldData == null)
+                if (currentDimension == null) {
+                    return mainWorldData?.Path ?? Main.ActiveWorldFileData?.Path ?? string.Empty;
+                }
+
+                var baseData = mainWorldData ?? Main.ActiveWorldFileData;
+                if (baseData == null) {
+                    VaultMod.Instance.Logger.Error("Cannot get dimension path: no world data available");
                     return string.Empty;
-                return currentDimension.GetDimensionPath(mainWorldData);
+                }
+
+                return currentDimension.GetDimensionPath(baseData);
             }
         }
 
@@ -173,7 +188,8 @@ namespace InnoVault.Dimensions
         /// 尝试进入指定ID的维度
         /// </summary>
         public static bool Enter(string fullName) {
-            if (currentDimension != cachedDimension)
+            // 防止连续切换
+            if (currentDimension != null && cachedDimension != null && currentDimension != cachedDimension)
                 return false;
 
             if (dimensionsByFullName.TryGetValue(fullName, out Dimension dimension)) {
@@ -181,6 +197,8 @@ namespace InnoVault.Dimensions
                 BeginTransition(index);
                 return true;
             }
+
+            VaultMod.Instance.Logger.Warn($"Failed to enter dimension: {fullName} not found");
             return false;
         }
 
@@ -188,7 +206,8 @@ namespace InnoVault.Dimensions
         /// 进入指定类型的维度
         /// </summary>
         public static bool Enter<T>() where T : Dimension {
-            if (currentDimension != cachedDimension)
+            // 防止连续切换
+            if (currentDimension != null && cachedDimension != null && currentDimension != cachedDimension)
                 return false;
 
             if (dimensionsByType.TryGetValue(typeof(T), out Dimension dimension)) {
@@ -196,6 +215,8 @@ namespace InnoVault.Dimensions
                 BeginTransition(index);
                 return true;
             }
+
+            VaultMod.Instance.Logger.Warn($"Failed to enter dimension: {typeof(T).Name} not found");
             return false;
         }
 
@@ -203,7 +224,7 @@ namespace InnoVault.Dimensions
         /// 离开当前维度
         /// </summary>
         public static void Exit() {
-            if (currentDimension != null && currentDimension == cachedDimension) {
+            if (currentDimension != null) {
                 BeginTransition(currentDimension.ReturnTarget);
             }
         }
@@ -212,33 +233,93 @@ namespace InnoVault.Dimensions
         /// 开始维度过渡
         /// </summary>
         private static void BeginTransition(int targetIndex) {
-            if (VaultUtils.isServer)
-                return;
+            try {
+                // 服务器端处理
+                if (VaultUtils.isServer) {
+                    SendDimensionSwitchPacket(targetIndex);
+                    PerformServerSwitch(targetIndex);
+                    return;
+                }
 
-            //返回主菜单
-            if (targetIndex == int.MinValue) {
-                currentDimension = null;
+                // 客户端处理
+                cachedDimension = currentDimension;
+
+                // 返回主菜单
+                if (targetIndex == int.MinValue) {
+                    currentDimension = null;
+                    Main.gameMenu = true;
+                    Task.Factory.StartNew(ExitWorldCallback, null);
+                    return;
+                }
+
+                // 首次离开主世界时保存主世界引用
+                if (currentDimension == null && targetIndex >= 0) {
+                    mainWorldData = Main.ActiveWorldFileData;
+                }
+
+                // 设定新的当前维度
+                currentDimension = targetIndex < 0 ? null : registeredDimensions[targetIndex];
+
+                // 显示加载界面
                 Main.gameMenu = true;
-                Task.Factory.StartNew(ExitWorldCallback, null);
-                return;
-            }
+                Main.menuMode = 10; // 加载世界界面
 
-            if (VaultUtils.isSinglePlayer) {
-                //首次离开主世界时保存主世界数据
+                // 异步执行世界保存和加载
+                Task.Factory.StartNew(ExitWorldCallback, targetIndex);
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error in BeginTransition: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// 发送维度切换网络包
+        /// </summary>
+        private static void SendDimensionSwitchPacket(int targetIndex) {
+            try {
+                ModPacket packet = VaultMod.Instance.GetPacket();
+                packet.Write(PACKET_DIMENSION_SWITCH);
+                packet.Write(targetIndex);
+                packet.Send();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error sending dimension switch packet: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// 服务器执行维度切换
+        /// </summary>
+        private static void PerformServerSwitch(int targetIndex) {
+            try {
+                VaultMod.Instance.Logger.Info($"Server switching to dimension index: {targetIndex}");
+
+                // 保存当前世界
+                WorldFile.SaveWorld();
+
+                // 准备数据切换
+                cachedDimension = currentDimension;
                 if (currentDimension == null && targetIndex >= 0) {
                     mainWorldData = Main.ActiveWorldFileData;
                 }
 
                 currentDimension = targetIndex < 0 ? null : registeredDimensions[targetIndex];
-                Main.gameMenu = true;
 
-                Task.Factory.StartNew(ExitWorldCallback, targetIndex);
-                return;
+                // 执行核心切换逻辑
+                ExitWorldCallback(targetIndex);
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error in server dimension switch: {ex}");
             }
+        }
 
-            //多人模式下的处理
-            //TODO: 实现多人模式支持
-            //操你妈太复杂了我不想写以后再说
+        /// <summary>
+        /// 接收维度切换网络包
+        /// </summary>
+        public static void ReceiveDimensionSwitch(BinaryReader reader) {
+            try {
+                int targetIndex = reader.ReadInt32();
+                BeginTransition(targetIndex);
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error receiving dimension switch: {ex}");
+            }
         }
 
         /// <summary>
@@ -285,26 +366,34 @@ namespace InnoVault.Dimensions
         /// 从主世界复制通用数据
         /// </summary>
         private static void CopyMainWorldData() {
-            transferData["mainId"] = Main.ActiveWorldFileData.UniqueId.ToByteArray();
-            transferData["seed"] = Main.ActiveWorldFileData.SeedText;
-            transferData["gameMode"] = Main.ActiveWorldFileData.GameMode;
-            transferData["hardMode"] = Main.hardMode;
-            transferData["time"] = Main.time;
-            transferData["dayTime"] = Main.dayTime;
+            try {
+                transferData["mainId"] = Main.ActiveWorldFileData.UniqueId.ToByteArray();
+                transferData["seed"] = Main.ActiveWorldFileData.SeedText;
+                transferData["gameMode"] = Main.ActiveWorldFileData.GameMode;
+                transferData["hardMode"] = Main.hardMode;
+                transferData["time"] = Main.time;
+                transferData["dayTime"] = Main.dayTime;
 
-            //世界种子选项
-            transferData[nameof(Main.drunkWorld)] = Main.drunkWorld;
-            transferData[nameof(Main.getGoodWorld)] = Main.getGoodWorld;
-            transferData[nameof(Main.tenthAnniversaryWorld)] = Main.tenthAnniversaryWorld;
-            transferData[nameof(Main.dontStarveWorld)] = Main.dontStarveWorld;
-            transferData[nameof(Main.notTheBeesWorld)] = Main.notTheBeesWorld;
-            transferData[nameof(Main.remixWorld)] = Main.remixWorld;
-            transferData[nameof(Main.noTrapsWorld)] = Main.noTrapsWorld;
-            transferData[nameof(Main.zenithWorld)] = Main.zenithWorld;
+                // 世界种子选项
+                transferData[nameof(Main.drunkWorld)] = Main.drunkWorld;
+                transferData[nameof(Main.getGoodWorld)] = Main.getGoodWorld;
+                transferData[nameof(Main.tenthAnniversaryWorld)] = Main.tenthAnniversaryWorld;
+                transferData[nameof(Main.dontStarveWorld)] = Main.dontStarveWorld;
+                transferData[nameof(Main.notTheBeesWorld)] = Main.notTheBeesWorld;
+                transferData[nameof(Main.remixWorld)] = Main.remixWorld;
+                transferData[nameof(Main.noTrapsWorld)] = Main.noTrapsWorld;
+                transferData[nameof(Main.zenithWorld)] = Main.zenithWorld;
 
-            //调用所有IDimensionDataTransfer实现
-            foreach (IDimensionDataTransfer transfer in VaultUtils.GetDerivedInstances<IDimensionDataTransfer>()) {
-                transfer.CopyFromMainWorld();
+                // 调用所有IDimensionDataTransfer实现
+                foreach (IDimensionDataTransfer transfer in VaultUtils.GetDerivedInstances<IDimensionDataTransfer>()) {
+                    try {
+                        transfer.CopyFromMainWorld();
+                    } catch (Exception ex) {
+                        VaultMod.Instance.Logger.Error($"Error in CopyFromMainWorld for {transfer.GetType().Name}: {ex}");
+                    }
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error in CopyMainWorldData: {ex}");
             }
         }
 
@@ -312,28 +401,36 @@ namespace InnoVault.Dimensions
         /// 读取主世界数据
         /// </summary>
         private static void ReadCopiedMainWorldData() {
-            mainWorldData.UniqueId = new Guid(transferData.Get<byte[]>("mainId"));
-            Main.ActiveWorldFileData.SetSeed(transferData.Get<string>("seed"));
-            Main.GameMode = transferData.Get<int>("gameMode");
-            Main.hardMode = transferData.Get<bool>("hardMode");
+            try {
+                mainWorldData.UniqueId = new Guid(transferData.Get<byte[]>("mainId"));
+                Main.ActiveWorldFileData.SetSeed(transferData.Get<string>("seed"));
+                Main.GameMode = transferData.Get<int>("gameMode");
+                Main.hardMode = transferData.Get<bool>("hardMode");
 
-            //根据维度设置决定是否应用时间
-            if (currentDimension != null && currentDimension.EnableTimeOfDay) {
-                Main.time = transferData.Get<double>("time");
-                Main.dayTime = transferData.Get<bool>("dayTime");
-            }
+                // 根据维度设置决定是否应用时间
+                if (currentDimension != null && currentDimension.EnableTimeOfDay) {
+                    Main.time = transferData.Get<double>("time");
+                    Main.dayTime = transferData.Get<bool>("dayTime");
+                }
 
-            Main.drunkWorld = transferData.Get<bool>(nameof(Main.drunkWorld));
-            Main.getGoodWorld = transferData.Get<bool>(nameof(Main.getGoodWorld));
-            Main.tenthAnniversaryWorld = transferData.Get<bool>(nameof(Main.tenthAnniversaryWorld));
-            Main.dontStarveWorld = transferData.Get<bool>(nameof(Main.dontStarveWorld));
-            Main.notTheBeesWorld = transferData.Get<bool>(nameof(Main.notTheBeesWorld));
-            Main.remixWorld = transferData.Get<bool>(nameof(Main.remixWorld));
-            Main.noTrapsWorld = transferData.Get<bool>(nameof(Main.noTrapsWorld));
-            Main.zenithWorld = transferData.Get<bool>(nameof(Main.zenithWorld));
+                Main.drunkWorld = transferData.Get<bool>(nameof(Main.drunkWorld));
+                Main.getGoodWorld = transferData.Get<bool>(nameof(Main.getGoodWorld));
+                Main.tenthAnniversaryWorld = transferData.Get<bool>(nameof(Main.tenthAnniversaryWorld));
+                Main.dontStarveWorld = transferData.Get<bool>(nameof(Main.dontStarveWorld));
+                Main.notTheBeesWorld = transferData.Get<bool>(nameof(Main.notTheBeesWorld));
+                Main.remixWorld = transferData.Get<bool>(nameof(Main.remixWorld));
+                Main.noTrapsWorld = transferData.Get<bool>(nameof(Main.noTrapsWorld));
+                Main.zenithWorld = transferData.Get<bool>(nameof(Main.zenithWorld));
 
-            foreach (IDimensionDataTransfer transfer in VaultUtils.GetDerivedInstances<IDimensionDataTransfer>()) {
-                transfer.ReadMainWorldData();
+                foreach (IDimensionDataTransfer transfer in VaultUtils.GetDerivedInstances<IDimensionDataTransfer>()) {
+                    try {
+                        transfer.ReadMainWorldData();
+                    } catch (Exception ex) {
+                        VaultMod.Instance.Logger.Error($"Error in ReadMainWorldData for {transfer.GetType().Name}: {ex}");
+                    }
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error in ReadCopiedMainWorldData: {ex}");
             }
         }
 
@@ -345,78 +442,104 @@ namespace InnoVault.Dimensions
         /// 退出世界回调
         /// </summary>
         internal static void ExitWorldCallback(object index) {
-            int netMode = Main.netMode;
+            try {
+                int netMode = Main.netMode;
 
-            if (index != null) {
+                if (index != null) {
+                    if (netMode == 0 || netMode == 2) {
+                        WorldFile.CacheSaveTime();
+
+                        if (transferData == null) {
+                            transferData = new TagCompound();
+                        }
+
+                        // 保存旧维度数据
+                        if (cachedDimension != null) {
+                            copyingDimensionData = true;
+                            try {
+                                cachedDimension.CopyDimensionData();
+                            } catch (Exception ex) {
+                                VaultMod.Instance.Logger.Error($"Error copying dimension data: {ex}");
+                            }
+                            copyingDimensionData = false;
+
+                            cachedDimension.OnExit();
+                        }
+
+                        // 从主世界离开时保存主世界数据
+                        if (cachedDimension == null && (int)index >= 0) {
+                            CopyMainWorldData();
+                        }
+                    }
+                }
+
+                // 清理游戏状态
+                Main.invasionProgress = -1;
+                Main.invasionProgressDisplayLeft = 0;
+                Main.invasionProgressAlpha = 0;
+                Main.invasionProgressIcon = 0;
+
+                // 重置地图
+                if (Main.Map != null) {
+                    Main.Map.Clear();
+                }
+
+                // 触发新维度进入钩子
+                if (currentDimension != null) {
+                    currentDimension.OnEnter();
+                }
+
+                // 保存玩家数据
+                if (Main.ActivePlayerFileData != null) {
+                    Main.ActivePlayerFileData.StopPlayTimer();
+                    Player.SavePlayer(Main.ActivePlayerFileData);
+                    Player.ClearPlayerTempInfo();
+                }
+
+                // 保存世界
+                if (netMode != 1) {
+                    WorldFile.SaveWorld();
+                }
+
+                SystemLoader.OnWorldUnload();
+
+                Main.fastForwardTimeToDawn = false;
+                Main.fastForwardTimeToDusk = false;
+                Main.UpdateTimeRate();
+
+                // 返回主菜单
+                if (index == null) {
+                    cachedDimension = null;
+                    Main.menuMode = 0;
+                    return;
+                }
+
+                WorldGen.noMapUpdate = true;
+
+                // 重置玩家（单人模式）
                 if (netMode == 0) {
-                    WorldFile.CacheSaveTime();
-
-                    if (transferData == null) {
-                        transferData = new TagCompound();
+                    if (cachedDimension != null && cachedDimension.ResetPlayerOnExit) {
+                        PlayerFileData playerData = Player.GetFileData(Main.ActivePlayerFileData.Path, Main.ActivePlayerFileData.IsCloudSave);
+                        if (playerData != null) {
+                            playerData.Player.whoAmI = Main.myPlayer;
+                            playerData.SetAsActive();
+                        }
                     }
 
-                    if (cachedDimension != null) {
-                        copyingDimensionData = true;
-                        cachedDimension.CopyDimensionData();
-                        copyingDimensionData = false;
-
-                        cachedDimension.OnExit();
-                    }
-
-                    if ((int)index >= 0) {
-                        CopyMainWorldData();
+                    for (int i = 0; i < 255; i++) {
+                        if (i != Main.myPlayer) {
+                            Main.player[i].active = false;
+                        }
                     }
                 }
-            }
 
-            //清理入侵进度等临时UI
-            Main.invasionProgress = -1;
-            Main.invasionProgressDisplayLeft = 0;
-            Main.invasionProgressAlpha = 0;
-            Main.invasionProgressIcon = 0;
-
-            if (currentDimension != null) {
-                currentDimension.OnEnter();
-            }
-
-            Main.ActivePlayerFileData.StopPlayTimer();
-            Player.SavePlayer(Main.ActivePlayerFileData);
-            Player.ClearPlayerTempInfo();
-
-            if (netMode != 1) {
-                WorldFile.SaveWorld();
-            }
-
-            SystemLoader.OnWorldUnload();
-
-            Main.fastForwardTimeToDawn = false;
-            Main.fastForwardTimeToDusk = false;
-            Main.UpdateTimeRate();
-
-            if (index == null) {
-                cachedDimension = null;
+                // 加载新世界
+                if (netMode != 1) {
+                    LoadWorld();
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error in ExitWorldCallback: {ex}");
                 Main.menuMode = 0;
-                return;
-            }
-
-            WorldGen.noMapUpdate = true;
-
-            if (cachedDimension != null && cachedDimension.ResetPlayerOnExit) {
-                PlayerFileData playerData = Player.GetFileData(Main.ActivePlayerFileData.Path, Main.ActivePlayerFileData.IsCloudSave);
-                if (playerData != null) {
-                    playerData.Player.whoAmI = Main.myPlayer;
-                    playerData.SetAsActive();
-                }
-            }
-
-            for (int i = 0; i < 255; i++) {
-                if (i != Main.myPlayer) {
-                    Main.player[i].active = false;
-                }
-            }
-
-            if (netMode != 1) {
-                LoadWorld();
             }
         }
 
@@ -424,155 +547,230 @@ namespace InnoVault.Dimensions
         /// 加载世界
         /// </summary>
         private static void LoadWorld() {
-            bool isDimension = currentDimension != null;
-            bool cloud = mainWorldData.IsCloudSave;
-            string path = isDimension ? CurrentPath : mainWorldData.Path;
+            try {
+                bool isDimension = currentDimension != null;
 
-            Main.rand = new UnifiedRandom((int)DateTime.Now.Ticks);
-
-            cachedDimension?.OnUnload();
-
-            Main.ToggleGameplayUpdates(false);
-
-            WorldGen.gen = true;
-            WorldGen.loadFailed = false;
-            WorldGen.loadSuccess = false;
-
-            if (!isDimension || currentDimension.ShouldSave) {
-                if (!isDimension) {
-                    Main.ActiveWorldFileData = mainWorldData;
+                // 确保主世界数据存在
+                if (!isDimension && mainWorldData == null) {
+                    mainWorldData = Main.ActiveWorldFileData;
                 }
 
+                bool cloud = mainWorldData.IsCloudSave;
+                string path = isDimension ? CurrentPath : mainWorldData.Path;
+
+                Main.rand = new UnifiedRandom((int)DateTime.Now.Ticks);
+
+                cachedDimension?.OnUnload();
+
+                Main.ToggleGameplayUpdates(false);
+
+                WorldGen.gen = true;
+                WorldGen.loadFailed = false;
+                WorldGen.loadSuccess = false;
+
+                // 设置WorldFileData
+                SetupWorldFileData(isDimension, path, cloud);
+
+                // 尝试加载世界文件
                 TryLoadWorldFile(path, cloud);
-            }
 
-            if (isDimension) {
-                if (!WorldGen.loadSuccess) {
-                    LoadDimension(path, cloud);
+                // 处理维度
+                if (isDimension) {
+                    if (!WorldGen.loadSuccess) {
+                        LoadDimensionGen(path, cloud);
+                    }
+                    currentDimension.OnLoad();
+                }
+                else if (!WorldGen.loadSuccess) {
+                    Main.menuMode = 0;
+                    if (VaultUtils.isServer) {
+                        Netplay.Disconnect = true;
+                    }
+                    return;
                 }
 
-                currentDimension.OnLoad();
-            }
-            else if (!WorldGen.loadSuccess) {
+                WorldGen.gen = false;
+
+                // 客户端地图加载
+                if (!VaultUtils.isServer) {
+                    LoadClientMap();
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error loading world: {ex}");
                 Main.menuMode = 0;
                 if (VaultUtils.isServer) {
                     Netplay.Disconnect = true;
                 }
-                return;
+            }
+        }
+
+        /// <summary>
+        /// 设置世界文件数据
+        /// </summary>
+        private static void SetupWorldFileData(bool isDimension, string path, bool cloud) {
+            if (isDimension) {
+                WorldFileData dimData = new WorldFileData(path, cloud) {
+                    Name = currentDimension.DisplayName.Value,
+                    CreationTime = DateTime.Now,
+                    Metadata = FileMetadata.FromCurrentSettings(FileType.World),
+                    WorldGeneratorVersion = Main.WorldGeneratorVersion,
+                    UniqueId = Guid.NewGuid(),
+                    GameMode = Main.GameMode
+                };
+                dimData.SetSeed(mainWorldData.SeedText);
+                Main.ActiveWorldFileData = dimData;
+            }
+            else {
+                Main.ActiveWorldFileData = mainWorldData;
+            }
+        }
+
+        /// <summary>
+        /// 加载客户端地图
+        /// </summary>
+        private static void LoadClientMap() {
+            if (Main.mapEnabled) {
+                Main.Map.Load();
             }
 
-            WorldGen.gen = false;
+            Main.sectionManager.SetAllSectionsLoaded();
 
-            if (!VaultUtils.isServer) {
-                if (Main.mapEnabled) {
-                    Main.Map.Load();
-                }
-
-                Main.sectionManager.SetAllSectionsLoaded();
-
-                while (Main.mapEnabled && Main.loadMapLock) {
-                    Main.statusText = Lang.gen[68].Value + " " + (int)((float)Main.loadMapLastX / Main.maxTilesX * 100 + 1) + "%";
-                    System.Threading.Thread.Sleep(0);
-                }
-
-                Main.QueueMainThreadAction(SpawnPlayer);
+            while (Main.mapEnabled && Main.loadMapLock) {
+                Main.statusText = Terraria.Localization.Language.GetTextValue("LegacyWorldGen.68") + " " + (int)((float)Main.loadMapLastX / Main.maxTilesX * 100 + 1) + "%";
+                System.Threading.Thread.Sleep(0);
             }
+
+            Main.QueueMainThreadAction(SpawnPlayer);
         }
 
         /// <summary>
         /// 生成玩家
         /// </summary>
         private static void SpawnPlayer() {
-            Main.LocalPlayer.Spawn(PlayerSpawnContext.SpawningIntoWorld);
-            WorldFile.SetOngoingToTemps();
-            Main.resetClouds = true;
-            Main.gameMenu = false;
+            try {
+                Main.LocalPlayer.Spawn(PlayerSpawnContext.SpawningIntoWorld);
+
+                // 维度自定义生成点
+                if (currentDimension != null) {
+                    //可以让维度自定义生成位置
+                    //Main.LocalPlayer.position = currentDimension.GetSpawnPosition(Main.LocalPlayer);
+                }
+
+                WorldFile.SetOngoingToTemps();
+                Main.resetClouds = true;
+                Main.gameMenu = false;
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error spawning player: {ex}");
+            }
         }
 
         /// <summary>
-        /// 加载维度
+        /// 生成维度（全新生成）
         /// </summary>
-        private static void LoadDimension(string path, bool cloud) {
-            Main.worldName = currentDimension.DisplayName.Value;
-            if (VaultUtils.isServer) {
-                Console.Title = Main.worldName;
+        private static void LoadDimensionGen(string path, bool cloud) {
+            try {
+                Main.worldName = currentDimension.DisplayName.Value;
+                if (VaultUtils.isServer) {
+                    Console.Title = Main.worldName;
+                }
+
+                Main.maxTilesX = currentDimension.Width;
+                Main.maxTilesY = currentDimension.Height;
+                Main.spawnTileX = Main.maxTilesX / 2;
+                Main.spawnTileY = Main.maxTilesY / 2;
+
+                WorldGen.setWorldSize();
+                WorldGen.clearWorld();
+                Main.worldSurface = Main.maxTilesY * 0.3;
+                Main.rockLayer = Main.maxTilesY * 0.5;
+                GenVars.waterLine = Main.maxTilesY;
+                Main.weatherCounter = 18000;
+
+                ReadCopiedMainWorldData();
+
+                // 执行世界生成
+                double totalWeight = currentDimension.GenerationTasks.Sum(t => t.Weight);
+                WorldGenerator.CurrentGenerationProgress = new GenerationProgress();
+                WorldGenerator.CurrentGenerationProgress.TotalWeight = totalWeight;
+
+                WorldGenConfiguration config = currentDimension.GenerationConfig;
+
+                foreach (GenPass task in currentDimension.GenerationTasks) {
+                    WorldGen._genRand = new UnifiedRandom(Main.ActiveWorldFileData.Seed);
+                    Main.rand = new UnifiedRandom(Main.ActiveWorldFileData.Seed);
+
+                    WorldGenerator.CurrentGenerationProgress.Start(task.Weight);
+                    try {
+                        task.Apply(WorldGenerator.CurrentGenerationProgress, config?.GetPassConfiguration(task.Name));
+                    } catch (Exception ex) {
+                        VaultMod.Instance.Logger.Error($"Error in dimension gen pass {task.Name}: {ex}");
+                    }
+                    WorldGenerator.CurrentGenerationProgress.End();
+                }
+
+                WorldGenerator.CurrentGenerationProgress = null;
+                Main.WorldFileMetadata = FileMetadata.FromCurrentSettings(FileType.World);
+
+                // 保存新生成的维度
+                if (currentDimension.ShouldSave) {
+                    WorldFile.SaveWorld(cloud);
+                }
+
+                WorldGen.loadSuccess = true;
+                SystemLoader.OnWorldLoad();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error generating dimension: {ex}");
+                WorldGen.loadFailed = true;
             }
-
-            WorldFileData data = new WorldFileData(path, cloud) {
-                Name = Main.worldName,
-                CreationTime = DateTime.Now,
-                Metadata = FileMetadata.FromCurrentSettings(FileType.World),
-                WorldGeneratorVersion = Main.WorldGeneratorVersion,
-                UniqueId = Guid.NewGuid()
-            };
-            Main.ActiveWorldFileData = data;
-
-            Main.maxTilesX = currentDimension.Width;
-            Main.maxTilesY = currentDimension.Height;
-            Main.spawnTileX = Main.maxTilesX / 2;
-            Main.spawnTileY = Main.maxTilesY / 2;
-            WorldGen.setWorldSize();
-            WorldGen.clearWorld();
-            Main.worldSurface = Main.maxTilesY * 0.3;
-            Main.rockLayer = Main.maxTilesY * 0.5;
-            GenVars.waterLine = Main.maxTilesY;
-            Main.weatherCounter = 18000;
-
-            ReadCopiedMainWorldData();
-
-            //执行世界生成
-            double totalWeight = 0;
-            foreach (GenPass task in currentDimension.GenerationTasks) {
-                totalWeight += task.Weight;
-            }
-
-            WorldGenerator.CurrentGenerationProgress = new GenerationProgress();
-            WorldGenerator.CurrentGenerationProgress.TotalWeight = totalWeight;
-
-            WorldGenConfiguration config = currentDimension.GenerationConfig;
-
-            foreach (GenPass task in currentDimension.GenerationTasks) {
-                WorldGen._genRand = new UnifiedRandom(data.Seed);
-                Main.rand = new UnifiedRandom(data.Seed);
-
-                WorldGenerator.CurrentGenerationProgress.Start(task.Weight);
-                task.Apply(WorldGenerator.CurrentGenerationProgress, config?.GetPassConfiguration(task.Name));
-                WorldGenerator.CurrentGenerationProgress.End();
-            }
-
-            WorldGenerator.CurrentGenerationProgress = null;
-
-            Main.WorldFileMetadata = FileMetadata.FromCurrentSettings(FileType.World);
-
-            if (currentDimension.ShouldSave) {
-                WorldFile.SaveWorld(cloud);
-            }
-
-            SystemLoader.OnWorldLoad();
         }
 
         /// <summary>
         /// 尝试加载世界文件
         /// </summary>
         private static void TryLoadWorldFile(string path, bool cloud) {
-            //TODO: 实现完整的文件加载逻辑,包括备份处理
-            if (FileUtilities.Exists(path, cloud)) {
-                try {
-                    using BinaryReader reader = new BinaryReader(new MemoryStream(FileUtilities.ReadAllBytes(path, cloud)));
-                    int status = currentDimension != null ? currentDimension.ReadDimensionFile(reader) : WorldFile.LoadWorld_Version2(reader);
+            if (!FileUtilities.Exists(path, cloud)) {
+                return;
+            }
 
-                    if (status == 0) {
-                        WorldGen.loadSuccess = true;
-                        SystemLoader.OnWorldLoad();
+            try {
+                using BinaryReader reader = new BinaryReader(new MemoryStream(FileUtilities.ReadAllBytes(path, cloud)));
 
-                        if (currentDimension != null) {
-                            currentDimension.PostReadFile();
-                            cachedDimension?.ReadDimensionData();
-                            ReadCopiedMainWorldData();
+                int status = 0;
+                if (currentDimension != null) {
+                    // 自定义维度读取
+                    status = currentDimension.ReadDimensionFile(reader);
+                }
+                else {
+                    // 主世界读取 - 使用Terraria标准方法
+                    WorldFile.LoadWorld(cloud);
+                    status = 0;
+                }
+
+                if (status == 0) {
+                    WorldGen.loadSuccess = true;
+                    SystemLoader.OnWorldLoad();
+
+                    if (currentDimension != null) {
+                        currentDimension.PostReadFile();
+                        cachedDimension?.ReadDimensionData();
+                        ReadCopiedMainWorldData();
+                    }
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Failed to load world file: {ex}");
+                WorldGen.loadFailed = true;
+
+                // 尝试加载备份
+                if (currentDimension == null) {
+                    string backupPath = path + ".bak";
+                    if (FileUtilities.Exists(backupPath, cloud)) {
+                        try {
+                            FileUtilities.Move(backupPath, path, cloud, true);
+                            TryLoadWorldFile(path, cloud);
+                        } catch (Exception backupEx) {
+                            VaultMod.Instance.Logger.Error($"Failed to load backup: {backupEx}");
                         }
                     }
-                } catch {
-                    WorldGen.loadFailed = true;
                 }
             }
         }
@@ -585,16 +783,16 @@ namespace InnoVault.Dimensions
         /// 
         /// </summary>
         public override void PostUpdateEverything() {
-            //处理切换队列
+            // 处理切换队列
             while (switchQueue.Count > 0) {
                 var (dimensionIndex, playerWhoAmI) = switchQueue.Dequeue();
-                //TODO: 实际执行切换逻辑
+                // TODO: 实现多人玩家切换逻辑
             }
 
-            //更新临时维度计时器
+            // 更新临时维度计时器
             UpdateTemporaryDimensions();
 
-            //应用时间流速
+            // 应用时间流速
             if (currentDimension != null && currentDimension.TimeScale != 1.0f) {
                 Main.time += Main.dayRate * (currentDimension.TimeScale - 1.0f);
             }
@@ -611,7 +809,7 @@ namespace InnoVault.Dimensions
                 float timeLeft = kvp.Value;
 
                 if (!dimensionPlayerCounts.ContainsKey(index) || dimensionPlayerCounts[index] == 0) {
-                    timeLeft -= 1f / 60f; //假设60FPS
+                    timeLeft -= 1f / 60f;
                     dimensionLifeTimers[index] = timeLeft;
 
                     if (timeLeft <= 0) {
@@ -621,25 +819,21 @@ namespace InnoVault.Dimensions
             }
 
             foreach (int index in toRemove) {
-                //TODO: 清理维度
+                // TODO: 清理维度
                 dimensionLifeTimers.Remove(index);
             }
         }
 
-        private void UpdateDimensionNPCGravity(On_NPC.orig_UpdateNPC_UpdateGravity orig, NPC self)
-        {
+        private void UpdateDimensionNPCGravity(On_NPC.orig_UpdateNPC_UpdateGravity orig, NPC self) {
             orig.Invoke(self);
             if (currentDimension != null)
                 self.GravityMultiplier *= currentDimension.GetGravityMultiplier(self);
         }
 
-        internal static void UpdateDimensionPlayerGravity(Player player)
-        {
+        internal static void UpdateDimensionPlayerGravity(Player player) {
             if (currentDimension != null)
                 player.gravity *= currentDimension.GetGravityMultiplier(player);
         }
-
-
 
         #endregion
     }
