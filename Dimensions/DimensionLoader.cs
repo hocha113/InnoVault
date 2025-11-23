@@ -135,6 +135,7 @@ namespace InnoVault.Dimensions
                         VaultMod.Instance.Logger.Info($"Restoring dimension state to index: {targetIndex}");
 
                         if (dimensionsByIndex.ContainsKey(targetIndex)) {
+                            DontTaskRun = true;
                             BeginTransition(targetIndex);
                         }
                         else {
@@ -358,11 +359,13 @@ namespace InnoVault.Dimensions
             BeginTransition(targetIndex);
         }
 
+        private static bool DontTaskRun = false;
         /// <summary>
         /// 开始维度过渡
         /// </summary>
         private static void BeginTransition(int targetIndex) {
             try {
+                bool isTransitioning2 = isTransitioning;
                 //设置过渡标志，防止在切换维度时触发保存/加载维度状态
                 isTransitioning = true;
                 VaultMod.Instance.Logger.Info($"Beginning dimension transition to index: {targetIndex}");
@@ -397,8 +400,14 @@ namespace InnoVault.Dimensions
                 Main.gameMenu = true;
                 Main.menuMode = 10; //加载世界界面
 
-                //异步执行世界保存和加载
-                Task.Factory.StartNew(ExitWorldCallback, targetIndex);
+                if (DontTaskRun) {
+                    DontTaskRun = false;
+                    ExitWorldCallback(targetIndex);
+                }
+                else {
+                    //异步执行世界保存和加载
+                    Task.Factory.StartNew(ExitWorldCallback, targetIndex);
+                }              
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Error in BeginTransition: {ex}");
                 isTransitioning = false; //出错时清除标志

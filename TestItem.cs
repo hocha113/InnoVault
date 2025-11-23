@@ -49,13 +49,12 @@ namespace InnoVault
         }
 
         public override bool? UseItem(Player player) {
-            DimensionLoader.Enter<ExampleMirrorDimension>();
-            //if (player.altFunctionUse == 2) {
-            //    MySaveStructure.DoSave<MySaveStructure>();
-            //}
-            //else {
-            //    MySaveStructure.DoLoad<MySaveStructure>();
-            //}            
+            if (player.altFunctionUse == 2) {
+                DimensionLoader.Exit();
+            }
+            else {
+                DimensionLoader.Enter<ExampleMirrorDimension>();
+            }
             return true;
         }
     }
