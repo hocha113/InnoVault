@@ -111,28 +111,14 @@ namespace InnoVault.Dimensions
         public override void OnWorldUnload() {
             //清理当前维度状态
             if (currentDimension != null) {
-                try {
-                    currentDimension.OnExit();
-                    currentDimension.OnUnload();
-                } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"Error during dimension cleanup on world unload: {ex}");
-                }
+                //try {
+                //    currentDimension.OnExit();
+                //    currentDimension.OnUnload();
+                //    PerformServerSwitch(-1);
+                //} catch (Exception ex) {
+                //    VaultMod.Instance.Logger.Error($"Error during dimension cleanup on world unload: {ex}");
+                //}
             }
-
-            //重置所有维度相关的状态
-            currentDimension = null;
-            cachedDimension = null;
-            mainWorldData = null;
-            transferData = null;
-
-            //清理维度切换队列
-            switchQueue?.Clear();
-
-            //清理维度计时器和玩家计数
-            dimensionLifeTimers?.Clear();
-            dimensionPlayerCounts?.Clear();
-
-            VaultMod.Instance.Logger.Info("Dimension states cleared on world unload.");
         }
 
         /// <summary>
@@ -193,20 +179,39 @@ namespace InnoVault.Dimensions
 
         /// <summary>
         /// 获取当前维度的文件路径
+        /// <para>路径格式: Worlds/Dimensions/[主世界名称]/[维度全名].wld</para>
         /// </summary>
         public static string CurrentPath {
             get {
+                //如果没有维度，或者是主世界，返回标准路径
                 if (currentDimension == null) {
                     return mainWorldData?.Path ?? Main.ActiveWorldFileData?.Path ?? string.Empty;
                 }
 
+                //获取主世界数据作为"父级"依据
                 var baseData = mainWorldData ?? Main.ActiveWorldFileData;
                 if (baseData == null) {
                     VaultMod.Instance.Logger.Error("Cannot get dimension path: no world data available");
                     return string.Empty;
                 }
 
-                return currentDimension.GetDimensionPath(baseData);
+                //获取并清理主世界名称 (防止非法文件名字符)
+                string cleanWorldName = baseData.Name;
+                foreach (char c in Path.GetInvalidFileNameChars()) {
+                    cleanWorldName = cleanWorldName.Replace(c, '_');
+                }
+
+                //构建隔离的文件夹路径: Worlds/Dimensions/{主世界名}/
+                //使用 Main.WorldPath 确保存档依然在玩家的存档目录下，方便云同步和管理
+                string dimensionRoot = Path.Combine(Main.WorldPath, "Dimensions", cleanWorldName);
+
+                //确保目录存在 (如果不存在则创建)
+                if (!Directory.Exists(dimensionRoot)) {
+                    Directory.CreateDirectory(dimensionRoot);
+                }
+
+                string fileName = $"{currentDimension.FullName}.wld"; 
+                return Path.Combine(dimensionRoot, fileName);
             }
         }
 
