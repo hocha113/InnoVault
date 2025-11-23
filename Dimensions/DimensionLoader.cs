@@ -593,9 +593,7 @@ namespace InnoVault.Dimensions
                     if (netMode == 0 || netMode == 2) {
                         WorldFile.CacheSaveTime();
 
-                        if (transferData == null) {
-                            transferData = new TagCompound();
-                        }
+                        transferData ??= [];
 
                         //保存旧维度数据
                         if (cachedDimension != null) {

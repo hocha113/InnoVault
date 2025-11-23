@@ -59,6 +59,9 @@ namespace InnoVault.GameSystem
         /// <param name="retentionDays">孤立文件保留天数，默认 7 天</param>
         /// <returns>被移动到 Orphaned 的文件数量</returns>
         public static int CleanupOrphanedSaves(int retentionDays = 7) {
+            if (Dimensions.DimensionLoader.AnyActive()) {
+                return 0; //维度中不处理
+            }
             int moved = 0;
             try {
                 string root = VaultSave.RootPath;

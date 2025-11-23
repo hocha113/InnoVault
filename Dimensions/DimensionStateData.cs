@@ -9,7 +9,7 @@ namespace InnoVault.Dimensions
     /// <summary>
     /// 维度状态数据类，继承 SaveContent 以实现稳定的存档隔离
     /// </summary>
-    internal class DimensionStateData : SaveWorld
+    internal class DimensionStateData : SaveContent<DimensionStateData>
     {
         /// <summary>
         /// 当前维度索引
@@ -30,6 +30,11 @@ namespace InnoVault.Dimensions
         /// 重写保存前缀，使其与世界存档关联
         /// </summary>
         public override string SavePrefix => "DimensionLoader";
+
+        /// <summary>
+        /// 重写保存路径，使用与 SaveWorld 相同的路径
+        /// </summary>
+        public override string SavePath => SaveWorld.GetInstance<SaveWorld>().SavePath;
 
         /// <summary>
         /// 保存维度状态数据
@@ -55,7 +60,7 @@ namespace InnoVault.Dimensions
         internal static void SaveDimensionState() {
             try {
                 //获取维度状态数据实例（SaveContent 单例）
-                DimensionStateData stateData = SaveWorld.GetInstance<DimensionStateData>();
+                DimensionStateData stateData = GetInstance<DimensionStateData>();
 
                 //保存当前维度索引（如果在维度中）
                 if (currentDimension != null) {
@@ -71,10 +76,10 @@ namespace InnoVault.Dimensions
                 }
 
                 //保存时间戳
-                stateData.SaveTime = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+                stateData.SaveTime = DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
 
                 //使用 SaveContent 系统保存维度状态，自动实现存档隔离
-                SaveWorld.DoSave<DimensionStateData>();
+                DoSave<DimensionStateData>();
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Error saving dimension state: {ex}");
             }
