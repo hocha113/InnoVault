@@ -1,3 +1,4 @@
+using InnoVault.GameSystem;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -94,6 +95,16 @@ namespace InnoVault.Dimensions
         /// </summary>
         private static bool copyingDimensionData;
 
+        /// <summary>
+        /// 待恢复的维度索引（用于世界加载时恢复维度状态）
+        /// </summary>
+        private static int? pendingDimensionRestore = null;
+
+        /// <summary>
+        /// 是否正在进行维度切换（用于区分世界加载/卸载和维度切换）
+        /// </summary>
+        private static bool isTransitioning = false;
+
         #endregion
 
         #region 加载和卸载
@@ -106,24 +117,87 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// 世界卸载时清理维度状态
+        /// 世界加载时恢复维度状态
         /// </summary>
-        public override void OnWorldUnload() {
-            //清理当前维度状态
-            if (currentDimension != null) {
-                //try {
-                //    currentDimension.OnExit();
-                //    currentDimension.OnUnload();
-                //    PerformServerSwitch(-1);
-                //} catch (Exception ex) {
-                //    VaultMod.Instance.Logger.Error($"Error during dimension cleanup on world unload: {ex}");
-                //}
+        public override void OnWorldLoad() {
+            try {
+                //只有在非维度切换状态下才恢复维度状态
+                //因为维度切换会触发 OnWorldLoad，但此时不应该恢复状态
+                if (!isTransitioning) {
+                    VaultMod.Instance.Logger.Info("World loading (not transitioning), loading dimension state...");
+
+                    //加载维度状态
+                    LoadDimensionState();
+
+                    //如果有待恢复的维度，则在世界完全加载后切换
+                    if (pendingDimensionRestore.HasValue && pendingDimensionRestore.Value >= 0) {
+                        int targetIndex = pendingDimensionRestore.Value;
+                        VaultMod.Instance.Logger.Info($"Restoring dimension state to index: {targetIndex}");
+
+                        if (dimensionsByIndex.ContainsKey(targetIndex)) {
+                            BeginTransition(targetIndex);
+                        }
+                        else {
+                            VaultMod.Instance.Logger.Warn($"Cannot restore dimension: index {targetIndex} not found");
+                            pendingDimensionRestore = null;
+                        }
+                    }
+                    else {
+                        VaultMod.Instance.Logger.Info("No dimension state to restore, starting in main world.");
+                    }
+                }
+                else {
+                    VaultMod.Instance.Logger.Info("World loading during dimension transition, skipping dimension state restore.");
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error in OnWorldLoad: {ex}");
+                pendingDimensionRestore = null;
             }
         }
 
-        public override void OnWorldLoad() {
-            if (currentDimension != null) {
-                //Enter(currentDimension.FullName);
+        /// <summary>
+        /// 世界卸载时清理维度状态并保存当前维度
+        /// </summary>
+        public override void OnWorldUnload() {
+            try {
+                //只有在非维度切换状态下才保存维度状态
+                //因为维度切换会触发 OnWorldUnload，但此时不应该保存状态
+                if (!isTransitioning) {
+                    VaultMod.Instance.Logger.Info("World unloading (not transitioning), saving dimension state...");
+                    SaveDimensionState();
+
+                    //清理当前维度状态
+                    if (currentDimension != null) {
+                        try {
+                            currentDimension.OnExit();
+                            currentDimension.OnUnload();
+                        } catch (Exception ex) {
+                            VaultMod.Instance.Logger.Error($"Error during dimension cleanup on world unload: {ex}");
+                        }
+                    }
+
+                    //重置所有维度相关的状态
+                    currentDimension = null;
+                    cachedDimension = null;
+                    mainWorldData = null;
+                    transferData = null;
+
+                    //清理维度切换队列
+                    switchQueue?.Clear();
+
+                    //清理维度计时器和玩家计数
+                    dimensionLifeTimers?.Clear();
+                    dimensionPlayerCounts?.Clear();
+
+                    //清理待恢复标记
+                    pendingDimensionRestore = null;
+
+                    VaultMod.Instance.Logger.Info("Dimension states cleared and saved on world unload.");
+                } else {
+                    VaultMod.Instance.Logger.Info("World unloading during dimension transition, skipping dimension state save.");
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error in OnWorldUnload: {ex}");
             }
         }
 
@@ -145,6 +219,8 @@ namespace InnoVault.Dimensions
             cachedDimension = null;
             mainWorldData = null;
             transferData = null;
+            pendingDimensionRestore = null;
+            isTransitioning = false;
 
             On_NPC.UpdateNPC_UpdateGravity -= UpdateDimensionNPCGravity;
         }
@@ -157,6 +233,11 @@ namespace InnoVault.Dimensions
         /// 获取当前维度
         /// </summary>
         public static Dimension Current => currentDimension;
+
+        /// <summary>
+        /// 获取主世界数据（无论当前是否在维度中）
+        /// </summary>
+        public static WorldFileData MainWorldData => mainWorldData ?? Main.ActiveWorldFileData;
 
         /// <summary>
         /// 检查指定ID的维度是否激活
@@ -271,10 +352,21 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
+        /// 改变当前维度
+        /// </summary>
+        public static void Change(int targetIndex) {
+            BeginTransition(targetIndex);
+        }
+
+        /// <summary>
         /// 开始维度过渡
         /// </summary>
         private static void BeginTransition(int targetIndex) {
             try {
+                //设置过渡标志，防止在切换维度时触发保存/加载维度状态
+                isTransitioning = true;
+                VaultMod.Instance.Logger.Info($"Beginning dimension transition to index: {targetIndex}");
+
                 //服务器端处理
                 if (VaultUtils.isServer) {
                     SendDimensionSwitchPacket(targetIndex);
@@ -309,6 +401,7 @@ namespace InnoVault.Dimensions
                 Task.Factory.StartNew(ExitWorldCallback, targetIndex);
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Error in BeginTransition: {ex}");
+                isTransitioning = false; //出错时清除标志
             }
         }
 
@@ -348,6 +441,7 @@ namespace InnoVault.Dimensions
                 ExitWorldCallback(targetIndex);
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Error in server dimension switch: {ex}");
+                isTransitioning = false; //出错时清除标志
             }
         }
 
@@ -544,9 +638,11 @@ namespace InnoVault.Dimensions
                 Main.fastForwardTimeToDusk = false;
                 Main.UpdateTimeRate();
 
-                //返回主菜单
+                //返回主菜单时清除过渡标志
                 if (index == null) {
                     cachedDimension = null;
+                    isTransitioning = false;
+                    VaultMod.Instance.Logger.Info("Returning to main menu, clearing transition flag.");
                     Main.menuMode = 0;
                     return;
                 }
@@ -576,6 +672,7 @@ namespace InnoVault.Dimensions
                 }
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Error in ExitWorldCallback: {ex}");
+                isTransitioning = false; //出错时清除标志
                 Main.menuMode = 0;
             }
         }
@@ -620,6 +717,7 @@ namespace InnoVault.Dimensions
                 }
                 else if (!WorldGen.loadSuccess) {
                     Main.menuMode = 0;
+                    isTransitioning = false; //失败时清除标志
                     if (VaultUtils.isServer) {
                         Netplay.Disconnect = true;
                     }
@@ -632,8 +730,13 @@ namespace InnoVault.Dimensions
                 if (!VaultUtils.isServer) {
                     LoadClientMap();
                 }
+
+                //维度切换完成，清除过渡标志
+                isTransitioning = false;
+                VaultMod.Instance.Logger.Info("Dimension transition complete, clearing transition flag.");
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Error loading world: {ex}");
+                isTransitioning = false; //出错时清除标志
                 Main.menuMode = 0;
                 if (VaultUtils.isServer) {
                     Netplay.Disconnect = true;
@@ -754,9 +857,7 @@ namespace InnoVault.Dimensions
                 }
 
                 WorldGen.loadSuccess = true;
-                MenuLoaded = false;
                 SystemLoader.OnWorldLoad();
-                MenuLoaded = true;
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Error generating dimension: {ex}");
                 WorldGen.loadFailed = true;
@@ -787,9 +888,7 @@ namespace InnoVault.Dimensions
 
                 if (status == 0) {
                     WorldGen.loadSuccess = true;
-                    MenuLoaded = false;
                     SystemLoader.OnWorldLoad();
-                    MenuLoaded = true;
 
                     if (currentDimension != null) {
                         currentDimension.PostReadFile();
@@ -874,6 +973,86 @@ namespace InnoVault.Dimensions
         internal static void UpdateDimensionPlayerGravity(Player player) {
             if (currentDimension != null)
                 player.gravity *= currentDimension.GetGravityMultiplier(player);
+        }
+
+        #endregion
+
+        #region 维度状态保存与加载
+
+        /// <summary>
+        /// 保存当前维度状态到世界存档
+        /// </summary>
+        private static void SaveDimensionState() {
+            try {
+                //获取维度状态数据实例（SaveContent 单例）
+                DimensionStateData stateData = SaveWorld.GetInstance<DimensionStateData>();
+
+                //保存当前维度索引（如果在维度中）
+                if (currentDimension != null) {
+                    int currentIndex = dimensionsByIndex.FirstOrDefault(kvp => kvp.Value == currentDimension).Key;
+                    stateData.CurrentDimensionIndex = currentIndex;
+                    stateData.CurrentDimensionFullName = currentDimension.FullName;
+                    VaultMod.Instance.Logger.Info($"Saving dimension state: {currentDimension.FullName} (Index: {currentIndex})");
+                } else {
+                    stateData.CurrentDimensionIndex = -1;
+                    stateData.CurrentDimensionFullName = "MainWorld";
+                    VaultMod.Instance.Logger.Info("Saving dimension state: MainWorld");
+                }
+
+                //保存时间戳
+                stateData.SaveTime = System.DateTime.Now.ToString("yyyy-MM-dd HH:mm:ss");
+
+                //使用 SaveContent 系统保存维度状态，自动实现存档隔离
+                SaveWorld.DoSave<DimensionStateData>();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error saving dimension state: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// 从世界存档加载维度状态
+        /// </summary>
+        private static void LoadDimensionState() {
+            try {
+                //使用 SaveContent 系统加载维度状态
+                SaveWorld.DoLoad<DimensionStateData>();
+
+                //获取加载的数据实例
+                DimensionStateData stateData = SaveWorld.GetInstance<DimensionStateData>();
+
+                //检查是否成功加载了数据
+                if (stateData != null && !string.IsNullOrEmpty(stateData.CurrentDimensionFullName)) {
+                    int dimensionIndex = stateData.CurrentDimensionIndex;
+                    string dimensionName = stateData.CurrentDimensionFullName;
+                    string saveTime = stateData.SaveTime;
+
+                    VaultMod.Instance.Logger.Info($"Loading dimension state: {dimensionName} (Index: {dimensionIndex}, Saved: {saveTime})");
+
+                    //如果保存的是维度状态（不是主世界）
+                    if (dimensionIndex >= 0 && !string.IsNullOrEmpty(dimensionName) && dimensionName != "MainWorld") {
+                        //验证维度是否仍然存在
+                        if (dimensionsByIndex.ContainsKey(dimensionIndex)) {
+                            pendingDimensionRestore = dimensionIndex;
+                            VaultMod.Instance.Logger.Info($"Dimension state loaded successfully, will restore to: {dimensionName}");
+                        } else {
+                            VaultMod.Instance.Logger.Warn($"Saved dimension {dimensionName} (Index: {dimensionIndex}) no longer exists");
+                            pendingDimensionRestore = null;
+                        }
+                    } else {
+                        //主世界状态，无需恢复
+                        pendingDimensionRestore = null;
+                        VaultMod.Instance.Logger.Info("Main world state loaded, no dimension to restore.");
+                    }
+                } else {
+                    //没有保存的维度状态
+                    pendingDimensionRestore = null;
+                    VaultMod.Instance.Logger.Info("No saved dimension state found, starting in main world.");
+                }
+
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error loading dimension state: {ex}");
+                pendingDimensionRestore = null;
+            }
         }
 
         #endregion
