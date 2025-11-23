@@ -31,10 +31,15 @@ namespace InnoVault.Dimensions
         /// </summary>
         public override string SavePrefix => "DimensionLoader";
 
-        /// <summary>
-        /// 重写保存路径，使用与 SaveWorld 相同的路径
-        /// </summary>
         public override string SavePath => SaveWorld.GetInstance<SaveWorld>().SavePath;
+
+        public override bool PreSaveData(TagCompound tag, int style) {
+            return style == 1;
+        }
+
+        public override bool PreLoadData(TagCompound tag, int style) {
+            return style == 1;
+        }
 
         /// <summary>
         /// 保存维度状态数据
