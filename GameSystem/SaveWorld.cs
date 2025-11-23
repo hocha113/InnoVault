@@ -70,7 +70,7 @@ namespace InnoVault.GameSystem
 
                 Directory.CreateDirectory(orphanDir);
 
-                // 收集当前仍存在的世界基名 (不带扩展)
+                //收集当前仍存在的世界基名 (不带扩展)
                 HashSet<string> existingWorlds = new();
                 try {
                     var currentWorldDir = Path.GetDirectoryName(Main.worldPathName);
@@ -84,7 +84,7 @@ namespace InnoVault.GameSystem
                     }
                 } catch { /* 忽略收集错误 */ }
 
-                // 处理 nbt 主目录
+                //处理 nbt 主目录
                 void ScanAndMoveNBT(string baseDir, string prefix) {
                     if (!Directory.Exists(baseDir)) return;
                     foreach (var file in Directory.GetFiles(baseDir, prefix + "*.nbt", SearchOption.TopDirectoryOnly)) {
@@ -108,7 +108,7 @@ namespace InnoVault.GameSystem
                     }
                 }
 
-                // 处理 Backups 下 zip（包含时间戳）
+                //处理 Backups 下 zip（包含时间戳）
                 void ScanAndMoveZip(string backupDir, string logicalPrefix) {
                     if (!Directory.Exists(backupDir)) return;
                     foreach (var file in Directory.GetFiles(backupDir, "*.zip", SearchOption.TopDirectoryOnly)) {
@@ -140,7 +140,7 @@ namespace InnoVault.GameSystem
                 ScanAndMoveZip(worldBackups, "world_");
                 ScanAndMoveZip(tpBackups, "tp_");
 
-                // 删除过期的孤立 nbt / zip 文件
+                //删除过期的孤立 nbt / zip 文件
                 DateTime threshold = DateTime.UtcNow - TimeSpan.FromDays(Math.Max(0, retentionDays));
                 try {
                     foreach (var file in Directory.GetFiles(orphanDir, "*.*", SearchOption.TopDirectoryOnly)) {
