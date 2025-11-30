@@ -186,7 +186,13 @@ namespace InnoVault
                     attribute.Mod = newMod;
                 }
                 else {
-                    throw new Exception($"Member {targetName} couldn't find Mod \"{pathParts[0]}\". Original Mod Name: \"{attribute.Mod.Name}\"");
+                    //改为记录调试日志而非抛出异常，支持弱联动
+                    VaultMod.Instance.Logger.Debug($"Member {targetName} couldn't find Mod \"{pathParts[0]}\". " +
+                        $"Original Mod Name: \"{attribute.Mod.Name}\". " +
+                        $"Resource will use default value instead.");
+                    //将资源对象设置为null，后续会使用默认值
+                    attribute.Mod = null;
+                    return;
                 }
             }
 
@@ -346,8 +352,16 @@ namespace InnoVault
                 return;
             }
 
-            if (attribute.Mod == null) {//一般来说到这里了不会出现这种情况，但多判断一下总没错
-                VaultMod.Instance.Logger.Error($"{member.MemberType} {member.Name} from Mod is Null");
+            if (attribute.Mod == null) {//如果模组对象为null（例如外部模组未启用），使用默认值
+                VaultMod.Instance.Logger.Debug($"{member.MemberType} {member.Name} from Mod is Null, using default value instead.");
+                //尝试为成员设置默认值
+                object defaultValue = GetDefaultValue(valueType);
+                if (member is FieldInfo fieldInfo) {
+                    fieldInfo.SetValue(null, defaultValue);
+                }
+                else if (member is PropertyInfo propInfo) {
+                    propInfo.SetValue(null, defaultValue);
+                }
                 return;
             }
 
@@ -366,12 +380,24 @@ namespace InnoVault
                 value = array;
             }
 
-            if (member is FieldInfo fieldInfo) {
-                fieldInfo.SetValue(null, value);
+            if (member is FieldInfo fieldInfo2) {
+                fieldInfo2.SetValue(null, value);
             }
-            else if (member is PropertyInfo propInfo) {
-                propInfo.SetValue(null, value);
+            else if (member is PropertyInfo propInfo2) {
+                propInfo2.SetValue(null, value);
             }
+        }
+
+        /// <summary>
+        /// 获取指定类型的默认值
+        /// </summary>
+        /// <param name="type">目标类型</param>
+        /// <returns>该类型的默认值</returns>
+        private static object GetDefaultValue(Type type) {
+            if (type.IsValueType) {
+                return Activator.CreateInstance(type);
+            }
+            return null;
         }
 
         internal static Asset<Effect> LoadEffect(VaultLoadenAttribute attribute, AssetRequestMode requestMode = AssetRequestMode.AsyncLoad) {
@@ -435,7 +461,12 @@ namespace InnoVault
                     attribute.Mod = newMod;
                 }
                 else {
-                    throw new Exception($"Class {type.FullName} couldn't find Mod \"{pathParts[0]}\". Original Mod Name: \"{attribute.Mod.Name}\"");
+                    //改为记录调试日志而非抛出异常，支持弱联动
+                    VaultMod.Instance.Logger.Debug($"Class {type.FullName} couldn't find Mod \"{pathParts[0]}\". Original Mod Name: \"{attribute.Mod.Name}\". " +
+                        $"Class resources will use default values instead.");
+                    //将资源对象设置为null，后续会使用默认值
+                    attribute.Mod = null;
+                    return;
                 }
             }
 
