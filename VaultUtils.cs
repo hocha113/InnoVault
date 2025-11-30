@@ -4710,15 +4710,42 @@ namespace InnoVault
         /// </summary>
         public enum MenuState
         {
-            MainMenu,              //主菜单
-            CharacterSelect,       //角色选择
-            WorldSelect,           //世界选择
-            ModManagement,         //模组管理
-            ModBrowser,            //模组浏览器
-            Settings,              //设置
-            Multiplayer,           //多人游戏
-            InGame,                //游戏中（不在菜单）
-            Other                  //其他界面
+            /// <summary>
+            /// 主菜单
+            /// </summary>
+            MainMenu,
+            /// <summary>
+            /// 角色选择
+            /// </summary>
+            CharacterSelect,
+            /// <summary>
+            /// 世界选择
+            /// </summary>
+            WorldSelect,
+            /// <summary>
+            /// 模组管理
+            /// </summary>
+            ModManagement,
+            /// <summary>
+            /// 模组浏览器
+            /// </summary>
+            ModBrowser,
+            /// <summary>
+            /// 设置
+            /// </summary>
+            Settings,
+            /// <summary>
+            /// 多人游戏
+            /// </summary>
+            Multiplayer,
+            /// <summary>
+            /// 游戏中（不在菜单）
+            /// </summary>
+            InGame,
+            /// <summary>
+            /// 其他界面
+            /// </summary>
+            Other
         }
 
         /// <summary>
