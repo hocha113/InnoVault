@@ -436,7 +436,7 @@ namespace InnoVault
             int lastIndex = colors.Length - 1;
             float per = 1f / lastIndex;
 
-            int currentID = Math.Min((int)(percent / per), lastIndex - 1); // 防止索引溢出
+            int currentID = Math.Min((int)(percent / per), lastIndex - 1); //防止索引溢出
             float lerpFactor = (percent - per * currentID) / per;
 
             return Color.Lerp(colors[currentID], colors[currentID + 1], lerpFactor);
@@ -450,11 +450,11 @@ namespace InnoVault
         /// <param name="targetRectangle">目标矩形的边界框</param>
         /// <returns>返回 true 如果圆形与矩形相交，否则返回 false</returns>
         public static bool CircleIntersectsRectangle(Vector2 circleCenter, float radius, Rectangle targetRectangle) {
-            // 计算矩形最近点到圆心的距离
+            //计算矩形最近点到圆心的距离
             float nearestX = MathHelper.Clamp(circleCenter.X, targetRectangle.Left, targetRectangle.Right);
             float nearestY = MathHelper.Clamp(circleCenter.Y, targetRectangle.Top, targetRectangle.Bottom);
 
-            // 检测最近点与圆心的距离是否小于等于半径
+            //检测最近点与圆心的距离是否小于等于半径
             float deltaX = circleCenter.X - nearestX;
             float deltaY = circleCenter.Y - nearestY;
 
@@ -549,17 +549,17 @@ namespace InnoVault
                 maxChange *= -1;
             }
 
-            // 归一化角度到 [-π, π]
+            //归一化角度到 [-π, π]
             currentAngle = MathHelper.WrapAngle(currentAngle);
             targetAngle = MathHelper.WrapAngle(targetAngle);
 
-            // 计算最短路径的角度差
+            //计算最短路径的角度差
             float delta = MathHelper.WrapAngle(targetAngle - currentAngle);
 
-            // 限制变化量
+            //限制变化量
             delta = MathHelper.Clamp(delta, -maxChange, maxChange);
 
-            // 返回新的角度并再次归一化
+            //返回新的角度并再次归一化
             return MathHelper.WrapAngle(currentAngle + delta);
         }
 
@@ -1283,7 +1283,7 @@ namespace InnoVault
                     canChased = false;
                 }
 
-                // Boss优先选择逻辑
+                //Boss优先选择逻辑
                 if (bossPriority && bossFound && !npc.boss && npc.type != NPCID.WallofFleshEye) {
                     canChased = false;
                 }
@@ -1296,14 +1296,14 @@ namespace InnoVault
                     continue;
                 }
 
-                // 计算NPC与起点的距离
+                //计算NPC与起点的距离
                 float extraDistance = (npc.width / 2f) + (npc.height / 2f);
                 float actualDistance = Vector2.Distance(origin, npc.Center);
 
-                // 检查瓦片阻挡
+                //检查瓦片阻挡
                 bool canHit = ignoreTiles || Collision.CanHit(origin, 1, 1, npc.Center, 1, 1);
 
-                // 更新最近目标
+                //更新最近目标
                 if (actualDistance < distance + extraDistance && canHit) {
                     if (bossPriority && (npc.boss || npc.type == NPCID.WallofFleshEye)) {
                         bossFound = true;
@@ -1473,10 +1473,10 @@ namespace InnoVault
         /// <see langword="true"/> 表示箱子已成功移除并返回物品；<see langword="false"/> 表示操作失败（位置无效、未找到箱子、被锁定等）
         /// </returns>
         public static bool TryKillChest(Point16 point, out List<Item> items, bool ignoreLocked = false, bool dropChest = false, bool netUpdate = true) {
-            // 初始化返回列表
+            //初始化返回列表
             items = [];
 
-            // 获取该位置箱子的左上角坐标（支持多格箱子）
+            //获取该位置箱子的左上角坐标（支持多格箱子）
             Point16? topLeft = GetTopLeftOrNull(point);
             if (topLeft == null) {
                 return false;
@@ -2329,12 +2329,12 @@ namespace InnoVault
                     continue;
                 }
 
-                // 获取该组中最大的冷却时间
+                //获取该组中最大的冷却时间
                 int maxCooldown = group
                     .Select(pair => NPCID_To_StaticImmunityCooldown.TryGetValue(pair.Key, out int cool) ? cool : 0)
                     .Max();
 
-                // 同步该值给组内所有成员
+                //同步该值给组内所有成员
                 foreach (var npcID in group.Select(pair => pair.Key)) {
                     NPCID_To_StaticImmunityCooldown[npcID] = maxCooldown;
                 }
@@ -2430,6 +2430,85 @@ namespace InnoVault
                 modPacket.Write(enabled);
                 modPacket.Send();
             }
+        }
+
+        /// <summary>
+        /// 获取指定NPC的所有掉落物品ID
+        /// </summary>
+        /// <param name="npcId">NPC的ID</param>
+        /// <param name="includeGlobalRules">是否包含全局掉落规则（如钱币、稀有生物掉落等）</param>
+        /// <returns>掉落物品ID的集合</returns>
+        public static HashSet<int> GetNPCDrops(int npcId, bool includeGlobalRules = false) {
+            HashSet<int> drops = new HashSet<int>();
+
+            //从游戏数据库获取该NPC的掉落规则
+            List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForNPCID(npcId, includeGlobalRules);
+
+            //创建掉落率信息列表
+            List<DropRateInfo> dropRateInfoList = new List<DropRateInfo>();
+            DropRateInfoChainFeed ratesInfo = new DropRateInfoChainFeed(1f);
+
+            //解析每个掉落规则
+            foreach (IItemDropRule rule in dropRules) {
+                rule.ReportDroprates(dropRateInfoList, ratesInfo);
+            }
+
+            //收集所有物品ID
+            foreach (DropRateInfo dropRateInfo in dropRateInfoList) {
+                drops.Add(dropRateInfo.itemId);
+            }
+
+            return drops;
+        }
+
+        /// <summary>
+        /// 获取指定NPC的所有掉落物品ID及其掉落概率
+        /// </summary>
+        /// <param name="npcId">NPC的ID</param>
+        /// <param name="includeGlobalRules">是否包含全局掉落规则</param>
+        /// <returns>物品ID和掉落概率的字典</returns>
+        public static Dictionary<int, float> GetNPCDropsWithRates(int npcId, bool includeGlobalRules = false) {
+            Dictionary<int, float> dropsWithRates = new Dictionary<int, float>();
+
+            List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForNPCID(npcId, includeGlobalRules);
+
+            List<DropRateInfo> dropRateInfoList = new List<DropRateInfo>();
+            DropRateInfoChainFeed ratesInfo = new DropRateInfoChainFeed(1f);
+
+            foreach (IItemDropRule rule in dropRules) {
+                rule.ReportDroprates(dropRateInfoList, ratesInfo);
+            }
+
+            foreach (DropRateInfo dropRateInfo in dropRateInfoList) {
+                //如果物品已存在，保留较高的掉落率
+                if (dropsWithRates.TryGetValue(dropRateInfo.itemId, out float value)) {
+                    dropsWithRates[dropRateInfo.itemId] = Math.Max(value, dropRateInfo.dropRate);
+                }
+                else {
+                    dropsWithRates.Add(dropRateInfo.itemId, dropRateInfo.dropRate);
+                }
+            }
+
+            return dropsWithRates;
+        }
+
+        /// <summary>
+        /// 获取指定NPC的详细掉落信息
+        /// </summary>
+        /// <param name="npcId">NPC的ID</param>
+        /// <param name="includeGlobalRules">是否包含全局掉落规则</param>
+        /// <returns>完整的掉落率信息列表</returns>
+        public static List<DropRateInfo> GetNPCDropDetails(int npcId, bool includeGlobalRules = false) {
+            List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForNPCID(npcId, includeGlobalRules);
+
+            List<DropRateInfo> dropRateInfoList = new List<DropRateInfo>();
+            DropRateInfoChainFeed ratesInfo = new DropRateInfoChainFeed(1f);
+
+            foreach (IItemDropRule rule in dropRules) {
+                rule.ReportDroprates(dropRateInfoList, ratesInfo);
+            }
+
+            return dropRateInfoList;
         }
 
         /// <summary>
@@ -2702,7 +2781,7 @@ namespace InnoVault
         /// <returns>解析后得到的物块类型</returns>
         public static int GetTileTypeFromFullName(string fullName) {
             if (fullName == "Null/Null") {
-                return 0; // Terraria.TileID.None = 0
+                return 0; //Terraria.TileID.None = 0
             }
 
             if (int.TryParse(fullName, out int intValue)) {
@@ -2731,7 +2810,7 @@ namespace InnoVault
         /// <returns>解析后得到的墙壁类型</returns>
         public static int GetWallTypeFromFullName(string fullName, bool loadVanillaWall = false) {
             if (fullName == "Null/Null") {
-                return 0; // Terraria.WallID.None = 0
+                return 0; //Terraria.WallID.None = 0
             }
 
             if (int.TryParse(fullName, out int intValue)) {
@@ -2929,32 +3008,32 @@ namespace InnoVault
         /// <param name="itemList"></param>
         /// <param name="itemToAdd"></param>
         public static void MergeItemStacks(List<Item> itemList, Item itemToAdd) {
-            // 查找是否有相同类型的物品
+            //查找是否有相同类型的物品
             var existingItem = itemList.FirstOrDefault(i => i.type == itemToAdd.type);
 
             if (existingItem != null) {
-                // 合并物品堆叠数
+                //合并物品堆叠数
                 int totalStack = existingItem.stack + itemToAdd.stack;
                 int maxStack = existingItem.maxStack;
 
-                // 如果堆叠超过最大堆叠数，分配新的堆叠物品
+                //如果堆叠超过最大堆叠数，分配新的堆叠物品
                 while (totalStack > maxStack) {
                     existingItem.stack = maxStack;
                     totalStack -= maxStack;
 
-                    // 创建新的物品并添加剩余堆叠
-                    var newItem = itemToAdd.Clone(); // 确保不会修改原物品
+                    //创建新的物品并添加剩余堆叠
+                    var newItem = itemToAdd.Clone(); //确保不会修改原物品
                     newItem.stack = Math.Min(totalStack, newItem.maxStack);
                     itemList.Add(newItem);
                 }
 
-                // 最后将剩余堆叠数添加到现有物品
+                //最后将剩余堆叠数添加到现有物品
                 if (totalStack > 0) {
                     existingItem.stack = totalStack;
                 }
             }
             else {
-                // 没有相同类型物品，直接添加
+                //没有相同类型物品，直接添加
                 itemList.Add(itemToAdd);
             }
         }
@@ -3227,18 +3306,18 @@ namespace InnoVault
                 return string.Empty;
             }
 
-            // 将颜色转换为 16 进制字符串
+            //将颜色转换为 16 进制字符串
             string hexColor = $"{color.R:X2}{color.G:X2}{color.B:X2}";
 
-            // 按换行符分割文本
+            //按换行符分割文本
             string[] lines = textContent.Split('\n');
 
-            // 对每一行添加颜色代码
+            //对每一行添加颜色代码
             for (int i = 0; i < lines.Length; i++) {
                 lines[i] = $"[c/{hexColor}:{lines[i]}]";
             }
 
-            // 使用换行符重新组合
+            //使用换行符重新组合
             return string.Join("\n", lines);
         }
 
@@ -3643,7 +3722,7 @@ namespace InnoVault
                 //添加物品类型、射击类型及堆叠数量
                 itemTypes.Add(item.type);
                 itemShootTypes.Add(item.shoot);
-                num += item.stack;  // 累加物品的堆叠数量
+                num += item.stack;  //累加物品的堆叠数量
             }
 
             //遍历玩家快捷栏中的物品（位置从54到57）
@@ -3671,7 +3750,7 @@ namespace InnoVault
                 itemInds = itemInds.OrderByDescending(item => item.stack).ToList();
             }
 
-            // 设置返回的弹药状态信息
+            //设置返回的弹药状态信息
             ammoState.ValidProjectileIDs = itemShootTypes.ToArray();  //有效的弹药发射类型
             ammoState.CurrentItems = itemInds.ToArray();  //当前有效的弹药物品
             ammoState.ValidItemIDs = itemTypes.ToArray();  //有效的弹药物品类型
@@ -3700,7 +3779,7 @@ namespace InnoVault
         #endregion
 
         #region Net
-#pragma warning disable IDE1006 // 命名样式
+#pragma warning disable IDE1006 //命名样式
         /// <summary>
         /// 判断是否处于客户端状态，如果是在单人或者服务端下将返回 <see langword="false"/>
         /// </summary>
@@ -3713,7 +3792,7 @@ namespace InnoVault
         /// 仅判断是否处于单人状态，在单人模式下返回 <see langword="true"/>
         /// </summary>
         public static bool isSinglePlayer => Main.netMode == NetmodeID.SinglePlayer;
-#pragma warning restore IDE1006 // 命名样式
+#pragma warning restore IDE1006 //命名样式
         /// <summary>
         /// 检查一个 <see cref="Projectile"/> 对象是否属于当前客户端玩家拥有的，如果是，返回 <see langword="true"/>
         /// </summary>
@@ -3737,7 +3816,7 @@ namespace InnoVault
         /// <param name="checkLocalPlayer">是否只允许本地玩家触发生成</param>
         /// <returns>是否成功发起了 Boss 的生成请求</returns>
         public static bool TrySpawnBossWithNet(Player player, int bossType, bool checkLocalPlayer = true) {
-            // 若启用了本地玩家检查，但当前玩家不是本地玩家，则中止
+            //若启用了本地玩家检查，但当前玩家不是本地玩家，则中止
             if (checkLocalPlayer && player.whoAmI != Main.myPlayer) {
                 return false;
             }
@@ -3745,17 +3824,17 @@ namespace InnoVault
             SoundEngine.PlaySound(SoundID.Roar, player.position);
 
             if (isSinglePlayer || isServer) {
-                // 本地或服务器：直接生成 Boss
+                //本地或服务器：直接生成 Boss
                 NPC.SpawnOnPlayer(player.whoAmI, bossType);
                 return true;
             }
             else if (isClient) {
-                // 多人客户端：发送生成请求给服务器
+                //多人客户端：发送生成请求给服务器
                 NetMessage.SendData(MessageID.SpawnBossUseLicenseStartEvent, number: player.whoAmI, number2: bossType);
                 return true;
             }
 
-            // 不在任何有效模式下
+            //不在任何有效模式下
             return false;
         }
 
@@ -3798,7 +3877,7 @@ namespace InnoVault
         /// 如果物块存在并且位于一个多结构物块的左上角，返回其左上角坐标，否则返回null
         /// </returns>
         public static Point16? GetTopLeftOrNull(int i, int j) {
-            // 获取给定坐标的物块
+            //获取给定坐标的物块
             Tile tile = Framing.GetTileSafely(i, j);
 
             //一个关于TP的G钩子，用于修改一些特殊物块对于TP的实体的判定
@@ -3815,28 +3894,28 @@ namespace InnoVault
                 }
             }
 
-            // 如果没有物块，返回null
+            //如果没有物块，返回null
             if (!tile.HasTile) {
                 return null;
             }
 
-            // 获取物块的数据结构，如果为null则认为是单个物块
+            //获取物块的数据结构，如果为null则认为是单个物块
             TileObjectData data = TileObjectData.GetTileData(tile);
 
-            // 如果是单个物块，直接返回当前坐标
+            //如果是单个物块，直接返回当前坐标
             if (data == null) {
                 return new Point16(i, j);
             }
 
-            // 计算物块的帧位置偏移量
+            //计算物块的帧位置偏移量
             int frameX = tile.TileFrameX % (data.Width * 18);
             int frameY = tile.TileFrameY % (data.Height * 18);
 
-            // 计算左上角的位置
+            //计算左上角的位置
             int topLeftX = i - (frameX / 18);
             int topLeftY = j - (frameY / 18);
 
-            // 返回左上角位置
+            //返回左上角位置
             return new Point16(topLeftX, topLeftY);
         }
 
@@ -3857,19 +3936,19 @@ namespace InnoVault
         /// <param name="point">输出的左上角坐标，如果不是左上角则为(0,0)</param>
         /// <returns>如果是左上角，返回true，否则返回false </returns>
         public static bool IsTopLeft(int i, int j, out Point16 point) {
-            // 使用合并后的函数获取左上角位置
+            //使用合并后的函数获取左上角位置
             Point16? topLeft = GetTopLeftOrNull(i, j);
 
-            // 如果没有有效的左上角坐标，返回false，并将输出参数设为(0, 0)
+            //如果没有有效的左上角坐标，返回false，并将输出参数设为(0, 0)
             if (!topLeft.HasValue) {
                 point = new Point16(0, 0);
                 return false;
             }
 
-            // 获取左上角的实际坐标
+            //获取左上角的实际坐标
             point = topLeft.Value;
 
-            // 如果左上角位置与当前坐标相同，说明是左上角
+            //如果左上角位置与当前坐标相同，说明是左上角
             return point.X == i && point.Y == j;
         }
 
@@ -4168,31 +4247,31 @@ namespace InnoVault
         /// <param name="effects">纹理的 SpriteEffects <see cref="SpriteEffects.None"/></param>
         public static void DrawRotatingMarginEffect(SpriteBatch spriteBatch, Texture2D texture, int drawTimer, Vector2 position,
             Rectangle? sourceRectangle, Color color, float rotation, Vector2 origin, float scale, SpriteEffects effects = SpriteEffects.None) {
-            // 计算全局时间因子（用于同步动画效果）
+            //计算全局时间因子（用于同步动画效果）
             float globalTime = Main.GlobalTimeWrappedHourly;
-            // 计算旋转计时器，用于控制旋转速度
+            //计算旋转计时器，用于控制旋转速度
             float timer = drawTimer / 240f + globalTime * 0.04f;
 
-            // 控制时间的周期性变化，使光圈明暗有呼吸感
+            //控制时间的周期性变化，使光圈明暗有呼吸感
             float timeFactor = globalTime % 4f;
             timeFactor /= 2f;
             if (timeFactor >= 1f)
                 timeFactor = 2f - timeFactor;
             timeFactor = timeFactor * 0.5f + 0.5f;
 
-            // 外层旋转光圈效果（间隔0.25，较大的偏移）
+            //外层旋转光圈效果（间隔0.25，较大的偏移）
             for (float offset = 0f; offset < 1f; offset += 0.25f) {
                 float radians = (offset + timer) * MathHelper.TwoPi;
                 Vector2 offsetPosition = position + new Vector2(0f, 8f).RotatedBy(radians) * timeFactor;
-                Color transparentColor = new Color(color.R, color.G, color.B, 50); // 较透明的颜色
+                Color transparentColor = new Color(color.R, color.G, color.B, 50); //较透明的颜色
                 spriteBatch.Draw(texture, offsetPosition, sourceRectangle, transparentColor, rotation, origin, scale, effects, 0f);
             }
 
-            // 内层旋转光圈效果（间隔0.34，较小的偏移）
+            //内层旋转光圈效果（间隔0.34，较小的偏移）
             for (float offset = 0f; offset < 1f; offset += 0.34f) {
                 float radians = (offset + timer) * MathHelper.TwoPi;
                 Vector2 offsetPosition = position + new Vector2(0f, 4f).RotatedBy(radians) * timeFactor;
-                Color semiTransparentColor = new Color(color.R, color.G, color.B, 77); // 半透明的颜色
+                Color semiTransparentColor = new Color(color.R, color.G, color.B, 77); //半透明的颜色
                 spriteBatch.Draw(texture, offsetPosition, sourceRectangle, semiTransparentColor, rotation, origin, scale, effects, 0f);
             }
         }
@@ -4339,15 +4418,15 @@ namespace InnoVault
             if (scaleCenter == default) {
                 scaleCenter = new Vector2(0.5f, 0.5f);
             }
-            // 计算缩放后的整体尺寸
+            //计算缩放后的整体尺寸
             int scaledWidth = (int)(drawWidth * scale);
             int scaledHeight = (int)(drawHeight * scale);
-            // 计算缩放偏移量，以缩放中心为基准
+            //计算缩放偏移量，以缩放中心为基准
             float offsetX = (scaledWidth - drawWidth) * scaleCenter.X;
             float offsetY = (scaledHeight - drawHeight) * scaleCenter.Y;
-            // 调整后的绘制起始位置
+            //调整后的绘制起始位置
             Vector2 adjustedPosition = new Vector2(drawPosition.X - offsetX, drawPosition.Y - offsetY);
-            // 重新定义外部和内部的矩形区域
+            //重新定义外部和内部的矩形区域
             Rectangle outerRect = new Rectangle((int)adjustedPosition.X, (int)adjustedPosition.Y, scaledWidth, scaledHeight);
             Rectangle innerRect = new Rectangle(
                 outerRect.X + borderWidth,
@@ -4430,11 +4509,11 @@ namespace InnoVault
         /// 适用于 UI 绘制时需要限制在屏幕显示区域内的场景
         /// </remarks>
         public static Rectangle GetClippingRectangle(SpriteBatch spriteBatch, Rectangle r) {
-            // 转换矩形的左上角和右下角到屏幕坐标系
+            //转换矩形的左上角和右下角到屏幕坐标系
             Vector2 topLeft = Vector2.Transform(new Vector2(r.X, r.Y), Main.UIScaleMatrix);
             Vector2 bottomRight = Vector2.Transform(new Vector2(r.Right, r.Bottom), Main.UIScaleMatrix);
 
-            // 计算转换后的矩形
+            //计算转换后的矩形
             Rectangle result = new(
                 x: (int)topLeft.X,
                 y: (int)topLeft.Y,
@@ -4442,11 +4521,11 @@ namespace InnoVault
                 height: (int)(bottomRight.Y - topLeft.Y)
             );
 
-            // 获取当前屏幕视口尺寸
+            //获取当前屏幕视口尺寸
             int viewportWidth = spriteBatch.GraphicsDevice.Viewport.Width;
             int viewportHeight = spriteBatch.GraphicsDevice.Viewport.Height;
 
-            // 裁剪矩形到屏幕范围内
+            //裁剪矩形到屏幕范围内
             result.X = Utils.Clamp(result.X, 0, viewportWidth);
             result.Y = Utils.Clamp(result.Y, 0, viewportHeight);
             result.Width = Utils.Clamp(result.Width, 0, viewportWidth - result.X);
@@ -4508,16 +4587,16 @@ namespace InnoVault
         /// <param name="color">绘制颜色</param>
         /// <param name="orig">纹理原点（默认为纹理的中心点）</param>
         public static void SimpleDrawItem(SpriteBatch spriteBatch, int itemType, Vector2 position, float size, float rotation, Color color, Vector2 orig = default(Vector2)) {
-            // 获取物品的纹理资源
+            //获取物品的纹理资源
             Texture2D texture = TextureAssets.Item[itemType].Value;
 
-            // 获取物品的动画帧区域（如无动画则使用完整纹理）
+            //获取物品的动画帧区域（如无动画则使用完整纹理）
             Rectangle? frame = Main.itemAnimations[itemType]?.GetFrame(texture) ?? texture.Frame(1, 1, 0, 0);
 
-            // 如果未指定原点，则使用纹理帧的中心点作为默认原点
+            //如果未指定原点，则使用纹理帧的中心点作为默认原点
             if (orig == Vector2.Zero) orig = frame.HasValue ? frame.Value.Size() / 2 : texture.Size() / 2;
 
-            // 绘制物品
+            //绘制物品
             spriteBatch.Draw(texture, position, frame, color, rotation, orig, size, SpriteEffects.None, 0f);
         }
 
@@ -4538,18 +4617,18 @@ namespace InnoVault
             if (orig == Vector2.Zero) {
                 orig = frame.HasValue ? frame.Value.Size() / 2 : texture.Size() / 2;
             }
-            // 如果未指定大小，则根据物品尺寸和提供的宽度计算缩放比例
+            //如果未指定大小，则根据物品尺寸和提供的宽度计算缩放比例
             if (size <= 0) {
                 size = GetDrawItemSize(itemType, itemWidth);
             }
             else {
                 size = GetDrawItemSize(itemType, itemWidth) * size;
             }
-            // 设置颜色
+            //设置颜色
             if (color == default) {
                 color = Color.White;
             }
-            // 绘制物品
+            //绘制物品
             spriteBatch.Draw(texture, position, frame, color, rotation, orig, size, SpriteEffects.None, 0f);
         }
 
@@ -4568,12 +4647,12 @@ namespace InnoVault
         /// <param name="eventMainColor">事件背景颜色</param>
         public static void DrawEventProgressBar(SpriteBatch spriteBatch, Texture2D pixel, Vector2 drawPos, Asset<Texture2D> iconAsset
             , float eventKillRatio, float size, int barWidth, int barHeight, string eventMainName, Color eventMainColor) {
-            // 参数校验
+            //参数校验
             if (size < 0.1f || eventKillRatio < 0 || eventKillRatio > 1) {
                 return;
             }
 
-            // 事件标题绘制
+            //事件标题绘制
             Vector2 eventNameSize = FontAssets.MouseText.Value.MeasureString(eventMainName);
             float titleBackgroundWidth = 120f + Math.Max(0, eventNameSize.X - 200f);
             Vector2 titlePosition = new(Main.screenWidth - titleBackgroundWidth, Main.screenHeight - 80);
@@ -4581,22 +4660,22 @@ namespace InnoVault
             Rectangle titleBackgroundRect = Utils.CenteredRectangle(titlePosition, eventNameSize + new Vector2(iconAsset.Value.Width + 12, 6f));
             Utils.DrawInvBG(spriteBatch, titleBackgroundRect, eventMainColor * 0.5f * size);
 
-            // 绘制事件图标
+            //绘制事件图标
             spriteBatch.Draw(iconAsset.Value, titleBackgroundRect.Left() + Vector2.UnitX * 8f, null, Color.White * size
                 , 0f, Vector2.UnitY * iconAsset.Value.Height / 2, 0.8f * size, SpriteEffects.None, 0f);
 
-            // 绘制事件名称
+            //绘制事件名称
             Utils.DrawBorderString(spriteBatch, eventMainName, titleBackgroundRect.Right() - Vector2.UnitX * 16f, Color.White * size, 0.9f * size, 1f, 0.4f, -1);
 
-            // 绘制进度条背景
+            //绘制进度条背景
             drawPos += new Vector2(-100, 20);
             Rectangle progressBarRect = new((int)drawPos.X - barWidth / 2, (int)drawPos.Y - barHeight / 2, barWidth, barHeight);
             Utils.DrawInvBG(spriteBatch, progressBarRect, new Color(6, 80, 84, 255) * 0.785f * size);
 
-            // 绘制进度条主体
+            //绘制进度条主体
             DrawProgressBar(spriteBatch, pixel, drawPos, eventKillRatio, size, barWidth);
 
-            // 绘制完成百分比文本
+            //绘制完成百分比文本
             string progressText = Language.GetTextValue("Game.WaveCleared", $"{eventKillRatio * 100:N1}%");
             Vector2 progressTextSize = FontAssets.MouseText.Value.MeasureString(progressText);
             float textScale = progressTextSize.Y > 22f ? 22f / progressTextSize.Y : 1f;
@@ -4613,14 +4692,14 @@ namespace InnoVault
         /// <param name="size">缩放比例</param>
         /// <param name="barWidth">进度条宽度</param>
         private static void DrawProgressBar(SpriteBatch spriteBatch, Texture2D pixel, Vector2 drawPos, float progress, float size, float barWidth) {
-            // 已完成部分
+            //已完成部分
             Vector2 completedBarPos = drawPos + Vector2.UnitX * (progress - 0.5f) * barWidth;
             spriteBatch.Draw(pixel, completedBarPos, new Rectangle(0, 0, 1, 1), new Color(255, 241, 51) * size
                 , 0f, new Vector2(1f, 0.5f), new Vector2(barWidth * progress, 8) * size, SpriteEffects.None, 0f);
-            // 边缘光效
+            //边缘光效
             spriteBatch.Draw(pixel, completedBarPos, new Rectangle(0, 0, 1, 1), new Color(255, 165, 0, 127) * size
                 , 0f, new Vector2(1f, 0.5f), new Vector2(2f, 8) * size, SpriteEffects.None, 0f);
-            // 未完成部分
+            //未完成部分
             Vector2 remainingBarPos = drawPos + Vector2.UnitX * (progress - 0.5f) * barWidth;
             spriteBatch.Draw(pixel, remainingBarPos, new Rectangle(0, 0, 1, 1), Color.Black * size
                 , 0f, Vector2.UnitY * 0.5f, new Vector2(barWidth * (1f - progress), 8) * size, SpriteEffects.None, 0f);
@@ -4631,26 +4710,53 @@ namespace InnoVault
         /// </summary>
         public enum MenuState
         {
-            MainMenu,              // 主菜单
-            CharacterSelect,       // 角色选择
-            WorldSelect,           // 世界选择
-            ModManagement,         // 模组管理
-            ModBrowser,            // 模组浏览器
-            Settings,              // 设置
-            Multiplayer,           // 多人游戏
-            InGame,                // 游戏中（不在菜单）
-            Other                  // 其他界面
+            /// <summary>
+            /// 主菜单
+            /// </summary>
+            MainMenu,
+            /// <summary>
+            /// 角色选择
+            /// </summary>
+            CharacterSelect,
+            /// <summary>
+            /// 世界选择
+            /// </summary>
+            WorldSelect,
+            /// <summary>
+            /// 模组管理
+            /// </summary>
+            ModManagement,
+            /// <summary>
+            /// 模组浏览器
+            /// </summary>
+            ModBrowser,
+            /// <summary>
+            /// 设置
+            /// </summary>
+            Settings,
+            /// <summary>
+            /// 多人游戏
+            /// </summary>
+            Multiplayer,
+            /// <summary>
+            /// 游戏中（不在菜单）
+            /// </summary>
+            InGame,
+            /// <summary>
+            /// 其他界面
+            /// </summary>
+            Other
         }
 
         /// <summary>
         /// 获取当前菜单状态
         /// </summary>
         public static MenuState GetCurrentMenuState() {
-            // 如果不在游戏菜单中，返回游戏中
+            //如果不在游戏菜单中，返回游戏中
             if (!Main.gameMenu)
                 return MenuState.InGame;
 
-            // 检查标准 menuMode
+            //检查标准 menuMode
             switch (Main.menuMode) {
                 case 0:
                     return MenuState.MainMenu;
@@ -4668,7 +4774,7 @@ namespace InnoVault
                     return MenuState.Multiplayer;
 
                 case 888:
-                    // menuMode 888 表示使用 MenuUI 系统
+                    //menuMode 888 表示使用 MenuUI 系统
                     return GetMenuUIState();
 
                 default:
@@ -4754,7 +4860,7 @@ namespace InnoVault
         /// 例如：只在主菜单显示，在其他界面隐藏
         /// </summary>
         public static bool ShouldShowCustomMainMenuUI() {
-            // 只在主菜单显示
+            //只在主菜单显示
             return IsInMainMenu();
         }
 

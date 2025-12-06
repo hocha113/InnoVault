@@ -8,7 +8,7 @@ namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 用于将世界数据加载或者保存到NBT文件中
-    /// 在世界加载自动调用加载逻辑，在推出世界时调用保存逻辑
+    /// 在世界加载自动调用加载逻辑，在退出世界时调用保存逻辑
     /// </summary>
     public class SaveWorld : SaveContent<SaveWorld>
     {
