@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq.Expressions;
 using System.Reflection;
 using Terraria;
@@ -264,6 +265,36 @@ namespace InnoVault.GameSystem
             NPCOverride.SetDefaults(npc);
             if (npc.Alives()) {
                 PostSetDefaultsEvent?.Invoke(npc);
+            }
+        }
+
+        public override void SendExtraAI(NPC npc, BitWriter bitWriter, BinaryWriter binaryWriter) {
+            if (npc.TryGetOverride(out var values)) {
+                //写入重制实例的数量，防止两端不一致读取越界
+                binaryWriter.Write((byte)values.Count);
+                foreach (var overrideInstance in values.Values) {
+                    //必须写入 ID 以便接收端知道是哪个 Override
+                    binaryWriter.Write(overrideInstance.OverrideID);
+                    //调用实例自己的同步方法
+                    //在这里同步最核心的状态数据，比如 ai 数组
+                    //不要在这里同步太大的数据，因为这是高频调用的
+                    overrideInstance.NetSend(binaryWriter);
+                }
+            }
+            else {
+                binaryWriter.Write((byte)0);
+            }
+        }
+
+        public override void ReceiveExtraAI(NPC npc, BitReader bitReader, BinaryReader binaryReader) {
+            int count = binaryReader.ReadByte();
+            for (int i = 0; i < count; i++) {
+                ushort id = binaryReader.ReadUInt16();
+                //找到对应的实例并读取数据
+                if (npc.TryGetOverride(out var values) 
+                    && values.TryGetValue(OverrideIDToType[id], out var instance)) {
+                    instance.NetReceive(binaryReader);
+                }
             }
         }
 

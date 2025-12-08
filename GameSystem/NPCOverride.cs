@@ -560,13 +560,34 @@ namespace InnoVault.GameSystem
 
 
         #region NetWork
+        /// <summary>
+        /// 用于网络同步，该方法在多人游戏中运行
+        /// </summary>
+        /// <param name="writer"></param>
+        public virtual void NetSend(BinaryWriter writer) {
+            for (int i = 0; i < MaxAISlot; i++) {
+                writer.Write(ai[i]);
+            }
+        }
+        /// <summary>
+        /// 用于网络同步，该方法在多人游戏中运行
+        /// </summary>
+        /// <param name="reader"></param>
+        public virtual void NetReceive(BinaryReader reader) {
+            for (int i = 0; i < MaxAISlot; i++) {
+                ai[i] = reader.ReadSingle();
+            }
+        }
+        /// <summary>
+        /// 用于网络同步，在服务端运行
+        /// </summary>
         internal void DoNetWork() {
             if (!VaultUtils.isServer) {
                 return;
             }
 
             if (NetAIWorkSend) {
-                NetAISend();
+                npc.netUpdate = true;
                 NetAIWorkSend = false;
             }
             if (NetOtherWorkSend) {
@@ -609,72 +630,26 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 发送网络数据，同步<see cref="ai"/>的值，只会在服务端上运行
         /// </summary>
+        [Obsolete("已经过时，如果需要同步，直接设置 `npc.netUpdate = true`")]
         public void NetAISend() {
             if (!VaultUtils.isServer) {
                 return;
             }
 
-            var netMessage = VaultMod.Instance.GetPacket();
-            netMessage.Write((byte)MessageType.NPCOverrideAI);
-            netMessage.Write(npc.whoAmI);
-            netMessage.Write(OverrideID);
-            foreach (var aiValue in ai) {
-                netMessage.Write(aiValue);
-            }
-
-            netMessage.Send();
+            npc.netUpdate = true;//强制更新NPC
         }
 
         /// <summary>
         /// 发送网络数据，同步<see cref="ai"/>的值，只会在服务端上运行
         /// </summary>
         /// <param name="npc"></param>
+        [Obsolete("已经过时，如果需要同步，直接设置 `npc.netUpdate = true`")]
         public static void NetAISend(NPC npc) {
             if (!VaultUtils.isServer) {
                 return;
             }
 
-            if (!npc.TryGetOverride(out var values)) {
-                return;
-            }
-
-            foreach (var value in values.Values) {
-                var netMessage = VaultMod.Instance.GetPacket();
-                netMessage.Write((byte)MessageType.NPCOverrideAI);
-                netMessage.Write(npc.whoAmI);
-                netMessage.Write(value.OverrideID);
-                foreach (var aiValue in value.ai) {
-                    netMessage.Write(aiValue);
-                }
-
-                netMessage.Send();
-            }
-        }
-
-        /// <summary>
-        /// 接收网络数据，同步<see cref="ai"/>的值
-        /// </summary>
-        /// <param name="reader"></param>
-        internal static void NetAIReceive(BinaryReader reader) {
-            NPC npc = Main.npc[reader.ReadInt32()];
-            ushort overrideID = reader.ReadUInt16();
-            float[] receiveAI = new float[MaxAISlot];
-            for (int i = 0; i < MaxAISlot; i++) {
-                receiveAI[i] = reader.ReadSingle();
-            }
-
-            if (!npc.active) {
-                return;
-            }
-
-            if (!npc.TryGetOverride(out var values)) {
-                return;
-            }
-
-            NPCOverride value = values[OverrideIDToType[overrideID]];
-            for (int i = 0; i < MaxAISlot; i++) {
-                value.ai[i] = receiveAI[i];
-            }
+            npc.netUpdate = true;//强制更新NPC
         }
 
         /// <summary>
@@ -978,10 +953,7 @@ namespace InnoVault.GameSystem
         }
 
         internal static void HandlePacket(MessageType type, BinaryReader reader, int whoAmI) {
-            if (type == MessageType.NPCOverrideAI) {
-                NetAIReceive(reader);
-            }
-            else if (type == MessageType.NPCOverrideOtherAI) {
+            if (type == MessageType.NPCOverrideOtherAI) {
                 OtherNetWorkReceiveHander(reader);
             }
             else if (type == MessageType.NPCOverrideNetWork) {

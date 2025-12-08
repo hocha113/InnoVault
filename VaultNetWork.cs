@@ -10,7 +10,6 @@ namespace InnoVault
     {
         internal enum MessageType : byte
         {
-            NPCOverrideAI,
             NPCOverrideOtherAI,
             NPCOverrideNetWork,
             SendToClient_NPCOverrideRequestAllData,
