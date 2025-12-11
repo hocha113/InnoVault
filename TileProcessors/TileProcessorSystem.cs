@@ -41,6 +41,8 @@ namespace InnoVault.TileProcessors
                 }
                 tp.UnLoadInWorld();
             }
+            //卸载世界时清空缓存的数据，防止污染下一个世界
+            ActiveWorldTagData = null;
         }
 
         /// <inheritdoc/>

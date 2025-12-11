@@ -291,7 +291,7 @@ namespace InnoVault.GameSystem
             for (int i = 0; i < count; i++) {
                 ushort id = binaryReader.ReadUInt16();
                 //找到对应的实例并读取数据
-                if (npc.TryGetOverride(out var values) 
+                if (npc.TryGetOverride(out var values)
                     && values.TryGetValue(OverrideIDToType[id], out var instance)) {
                     instance.NetReceive(binaryReader);
                 }
@@ -812,7 +812,7 @@ namespace InnoVault.GameSystem
                     bool? newResult = value.Draw(spriteBatch, screenPos, drawColor);
                     if (newResult.HasValue) {
                         result = newResult.Value;
-                      }
+                    }
                 }
                 if (result.HasValue) {
                     return result.Value;

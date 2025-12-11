@@ -124,6 +124,10 @@ namespace InnoVault.GameSystem
                 }
                 TileProcessorLoader.ActiveWorldTagData = tag;
             }
+            else {
+                //如果没有读取到数据，也要清空缓存，防止上一个世界的数据残留
+                TileProcessorLoader.ActiveWorldTagData = null;
+            }
         }
         //快速处理异常所使用的套壳函数
         private static void TryDo(Action action, string errorMessage) {
