@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.Collections.Generic;
 using System.IO;
 using Terraria;
 using Terraria.DataStructures;
@@ -55,10 +56,13 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 在加载世界时调用
+        /// 在加载世界时调用，用于创建一个新的未知TP实体
         /// </summary>
         public static TileProcessor Place(Point16 point, TagCompound data, string mod, string name) {
+            //尝试在世界中创建一个新的UnknowTP实例
             TileProcessor newTP = NewTPInWorld(GetModuleID<UnknowTP>(), point, null);
+            
+            //如果创建成功，则初始化其数据
             if (newTP is UnknowTP unknowTP) {
                 unknowTP.UnModName = mod;
                 unknowTP.UnTypeName = name;
@@ -68,11 +72,10 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 获取这个占位符缓存的具体数据
+        /// 获取这个占位符缓存的具体数据，主要用于世界存档的保存
         /// </summary>
-        /// <returns></returns>
         public TagCompound GetData() {
-            return new() {
+            return new TagCompound {
                 ["unMod"] = UnModName,
                 ["unType"] = UnTypeName,
                 ["mod"] = Mod.Name,
@@ -85,9 +88,9 @@ namespace InnoVault.TileProcessors
 
         /// <inheritdoc/>
         public override void Draw(SpriteBatch spriteBatch) {
+            //绘制问号贴图，表示这是一个未知的TP实体
             spriteBatch.Draw(VaultAsset.Unknow.Value, PosInWorld - Main.screenPosition, null
                 , Lighting.GetColor(Position.ToPoint()), 0, Vector2.Zero, 1, SpriteEffects.None, 0);
-
         }
 
         /// <inheritdoc/>
@@ -95,27 +98,85 @@ namespace InnoVault.TileProcessors
             if (!HoverTP) {
                 return;
             }
+            //当鼠标悬停时，显示原始的模组名和实体名
             Vector2 drawPos = PosInWorld - Main.screenPosition;
             Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, HoverString,
             drawPos.X, drawPos.Y + 60, Color.AliceBlue, Color.Black, Vector2.Zero, 1f);
         }
 
-        //发送一下卸载名，以避免客户端只能看到斜杠，至于Data就不用发送了，客户端不保存存档数据
         /// <inheritdoc/>
         public override void SendData(ModPacket data) {
+            //发送卸载的模组名和实体名，以便客户端显示
             data.Write(UnModName);
             data.Write(UnTypeName);
         }
+
         /// <inheritdoc/>
         public override void ReceiveData(BinaryReader reader, int whoAmI) {
+            //接收卸载的模组名和实体名
             UnModName = reader.ReadString();
             UnTypeName = reader.ReadString();
         }
 
         /// <inheritdoc/>
-        public override void SaveData(TagCompound tag) { }
+        public override void SaveData(TagCompound tag) {
+            //虽然世界存档使用GetData手动保存，但为了兼容其他可能的序列化需求（如复制粘贴），这里也实现标准的保存逻辑
+            tag["unMod"] = UnModName;
+            tag["unType"] = UnTypeName;
+            tag["data"] = Data;
+        }
+
         /// <inheritdoc/>
-        public override void LoadData(TagCompound tag) { }
+        public override void LoadData(TagCompound tag) {
+            //加载标准的保存数据
+            if (tag.TryGet("unMod", out string unModName)) {
+                UnModName = unModName;
+            }
+            if (tag.TryGet("unType", out string unTypeName)) {
+                UnTypeName = unTypeName;
+            }
+            if (tag.TryGet("data", out TagCompound data)) {
+                Data = data;
+            }
+        }
+
+        /// <summary>
+        /// 检查并归档已卸载模组的TP数据，将其转换为占位符格式
+        /// <br>建议在加载世界数据时调用此方法，以确保所有失效的TP数据都能被正确转换为占位符</br>
+        /// </summary>
+        public static void CheckAndArchive(IList<TagCompound> dataList) {
+            for (int i = 0; i < dataList.Count; i++) {
+                TagCompound tag = dataList[i];
+                if (!tag.TryGet("mod", out string modName) || !tag.TryGet("name", out string typeName)) {
+                    continue;
+                }
+
+                //如果已经是 UnknowTP，则跳过
+                if (modName == "InnoVault" && typeName == "UnknowTP") {
+                    continue;
+                }
+
+                //构建全名
+                string fullName = GetFullName(modName, typeName);
+
+                //如果该 TP 类型未被加载（模组被卸载或类被删除）
+                if (!TP_FullName_To_ID.ContainsKey(fullName)) {
+                    //创建新的占位符数据
+                    TagCompound newTag = new() {
+                        ["mod"] = "InnoVault",
+                        ["name"] = "UnknowTP",
+                        ["unMod"] = modName,
+                        ["unType"] = typeName,
+                        ["X"] = tag.GetShort("X"),
+                        ["Y"] = tag.GetShort("Y"),
+                        ["data"] = tag.GetCompound("data")
+                    };
+                    //替换原有数据
+                    dataList[i] = newTag;
+                }
+            }
+        }
+
         /// <inheritdoc/>
         public override string ToString() => HoverString + $"\nWhoAmI:{WhoAmI}";
     }

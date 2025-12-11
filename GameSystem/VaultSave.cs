@@ -1,5 +1,6 @@
 ﻿using InnoVault.TileProcessors;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -117,6 +118,10 @@ namespace InnoVault.GameSystem
         //TP实体真正加载数据在步骤WorldGen.Hooks.OnWorldLoad中，运行在该加载钩子之后
         private static void LoadTPDataByNBT() {
             if (SaveMod.TryLoadRootTag(SaveWorld.SaveTPDataPath, out var tag)) {
+                //处理数据清洗，将已卸载模组的数据转换为占位符格式
+                if (tag.TryGet("TPData_TagList", out List<TagCompound> list)) {
+                    UnknowTP.CheckAndArchive(list);
+                }
                 TileProcessorLoader.ActiveWorldTagData = tag;
             }
         }
