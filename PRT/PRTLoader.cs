@@ -120,7 +120,13 @@ namespace InnoVault.PRT
                 if (prt.Texture != "") {
                     texturePath = prt.Texture;
                 }
-                PRT_IDToTexture[PRT_TypeToID[type]] = ModContent.Request<Texture2D>(texturePath, AssetRequestMode.ImmediateLoad).Value;
+                if (ModContent.HasAsset(texturePath)) {
+                    PRT_IDToTexture[PRT_TypeToID[type]] = ModContent.Request<Texture2D>(texturePath, AssetRequestMode.ImmediateLoad).Value;
+                }
+                else {
+                    VaultMod.Instance.Logger.Warn($"Cannot find texture for PRT type {type.FullName} at path {texturePath}. Using placeholder texture.");
+                    PRT_IDToTexture[PRT_TypeToID[type]] = VaultAsset.placeholder3.Value;
+                }
             }
         }
 

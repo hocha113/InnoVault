@@ -186,9 +186,10 @@ namespace InnoVault
                     attribute.Mod = newMod;
                 }
                 else {
+                    string modName = attribute.Mod != null ? attribute.Mod.Name : pathParts[0];
                     //改为记录调试日志而非抛出异常，支持弱联动
                     VaultMod.Instance.Logger.Debug($"Member {targetName} couldn't find Mod \"{pathParts[0]}\". " +
-                        $"Original Mod Name: \"{attribute.Mod.Name}\". " +
+                        $"Original Mod Name: \"{modName}\". " +
                         $"Resource will use default value instead.");
                     //将资源对象设置为null，后续会使用默认值
                     attribute.Mod = null;
@@ -353,7 +354,7 @@ namespace InnoVault
             }
 
             if (attribute.Mod == null) {//如果模组对象为null（例如外部模组未启用），使用默认值
-                VaultMod.Instance.Logger.Debug($"{member.MemberType} {member.Name} from Mod is Null, using default value instead.");
+                VaultMod.Instance.Logger.Warn($"{member.MemberType} {member.Name} from Mod is Null, using default value instead.");
                 //尝试为成员设置默认值
                 object defaultValue = GetDefaultValue(valueType);
                 if (member is FieldInfo fieldInfo) {
@@ -394,7 +395,13 @@ namespace InnoVault
         /// <param name="type">目标类型</param>
         /// <returns>该类型的默认值</returns>
         private static object GetDefaultValue(Type type) {
-            if (type.IsValueType) {
+            if (type == typeof(Texture2D)) {
+                return VaultAsset.placeholder3.Value;
+            }
+            else if (type == typeof(Asset<Texture2D>)) {
+                return VaultAsset.placeholder3;
+            }
+            else if (type.IsValueType) {
                 return Activator.CreateInstance(type);
             }
             return null;
@@ -461,8 +468,9 @@ namespace InnoVault
                     attribute.Mod = newMod;
                 }
                 else {
+                    string modName = attribute.Mod != null ? attribute.Mod.Name : pathParts[0];
                     //改为记录调试日志而非抛出异常，支持弱联动
-                    VaultMod.Instance.Logger.Debug($"Class {type.FullName} couldn't find Mod \"{pathParts[0]}\". Original Mod Name: \"{attribute.Mod.Name}\". " +
+                    VaultMod.Instance.Logger.Debug($"Class {type.FullName} couldn't find Mod \"{pathParts[0]}\". Original Mod Name: \"{modName}\". " +
                         $"Class resources will use default values instead.");
                     //将资源对象设置为null，后续会使用默认值
                     attribute.Mod = null;
