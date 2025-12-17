@@ -401,6 +401,12 @@ namespace InnoVault
             else if (type == typeof(Asset<Texture2D>)) {
                 return VaultAsset.placeholder3;
             }
+            else if (type == typeof(IList<Texture2D>)) {
+                return new List<Texture2D> { VaultAsset.placeholder3.Value };
+            }
+            else if (type == typeof(IList<Asset<Texture2D>>)) {
+                return new List<Asset<Texture2D>> { VaultAsset.placeholder3 };
+            }
             else if (type.IsValueType) {
                 return Activator.CreateInstance(type);
             }
