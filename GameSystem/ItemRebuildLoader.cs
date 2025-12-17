@@ -489,6 +489,7 @@ namespace InnoVault.GameSystem
 
             orig.Invoke(item, player, hideVisual);
         }
+
         /// <summary>
         /// 提前于TML的方法执行，这样继承重写<br/><see cref="ItemOverride.On_CanConsumeAmmo"/><br/>便拥有可以阻断TML后续方法运行的能力，用于进行一些高级修改
         /// </summary>
@@ -496,6 +497,13 @@ namespace InnoVault.GameSystem
             if (item.IsAir) {
                 return;
             }
+
+            var damageCopy = damage;
+            if (!UniversalForEach(inds => inds.On_ModifyWeaponDamage(item, player, ref damageCopy))) {
+                damage = damageCopy;
+                return;
+            }
+            damage = damageCopy;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 foreach (var overrideInstance in itemOverrides.Values) {
