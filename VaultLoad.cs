@@ -81,7 +81,9 @@ namespace InnoVault
                 VaultHook.Add(typeof(BossBarLoader).GetMethod("GotoSavedStyle"
                 , BindingFlags.NonPublic | BindingFlags.Static), EndLoaden);
             } catch {
-
+                VaultMod.Instance.Logger.Error(
+                    "Failed to hook BossBarLoader.GotoSavedStyle for VaultLoadenEvent. " +
+                    "This may cause some resources to not load correctly.");
             }
         }
 
