@@ -453,6 +453,11 @@ namespace InnoVault.GameSystem
                 return false;
             }
 
+            bool? universalResult = UniversalForEach(inds => inds.On_AltFunctionUse(item, player));
+            if (universalResult.HasValue) {
+                return universalResult.Value;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
 
@@ -477,6 +482,10 @@ namespace InnoVault.GameSystem
         public static void OnUpdateAccessoryHook(On_UpdateAccessory_Delegate orig, Item item, Player player, bool hideVisual) {
             if (item.IsAir) {
                 return;
+            }
+
+            if (!UniversalForEach(inds => inds.On_UpdateAccessory(item, player, hideVisual))) {
+                return;//阻断执行
             }
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -520,6 +529,11 @@ namespace InnoVault.GameSystem
         /// 提前于TML的方法执行，这样继承重写<br/><see cref="ItemOverride.On_CanConsumeAmmo"/><br/>便拥有可以阻断TML后续方法运行的能力，用于进行一些高级修改
         /// </summary>
         public static bool OnCanConsumeAmmoHook(On_CanConsumeAmmo_Delegate orig, Item item, Item ammo, Player player) {
+            bool? universalResult = UniversalForEach(inds => inds.On_CanConsumeAmmo(item, ammo, player));
+            if (universalResult.HasValue) {
+                return universalResult.Value;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -539,6 +553,14 @@ namespace InnoVault.GameSystem
         /// <param name="item"></param>
         /// <param name="itemLoot"></param>
         public static void OnModifyItemLootHook(On_ModifyItemLoot_Delegate orig, Item item, ItemLoot itemLoot) {
+            bool? universalResult = UniversalForEach(inds => inds.On_ModifyItemLoot(item, itemLoot));
+            if (universalResult.HasValue) {
+                if (universalResult.Value) {
+                    item.ModItem?.ModifyItemLoot(itemLoot);
+                }
+                return;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -569,6 +591,17 @@ namespace InnoVault.GameSystem
         /// <param name="player"></param>
         /// <param name="crit"></param>
         public static void OnModifyWeaponCritHook(On_ModifyWeaponCrit_Delegate orig, Item item, Player player, ref float crit) {
+            var critCopy = crit;
+            bool? universalResult = UniversalForEach(inds => inds.On_ModifyWeaponCrit(item, player, ref critCopy));
+            if (universalResult.HasValue) {
+                crit = critCopy;
+                if (universalResult.Value) {
+                    item.ModItem?.ModifyWeaponCrit(player, ref crit);
+                }
+                return;
+            }
+            crit = critCopy;
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -599,6 +632,14 @@ namespace InnoVault.GameSystem
         /// <param name="player"></param>
         /// <returns></returns>
         public static void OnUseAnimationHook(On_UseAnimation_Delegate orig, Item item, Player player) {
+            bool? universalResult = UniversalForEach(inds => inds.On_UseAnimation(item, player));
+            if (universalResult.HasValue) {
+                if (universalResult.Value) {
+                    item.ModItem?.UseAnimation(player);
+                }
+                return;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -706,6 +747,29 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static void OnModifyShootStatsHook(On_ModifyShootStats_Delegate orig, Item item, Player player
             , ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockback) {
+            var positionCopy = position;
+            var velocityCopy = velocity;
+            var typeCopy = type;
+            var damageCopy = damage;
+            var knockbackCopy = knockback;
+            bool? universalResult = UniversalForEach(inds => inds.On_ModifyShootStats(item, player, ref positionCopy, ref velocityCopy, ref typeCopy, ref damageCopy, ref knockbackCopy));
+            if (universalResult.HasValue) {
+                position = positionCopy;
+                velocity = velocityCopy;
+                type = typeCopy;
+                damage = damageCopy;
+                knockback = knockbackCopy;
+                if (universalResult.Value) {
+                    item.ModItem?.ModifyShootStats(player, ref position, ref velocity, ref type, ref damage, ref knockback);
+                }
+                return;
+            }
+            position = positionCopy;
+            velocity = velocityCopy;
+            type = typeCopy;
+            damage = damageCopy;
+            knockback = knockbackCopy;
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -757,6 +821,11 @@ namespace InnoVault.GameSystem
         /// <br/>继承重写<see cref="ItemOverride.On_ConsumeItem(Item, Player)"/>来达到这些目的，用于进行一些高级修改
         /// </summary>
         public static bool OnConsumeItemHook(On_CanUseItem_Delegate orig, Item item, Player player) {
+            bool? universalResult = UniversalForEach(inds => inds.On_ConsumeItem(item, player));
+            if (universalResult.HasValue) {
+                return universalResult.Value;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -774,6 +843,9 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnHitNPCHook(On_HitNPC_Delegate orig, Item item, Player player, NPC target, in NPC.HitInfo hit, int damageDone) {
+            var hitCopy = hit;
+            UniversalForEach(inds => inds.On_OnHitNPC(item, player, target, hitCopy, damageDone));
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool result = true;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -791,6 +863,9 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnHitPvpHook(On_HitPvp_Delegate orig, Item item, Player player, Player target, Player.HurtInfo hurtInfo) {
+            var hitCopy = hurtInfo;
+            UniversalForEach(inds => inds.On_OnHitPvp(item, player, target, hitCopy));
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool result = true;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -808,6 +883,17 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnModifyHitNPCHook(On_ModifyHitNPC_Delegate orig, Item item, Player player, NPC target, ref NPC.HitModifiers modifiers) {
+            var modifiersCopy = modifiers;
+            bool? universalResult = UniversalForEach(inds => inds.On_ModifyHitNPC(item, player, target, ref modifiersCopy));
+            if (universalResult.HasValue) {
+                modifiers = modifiersCopy;
+                if (universalResult.Value) {
+                    item.ModItem?.ModifyHitNPC(player, target, ref modifiers);
+                }
+                return;
+            }
+            modifiers = modifiersCopy;
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
