@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Terraria.ModLoader.IO;
 
 namespace InnoVault.Actors
 {
@@ -124,6 +125,7 @@ namespace InnoVault.Actors
             RegisterSyncType((w, v) => w.Write(v), r => r.ReadDouble());
             RegisterSyncType((w, v) => { w.Write(v.X); w.Write(v.Y); }, r => new Vector2(r.ReadSingle(), r.ReadSingle()));
             RegisterSyncType((w, v) => w.Write(v.PackedValue), r => new Color { PackedValue = r.ReadUInt32() });
+            RegisterSyncType((w, v) => ItemIO.Send(v, w, true), r => ItemIO.Receive(r, true));
         }
 
         /// <summary>
