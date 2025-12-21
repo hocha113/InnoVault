@@ -25,7 +25,7 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 这个UI元素的内部ID
         /// </summary>
-        public int ID => UIHandle_Type_To_ID[GetType()];
+        public new int ID => UIHandle_Type_To_ID[GetType()];
         /// <summary>
         /// 这个UI集成来自于什么模组
         /// </summary>

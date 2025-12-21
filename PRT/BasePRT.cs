@@ -16,6 +16,8 @@ namespace InnoVault.PRT
     {
         #region Data
         /// <inheritdoc/>
+        protected override bool AutoMapID => false;
+        /// <inheritdoc/>
         protected override bool AutoMapMod => false;
         /// <inheritdoc/>
         protected override bool AutoVaultRegistryFinishLoading => false;
@@ -54,10 +56,6 @@ namespace InnoVault.PRT
         /// 粒子离开屏幕后是否自动销毁，默认为<see langword="true"/>
         /// </summary>
         public bool ShouldKillWhenOffScreen = true;
-        /// <summary>
-        /// 由一般粒子处理程序注册的粒子类型的ID,这是在粒子处理器loadsl时自动设置的
-        /// </summary>
-        public int ID;
         /// <summary>
         /// 这个粒子已经存在的帧数,一般情况下,不需要手动更新它
         /// </summary>

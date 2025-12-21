@@ -15,6 +15,10 @@ namespace InnoVault
         /// </summary>
         protected virtual bool AutoMapMod => true;
         /// <summary>
+        /// 是否自动加载<see cref="AutoMapID"/>和<see cref="TypeToID"/>,默认返回<see langword="true"/>
+        /// </summary>
+        protected virtual bool AutoMapID => true;
+        /// <summary>
         /// 是否自动在<see cref="ModType.Register"/>中调用<see cref="VaultTypeRegistry{T}.Register(T)"/>,默认返回<see langword="true"/>
         /// </summary>
         protected virtual bool AutoVaultRegistryRegister => true;
@@ -31,6 +35,14 @@ namespace InnoVault
         /// </summary>
         public static Dictionary<Type, T> TypeToInstance { get; internal set; } = [];
         /// <summary>
+        /// 从类型映射到实例
+        /// </summary>
+        public static Dictionary<int, T> IDToInstance { get; internal set; } = [];
+        /// <summary>
+        /// 从类型映射到实例
+        /// </summary>
+        public static Dictionary<Type, int> TypeToID { get; internal set; } = [];
+        /// <summary>
         /// 从类型映射到Mod实例
         /// </summary>
         public static Dictionary<Type, Mod> TypeToMod { get; internal set; } = [];
@@ -42,6 +54,10 @@ namespace InnoVault
         /// 所有的通用实例集合
         /// </summary>
         public static List<T> UniversalInstances { get; internal set; } = [];
+        /// <summary>
+        /// 该实例的全局唯一ID
+        /// </summary>
+        public int ID;
         /// <summary>
         /// 程序进行防御性处理时会用到的值，如果该实例内部发生错误，则会将该值设置为大于0的值，期间不会再自动调用该实例
         /// 这个值应当每帧减一，直到不再大于0
@@ -79,6 +95,11 @@ namespace InnoVault
             }
             if (AutoMapMod) {
                 TypeToMod[GetType()] = Mod;
+            }
+            if (AutoMapID) {
+                ID = IDToInstance.Count;
+                IDToInstance[ID] = (T)this;
+                TypeToID[GetType()] = ID;
             }
             if (AutoVaultRegistryRegister) {
                 VaultTypeRegistry<T>.Register((T)this);

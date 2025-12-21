@@ -98,7 +98,7 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 实体的ID，在游戏加载时会给每个实体分配一个唯一的ID值
         /// </summary>
-        public int ID {
+        public new int ID {
             get {
                 if (_id == -1) {
                     _id = TP_Type_To_ID[GetType()];
