@@ -53,7 +53,7 @@ namespace InnoVault.Actors
         /// <summary>
         /// 该实体的绘制层级
         /// </summary>
-        public ActorDrawLayer DrawLayer;
+        public ActorDrawLayer DrawLayer = ActorDrawLayer.Default;
         #endregion
         /// <summary>
         /// 注册内容
