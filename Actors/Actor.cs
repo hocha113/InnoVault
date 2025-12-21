@@ -50,6 +50,10 @@ namespace InnoVault.Actors
         /// 如果为 true，则在下一次网络更新时同步此实体的数据
         /// </summary>
         public bool NetUpdate;
+        /// <summary>
+        /// 该实体的绘制层级
+        /// </summary>
+        public ActorDrawLayer DrawLayer;
         #endregion
         /// <summary>
         /// 注册内容

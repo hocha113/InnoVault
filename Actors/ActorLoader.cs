@@ -6,6 +6,8 @@ using System.Collections.Generic;
 using System.Linq.Expressions;
 using Terraria;
 using Terraria.ModLoader;
+using Terraria.Graphics.Renderers;
+using Terraria.Graphics;
 
 namespace InnoVault.Actors
 {
@@ -48,7 +50,9 @@ namespace InnoVault.Actors
             HookPreDraw = AddHook<Func<SpriteBatch, Actor, Color, bool>>(a => a.PreDraw);
             HookPostDraw = AddHook<Action<SpriteBatch, Actor, Color>>(a => a.PostDraw);
 
-            On_Main.DrawInfernoRings += DrawHook;
+            On_Main.DrawBackgroundBlackFill += DrawBeforeTilesHook;
+            On_LegacyPlayerRenderer.DrawPlayers += DrawPlayersHook;
+            On_Main.DrawInfernoRings += DrawDefaultHook;
         }
 
         void IVaultLoader.UnLoadData() {
@@ -61,7 +65,9 @@ namespace InnoVault.Actors
             HookPreDraw = null;
             HookPostDraw = null;
 
-            On_Main.DrawInfernoRings -= DrawHook;
+            On_Main.DrawBackgroundBlackFill -= DrawBeforeTilesHook;
+            On_LegacyPlayerRenderer.DrawPlayers -= DrawPlayersHook;
+            On_Main.DrawInfernoRings -= DrawDefaultHook;
 
             GlobalActor.Instances?.Clear();
             VaultTypeRegistry<GlobalActor>.ClearRegisteredVaults();
@@ -234,12 +240,57 @@ namespace InnoVault.Actors
         #endregion
 
         #region Draw
-        private static void DrawHook(Terraria.On_Main.orig_DrawInfernoRings orig, Main self) {
+        /// <summary>
+        /// 在物块绘制之后绘制所有活跃的Actor
+        /// </summary>
+        public override void PostDrawTiles() {
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+
+            DrawActors(Main.spriteBatch, ActorDrawLayer.AfterTiles);
+
+            Main.spriteBatch.End();
+        }
+
+        private static void DrawBeforeTilesHook(On_Main.orig_DrawBackgroundBlackFill orig, Main self) {
+            orig(self);
+
+            if (Main.gameMenu || Main.mapFullscreen) {
+                return;
+            }
+
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+
+            DrawActors(Main.spriteBatch, ActorDrawLayer.BeforeTiles);
+
+            Main.spriteBatch.End();
+        }
+
+        private static void DrawPlayersHook(On_LegacyPlayerRenderer.orig_DrawPlayers orig, LegacyPlayerRenderer self, Camera camera, IEnumerable<Player> players) {
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+
+            DrawActors(Main.spriteBatch, ActorDrawLayer.BeforePlayers);
+
+            Main.spriteBatch.End();
+
+            orig(self, camera, players);
+
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+
+            DrawActors(Main.spriteBatch, ActorDrawLayer.AfterPlayers);
+
+            Main.spriteBatch.End();
+        }
+
+        private static void DrawDefaultHook(Terraria.On_Main.orig_DrawInfernoRings orig, Main self) {
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
                 , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
 
-            DrawActors(Main.spriteBatch);
+            DrawActors(Main.spriteBatch, ActorDrawLayer.Default);
 
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
@@ -252,14 +303,15 @@ namespace InnoVault.Actors
         /// 绘制所有活跃的Actor
         /// </summary>
         /// <param name="spriteBatch">用于绘制的SpriteBatch</param>
-        public static void DrawActors(SpriteBatch spriteBatch) {
+        /// <param name="layer">要绘制的层级</param>
+        public static void DrawActors(SpriteBatch spriteBatch, ActorDrawLayer layer = ActorDrawLayer.Default) {
             if (Main.dedServ) {
                 return;
             }
 
             for (int i = 0; i < MaxActorCount; i++) {
                 Actor actor = Actors[i];
-                if (actor == null || !actor.Active) {
+                if (actor == null || !actor.Active || actor.DrawLayer != layer) {
                     continue;
                 }
 
