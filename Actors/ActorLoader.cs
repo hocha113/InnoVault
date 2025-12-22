@@ -113,12 +113,8 @@ namespace InnoVault.Actors
                 return -1;
             }
 
-            if (VaultUtils.isSinglePlayer) {
-                AddActor(type, slot, position, velocity);
-            }
-            else {
-                ActorNetWork.SendNewActor(type, slot, position, velocity);
-            }
+            AddActor(type, slot, position, velocity);
+            ActorNetWork.SendNewActor(type, slot, position, velocity);
 
             return slot;
         }

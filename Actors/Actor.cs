@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
+using Terraria;
 using Terraria.ModLoader.IO;
 
 namespace InnoVault.Actors
@@ -123,8 +124,10 @@ namespace InnoVault.Actors
             RegisterSyncType((w, v) => w.Write(v), r => r.ReadInt16());
             RegisterSyncType((w, v) => w.Write(v), r => r.ReadInt64());
             RegisterSyncType((w, v) => w.Write(v), r => r.ReadDouble());
-            RegisterSyncType((w, v) => { w.Write(v.X); w.Write(v.Y); }, r => new Vector2(r.ReadSingle(), r.ReadSingle()));
             RegisterSyncType((w, v) => w.Write(v.PackedValue), r => new Color { PackedValue = r.ReadUInt32() });
+            RegisterSyncType((w, v) => { w.WriteVector2(v); }, r => r.ReadVector2());
+            RegisterSyncType((w, v) => { w.WritePoint16(v); }, r => r.ReadPoint16());
+            RegisterSyncType((w, v) => { w.WritePoint(v); }, r => r.ReadPoint());
             RegisterSyncType((w, v) => ItemIO.Send(v, w, true), r => ItemIO.Receive(r, true));
         }
 
@@ -162,6 +165,10 @@ namespace InnoVault.Actors
         /// </summary>
         /// <param name="writer"></param>
         public void SendSyncData(BinaryWriter writer) {
+            writer.WriteVector2(Position);
+            writer.WriteVector2(Velocity);
+            writer.Write(Width);
+            writer.Write(Height);
             var members = GetSyncVars();
             foreach (var member in members) {
                 object value = member is FieldInfo f ? f.GetValue(this) : ((PropertyInfo)member).GetValue(this);
@@ -175,6 +182,10 @@ namespace InnoVault.Actors
         /// </summary>
         /// <param name="reader"></param>
         public void ReceiveSyncData(BinaryReader reader) {
+            Position = reader.ReadVector2();
+            Velocity = reader.ReadVector2();
+            Width = reader.ReadInt32();
+            Height = reader.ReadInt32();
             var members = GetSyncVars();
             foreach (var member in members) {
                 Type type = member is FieldInfo fi ? fi.FieldType : ((PropertyInfo)member).PropertyType;

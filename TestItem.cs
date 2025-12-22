@@ -1,18 +1,17 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.Actors;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InnoVault
 {
+#if DEBUG
     internal class TestItem : ModItem
     {
         public override string Texture => "InnoVault/icon";
-
-        public override bool IsLoadingEnabled(Mod mod) {
-            return false;
-        }
 
         public override void SetDefaults() {
             Item.width = 80;
@@ -47,24 +46,53 @@ namespace InnoVault
         }
 
         public override bool? UseItem(Player player) {
-            //if (player.altFunctionUse == 2) {
-            //    MySaveStructure.DoSave<MySaveStructure>();
-            //}
-            //else {
-            //    MySaveStructure.DoLoad<MySaveStructure>();
-            //}            
+            if (player.whoAmI == Main.myPlayer) {
+                Projectile.NewProjectile(player.FromObjectGetParent(), player.Center, Vector2.Zero, ModContent.ProjectileType<TestProj>(), 0, 0, player.whoAmI);
+            }
             return true;
         }
     }
 
-    //internal class MySaveStructure : SaveStructure
-    //{
-    //    public override void SaveData(TagCompound tag) {
-    //        SaveRegion(tag, Main.MouseWorld.ToTileCoordinates16().GetRectangle(120));
-    //    }
+    internal class TestProj : ModProjectile
+    {
+        public override string Texture => "InnoVault/icon";
+        public override void SetDefaults() {
+            Projectile.width = Projectile.height = 32;
+            Projectile.friendly = true;
+            Projectile.tileCollide = false;
+            Projectile.timeLeft = 60;
+        }
 
-    //    public override void LoadData(TagCompound tag) {
-    //        LoadRegion(tag, Main.MouseWorld.ToTileCoordinates16());
-    //    }
-    //}
+        public override void AI() {
+            if (Projectile.ai[0] == 0 && !VaultUtils.isClient) {
+                ActorLoader.NewActor<TestActor>(Projectile.Center);
+            }
+            Projectile.ai[0]++;
+        }
+    }
+
+    internal class TestActor : Actor
+    {
+        [SyncVar]
+        public int NumValue;
+        public override void OnSpawn(object obj) {
+            Width = 100;
+            Height = 100;
+            NetUpdate = true;
+        }
+        public override void AI() {
+            if (HitBox.Intersects(Main.MouseWorld.GetRectangle(1))
+                && Main.mouseLeft) {
+                NumValue++;
+                NetUpdate = true;
+            }
+        }
+        public override bool PreDraw(SpriteBatch spriteBatch, ref Color drawColor) {
+            Main.spriteBatch.Draw(TextureAssets.Projectile[ModContent.ProjectileType<TestProj>()].Value
+                , Center - Main.screenPosition, null, Color.Red, 0, Velocity, 1f, SpriteEffects.None, 0);
+            Utils.DrawBorderString(spriteBatch, $"NumValue: {NumValue}", Center - Main.screenPosition + new Vector2(0, 40), Color.White);
+            return false;
+        }
+    }
+#endif
 }

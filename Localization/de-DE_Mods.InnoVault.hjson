@@ -1,4 +1,4 @@
-﻿Configs: {
+Configs: {
 	VaultClientConfig: {
 		DisplayName: Clienteinstellungen
 
@@ -38,3 +38,12 @@ Loadings: {
 			'''
 	}
 }
+
+Items: {
+	TestItem: {
+		// DisplayName: Test Item
+		// Tooltip: ""
+	}
+}
+
+// Projectiles.TestProj.DisplayName: Test Proj

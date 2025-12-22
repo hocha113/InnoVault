@@ -3865,6 +3865,23 @@ namespace InnoVault
         /// <param name="reader"></param>
         /// <returns></returns>
         public static Point16 ReadPoint16(this BinaryReader reader) => new Point16(reader.ReadInt16(), reader.ReadInt16());
+
+        /// <summary>
+        /// 发送关于一个<see cref="Point"/>结构的网络数据
+        /// </summary>
+        /// <param name="writer"></param>
+        /// <param name="point"></param>
+        public static void WritePoint(this BinaryWriter writer, Point point) {
+            writer.Write(point.X);
+            writer.Write(point.Y);
+        }
+
+        /// <summary>
+        /// 接收关于一个<see cref="Point"/>结构的网络数据
+        /// </summary>
+        /// <param name="reader"></param>
+        /// <returns></returns>
+        public static Point ReadPoint(this BinaryReader reader) => new Point(reader.ReadInt32(), reader.ReadInt32());
         #endregion
 
         #region Tile
