@@ -5,9 +5,9 @@ using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using Terraria;
-using Terraria.ModLoader;
-using Terraria.Graphics.Renderers;
 using Terraria.Graphics;
+using Terraria.Graphics.Renderers;
+using Terraria.ModLoader;
 
 namespace InnoVault.Actors
 {

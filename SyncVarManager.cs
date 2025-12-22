@@ -1,9 +1,9 @@
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Reflection;
-using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ModLoader.IO;
 
@@ -18,8 +18,7 @@ namespace InnoVault
         private static readonly Dictionary<Type, Action<BinaryWriter, object>> _typeWriters = new();
         private static readonly Dictionary<Type, Func<BinaryReader, object>> _typeReaders = new();
 
-        static SyncVarManager()
-        {
+        static SyncVarManager() {
             RegisterSyncType((w, v) => w.Write(v), r => r.ReadInt32());
             RegisterSyncType((w, v) => w.Write(v), r => r.ReadSingle());
             RegisterSyncType((w, v) => w.Write(v), r => r.ReadBoolean());
@@ -41,8 +40,7 @@ namespace InnoVault
         /// <typeparam name="T">要支持的类型</typeparam>
         /// <param name="writer">写入逻辑</param>
         /// <param name="reader">读取逻辑</param>
-        public static void RegisterSyncType<T>(Action<BinaryWriter, T> writer, Func<BinaryReader, T> reader)
-        {
+        public static void RegisterSyncType<T>(Action<BinaryWriter, T> writer, Func<BinaryReader, T> reader) {
             _typeWriters[typeof(T)] = (w, obj) => writer(w, (T)obj);
             _typeReaders[typeof(T)] = r => reader(r);
         }
@@ -50,10 +48,8 @@ namespace InnoVault
         /// <summary>
         /// 获取对象的同步变量列表
         /// </summary>
-        public static List<MemberInfo> GetSyncVars(Type type)
-        {
-            if (!_syncVarsCache.TryGetValue(type, out var members))
-            {
+        public static List<MemberInfo> GetSyncVars(Type type) {
+            if (!_syncVarsCache.TryGetValue(type, out var members)) {
                 members = new List<MemberInfo>();
 
                 var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
@@ -72,11 +68,9 @@ namespace InnoVault
         /// <summary>
         /// 发送对象的同步数据
         /// </summary>
-        public static void Send(object obj, BinaryWriter writer)
-        {
+        public static void Send(object obj, BinaryWriter writer) {
             var members = GetSyncVars(obj.GetType());
-            foreach (var member in members)
-            {
+            foreach (var member in members) {
                 object value = member is FieldInfo f ? f.GetValue(obj) : ((PropertyInfo)member).GetValue(obj);
                 Type type = member is FieldInfo fi ? fi.FieldType : ((PropertyInfo)member).PropertyType;
                 WriteValue(writer, value, type);
@@ -86,38 +80,30 @@ namespace InnoVault
         /// <summary>
         /// 接收对象的同步数据
         /// </summary>
-        public static void Receive(object obj, BinaryReader reader)
-        {
+        public static void Receive(object obj, BinaryReader reader) {
             var members = GetSyncVars(obj.GetType());
-            foreach (var member in members)
-            {
+            foreach (var member in members) {
                 Type type = member is FieldInfo fi ? fi.FieldType : ((PropertyInfo)member).PropertyType;
                 object value = ReadValue(reader, type);
-                if (value != null)
-                {
+                if (value != null) {
                     if (member is FieldInfo f) f.SetValue(obj, value);
                     else ((PropertyInfo)member).SetValue(obj, value);
                 }
             }
         }
 
-        private static void WriteValue(BinaryWriter writer, object value, Type type)
-        {
-            if (_typeWriters.TryGetValue(type, out var handler))
-            {
+        private static void WriteValue(BinaryWriter writer, object value, Type type) {
+            if (_typeWriters.TryGetValue(type, out var handler)) {
                 handler(writer, value);
             }
-            else
-            {
+            else {
                 VaultMod.Instance.Logger.Error($"Type {type.Name} is not supported for SyncVar.");
                 VaultUtils.Text($"Type {type.Name} is not supported for SyncVar.", Color.Red);
             }
         }
 
-        private static object ReadValue(BinaryReader reader, Type type)
-        {
-            if (_typeReaders.TryGetValue(type, out var handler))
-            {
+        private static object ReadValue(BinaryReader reader, Type type) {
+            if (_typeReaders.TryGetValue(type, out var handler)) {
                 return handler(reader);
             }
             return null;

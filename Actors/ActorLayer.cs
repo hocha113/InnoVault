@@ -24,6 +24,6 @@ namespace InnoVault.Actors
         /// <summary>
         /// 在玩家绘制之后绘制
         /// </summary>
-        AfterPlayers,       
+        AfterPlayers,
     }
 }
