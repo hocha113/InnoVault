@@ -675,6 +675,7 @@ namespace InnoVault.GameSystem
                 netMessage.Write(ai[i]);
             }
             OtherNetWorkSend(netMessage);//手动发送网络数据
+            SyncVarManager.Send(this, netMessage);
             netMessage.Send();
         }
 
@@ -709,6 +710,7 @@ namespace InnoVault.GameSystem
             }
 
             npcModify.OtherNetWorkReceive(reader);
+            SyncVarManager.Receive(npcModify, reader);
 
             if (VaultUtils.isServer) {
                 return;
@@ -722,6 +724,7 @@ namespace InnoVault.GameSystem
                 netMessage.Write(newAI[i]);
             }
             npcModify.OtherNetWorkSend(netMessage);
+            SyncVarManager.Send(npcModify, netMessage);
             netMessage.Send(-1, whoAmI);
         }
 
@@ -779,6 +782,7 @@ namespace InnoVault.GameSystem
                     }
 
                     npcOverride.OtherNetWorkSend(netMessage);
+                    SyncVarManager.Send(npcOverride, netMessage);
                 }
 
                 netMessage.Send(whoAmI);
@@ -807,6 +811,7 @@ namespace InnoVault.GameSystem
                     value.ai[j] = reader.ReadSingle();
                 }
                 value.OtherNetWorkReceive(reader);
+                SyncVarManager.Receive(value, reader);
             }
         }
 
