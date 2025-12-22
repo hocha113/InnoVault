@@ -109,16 +109,6 @@ namespace InnoVault.Actors
 
         #region Synchronization
         /// <summary>
-        /// 注册自定义同步类型处理程序
-        /// </summary>
-        /// <typeparam name="T">要支持的类型</typeparam>
-        /// <param name="writer">写入逻辑</param>
-        /// <param name="reader">读取逻辑</param>
-        public static void RegisterSyncType<T>(Action<BinaryWriter, T> writer, Func<BinaryReader, T> reader) {
-            SyncVarManager.RegisterSyncType(writer, reader);
-        }
-
-        /// <summary>
         /// 发送同步数据
         /// </summary>
         /// <param name="writer"></param>
