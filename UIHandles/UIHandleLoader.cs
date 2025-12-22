@@ -311,6 +311,7 @@ namespace InnoVault.UIHandles
 
         /// <inheritdoc/>
         public override void SaveWorldData(TagCompound tag) {
+            tag["root:uiData"] = "";
             try {
                 SaveMod.DoSave<UIDataSave>();
             } catch (Exception ex) {
@@ -320,6 +321,7 @@ namespace InnoVault.UIHandles
 
         /// <inheritdoc/>
         public override void LoadWorldData(TagCompound tag) {
+            tag.TryGet("root:uiData", out string _);
             try {
                 SaveMod.DoLoad<UIDataSave>();
             } catch (Exception ex) {
