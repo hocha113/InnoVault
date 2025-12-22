@@ -3,10 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using Terraria;
-using Terraria.ModLoader.IO;
 
 namespace InnoVault.Actors
 {
@@ -111,26 +108,6 @@ namespace InnoVault.Actors
         }
 
         #region Synchronization
-        private static readonly Dictionary<Type, List<MemberInfo>> _syncVarsCache = new();
-        private static readonly Dictionary<Type, Action<BinaryWriter, object>> _typeWriters = new();
-        private static readonly Dictionary<Type, Func<BinaryReader, object>> _typeReaders = new();
-
-        static Actor() {
-            RegisterSyncType((w, v) => w.Write(v), r => r.ReadInt32());
-            RegisterSyncType((w, v) => w.Write(v), r => r.ReadSingle());
-            RegisterSyncType((w, v) => w.Write(v), r => r.ReadBoolean());
-            RegisterSyncType((w, v) => w.Write(v), r => r.ReadString());
-            RegisterSyncType((w, v) => w.Write(v), r => r.ReadByte());
-            RegisterSyncType((w, v) => w.Write(v), r => r.ReadInt16());
-            RegisterSyncType((w, v) => w.Write(v), r => r.ReadInt64());
-            RegisterSyncType((w, v) => w.Write(v), r => r.ReadDouble());
-            RegisterSyncType((w, v) => w.Write(v.PackedValue), r => new Color { PackedValue = r.ReadUInt32() });
-            RegisterSyncType((w, v) => { w.WriteVector2(v); }, r => r.ReadVector2());
-            RegisterSyncType((w, v) => { w.WritePoint16(v); }, r => r.ReadPoint16());
-            RegisterSyncType((w, v) => { w.WritePoint(v); }, r => r.ReadPoint());
-            RegisterSyncType((w, v) => ItemIO.Send(v, w, true), r => ItemIO.Receive(r, true));
-        }
-
         /// <summary>
         /// 注册自定义同步类型处理程序
         /// </summary>
@@ -138,26 +115,7 @@ namespace InnoVault.Actors
         /// <param name="writer">写入逻辑</param>
         /// <param name="reader">读取逻辑</param>
         public static void RegisterSyncType<T>(Action<BinaryWriter, T> writer, Func<BinaryReader, T> reader) {
-            _typeWriters[typeof(T)] = (w, obj) => writer(w, (T)obj);
-            _typeReaders[typeof(T)] = r => reader(r);
-        }
-
-        private List<MemberInfo> GetSyncVars() {
-            Type type = GetType();
-            if (!_syncVarsCache.TryGetValue(type, out var members)) {
-                members = new List<MemberInfo>();
-
-                var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                    .Where(f => f.GetCustomAttribute<SyncVarAttribute>() != null);
-                members.AddRange(fields);
-
-                var props = type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                    .Where(p => p.GetCustomAttribute<SyncVarAttribute>() != null && p.CanRead && p.CanWrite);
-                members.AddRange(props);
-
-                _syncVarsCache[type] = members;
-            }
-            return members;
+            SyncVarManager.RegisterSyncType(writer, reader);
         }
 
         /// <summary>
@@ -169,12 +127,7 @@ namespace InnoVault.Actors
             writer.WriteVector2(Velocity);
             writer.Write(Width);
             writer.Write(Height);
-            var members = GetSyncVars();
-            foreach (var member in members) {
-                object value = member is FieldInfo f ? f.GetValue(this) : ((PropertyInfo)member).GetValue(this);
-                Type type = member is FieldInfo fi ? fi.FieldType : ((PropertyInfo)member).PropertyType;
-                WriteValue(writer, value, type);
-            }
+            SyncVarManager.Send(this, writer);
         }
 
         /// <summary>
@@ -186,32 +139,7 @@ namespace InnoVault.Actors
             Velocity = reader.ReadVector2();
             Width = reader.ReadInt32();
             Height = reader.ReadInt32();
-            var members = GetSyncVars();
-            foreach (var member in members) {
-                Type type = member is FieldInfo fi ? fi.FieldType : ((PropertyInfo)member).PropertyType;
-                object value = ReadValue(reader, type);
-                if (value != null) {
-                    if (member is FieldInfo f) f.SetValue(this, value);
-                    else ((PropertyInfo)member).SetValue(this, value);
-                }
-            }
-        }
-
-        private static void WriteValue(BinaryWriter writer, object value, Type type) {
-            if (_typeWriters.TryGetValue(type, out var handler)) {
-                handler(writer, value);
-            }
-            else {
-                VaultMod.Instance.Logger.Error($"Type {type.Name} is not supported for SyncVar.");
-                VaultUtils.Text($"Type {type.Name} is not supported for SyncVar.", Color.Red);
-            }
-        }
-
-        private static object ReadValue(BinaryReader reader, Type type) {
-            if (_typeReaders.TryGetValue(type, out var handler)) {
-                return handler(reader);
-            }
-            return null;
+            SyncVarManager.Receive(this, reader);
         }
         #endregion
     }

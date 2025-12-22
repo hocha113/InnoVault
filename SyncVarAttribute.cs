@@ -1,6 +1,6 @@
 ﻿using System;
 
-namespace InnoVault.Actors
+namespace InnoVault
 {
     /// <summary>
     /// 标记应在网络同步的字段或属性
