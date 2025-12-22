@@ -124,6 +124,47 @@ namespace InnoVault.Actors
             }
         }
 
+        /// <summary>
+        /// 发送请求同步所有活跃Actor的数据包
+        /// </summary>
+        public static void RequestActiveActors() {
+            if (VaultUtils.isSinglePlayer) return;
+            ModPacket modPacket = VaultMod.Instance.GetPacket();
+            modPacket.Write((byte)MessageType.RequestActiveActors);
+            modPacket.Send();
+        }
+
+        /// <summary>
+        /// 处理请求同步所有活跃Actor的数据包
+        /// </summary>
+        /// <param name="whoAmI"></param>
+        public static void HandleRequestActiveActors(int whoAmI) {
+            if (!VaultUtils.isServer) return;
+
+            for (int i = 0; i < ActorLoader.MaxActorCount; i++) {
+                Actor actor = ActorLoader.Actors[i];
+                if (actor != null && actor.Active) {
+                    int typeID = ActorLoader.GetActorID(actor.GetType());
+                    
+                    //发送创建包
+                    ModPacket newActorPacket = VaultMod.Instance.GetPacket();
+                    newActorPacket.Write((byte)MessageType.NewActor);
+                    newActorPacket.Write(typeID);
+                    newActorPacket.Write(i); //slot
+                    newActorPacket.WriteVector2(actor.Position);
+                    newActorPacket.WriteVector2(actor.Velocity);
+                    newActorPacket.Send(whoAmI);
+
+                    //发送数据同步包
+                    ModPacket dataPacket = VaultMod.Instance.GetPacket();
+                    dataPacket.Write((byte)MessageType.ActorData);
+                    dataPacket.Write(i); //WhoAmI
+                    actor.SendSyncData(dataPacket);
+                    dataPacket.Send(whoAmI);
+                }
+            }
+        }
+
         internal static void Handle(MessageType type, Mod mod, BinaryReader reader, int whoAmI) {
             if (type == MessageType.NewActor) {
                 HandleNewActor(reader);
@@ -133,6 +174,9 @@ namespace InnoVault.Actors
             }
             else if (type == MessageType.KillActor) {
                 HandleKillActor(reader, whoAmI);
+            }
+            else if (type == MessageType.RequestActiveActors) {
+                HandleRequestActiveActors(whoAmI);
             }
         }
     }

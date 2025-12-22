@@ -40,6 +40,7 @@ namespace InnoVault
             NewActor,
             ActorData,
             KillActor,
+            RequestActiveActors,
         }
 
         internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
