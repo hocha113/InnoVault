@@ -598,9 +598,14 @@ namespace InnoVault.GameSystem
 
         internal static void OtherNetWorkReceiveHander(BinaryReader reader) {
             NPC npc = Main.npc[reader.ReadInt32()];
+            ushort id = reader.ReadUInt16();
             if (npc.TryGetOverride(out var values)) {
                 foreach (var npcOverrideInstance in values.Values) {
+                    if (npcOverrideInstance.OverrideID != id) {
+                        continue;
+                    }
                     npcOverrideInstance.OtherNetWorkReceive(reader);
+                    SyncVarManager.Receive(npcOverrideInstance, reader);
                 }
             }
         }
@@ -613,7 +618,10 @@ namespace InnoVault.GameSystem
             ModPacket netMessage = Mod.GetPacket();
             netMessage.Write((byte)MessageType.NPCOverrideOtherAI);
             netMessage.Write(npc.whoAmI);
+            netMessage.Write(OverrideID);
             OtherNetWorkSend(netMessage);
+            SyncVarManager.Send(this, netMessage);
+            netMessage.Send();
         }
 
         /// <summary>
