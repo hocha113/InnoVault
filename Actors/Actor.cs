@@ -3,14 +3,13 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Terraria;
 
 namespace InnoVault.Actors
 {
     /// <summary>
     /// 可自定义行为的实体基类
     /// </summary>
-    public class Actor : VaultType<Actor>
+    public abstract class Actor : VaultType<Actor>
     {
         #region Data
         /// <summary>
@@ -20,31 +19,50 @@ namespace InnoVault.Actors
         /// <summary>
         /// 如果为 true，则实体实际上存在于游戏世界中。在特定的实体数组中，如果 active 为 false，则该实体是垃圾数据
         /// </summary>
+        [SyncVar]
         public bool Active;
         /// <summary>
         /// 该实体的命中箱的高度，以像素为单位
         /// </summary>
+        [SyncVar]
         public int Width;
         /// <summary>
         /// 该实体的命中箱的高度，以像素为单位
         /// </summary>
+        [SyncVar]
         public int Height;
         /// <summary>
-        /// 该实体的命中箱
+        /// 该实体的旋转角度，以弧度为单位
         /// </summary>
-        public virtual Rectangle HitBox => new Rectangle((int)Position.X, (int)Position.Y, Width, Height);
+        [SyncVar]
+        public float Rotation;
+        /// <summary>
+        /// 该实体的缩放比例
+        /// </summary>
+        [SyncVar]
+        public float Scale = 1f;
         /// <summary>
         /// 该实体在世界坐标中的位置，注意这对应于实体的左上角。对于需要实体中心位置的逻辑，请改用 Center
         /// </summary>
+        [SyncVar]
         public Vector2 Position;
-        /// <summary>
-        /// 该实体在世界坐标中的中心位置
-        /// </summary>
-        public virtual Vector2 Center => new Vector2(Position.X + Width / 2f, Position.Y + Height / 2f);
         /// <summary>
         /// 该实体在每个刻度的世界坐标中的速度
         /// </summary>
+        [SyncVar]
         public Vector2 Velocity;
+        /// <summary>
+        /// 该实体的命中箱的大小
+        /// </summary>
+        public Vector2 Size => new Vector2(Width, Height) * Scale;
+        /// <summary>
+        /// 该实体的命中箱
+        /// </summary>
+        public virtual Rectangle HitBox => Position.GetRectangle(Size);
+        /// <summary>
+        /// 该实体在世界坐标中的中心位置
+        /// </summary>
+        public virtual Vector2 Center => Position + Size / 2;
         /// <summary>
         /// 如果为 true，则在下一次网络更新时同步此实体的数据
         /// </summary>
@@ -90,6 +108,15 @@ namespace InnoVault.Actors
 
         }
         /// <summary>
+        /// 以中心为基准调整缩放，自动补偿 Position 以防止碰撞箱偏移
+        /// </summary>
+        public void SetScaleCentered(float newScale) {
+            Vector2 oldSize = Size;
+            Scale = newScale;
+            Vector2 newSize = Size;
+            Position -= (newSize - oldSize) / 2f;
+        }
+        /// <summary>
         /// 在实体绘制之前调用，可用于修改绘制颜色或执行其他操作
         /// </summary>
         /// <param name="spriteBatch"></param>
@@ -106,31 +133,17 @@ namespace InnoVault.Actors
         public virtual void PostDraw(SpriteBatch spriteBatch, Color drawColor) {
 
         }
-
         #region Synchronization
         /// <summary>
         /// 发送同步数据
         /// </summary>
         /// <param name="writer"></param>
-        public void SendSyncData(BinaryWriter writer) {
-            writer.WriteVector2(Position);
-            writer.WriteVector2(Velocity);
-            writer.Write(Width);
-            writer.Write(Height);
-            SyncVarManager.Send(this, writer);
-        }
-
+        public void SendSyncData(BinaryWriter writer) => SyncVarManager.Send(this, writer);
         /// <summary>
         /// 接收同步数据
         /// </summary>
         /// <param name="reader"></param>
-        public void ReceiveSyncData(BinaryReader reader) {
-            Position = reader.ReadVector2();
-            Velocity = reader.ReadVector2();
-            Width = reader.ReadInt32();
-            Height = reader.ReadInt32();
-            SyncVarManager.Receive(this, reader);
-        }
+        public void ReceiveSyncData(BinaryReader reader) => SyncVarManager.Receive(this, reader);
         #endregion
     }
 }

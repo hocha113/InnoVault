@@ -49,19 +49,41 @@ namespace InnoVault
         /// 获取对象的同步变量列表
         /// </summary>
         public static List<MemberInfo> GetSyncVars(Type type) {
-            if (!_syncVarsCache.TryGetValue(type, out var members)) {
-                members = new List<MemberInfo>();
-
-                var fields = type.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                    .Where(f => f.GetCustomAttribute<SyncVarAttribute>() != null);
-                members.AddRange(fields);
-
-                var props = type.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
-                    .Where(p => p.GetCustomAttribute<SyncVarAttribute>() != null && p.CanRead && p.CanWrite);
-                members.AddRange(props);
-
-                _syncVarsCache[type] = members;
+            if (_syncVarsCache.TryGetValue(type, out var members)) {
+                return members;
             }
+            members = [];
+
+            //获取继承链
+            //这样可以确保基类的数据先被序列化，结构更清晰
+            var hierarchy = new List<Type>();
+            var current = type;
+            while (current != null && current != typeof(object)) {
+                hierarchy.Add(current);
+                current = current.BaseType;
+            }
+            hierarchy.Reverse();
+
+            //逐层获取并排序
+            foreach (var t in hierarchy) {
+                var levelMembers = new List<MemberInfo>();
+
+                var fields = t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                    .Where(f => f.GetCustomAttribute<SyncVarAttribute>() != null);
+                levelMembers.AddRange(fields);
+
+                var props = t.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
+                    .Where(p => p.GetCustomAttribute<SyncVarAttribute>() != null && p.CanRead && p.CanWrite);
+                levelMembers.AddRange(props);
+
+                //只在当前层级内按名称排序
+                //这样即使基类和子类有同名私有字段，它们的相对顺序也是固定的。基类在前，子类在后
+                levelMembers.Sort((a, b) => string.Compare(a.Name, b.Name, StringComparison.Ordinal));
+
+                members.AddRange(levelMembers);
+            }
+
+            _syncVarsCache[type] = members;
             return members;
         }
 
