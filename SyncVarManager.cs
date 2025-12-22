@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+ï»¿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -10,7 +10,7 @@ using Terraria.ModLoader.IO;
 namespace InnoVault
 {
     /// <summary>
-    /// ¹ÜÀíÍøÂçÍ¬²½±äÁ¿µÄÍ¨ÓÃÀà
+    /// ç®¡ç†ç½‘ç»œåŒæ­¥å˜é‡çš„é€šç”¨ç±»
     /// </summary>
     public static class SyncVarManager
     {
@@ -35,18 +35,18 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// ×¢²á×Ô¶¨ÒåÍ¬²½ÀàĞÍ´¦Àí³ÌĞò
+        /// æ³¨å†Œè‡ªå®šä¹‰åŒæ­¥ç±»å‹å¤„ç†ç¨‹åº
         /// </summary>
-        /// <typeparam name="T">ÒªÖ§³ÖµÄÀàĞÍ</typeparam>
-        /// <param name="writer">Ğ´ÈëÂß¼­</param>
-        /// <param name="reader">¶ÁÈ¡Âß¼­</param>
+        /// <typeparam name="T">è¦æ”¯æŒçš„ç±»å‹</typeparam>
+        /// <param name="writer">å†™å…¥é€»è¾‘</param>
+        /// <param name="reader">è¯»å–é€»è¾‘</param>
         public static void RegisterSyncType<T>(Action<BinaryWriter, T> writer, Func<BinaryReader, T> reader) {
             _typeWriters[typeof(T)] = (w, obj) => writer(w, (T)obj);
             _typeReaders[typeof(T)] = r => reader(r);
         }
 
         /// <summary>
-        /// »ñÈ¡¶ÔÏóµÄÍ¬²½±äÁ¿ÁĞ±í
+        /// è·å–å¯¹è±¡çš„åŒæ­¥å˜é‡åˆ—è¡¨
         /// </summary>
         public static List<MemberInfo> GetSyncVars(Type type) {
             if (!_syncVarsCache.TryGetValue(type, out var members)) {
@@ -66,7 +66,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// ·¢ËÍ¶ÔÏóµÄÍ¬²½Êı¾İ
+        /// å‘é€å¯¹è±¡çš„åŒæ­¥æ•°æ®
         /// </summary>
         public static void Send(object obj, BinaryWriter writer) {
             var members = GetSyncVars(obj.GetType());
@@ -78,7 +78,7 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// ½ÓÊÕ¶ÔÏóµÄÍ¬²½Êı¾İ
+        /// æ¥æ”¶å¯¹è±¡çš„åŒæ­¥æ•°æ®
         /// </summary>
         public static void Receive(object obj, BinaryReader reader) {
             var members = GetSyncVars(obj.GetType());
