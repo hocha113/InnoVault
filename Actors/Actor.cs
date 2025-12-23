@@ -13,6 +13,18 @@ namespace InnoVault.Actors
     {
         #region Data
         /// <summary>
+        /// 从类型映射到实例
+        /// </summary>
+        public static Dictionary<int, Actor> IDToInstance { get; internal set; } = [];
+        /// <summary>
+        /// 从类型映射到实例
+        /// </summary>
+        public static Dictionary<Type, int> TypeToID { get; internal set; } = [];
+        /// <summary>
+        /// 该实体的全局唯一ID
+        /// </summary>
+        public int ID;
+        /// <summary>
         /// 该实体在其特定数组中的索引，这些数组跟踪世界中的实体
         /// </summary>
         public int WhoAmI;
@@ -78,7 +90,9 @@ namespace InnoVault.Actors
         protected sealed override void VaultRegister() {
             ID = Instances.Count;
             Instances.Add(this);
+            TypeToID[GetType()] = ID;
             TypeToInstance[GetType()] = this;
+            IDToInstance[ID] = this;
             ByID[ID] = new Dictionary<Type, Actor> {
                 { GetType(), this }
             };

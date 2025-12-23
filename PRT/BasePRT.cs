@@ -16,8 +16,6 @@ namespace InnoVault.PRT
     {
         #region Data
         /// <inheritdoc/>
-        protected override bool AutoMapID => false;
-        /// <inheritdoc/>
         protected override bool AutoMapMod => false;
         /// <inheritdoc/>
         protected override bool AutoVaultRegistryFinishLoading => false;
@@ -47,7 +45,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 该粒子的全局唯一ID
         /// </summary>
-        public new int ID;
+        public int ID;
         /// <summary>
         /// 一个通用的全局帧索引
         /// </summary>
