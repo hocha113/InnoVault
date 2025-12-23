@@ -45,6 +45,10 @@ namespace InnoVault.PRT
         /// </summary>
         public new string FullName => GetFullName(Mod.Name, Name);
         /// <summary>
+        /// 该粒子的全局唯一ID
+        /// </summary>
+        public new int ID;
+        /// <summary>
         /// 一个通用的全局帧索引
         /// </summary>
         public Rectangle Frame = default;
