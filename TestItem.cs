@@ -75,7 +75,7 @@ namespace InnoVault
     {
         [SyncVar]
         public int NumValue;
-        public override void OnSpawn(object obj) {
+        public override void OnSpawn(params object[] args) {
             Width = 100;
             Height = 100;
             NetUpdate = true;

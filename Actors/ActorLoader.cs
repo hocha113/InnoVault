@@ -201,11 +201,14 @@ namespace InnoVault.Actors
         /// 每帧更新所有活跃的Actor
         /// </summary>
         public override void PostUpdateEverything() {
+            Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);
             for (int i = 0; i < MaxActorCount; i++) {
                 Actor actor = Actors[i];
                 if (actor == null || !actor.Active) {
                     continue;
                 }
+
+                actor.HoverTP = actor.InScreen && actor.HitBox.Intersects(mouseRec);
 
                 try {
                     bool shouldUpdate = true;
@@ -315,7 +318,8 @@ namespace InnoVault.Actors
                     continue;
                 }
 
-                if (!VaultUtils.IsPointOnScreen(actor.Position - Main.screenPosition, 160)) {
+                actor.InScreen = VaultUtils.IsPointOnScreen(actor.Position - Main.screenPosition, actor.DrawExtendMode);
+                if (!actor.InScreen) {
                     continue;
                 }
 

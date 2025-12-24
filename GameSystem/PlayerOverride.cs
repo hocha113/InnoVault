@@ -160,6 +160,20 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
+        /// 运行在玩家即将死亡时，返回有效值可以阻止或者允许玩家死亡
+        /// </summary>
+        /// <param name="damage"></param>
+        /// <param name="hitDirection"></param>
+        /// <param name="pvp"></param>
+        /// <param name="playSound"></param>
+        /// <param name="genDust"></param>
+        /// <param name="damageSource"></param>
+        /// <returns></returns>
+        public virtual bool? On_PreKill(double damage, int hitDirection, bool pvp, ref bool playSound, ref bool genDust, ref PlayerDeathReason damageSource) {
+            return null;
+        }
+
+        /// <summary>
         /// 玩家是否可以切换物品，默认返回<see langword="null"/>，即不进行拦截
         /// 返回有效值可以阻止或者允许玩家切换物品，优先级大于<see cref="ItemOverride.CanSwitchWeapon"/>
         /// </summary>

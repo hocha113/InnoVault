@@ -76,6 +76,18 @@ namespace InnoVault.Actors
         /// </summary>
         public virtual Vector2 Center => Position + Size / 2;
         /// <summary>
+        /// 玩家鼠标是否悬停在实体之上
+        /// </summary>
+        public bool HoverTP;
+        /// <summary>
+        /// 这个实体是否在玩家的画面内，该值在绘制函数中实时更新
+        /// </summary>
+        public bool InScreen;
+        /// <summary>
+        /// 这个实体在屏幕上绘制的扩张范围，默认为160
+        /// </summary>
+        public int DrawExtendMode = 160;
+        /// <summary>
         /// 如果为 true，则在下一次网络更新时同步此实体的数据
         /// </summary>
         public bool NetUpdate;
@@ -117,8 +129,8 @@ namespace InnoVault.Actors
         /// <summary>
         /// 在实体生成到世界中时调用，可用于初始化数据
         /// </summary>
-        /// <param name="obj"></param>
-        public virtual void OnSpawn(object obj) {
+        /// <param name="args"></param>
+        public virtual void OnSpawn(params object[] args) {
 
         }
         /// <summary>
