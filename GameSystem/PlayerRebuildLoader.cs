@@ -146,7 +146,7 @@ namespace InnoVault.GameSystem
                 ],
                 null
             );
-            onPreKillMethod = typeof(PlayerLoader).GetMethod("PreKill", BindingFlags.Public | BindingFlags.Instance);
+            onPreKillMethod = typeof(PlayerLoader).GetMethod("PreKill", BindingFlags.Public | BindingFlags.Static);
 
             if (onModifyHitNPCWithItemMethod != null) {
                 VaultHook.Add(onModifyHitNPCWithItemMethod, On_ModifyHitNPCWithItemHook);
