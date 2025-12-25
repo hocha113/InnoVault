@@ -1,5 +1,5 @@
 ﻿displayName = InnoVault
 author = HoCha113
 homepage = https://github.com/hocha113/InnoVault/wiki
-version = 1.9.81
+version = 1.9.82
 includeSource = true

@@ -26,14 +26,6 @@ namespace InnoVault
         /// </summary>
         private readonly static HashSet<Type> ProcessedTypes = [];
         /// <summary>
-        /// 存储纹理实例
-        /// </summary>
-        private readonly static HashSet<Texture2D> TextureValues = [];
-        /// <summary>
-        /// 存储渲染器实例
-        /// </summary>
-        private readonly static HashSet<Effect> EffectValues = [];
-        /// <summary>
         /// 一个非常靠后的加载钩子，此时本地化、配方修改、菜单排序等内容已经设置完成
         /// </summary>
         public static event Action EndLoadenEvent;
@@ -114,9 +106,6 @@ namespace InnoVault
                 ProcessTypeAssets(t, load: false);
             }
             ProcessedTypes.Clear();
-            //事实证明最好不要去自行释放这些纹理实例，因为原版自己也在进行管理，在实例化时注册了Asset<T>即可
-            TextureValues.Clear();
-            EffectValues.Clear();
         }
 
         internal static void ProcessTypeAssets(Type type, bool load) {
@@ -274,7 +263,7 @@ namespace InnoVault
         private static object LoadValue(MemberInfo member, VaultLoadenAttribute attribute) {
             return attribute.AssetMode switch {//根据资源类型来加载值
                 AssetMode.Sound => new SoundStyle(attribute.Mod.Name + "/" + attribute.Path),
-                AssetMode.Texture => attribute.Mod.Assets.Request<Texture2D>(attribute.Path),
+                AssetMode.Texture => LoadTexture(attribute),
                 AssetMode.Effects => LoadEffect(attribute),
                 AssetMode.ArmorShader => new ArmorShaderData(LoadEffect(attribute), attribute.EffectPassname),
                 AssetMode.MiscShader => LoadMiscShader(attribute),
@@ -431,6 +420,8 @@ namespace InnoVault
             return asset;
         }
 
+        internal static Effect LoadEffectValue(VaultLoadenAttribute attribute) => LoadEffect(attribute, AssetRequestMode.ImmediateLoad).Value;
+
         internal static MiscShaderData LoadMiscShader(VaultLoadenAttribute attribute) {
             MiscShaderData miscShader = new MiscShaderData(LoadEffect(attribute), attribute.EffectPassname);
             string effectName = attribute.Path.Split('/')[^1];
@@ -441,17 +432,18 @@ namespace InnoVault
             return miscShader;
         }
 
-        internal static Texture2D LoadTextureValue(VaultLoadenAttribute attribute) {
-            Texture2D value = attribute.Mod.Assets.Request<Texture2D>(attribute.Path, AssetRequestMode.ImmediateLoad).Value;
-            TextureValues.Add(value);
-            return value;
+        internal static Asset<Texture2D> LoadTexture(VaultLoadenAttribute attribute, AssetRequestMode assetRequestMode = AssetRequestMode.AsyncLoad) {
+            if (attribute.Mod == null) {
+                return VaultAsset.placeholder3;
+            }
+            if (!attribute.Mod.HasAsset(attribute.Path)) {
+                VaultMod.Instance.Logger.Warn($"Texture asset not found: {attribute.Mod.Name}/{attribute.Path}. Using placeholder instead.");
+                return VaultAsset.placeholder3;
+            }
+            return attribute.Mod.Assets.Request<Texture2D>(attribute.Path, assetRequestMode);
         }
 
-        internal static Effect LoadEffectValue(VaultLoadenAttribute attribute) {
-            Effect effect = LoadEffect(attribute, AssetRequestMode.ImmediateLoad).Value;
-            EffectValues.Add(effect);
-            return effect;
-        }
+        internal static Texture2D LoadTextureValue(VaultLoadenAttribute attribute) => LoadTexture(attribute, AssetRequestMode.ImmediateLoad).Value;
 
         /// <summary>
         /// 检查类级路径，确保路径正确并替换命名空间等占位符
