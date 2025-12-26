@@ -327,9 +327,9 @@ namespace InnoVault
         public static Vector3 ToVector3(this Vector2 vector, float fullZ) => new Vector3(vector.X, vector.Y, fullZ);
 
         /// <summary>
-        /// 简单安全的获取一个单位向量，如果出现非法情况则会返回 <see cref="Vector2.Zero"/>
+        /// 简单安全的获取一个单位向量，如果出现非法情况则会返回 <see cref="Vector2.UnitY"/>
         /// </summary>
-        public static Vector2 UnitVector(this Vector2 vr) => vr.SafeNormalize(Vector2.Zero);
+        public static Vector2 UnitVector(this Vector2 vr) => vr.SafeNormalize(Vector2.UnitY);
 
         /// <summary>
         /// 获取一个垂直于该向量的单位向量
