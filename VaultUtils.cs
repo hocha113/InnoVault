@@ -3776,6 +3776,745 @@ namespace InnoVault
         /// <returns></returns>
         public static Item GetItem(this Player player) => Main.mouseItem.IsAir ? player.inventory[player.selectedItem] : Main.mouseItem;
 
+        /// <summary>
+        /// 物品掉落扫描工具
+        /// </summary>
+        public static class ItemDropScanner
+        {
+            #region 基础扫描方法，不进行条件判断
+
+            /// <summary>
+            /// 获取物品右键打开后可能掉落的所有物品类型ID
+            /// </summary>
+            /// <param name="itemType">要扫描的物品类型ID（如宝藏袋）</param>
+            /// <param name="includeConditional">是否包含有条件的掉落物</param>
+            /// <returns>所有可能掉落的物品类型ID集合</returns>
+            public static HashSet<int> GetItemDrops(int itemType, bool includeConditional = true) {
+                HashSet<int> drops = [];
+
+                List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForItemID(itemType);
+
+                foreach (var rule in dropRules) {
+                    CollectDropsFromRule(rule, drops, includeConditional);
+                }
+
+                return drops;
+            }
+
+            /// <summary>
+            /// 获取物品右键打开后可能掉落的所有物品，包含数量信息
+            /// </summary>
+            /// <param name="itemType">要扫描的物品类型ID</param>
+            /// <param name="includeConditional">是否包含有条件的掉落物</param>
+            /// <returns>物品掉落信息列表</returns>
+            public static List<DropInfo> GetItemDropsWithInfo(int itemType, bool includeConditional = true) {
+                List<DropInfo> drops = [];
+
+                List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForItemID(itemType);
+
+                foreach (var rule in dropRules) {
+                    CollectDropInfoFromRule(rule, drops, includeConditional);
+                }
+
+                return drops;
+            }
+
+            #endregion
+
+            #region 带条件判断的扫描方法
+
+            /// <summary>
+            /// 创建用于物品掉落的 DropAttemptInfo 上下文
+            /// </summary>
+            /// <param name="player">玩家实例</param>
+            /// <param name="item">触发掉落的物品（可选）</param>
+            /// <param name="npc">关联的NPC（可选，用于Boss袋等）</param>
+            /// <param name="isExpertMode">是否专家模式（默认使用当前世界设置）</param>
+            /// <param name="isMasterMode">是否大师模式（默认使用当前世界设置）</param>
+            /// <returns>构建好的 DropAttemptInfo</returns>
+            public static DropAttemptInfo CreateDropContext(
+                Player player = null,
+                Item item = null,
+                NPC npc = null,
+                bool? isExpertMode = null,
+                bool? isMasterMode = null) {
+                return new DropAttemptInfo {
+                    player = player ?? Main.LocalPlayer,
+                    item = (item == null ? ItemID.None : item.type),
+                    npc = npc,
+                    IsExpertMode = isExpertMode ?? Main.expertMode,
+                    IsMasterMode = isMasterMode ?? Main.masterMode,
+                    IsInSimulation = false,
+                    rng = Main.rand
+                };
+            }
+
+            /// <summary>
+            /// 获取物品右键打开后满足条件的掉落物品类型ID
+            /// </summary>
+            /// <param name="itemType">要扫描的物品类型ID</param>
+            /// <param name="context">掉落上下文信息</param>
+            /// <returns>满足条件的物品类型ID集合</returns>
+            public static HashSet<int> GetItemDropsWithContext(int itemType, DropAttemptInfo context) {
+                HashSet<int> drops = [];
+
+                List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForItemID(itemType);
+
+                foreach (var rule in dropRules) {
+                    CollectDropsFromRuleWithContext(rule, drops, context);
+                }
+
+                return drops;
+            }
+
+            /// <summary>
+            /// 获取物品右键打开后满足条件的掉落物品，包含数量信息
+            /// </summary>
+            /// <param name="itemType">要扫描的物品类型ID</param>
+            /// <param name="context">掉落上下文信息</param>
+            /// <returns>满足条件的物品掉落信息列表</returns>
+            public static List<DropInfo> GetItemDropsWithInfoAndContext(int itemType, DropAttemptInfo context) {
+                List<DropInfo> drops = [];
+
+                List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForItemID(itemType);
+
+                foreach (var rule in dropRules) {
+                    CollectDropInfoFromRuleWithContext(rule, drops, context);
+                }
+
+                return drops;
+            }
+
+            /// <summary>
+            /// 使用玩家上下文获取满足条件的掉落物品
+            /// </summary>
+            /// <param name="itemType">要扫描的物品类型ID</param>
+            /// <param name="player">玩家实例</param>
+            /// <param name="npc">关联的NPC（可选）</param>
+            /// <returns>满足条件的物品掉落信息列表</returns>
+            public static List<DropInfo> GetItemDropsForPlayer(int itemType, Player player, NPC npc = null) {
+                var context = CreateDropContext(player: player, npc: npc);
+                return GetItemDropsWithInfoAndContext(itemType, context);
+            }
+
+            /// <summary>
+            /// 模拟一次完整的物品掉落，返回实际会掉落的物品
+            /// </summary>
+            /// <param name="itemType">要扫描的物品类型ID</param>
+            /// <param name="context">掉落上下文信息</param>
+            /// <param name="simulateRandomChance">是否模拟随机概率（true则按概率决定是否掉落，false则返回所有可能掉落）</param>
+            /// <returns>模拟掉落的物品列表</returns>
+            public static List<DropInfo> SimulateItemDrops(int itemType, DropAttemptInfo context, bool simulateRandomChance = false) {
+                List<DropInfo> drops = [];
+
+                List<IItemDropRule> dropRules = Main.ItemDropsDB.GetRulesForItemID(itemType);
+
+                foreach (var rule in dropRules) {
+                    SimulateDropFromRule(rule, drops, context, simulateRandomChance);
+                }
+
+                return drops;
+            }
+
+            #endregion
+
+            #region 带条件判断的递归收集方法
+
+            /// <summary>
+            /// 从掉落规则中递归收集物品类型，带条件判断
+            /// </summary>
+            private static void CollectDropsFromRuleWithContext(IItemDropRule rule, HashSet<int> drops, DropAttemptInfo context) {
+                //首先检查规则的条件是否满足
+                if (!CheckRuleCondition(rule, context)) {
+                    return;
+                }
+
+                switch (rule) {
+                    case CommonDrop commonDrop:
+                        drops.Add(commonDrop.itemId);
+                        break;
+
+                    case DropOneByOne dropOneByOne:
+                        drops.Add(dropOneByOne.itemId);
+                        break;
+
+                    case DropBasedOnExpertMode expertDrop:
+                        if (context.IsExpertMode) {
+                            CollectDropsFromRuleWithContext(expertDrop.ruleForExpertMode, drops, context);
+                        }
+                        else {
+                            CollectDropsFromRuleWithContext(expertDrop.ruleForNormalMode, drops, context);
+                        }
+                        break;
+
+                    case DropBasedOnMasterMode masterDrop:
+                        if (context.IsMasterMode) {
+                            CollectDropsFromRuleWithContext(masterDrop.ruleForMasterMode, drops, context);
+                        }
+                        else {
+                            CollectDropsFromRuleWithContext(masterDrop.ruleForDefault, drops, context);
+                        }
+                        break;
+
+                    case LeadingConditionRule leadingRule:
+                        if (leadingRule.condition.CanDrop(context)) {
+                            foreach (var chainedRule in leadingRule.ChainedRules) {
+                                CollectDropsFromRuleWithContext(chainedRule.RuleToChain, drops, context);
+                            }
+                        }
+                        break;
+
+                    case OneFromOptionsDropRule oneFromOptions:
+                        foreach (int dropId in oneFromOptions.dropIds) {
+                            drops.Add(dropId);
+                        }
+                        break;
+
+                    case OneFromOptionsNotScaledWithLuckDropRule oneFromOptionsNoLuck:
+                        foreach (int dropId in oneFromOptionsNoLuck.dropIds) {
+                            drops.Add(dropId);
+                        }
+                        break;
+
+                    case OneFromRulesRule oneFromRules:
+                        foreach (var subRule in oneFromRules.options) {
+                            CollectDropsFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+
+                    case FewFromRulesRule fewFromRules:
+                        foreach (var subRule in fewFromRules.options) {
+                            CollectDropsFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+
+                    case AlwaysAtleastOneSuccessDropRule atLeastOne:
+                        foreach (var subRule in atLeastOne.rules) {
+                            CollectDropsFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+
+                    case SequentialRulesRule sequentialRules:
+                        foreach (var subRule in sequentialRules.rules) {
+                            CollectDropsFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+
+                    case SequentialRulesNotScalingWithLuckRule sequentialNoLuck:
+                        foreach (var subRule in sequentialNoLuck.rules) {
+                            CollectDropsFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+                }
+
+                //处理链式规则
+                if (rule.ChainedRules != null) {
+                    foreach (var chainedRule in rule.ChainedRules) {
+                        CollectDropsFromRuleWithContext(chainedRule.RuleToChain, drops, context);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// 从掉落规则中递归收集物品信息（带条件判断）
+            /// </summary>
+            private static void CollectDropInfoFromRuleWithContext(IItemDropRule rule, List<DropInfo> drops, DropAttemptInfo context) {
+                //首先检查规则的条件是否满足
+                if (!CheckRuleCondition(rule, context)) {
+                    return;
+                }
+
+                switch (rule) {
+                    case CommonDrop commonDrop:
+                        drops.Add(new DropInfo {
+                            ItemType = commonDrop.itemId,
+                            MinStack = commonDrop.amountDroppedMinimum,
+                            MaxStack = commonDrop.amountDroppedMaximum,
+                            DropChanceDenominator = commonDrop.chanceDenominator,
+                            IsConditional = false
+                        });
+                        break;
+
+                    case DropOneByOne dropOneByOne:
+                        drops.Add(new DropInfo {
+                            ItemType = dropOneByOne.itemId,
+                            MinStack = dropOneByOne.parameters.MinimumItemDropsCount,
+                            MaxStack = dropOneByOne.parameters.MaximumItemDropsCount,
+                            DropChanceDenominator = dropOneByOne.parameters.ChanceDenominator,
+                            IsConditional = false
+                        });
+                        break;
+
+                    case DropBasedOnExpertMode expertDrop:
+                        if (context.IsExpertMode) {
+                            CollectDropInfoFromRuleWithContext(expertDrop.ruleForExpertMode, drops, context);
+                        }
+                        else {
+                            CollectDropInfoFromRuleWithContext(expertDrop.ruleForNormalMode, drops, context);
+                        }
+                        break;
+
+                    case DropBasedOnMasterMode masterDrop:
+                        if (context.IsMasterMode) {
+                            CollectDropInfoFromRuleWithContext(masterDrop.ruleForMasterMode, drops, context);
+                        }
+                        else {
+                            CollectDropInfoFromRuleWithContext(masterDrop.ruleForDefault, drops, context);
+                        }
+                        break;
+
+                    case LeadingConditionRule leadingRule:
+                        if (leadingRule.condition.CanDrop(context)) {
+                            foreach (var chainedRule in leadingRule.ChainedRules) {
+                                CollectDropInfoFromRuleWithContext(chainedRule.RuleToChain, drops, context);
+                            }
+                        }
+                        break;
+
+                    case OneFromOptionsDropRule oneFromOptions:
+                        foreach (int dropId in oneFromOptions.dropIds) {
+                            drops.Add(new DropInfo {
+                                ItemType = dropId,
+                                MinStack = 1,
+                                MaxStack = 1,
+                                DropChanceDenominator = oneFromOptions.chanceDenominator,
+                                IsConditional = false
+                            });
+                        }
+                        break;
+
+                    case OneFromOptionsNotScaledWithLuckDropRule oneFromOptionsNoLuck:
+                        foreach (int dropId in oneFromOptionsNoLuck.dropIds) {
+                            drops.Add(new DropInfo {
+                                ItemType = dropId,
+                                MinStack = 1,
+                                MaxStack = 1,
+                                DropChanceDenominator = oneFromOptionsNoLuck.chanceDenominator,
+                                IsConditional = false
+                            });
+                        }
+                        break;
+
+                    case OneFromRulesRule oneFromRules:
+                        foreach (var subRule in oneFromRules.options) {
+                            CollectDropInfoFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+
+                    case FewFromRulesRule fewFromRules:
+                        foreach (var subRule in fewFromRules.options) {
+                            CollectDropInfoFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+
+                    case AlwaysAtleastOneSuccessDropRule atLeastOne:
+                        foreach (var subRule in atLeastOne.rules) {
+                            CollectDropInfoFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+
+                    case SequentialRulesRule sequentialRules:
+                        foreach (var subRule in sequentialRules.rules) {
+                            CollectDropInfoFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+
+                    case SequentialRulesNotScalingWithLuckRule sequentialNoLuck:
+                        foreach (var subRule in sequentialNoLuck.rules) {
+                            CollectDropInfoFromRuleWithContext(subRule, drops, context);
+                        }
+                        break;
+                }
+
+                //处理链式规则
+                if (rule.ChainedRules != null) {
+                    foreach (var chainedRule in rule.ChainedRules) {
+                        CollectDropInfoFromRuleWithContext(chainedRule.RuleToChain, drops, context);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// 模拟掉落规则
+            /// </summary>
+            private static void SimulateDropFromRule(IItemDropRule rule, List<DropInfo> drops, DropAttemptInfo context, bool simulateRandomChance) {
+                //首先检查规则的条件是否满足
+                if (!CheckRuleCondition(rule, context)) {
+                    return;
+                }
+
+                switch (rule) {
+                    case CommonDrop commonDrop:
+                        if (!simulateRandomChance || context.rng.Next(commonDrop.chanceDenominator) < commonDrop.chanceNumerator) {
+                            int stack = context.rng.Next(commonDrop.amountDroppedMinimum, commonDrop.amountDroppedMaximum + 1);
+                            drops.Add(new DropInfo {
+                                ItemType = commonDrop.itemId,
+                                MinStack = stack,
+                                MaxStack = stack,
+                                DropChanceDenominator = commonDrop.chanceDenominator,
+                                IsConditional = false
+                            });
+                        }
+                        break;
+
+                    case DropOneByOne dropOneByOne:
+                        if (!simulateRandomChance || context.rng.Next(dropOneByOne.parameters.ChanceDenominator) < dropOneByOne.parameters.ChanceNumerator) {
+                            int stack = context.rng.Next(dropOneByOne.parameters.MinimumItemDropsCount, dropOneByOne.parameters.MaximumItemDropsCount + 1);
+                            drops.Add(new DropInfo {
+                                ItemType = dropOneByOne.itemId,
+                                MinStack = stack,
+                                MaxStack = stack,
+                                DropChanceDenominator = dropOneByOne.parameters.ChanceDenominator,
+                                IsConditional = false
+                            });
+                        }
+                        break;
+
+                    case DropBasedOnExpertMode expertDrop:
+                        if (context.IsExpertMode) {
+                            SimulateDropFromRule(expertDrop.ruleForExpertMode, drops, context, simulateRandomChance);
+                        }
+                        else {
+                            SimulateDropFromRule(expertDrop.ruleForNormalMode, drops, context, simulateRandomChance);
+                        }
+                        break;
+
+                    case DropBasedOnMasterMode masterDrop:
+                        if (context.IsMasterMode) {
+                            SimulateDropFromRule(masterDrop.ruleForMasterMode, drops, context, simulateRandomChance);
+                        }
+                        else {
+                            SimulateDropFromRule(masterDrop.ruleForDefault, drops, context, simulateRandomChance);
+                        }
+                        break;
+
+                    case LeadingConditionRule leadingRule:
+                        if (leadingRule.condition.CanDrop(context)) {
+                            foreach (var chainedRule in leadingRule.ChainedRules) {
+                                SimulateDropFromRule(chainedRule.RuleToChain, drops, context, simulateRandomChance);
+                            }
+                        }
+                        break;
+
+                    case OneFromOptionsDropRule oneFromOptions:
+                        if (!simulateRandomChance || context.rng.Next(oneFromOptions.chanceDenominator) < oneFromOptions.chanceNumerator) {
+                            int selectedIndex = context.rng.Next(oneFromOptions.dropIds.Length);
+                            drops.Add(new DropInfo {
+                                ItemType = oneFromOptions.dropIds[selectedIndex],
+                                MinStack = 1,
+                                MaxStack = 1,
+                                DropChanceDenominator = oneFromOptions.chanceDenominator,
+                                IsConditional = false
+                            });
+                        }
+                        break;
+
+                    case OneFromOptionsNotScaledWithLuckDropRule oneFromOptionsNoLuck:
+                        if (!simulateRandomChance || context.rng.Next(oneFromOptionsNoLuck.chanceDenominator) < oneFromOptionsNoLuck.chanceNumerator) {
+                            int selectedIndex = context.rng.Next(oneFromOptionsNoLuck.dropIds.Length);
+                            drops.Add(new DropInfo {
+                                ItemType = oneFromOptionsNoLuck.dropIds[selectedIndex],
+                                MinStack = 1,
+                                MaxStack = 1,
+                                DropChanceDenominator = oneFromOptionsNoLuck.chanceDenominator,
+                                IsConditional = false
+                            });
+                        }
+                        break;
+
+                    case OneFromRulesRule oneFromRules:
+                        if (simulateRandomChance) {
+                            int selectedIndex = context.rng.Next(oneFromRules.options.Length);
+                            SimulateDropFromRule(oneFromRules.options[selectedIndex], drops, context, simulateRandomChance);
+                        }
+                        else {
+                            foreach (var subRule in oneFromRules.options) {
+                                SimulateDropFromRule(subRule, drops, context, simulateRandomChance);
+                            }
+                        }
+                        break;
+
+                    case FewFromRulesRule fewFromRules:
+                        foreach (var subRule in fewFromRules.options) {
+                            SimulateDropFromRule(subRule, drops, context, simulateRandomChance);
+                        }
+                        break;
+
+                    case AlwaysAtleastOneSuccessDropRule atLeastOne:
+                        foreach (var subRule in atLeastOne.rules) {
+                            SimulateDropFromRule(subRule, drops, context, simulateRandomChance);
+                        }
+                        break;
+
+                    case SequentialRulesRule sequentialRules:
+                        foreach (var subRule in sequentialRules.rules) {
+                            SimulateDropFromRule(subRule, drops, context, simulateRandomChance);
+                        }
+                        break;
+
+                    case SequentialRulesNotScalingWithLuckRule sequentialNoLuck:
+                        foreach (var subRule in sequentialNoLuck.rules) {
+                            SimulateDropFromRule(subRule, drops, context, simulateRandomChance);
+                        }
+                        break;
+                }
+
+                //处理链式规则
+                if (rule.ChainedRules != null) {
+                    foreach (var chainedRule in rule.ChainedRules) {
+                        SimulateDropFromRule(chainedRule.RuleToChain, drops, context, simulateRandomChance);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// 检查掉落规则的条件是否满足
+            /// </summary>
+            private static bool CheckRuleCondition(IItemDropRule rule, DropAttemptInfo context) {
+                //使用规则自身的 CanDrop 方法来检查条件
+                return rule.CanDrop(context);
+            }
+
+            #endregion
+
+            #region 基础递归收集方法，不进行条件判断
+
+            /// <summary>
+            /// 从掉落规则中递归收集物品类型
+            /// </summary>
+            private static void CollectDropsFromRule(IItemDropRule rule, HashSet<int> drops, bool includeConditional) {
+                //检查规则类型并提取物品ID
+                switch (rule) {
+                    case CommonDrop commonDrop:
+                        drops.Add(commonDrop.itemId);
+                        break;
+
+                    case DropOneByOne dropOneByOne:
+                        drops.Add(dropOneByOne.itemId);
+                        break;
+
+                    case DropBasedOnExpertMode expertDrop:
+                        CollectDropsFromRule(expertDrop.ruleForNormalMode, drops, includeConditional);
+                        CollectDropsFromRule(expertDrop.ruleForExpertMode, drops, includeConditional);
+                        break;
+
+                    case DropBasedOnMasterMode masterDrop:
+                        CollectDropsFromRule(masterDrop.ruleForDefault, drops, includeConditional);
+                        CollectDropsFromRule(masterDrop.ruleForMasterMode, drops, includeConditional);
+                        break;
+
+                    case LeadingConditionRule leadingRule:
+                        if (includeConditional) {
+                            foreach (var chainedRule in leadingRule.ChainedRules) {
+                                CollectDropsFromRule(chainedRule.RuleToChain, drops, includeConditional);
+                            }
+                        }
+                        break;
+
+                    case OneFromOptionsDropRule oneFromOptions:
+                        foreach (int dropId in oneFromOptions.dropIds) {
+                            drops.Add(dropId);
+                        }
+                        break;
+
+                    case OneFromOptionsNotScaledWithLuckDropRule oneFromOptionsNoLuck:
+                        foreach (int dropId in oneFromOptionsNoLuck.dropIds) {
+                            drops.Add(dropId);
+                        }
+                        break;
+
+                    case OneFromRulesRule oneFromRules:
+                        foreach (var subRule in oneFromRules.options) {
+                            CollectDropsFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+
+                    case FewFromRulesRule fewFromRules:
+                        foreach (var subRule in fewFromRules.options) {
+                            CollectDropsFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+
+                    case AlwaysAtleastOneSuccessDropRule atLeastOne:
+                        foreach (var subRule in atLeastOne.rules) {
+                            CollectDropsFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+
+                    case SequentialRulesRule sequentialRules:
+                        foreach (var subRule in sequentialRules.rules) {
+                            CollectDropsFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+
+                    case SequentialRulesNotScalingWithLuckRule sequentialNoLuck:
+                        foreach (var subRule in sequentialNoLuck.rules) {
+                            CollectDropsFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+                }
+
+                //处理链式规则
+                if (rule.ChainedRules != null) {
+                    foreach (var chainedRule in rule.ChainedRules) {
+                        CollectDropsFromRule(chainedRule.RuleToChain, drops, includeConditional);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// 从掉落规则中递归收集物品信息
+            /// </summary>
+            private static void CollectDropInfoFromRule(IItemDropRule rule, List<DropInfo> drops, bool includeConditional) {
+                switch (rule) {
+                    case CommonDrop commonDrop:
+                        drops.Add(new DropInfo {
+                            ItemType = commonDrop.itemId,
+                            MinStack = commonDrop.amountDroppedMinimum,
+                            MaxStack = commonDrop.amountDroppedMaximum,
+                            DropChanceDenominator = commonDrop.chanceDenominator,
+                            IsConditional = false
+                        });
+                        break;
+
+                    case DropOneByOne dropOneByOne:
+                        drops.Add(new DropInfo {
+                            ItemType = dropOneByOne.itemId,
+                            MinStack = dropOneByOne.parameters.MinimumItemDropsCount,
+                            MaxStack = dropOneByOne.parameters.MaximumItemDropsCount,
+                            DropChanceDenominator = dropOneByOne.parameters.ChanceDenominator,
+                            IsConditional = false
+                        });
+                        break;
+
+                    case DropBasedOnExpertMode expertDrop:
+                        CollectDropInfoFromRule(expertDrop.ruleForNormalMode, drops, includeConditional);
+                        CollectDropInfoFromRule(expertDrop.ruleForExpertMode, drops, includeConditional);
+                        break;
+
+                    case DropBasedOnMasterMode masterDrop:
+                        CollectDropInfoFromRule(masterDrop.ruleForDefault, drops, includeConditional);
+                        CollectDropInfoFromRule(masterDrop.ruleForMasterMode, drops, includeConditional);
+                        break;
+
+                    case LeadingConditionRule leadingRule:
+                        if (includeConditional) {
+                            foreach (var chainedRule in leadingRule.ChainedRules) {
+                                CollectDropInfoFromRule(chainedRule.RuleToChain, drops, includeConditional);
+                            }
+                        }
+                        break;
+
+                    case OneFromOptionsDropRule oneFromOptions:
+                        foreach (int dropId in oneFromOptions.dropIds) {
+                            drops.Add(new DropInfo {
+                                ItemType = dropId,
+                                MinStack = 1,
+                                MaxStack = 1,
+                                DropChanceDenominator = oneFromOptions.chanceDenominator,
+                                IsConditional = false
+                            });
+                        }
+                        break;
+
+                    case OneFromOptionsNotScaledWithLuckDropRule oneFromOptionsNoLuck:
+                        foreach (int dropId in oneFromOptionsNoLuck.dropIds) {
+                            drops.Add(new DropInfo {
+                                ItemType = dropId,
+                                MinStack = 1,
+                                MaxStack = 1,
+                                DropChanceDenominator = oneFromOptionsNoLuck.chanceDenominator,
+                                IsConditional = false
+                            });
+                        }
+                        break;
+
+                    case OneFromRulesRule oneFromRules:
+                        foreach (var subRule in oneFromRules.options) {
+                            CollectDropInfoFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+
+                    case FewFromRulesRule fewFromRules:
+                        foreach (var subRule in fewFromRules.options) {
+                            CollectDropInfoFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+
+                    case AlwaysAtleastOneSuccessDropRule atLeastOne:
+                        foreach (var subRule in atLeastOne.rules) {
+                            CollectDropInfoFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+
+                    case SequentialRulesRule sequentialRules:
+                        foreach (var subRule in sequentialRules.rules) {
+                            CollectDropInfoFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+
+                    case SequentialRulesNotScalingWithLuckRule sequentialNoLuck:
+                        foreach (var subRule in sequentialNoLuck.rules) {
+                            CollectDropInfoFromRule(subRule, drops, includeConditional);
+                        }
+                        break;
+                }
+
+                //处理链式规则
+                if (rule.ChainedRules != null) {
+                    foreach (var chainedRule in rule.ChainedRules) {
+                        CollectDropInfoFromRule(chainedRule.RuleToChain, drops, includeConditional);
+                    }
+                }
+            }
+
+            /// <summary>
+            /// 掉落物信息结构
+            /// </summary>
+            public struct DropInfo
+            {
+                /// <summary>
+                /// 物品类型ID
+                /// </summary>
+                public int ItemType;
+                /// <summary>
+                /// 最小堆叠数量
+                /// </summary>
+                public int MinStack;
+                /// <summary>
+                /// 最大堆叠数量
+                /// </summary>
+                public int MaxStack;
+                /// <summary>
+                /// 掉落概率分母（1/N 的概率）
+                /// </summary>
+                public int DropChanceDenominator;
+                /// <summary>
+                /// 是否是有条件的掉落
+                /// </summary>
+                public bool IsConditional;
+
+                /// <summary>
+                /// 获取物品名称
+                /// </summary>
+                public readonly string GetItemName() {
+                    Item item = new Item();
+                    item.SetDefaults(ItemType);
+                    return item.Name;
+                }
+
+                /// <summary>
+                /// 获取掉落概率百分比字符串
+                /// </summary>
+                public readonly string GetChancePercent() {
+                    if (DropChanceDenominator <= 0) return "100%";
+                    float percent = 100f / DropChanceDenominator;
+                    return $"{percent:F1}%";
+                }
+            }
+
+            #endregion
+        }
         #endregion
 
         #region Net
