@@ -106,6 +106,8 @@ namespace InnoVault.GameSystem
         public static MethodBase onGetItemNameValueMethod;
         public static MethodBase onItemNamePropertyGetMethod;
         public static MethodBase onAffixNameMethod;
+        public static MethodBase onShimmeringMethod;
+        public static MethodBase onGetShimmeredMethod;
         public static FieldInfo TooltipLine_ModName_Field { get; set; }
         public static FieldInfo TooltipLine_OneDropLogo_Field { get; set; }
         public static GlobalHookList<GlobalItem> ItemLoader_Shoot_Hook { get; private set; }
@@ -155,6 +157,8 @@ namespace InnoVault.GameSystem
             onGetItemNameValueMethod = typeof(Lang).GetMethod("GetItemNameValue", BindingFlags.Public | BindingFlags.Static);
             onItemNamePropertyGetMethod = typeof(Item).GetProperty("Name", BindingFlags.Instance | BindingFlags.Public).GetGetMethod();
             onAffixNameMethod = typeof(Item).GetMethod("AffixName", BindingFlags.Instance | BindingFlags.Public);
+            onShimmeringMethod = typeof(Item).GetMethod("Shimmering", BindingFlags.Instance | BindingFlags.NonPublic);
+            onGetShimmeredMethod = typeof(Item).GetMethod("GetShimmered", BindingFlags.Instance | BindingFlags.NonPublic);
 
             if (onShootMethod != null) {
                 VaultHook.Add(onShootMethod, OnShootHook);
@@ -225,6 +229,12 @@ namespace InnoVault.GameSystem
             if (onAffixNameMethod != null) {
                 VaultHook.Add(onAffixNameMethod, OnAffixNameHook);
             }
+            if (onShimmeringMethod != null) {
+                VaultHook.Add(onShimmeringMethod, OnShimmeringHook);
+            }
+            if (onGetShimmeredMethod != null) {
+                VaultHook.Add(onGetShimmeredMethod, OnGetShimmeredHook);
+            }
 
             VaultHook.Add(typeof(Player).GetMethod("ItemCheck_Shoot", BindingFlags.Instance | BindingFlags.NonPublic), OnItemCheckShootHook);
 
@@ -275,6 +285,8 @@ namespace InnoVault.GameSystem
             onGetItemNameValueMethod = null;
             onItemNamePropertyGetMethod = null;
             onAffixNameMethod = null;
+            onShimmeringMethod = null;
+            onGetShimmeredMethod = null;
             On_Player.UpdateArmorSets -= UpdateArmorSetHook;
         }
 
@@ -442,6 +454,89 @@ namespace InnoVault.GameSystem
             }
 
             return orig.Invoke(item);
+        }
+
+        public static void OnShimmeringHook(Action<Item> orig, Item item) {
+            if (!VaultLoad.LoadenContent) {
+                orig.Invoke(item);
+                return;
+            }
+            bool result = UniversalForEach(inds => inds.PreShimmering(item));
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
+                foreach (var value in values.Values) {
+                    if (!value.PreShimmering(item)) {
+                        result = false;
+                    }
+                }
+            }
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (result) {
+                orig.Invoke(item);
+            }
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values2)) {
+                foreach (var value in values2.Values) {
+                    value.PostShimmering(item);
+                }
+            }
+
+            UniversalForEach(inds => inds.PostShimmering(item));
+        }
+
+        public static void OnGetShimmeredHook(Action<Item> orig, Item item) {
+            if (!VaultLoad.LoadenContent) {
+                orig.Invoke(item);
+                return;
+            }
+
+            int originalType = item.type;
+            bool result = UniversalForEach(inds => inds.PreGetShimmered(item));
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (TryFetchByID(originalType, out Dictionary<Type, ItemOverride> values)) {
+                foreach (var value in values.Values) {
+                    if (!value.PreGetShimmered(item)) {
+                        result = false;
+                    }
+                }
+            }
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (result) {
+                orig.Invoke(item);
+            }
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            // 使用原物品类型查找覆盖器，确保调用的是原物品的 Post 钩子
+            if (TryFetchByID(originalType, out Dictionary<Type, ItemOverride> values2)) {
+                foreach (var value in values2.Values) {
+                    value.PostGetShimmered(originalType, item, result);
+                }
+            }
+
+            UniversalForEach(inds => inds.PostGetShimmered(originalType, item, result));
         }
 
         /// <summary>
