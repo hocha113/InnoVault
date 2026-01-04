@@ -145,7 +145,7 @@ namespace InnoVault.Actors
                 Actor actor = ActorLoader.Actors[i];
                 if (actor != null && actor.Active) {
                     int typeID = ActorLoader.GetActorID(actor.GetType());
-                    
+
                     //发送创建包
                     ModPacket newActorPacket = VaultMod.Instance.GetPacket();
                     newActorPacket.Write((byte)MessageType.NewActor);
