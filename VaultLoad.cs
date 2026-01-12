@@ -302,27 +302,42 @@ namespace InnoVault
             }
 
             int count = attribute.ArrayCount;
+            string origPath = attribute.Path;
+
             if (count == 0) {
-                if (currentValue == null) {//考虑到集合这种引用类型开发者完全有可能不会进行初始化，这里进行判断
-                    return null;
+                //首先尝试从已有集合推断长度
+                if (currentValue != null) {
+                    count = currentValue switch {
+                        T[] arrVal => arrVal.Length,
+                        IList<T> listVal => listVal.Count,
+                        _ => 0
+                    };
                 }
-                //推断元素数量
-                count = currentValue switch {
-                    T[] arrVal => arrVal.Length,
-                    IList<T> listVal => listVal.Count,
-                    _ => 0
-                };
+
+                //如果仍然为0则尝试自动探测资源文件数量
+                if (count == 0 && attribute.Mod != null) {
+                    count = ProbeAssetCount(attribute.Mod, origPath, attribute.StartIndex);
+                    if (count > 0) {
+                        VaultMod.Instance.Logger.Debug($"Auto-probed {count} assets for {member.Name} at path: {attribute.Mod.Name}/{origPath}");
+                    }
+                }
+
+                //如果仍然无法确定数量，返回空列表而非null
+                if (count == 0) {
+                    VaultMod.Instance.Logger.Debug($"No assets found for {member.Name} at path: {attribute.Mod?.Name}/{origPath}, returning empty list.");
+                    return new List<T>();
+                }
+
                 attribute.ArrayCount = count;
             }
 
             //按数量逐个加载
             var newList = new List<T>(count);
-            string origPath = attribute.Path;
             AssetMode origAssetMode = attribute.AssetMode;
             if (TypeToAssetModeMap.TryGetValue(typeof(T), out var assetMode)) {
                 attribute.AssetMode = assetMode;//进行集合类别的元素降级，防止无限迭代
             }
-            for (int i = attribute.StartIndex; i < attribute.ArrayCount; i++) {
+            for (int i = attribute.StartIndex; i < attribute.StartIndex + count; i++) {
                 attribute.Path = origPath + i;
                 newList.Add(LoadValue<T>(member, attribute));//这里如果处理不当会触发死循环，前面的orig参数用于避免这种情况
             }
@@ -444,6 +459,48 @@ namespace InnoVault
         }
 
         internal static Texture2D LoadTextureValue(VaultLoadenAttribute attribute) => LoadTexture(attribute, AssetRequestMode.ImmediateLoad).Value;
+
+        /// <summary>
+        /// 自动探测指定路径下存在多少个连续编号的资源文件
+        /// 从startIndex开始迭代检测，直到找不到下一个序号的资源为止
+        /// </summary>
+        /// <param name="mod">目标模组实例</param>
+        /// <param name="basePath">资源基础路径(不含序号后缀)</param>
+        /// <param name="startIndex">起始序号，默认为0</param>
+        /// <param name="maxProbe">最大探测数量上限，防止无限循环，默认为1000</param>
+        /// <returns>探测到的资源文件数量</returns>
+        internal static int ProbeAssetCount(Mod mod, string basePath, int startIndex = 0, int maxProbe = 1000) {
+            if (mod == null || string.IsNullOrEmpty(basePath)) {
+                return 0;
+            }
+
+            int count = 0;
+            for (int i = startIndex; i < startIndex + maxProbe; i++) {
+                string probePath = basePath + i;
+                if (mod.HasAsset(probePath)) {
+                    count++;
+                }
+                else {
+                    //遇到第一个不存在的资源就停止探测
+                    break;
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// 检测指定路径的资源是否存在
+        /// </summary>
+        /// <param name="mod">目标模组实例</param>
+        /// <param name="path">资源路径</param>
+        /// <returns>资源是否存在</returns>
+        internal static bool HasAssetSafe(Mod mod, string path) {
+            if (mod == null || string.IsNullOrEmpty(path)) {
+                return false;
+            }
+            return mod.HasAsset(path);
+        }
 
         /// <summary>
         /// 检查类级路径，确保路径正确并替换命名空间等占位符
