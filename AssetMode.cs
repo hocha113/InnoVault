@@ -71,5 +71,13 @@ namespace InnoVault
         /// 加载数组批次处理，用于<see cref="IList{T}"/>，其中 T 为 <see cref="Effect"/>
         /// </summary>
         EffectValueArray,
+        /// <summary>
+        /// 自定义资源类型，由<see cref="VaultLoadenHandle"/>的派生类处理
+        /// </summary>
+        Custom,
+        /// <summary>
+        /// 自定义资源数组类型，由<see cref="VaultLoadenHandle"/>的派生类处理
+        /// </summary>
+        CustomArray,
     }
 }

@@ -91,6 +91,8 @@ namespace InnoVault
         }
 
         internal static void LoadAsset() {
+            //初始化自定义加载器管理器
+            VaultLoadenHandleManager.Initialize();
             ProcessedTypes.Clear();
             foreach (var t in VaultUtils.GetAnyModCodeType()) {
                 ProcessClassAssets(t, load: true);
@@ -106,6 +108,8 @@ namespace InnoVault
                 ProcessTypeAssets(t, load: false);
             }
             ProcessedTypes.Clear();
+            //卸载自定义加载器
+            VaultLoadenHandleManager.Unload();
         }
 
         internal static void ProcessTypeAssets(Type type, bool load) {
@@ -132,7 +136,7 @@ namespace InnoVault
 
         internal static bool FindattributeByMod(Type type, VaultLoadenAttribute attribute) {
             if (attribute.Mod != null) {
-                return true; // 如果已经手动指定了模组对象就不需要进行查找了
+                return true; //如果已经手动指定了模组对象就不需要进行查找了
             }
 
             attribute.Mod = VaultUtils.FindModByType(type, ModLoader.Mods);
@@ -257,7 +261,37 @@ namespace InnoVault
                 }
             }
 
+            //检查是否有自定义加载器可以处理该类型
+            if (VaultLoadenHandleManager.FindLoader(type) != null) {
+                return AssetMode.Custom;
+            }
+
+            //检查数组元素类型是否有自定义加载器
+            Type arrayElementType = GetArrayElementType(type);
+            if (arrayElementType != null && VaultLoadenHandleManager.FindArrayElementLoader(arrayElementType) != null) {
+                return AssetMode.CustomArray;
+            }
+
             return AssetMode.None;
+        }
+
+        /// <summary>
+        /// 获取数组或列表的元素类型
+        /// </summary>
+        /// <param name="type">数组或列表类型</param>
+        /// <returns>元素类型，如果不是数组或列表则返回null</returns>
+        internal static Type GetArrayElementType(Type type) {
+            if (type.IsArray) {
+                return type.GetElementType();
+            }
+            if (type.IsGenericType && typeof(IList<>).IsAssignableFrom(type.GetGenericTypeDefinition())) {
+                return type.GetGenericArguments()[0];
+            }
+            var ilistInterface = type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>));
+            if (ilistInterface != null) {
+                return ilistInterface.GetGenericArguments()[0];
+            }
+            return null;
         }
 
         private static object LoadValue(MemberInfo member, VaultLoadenAttribute attribute) {
@@ -276,8 +310,108 @@ namespace InnoVault
                 AssetMode.MiscShaderArray => LoadArrayAsset<MiscShaderData>(member, attribute),
                 AssetMode.TextureValueArray => LoadArrayAsset<Texture2D>(member, attribute),
                 AssetMode.EffectValueArray => LoadArrayAsset<Effect>(member, attribute),
+                AssetMode.Custom => LoadCustomAsset(member, attribute),
+                AssetMode.CustomArray => LoadCustomArrayAsset(member, attribute),
                 _ => null,
             };
+        }
+
+        /// <summary>
+        /// 使用自定义加载器加载资源
+        /// </summary>
+        private static object LoadCustomAsset(MemberInfo member, VaultLoadenAttribute attribute) {
+            Type memberType = member is FieldInfo field ? field.FieldType : (member as PropertyInfo)?.PropertyType;
+            if (memberType == null) {
+                return null;
+            }
+
+            var loader = VaultLoadenHandleManager.FindLoader(memberType);
+            if (loader == null) {
+                VaultMod.Instance.Logger.Warn($"No custom loader found for type {memberType} on member {member.Name}");
+                return null;
+            }
+
+            try {
+                return loader.HandleLoad(member, attribute);
+            }
+            catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Custom loader {loader.GetType().Name} failed to load {member.Name}: {ex.Message}");
+                return loader.GetDefaultValue(memberType);
+            }
+        }
+
+        /// <summary>
+        /// 使用自定义加载器加载数组资源
+        /// </summary>
+        private static object LoadCustomArrayAsset(MemberInfo member, VaultLoadenAttribute attribute) {
+            Type memberType = member is FieldInfo field ? field.FieldType : (member as PropertyInfo)?.PropertyType;
+            if (memberType == null) {
+                return null;
+            }
+
+            Type elementType = GetArrayElementType(memberType);
+            if (elementType == null) {
+                return null;
+            }
+
+            var loader = VaultLoadenHandleManager.FindArrayElementLoader(elementType);
+            if (loader == null) {
+                VaultMod.Instance.Logger.Warn($"No custom array loader found for element type {elementType} on member {member.Name}");
+                return null;
+            }
+
+            //获取当前集合的值以推断长度
+            object currentValue = null;
+            if (member is FieldInfo f) {
+                currentValue = f.GetValue(null);
+            }
+            else if (member is PropertyInfo p && p.CanRead) {
+                currentValue = p.GetValue(null);
+            }
+
+            int count = attribute.ArrayCount;
+            string origPath = attribute.Path;
+
+            if (count == 0 && currentValue != null) {
+                if (currentValue is Array arr) {
+                    count = arr.Length;
+                }
+                else if (currentValue is System.Collections.ICollection col) {
+                    count = col.Count;
+                }
+            }
+
+            //尝试自动探测资源数量
+            if (count == 0 && attribute.Mod != null) {
+                count = ProbeAssetCount(attribute.Mod, origPath, attribute.StartIndex);
+            }
+
+            if (count == 0) {
+                //返回空列表
+                var emptyList = (System.Collections.IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType));
+                return emptyList;
+            }
+
+            //创建列表并加载每个元素
+            var listType = typeof(List<>).MakeGenericType(elementType);
+            var resultList = (System.Collections.IList)Activator.CreateInstance(listType, count);
+
+            for (int i = attribute.StartIndex; i < attribute.StartIndex + count; i++) {
+                attribute.Path = origPath + i;
+                try {
+                    var item = loader.HandleLoad(member, attribute);
+                    resultList.Add(item);
+                }
+                catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"Custom loader {loader.GetType().Name} failed to load array element {i} for {member.Name}: {ex.Message}");
+                    resultList.Add(loader.GetDefaultValue(elementType));
+                }
+            }
+
+            //恢复原始路径
+            attribute.Path = origPath;
+
+            return resultList;
         }
 
         private static T LoadValue<T>(MemberInfo member, VaultLoadenAttribute attribute) => (T)LoadValue(member, attribute);
@@ -413,7 +547,21 @@ namespace InnoVault
             else if (type == typeof(IList<Asset<Texture2D>>)) {
                 return new List<Asset<Texture2D>> { VaultAsset.placeholder3 };
             }
-            else if (type.IsValueType) {
+            //尝试从自定义加载器获取默认值
+            var customLoader = VaultLoadenHandleManager.FindLoader(type);
+            if (customLoader != null) {
+                return customLoader.GetDefaultValue(type);
+            }
+            //检查数组元素的自定义加载器
+            Type elementType = GetArrayElementType(type);
+            if (elementType != null) {
+                var arrayLoader = VaultLoadenHandleManager.FindArrayElementLoader(elementType);
+                if (arrayLoader != null) {
+                    var listType = typeof(List<>).MakeGenericType(elementType);
+                    return Activator.CreateInstance(listType);
+                }
+            }
+            if (type.IsValueType) {
                 return Activator.CreateInstance(type);
             }
             return null;
