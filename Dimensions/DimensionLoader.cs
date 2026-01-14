@@ -109,10 +109,10 @@ namespace InnoVault.Dimensions
                     writer.Write(string.Empty);
                 }
 
-                VaultMod.Instance.Logger.Info($"[DimensionSystem] 保存维度状态: 世界={worldUniqueId}, 维度索引={dimensionIndex}");
+                VaultMod.Instance.Logger.Info($"[DimensionLoader] Saved dimension state: world={worldUniqueId}, dimensionIndex={dimensionIndex}");
             }
             catch (Exception ex) {
-                VaultMod.Instance.Logger.Warn($"[DimensionSystem] 保存维度状态失败: {ex.Message}");
+                VaultMod.Instance.Logger.Warn($"[DimensionLoader] Failed to save dimension state: {ex.Message}");
             }
         }
 
@@ -134,7 +134,7 @@ namespace InnoVault.Dimensions
                 
                 int version = reader.ReadInt32();
                 if (version != DimensionStateVersion) {
-                    VaultMod.Instance.Logger.Warn($"[DimensionSystem] 维度状态文件版本不匹配: 期望={DimensionStateVersion}, 实际={version}");
+                    VaultMod.Instance.Logger.Warn($"[DimensionLoader] Dimension state file version mismatch: expected={DimensionStateVersion}, actual={version}");
                     return -1;
                 }
 
@@ -146,18 +146,18 @@ namespace InnoVault.Dimensions
                     //通过完整名称查找维度（模组重新加载后索引可能变化）
                     for (int i = 0; i < Dimension.Dimensions.Count; i++) {
                         if (Dimension.Dimensions[i].FullName == dimensionFullName) {
-                            VaultMod.Instance.Logger.Info($"[DimensionSystem] 加载维度状态: 世界={worldUniqueId}, 维度={dimensionFullName}");
+                            VaultMod.Instance.Logger.Info($"[DimensionLoader] Loaded dimension state: world={worldUniqueId}, dimension={dimensionFullName}");
                             return i;
                         }
                     }
-                    VaultMod.Instance.Logger.Warn($"[DimensionSystem] 维度 '{dimensionFullName}' 不再存在，将返回主世界");
+                    VaultMod.Instance.Logger.Warn($"[DimensionLoader] Dimension '{dimensionFullName}' no longer exists, returning to main world");
                     return -1;
                 }
 
                 return dimensionIndex;
             }
             catch (Exception ex) {
-                VaultMod.Instance.Logger.Warn($"[DimensionSystem] 加载维度状态失败: {ex.Message}");
+                VaultMod.Instance.Logger.Warn($"[DimensionLoader] Failed to load dimension state: {ex.Message}");
                 return -1;
             }
         }
