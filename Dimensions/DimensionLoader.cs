@@ -955,21 +955,6 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// 更新维度中玩家的重力
-        /// </summary>
-        /// <param name="player">玩家实例</param>
-        public static void UpdateDimensionPlayerGravity(Player player) {
-            if (Current == null) {
-                return;
-            }
-
-            float gravityMultiplier = Current.GetGravity(player);
-            if (gravityMultiplier != 1f) {
-                player.gravity *= gravityMultiplier;
-            }
-        }
-
-        /// <summary>
         /// 获取指定类型维度的实例
         /// </summary>
         /// <typeparam name="T">维度类型</typeparam>

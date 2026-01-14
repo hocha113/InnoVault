@@ -107,24 +107,28 @@ namespace InnoVault.Dimensions
         public virtual bool NoPlayerSaving => false;
 
         /// <summary>
-        /// 是否使用原版的世界更新逻辑
-        /// <br/>除非你在复制一个标准世界，否则不要启用
-        /// <br/>默认值: false
-        /// </summary>
-        public virtual bool NormalUpdates => false;
-
-        /// <summary>
-        /// 如果 <see cref="ChangeAudio"/> 返回 true，是否完全禁用原版音频更新
-        /// <br/>通常不需要启用，只有在你知道自己在做什么时才启用
-        /// <br/>默认值: false
-        /// </summary>
-        public virtual bool ManualAudioUpdates => false;
-
-        /// <summary>
         /// 维度的唯一ID，在加载时分配
         /// </summary>
         public int ID { get; internal set; } = -1;
         #endregion
+
+        /// <inheritdoc/>
+        protected override void VaultRegister() {
+            ID = DimensionIDCount++;
+            Dimensions.Add(this);
+        }
+
+        /// <inheritdoc/>
+        public override void VaultSetup() {
+            _ = DisplayName;
+            SetStaticDefaults();
+        }
+
+        /// <inheritdoc/>
+        public override void Unload() {
+            Dimensions.Clear();
+            DimensionIDCount = 0;
+        }
 
         #region 生命周期钩子
         /// <summary>
@@ -203,75 +207,6 @@ namespace InnoVault.Dimensions
         /// </summary>
         public virtual void PostReadFile() {
             DimensionLoader.PostLoadWorldFile();
-        }
-        #endregion
-
-        #region 绘制
-        /// <summary>
-        /// 修正缩放并清屏，然后调用 DrawMenu 并绘制光标
-        /// </summary>
-        public virtual void DrawSetup(GameTime gameTime) {
-            PlayerInput.SetZoom_UI();
-
-            Main.instance.GraphicsDevice.Clear(Color.Black);
-
-            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend
-                , SamplerState.LinearClamp, DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
-
-            DrawMenu(gameTime);
-            Main.DrawCursor(Main.DrawThickCursor());
-
-            Main.spriteBatch.End();
-        }
-
-        /// <summary>
-        /// 由 DrawSetup 调用，用于绘制维度的加载菜单
-        /// <br/>默认在黑色背景上显示状态文本
-        /// </summary>
-        public virtual void DrawMenu(GameTime gameTime) {
-            Main.spriteBatch.DrawString(FontAssets.DeathText.Value, Main.statusText
-                , new Vector2(Main.screenWidth, Main.screenHeight) / 2 - FontAssets.DeathText.Value.MeasureString(Main.statusText) / 2, Color.White);
-        }
-        #endregion
-
-        #region 音频与物理
-        /// <summary>
-        /// 在选择音乐前调用，包括加载菜单
-        /// <br/>返回 true 可禁用原版行为，允许修改 <see cref="Main.newMusic"/> 等变量
-        /// <br/>默认值: false
-        /// </summary>
-        public virtual bool ChangeAudio() => false;
-
-        /// <summary>
-        /// 控制维度中实体的重力
-        /// <br/>默认值: 1
-        /// </summary>
-        public virtual float GetGravity(Entity entity) => 1;
-
-        /// <summary>
-        /// 控制维度中物块的光照
-        /// <br/>返回 true 可禁用原版行为
-        /// <br/>默认值: false
-        /// </summary>
-        public virtual bool GetLight(Tile tile, int x, int y, ref FastRandom rand, ref Vector3 color) => false;
-        #endregion
-
-        #region VaultType 实现
-        /// <inheritdoc/>
-        protected override void VaultRegister() {
-            ID = DimensionIDCount++;
-            Dimensions.Add(this);
-        }
-
-        /// <inheritdoc/>
-        public override void VaultSetup() {
-            SetStaticDefaults();
-        }
-
-        /// <inheritdoc/>
-        public override void Unload() {
-            Dimensions.Clear();
-            DimensionIDCount = 0;
         }
         #endregion
 
