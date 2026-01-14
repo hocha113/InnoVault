@@ -90,17 +90,17 @@ namespace InnoVault.Dimensions
             try {
                 string statePath = GetDimensionStatePath(worldUniqueId);
                 string directory = Path.GetDirectoryName(statePath);
-                
+
                 if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory)) {
                     Directory.CreateDirectory(directory);
                 }
 
                 using FileStream fs = new(statePath, FileMode.Create, FileAccess.Write);
                 using BinaryWriter writer = new(fs);
-                
+
                 writer.Write(DimensionStateVersion);
                 writer.Write(dimensionIndex);
-                
+
                 //保存维度的完整名称以便跨模组加载时验证
                 if (dimensionIndex >= 0 && dimensionIndex < Dimension.Dimensions.Count) {
                     writer.Write(Dimension.Dimensions[dimensionIndex].FullName);
@@ -110,8 +110,7 @@ namespace InnoVault.Dimensions
                 }
 
                 VaultMod.Instance.Logger.Info($"[DimensionLoader] Saved dimension state: world={worldUniqueId}, dimensionIndex={dimensionIndex}");
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 VaultMod.Instance.Logger.Warn($"[DimensionLoader] Failed to save dimension state: {ex.Message}");
             }
         }
@@ -124,14 +123,14 @@ namespace InnoVault.Dimensions
         private static int LoadDimensionState(Guid worldUniqueId) {
             try {
                 string statePath = GetDimensionStatePath(worldUniqueId);
-                
+
                 if (!File.Exists(statePath)) {
                     return -1;
                 }
 
                 using FileStream fs = new(statePath, FileMode.Open, FileAccess.Read);
                 using BinaryReader reader = new(fs);
-                
+
                 int version = reader.ReadInt32();
                 if (version != DimensionStateVersion) {
                     VaultMod.Instance.Logger.Warn($"[DimensionLoader] Dimension state file version mismatch: expected={DimensionStateVersion}, actual={version}");
@@ -155,8 +154,7 @@ namespace InnoVault.Dimensions
                 }
 
                 return dimensionIndex;
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 VaultMod.Instance.Logger.Warn($"[DimensionLoader] Failed to load dimension state: {ex.Message}");
                 return -1;
             }
@@ -582,7 +580,7 @@ namespace InnoVault.Dimensions
                     }
                     if ((int)index >= 0) {
                         CopyMainWorldData();
-                        
+
                         //保存维度状态：玩家正在进入维度
                         if (mainWorld != null) {
                             SaveDimensionState(mainWorld.UniqueId, (int)index);
@@ -910,8 +908,7 @@ namespace InnoVault.Dimensions
                     cache.ReadCopiedDimensionData();
                     copiedData = null;
                 }
-            }
-            catch {
+            } catch {
                 WorldGen.loadFailed = true;
                 WorldGen.loadSuccess = false;
             }
@@ -1029,13 +1026,13 @@ namespace InnoVault.Dimensions
                 Main.QueueMainThreadAction(() => {
                     //设置主世界引用
                     mainWorld = Main.ActiveWorldFileData;
-                    
+
                     //进入保存的维度
                     current = Dimension.Dimensions[savedDimensionIndex];
                     Main.gameMenu = true;
 
                     Task.Factory.StartNew(ExitWorldCallBack, savedDimensionIndex);
-                    
+
                     isRestoringFromState = false;
                 });
             }
@@ -1048,7 +1045,7 @@ namespace InnoVault.Dimensions
             if (current != null || cache != null) {
                 Main.menuMode = 14;
             }
-            
+
             //重置所有维度相关状态，避免污染下次进入的世界
             ResetAllDimensionState();
         }
@@ -1075,7 +1072,7 @@ namespace InnoVault.Dimensions
                     SaveDimensionState(mainWorld.UniqueId, currentIndex);
                 }
             }
-            
+
             //重置所有维度状态，避免污染下次进入的世界
             ResetAllDimensionState();
         }

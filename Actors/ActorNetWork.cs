@@ -2,7 +2,6 @@
 using System.IO;
 using Terraria;
 using Terraria.ModLoader;
-using static InnoVault.VaultNetwork;
 
 namespace InnoVault.Actors
 {

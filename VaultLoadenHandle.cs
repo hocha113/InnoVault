@@ -187,8 +187,7 @@ namespace InnoVault
                     loader.OnInitialize();
                     Register(loader);
                     VaultMod.Instance?.Logger.Debug($"Registered custom asset loader: {type.FullName}");
-                }
-                catch (Exception ex) {
+                } catch (Exception ex) {
                     VaultMod.Instance?.Logger.Error($"Failed to create asset loader instance for type {type.FullName}: {ex.Message}");
                 }
             }
@@ -200,8 +199,7 @@ namespace InnoVault
             foreach (var loader in _loaders) {
                 try {
                     loader.OnDispose();
-                }
-                catch (Exception ex) {
+                } catch (Exception ex) {
                     VaultMod.Instance?.Logger.Error($"Error unloading asset loader {loader.GetType().FullName}: {ex.Message}");
                 }
             }

@@ -6,7 +6,6 @@ using System.Reflection;
 using Terraria;
 using Terraria.ModLoader;
 using static InnoVault.GameSystem.StaticImmunitySystem;
-using static InnoVault.VaultNetwork;
 
 namespace InnoVault.GameSystem
 {

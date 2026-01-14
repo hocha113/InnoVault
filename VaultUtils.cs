@@ -32,7 +32,6 @@ using Terraria.ModLoader.IO;
 using Terraria.ObjectData;
 using Terraria.Social;
 using static InnoVault.GameSystem.StaticImmunitySystem;
-using static InnoVault.VaultNetwork;
 
 namespace InnoVault
 {

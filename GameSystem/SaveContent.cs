@@ -395,7 +395,7 @@ namespace InnoVault.GameSystem
             if (save.PreSaveData(saveTag, 1)) {
                 save.SaveData(saveTag);
             }
-                
+
             if (saveTag.Count == 0) {
                 return;
             }
@@ -427,7 +427,7 @@ namespace InnoVault.GameSystem
 
             if (save.PreLoadData(saveTag, 1)) {
                 save.LoadData(saveTag);
-            } 
+            }
         }
         /// <summary>
         /// 保存指定接口实例提供的数据

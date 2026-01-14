@@ -9,7 +9,6 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.ModLoader;
 using static InnoVault.TileProcessors.TileProcessorLoader;
-using static InnoVault.VaultNetwork;
 
 namespace InnoVault.TileProcessors
 {

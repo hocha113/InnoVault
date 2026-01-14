@@ -333,8 +333,7 @@ namespace InnoVault
 
             try {
                 return loader.HandleLoad(member, attribute);
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Custom loader {loader.GetType().Name} failed to load {member.Name}: {ex.Message}");
                 return loader.GetDefaultValue(memberType);
             }
@@ -401,8 +400,7 @@ namespace InnoVault
                 try {
                     var item = loader.HandleLoad(member, attribute);
                     resultList.Add(item);
-                }
-                catch (Exception ex) {
+                } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error($"Custom loader {loader.GetType().Name} failed to load array element {i} for {member.Name}: {ex.Message}");
                     resultList.Add(loader.GetDefaultValue(elementType));
                 }

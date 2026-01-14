@@ -1,5 +1,4 @@
-﻿using InnoVault.Dimensions;
-using InnoVault.StateStruct;
+﻿using InnoVault.StateStruct;
 using Microsoft.Xna.Framework;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
