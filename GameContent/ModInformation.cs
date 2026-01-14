@@ -19,7 +19,7 @@ namespace InnoVault.GameContent
         /// <inheritdoc/>
         public override void LoadData(TagCompound tag) {
             if (tag.TryGet(nameof(EnterCount), out uint enterCount)) {
-                EnterCount = enterCount;
+                EnterCount = enterCount + 1;
             }
             else {
                 EnterCount = 0;

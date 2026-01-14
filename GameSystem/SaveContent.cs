@@ -329,7 +329,10 @@ namespace InnoVault.GameSystem
 
                 foreach (var save in saves) {
                     TagCompound saveTag = [];
-                    save.SaveData(saveTag);
+                    if (save.PreSaveData(saveTag, 0)) {
+                        save.SaveData(saveTag);
+                    }
+
                     if (saveTag.Count == 0) {
                         continue;
                     }
@@ -367,7 +370,9 @@ namespace InnoVault.GameSystem
                     if (!modTag.TryGet(save.LoadenName, out TagCompound saveTag) || saveTag.Count == 0) {
                         continue;
                     }
-                    save.LoadData(saveTag);
+                    if (save.PreLoadData(saveTag, 0)) {
+                        save.LoadData(saveTag);
+                    }
                 }
             }
         }
@@ -387,7 +392,10 @@ namespace InnoVault.GameSystem
             }
 
             TagCompound saveTag = [];
-            save.SaveData(saveTag);
+            if (save.PreSaveData(saveTag, 1)) {
+                save.SaveData(saveTag);
+            }
+                
             if (saveTag.Count == 0) {
                 return;
             }
@@ -417,7 +425,9 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            save.LoadData(saveTag);
+            if (save.PreLoadData(saveTag, 1)) {
+                save.LoadData(saveTag);
+            } 
         }
         /// <summary>
         /// 保存指定接口实例提供的数据
@@ -453,6 +463,15 @@ namespace InnoVault.GameSystem
             saveContent.LoadData(saveTag);
         }
         /// <summary>
+        /// 保存数据前的预处理，如果返回false则跳过保存
+        /// </summary>
+        /// <param name="tag"></param>
+        /// <param name="style">如果为0，则说明处于全局保存，如果为1，则处于单例保存中</param>
+        /// <returns></returns>
+        public virtual bool PreSaveData(TagCompound tag, int style) {
+            return true;
+        }
+        /// <summary>
         /// 保存数据，在<see cref="LoadData"/>中编写接收数据的逻辑
         /// 不要直接通过实例访问调用该函数，除非清楚自己在干什么，
         /// 如果需要针对类型的保存应该使用<see cref="DoSave{TTarget}(bool)"/>
@@ -460,6 +479,15 @@ namespace InnoVault.GameSystem
         /// <param name="tag"></param>
         public virtual void SaveData(TagCompound tag) {
 
+        }
+        /// <summary>
+        /// 加载数据前的预处理，如果返回false则跳过加载
+        /// </summary>
+        /// <param name="tag"></param>
+        /// <param name="style">如果为0，则说明处于全局加载，如果为1，则处于单例加载中</param>
+        /// <returns></returns>
+        public virtual bool PreLoadData(TagCompound tag, int style) {
+            return true;
         }
         /// <summary>
         /// 加载数据，如果<see cref="SaveData"/>没有存入数据，该函数就不会被调用

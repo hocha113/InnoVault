@@ -1,3 +1,5 @@
+﻿using InnoVault.Dimensions;
+using InnoVault.Dimensions.Example;
 ﻿using InnoVault.Actors;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -12,6 +14,10 @@ namespace InnoVault
     internal class TestItem : ModItem
     {
         public override string Texture => "InnoVault/icon";
+
+        public override bool IsLoadingEnabled(Mod mod) {
+            return true;
+        }
 
         public override void SetDefaults() {
             Item.width = 80;
@@ -46,6 +52,11 @@ namespace InnoVault
         }
 
         public override bool? UseItem(Player player) {
+            if (player.altFunctionUse == 2) {
+                DimensionLoader.Exit();
+            }
+            else {
+                DimensionLoader.Enter<ExampleMirrorDimension>();
             if (player.whoAmI == Main.myPlayer) {
                 Projectile.NewProjectile(player.FromObjectGetParent(), player.Center, Vector2.Zero, ModContent.ProjectileType<TestProj>(), 0, 0, player.whoAmI);
             }

@@ -1,4 +1,5 @@
-﻿using InnoVault.StateStruct;
+﻿using InnoVault.Dimensions;
+using InnoVault.StateStruct;
 using Microsoft.Xna.Framework;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
@@ -206,6 +207,9 @@ namespace InnoVault.GameSystem
             FieldInfo itemAnimation = playerType.GetField("itemAnimation", BindingFlags.Instance | BindingFlags.Public);
             PropertyInfo ItemTimeIsZero = playerType.GetProperty("ItemTimeIsZero", BindingFlags.Instance | BindingFlags.Public);
             FieldInfo reuseDelay = playerType.GetField("reuseDelay", BindingFlags.Instance | BindingFlags.Public);
+            FieldInfo defaultGravity = playerType.GetField("defaultGravity", BindingFlags.Static | BindingFlags.Public);
+            FieldInfo gravity = playerType.GetField("gravity", BindingFlags.Instance | BindingFlags.Public);
+
             Type mainType = typeof(Main);
             FieldInfo drawingPlayerChat = mainType.GetField("drawingPlayerChat", BindingFlags.Static | BindingFlags.Public);
             FieldInfo selectedItem = playerType.GetField("selectedItem", BindingFlags.Instance | BindingFlags.Public);
@@ -252,6 +256,19 @@ namespace InnoVault.GameSystem
             c.Emit(OpCodes.Ldarg_0);
             c.EmitDelegate(static (Player self) => CanSwitchWeaponHook(self));
             c.Emit(OpCodes.Brfalse, LabelKey);
+
+            c = new ILCursor(il);
+            if (!c.TryGotoNext(
+                MoveType.After,
+                x => x.MatchLdarg0(),
+                x => x.MatchLdsfld(defaultGravity),
+                x => x.MatchStfld(gravity)
+                )) {
+                return;
+            }
+
+            c.Emit(OpCodes.Ldarg_0);
+            c.EmitDelegate(static (Player self) => ModifyGravity(self));
         }
 
         public static bool CanSwitchWeaponHook(Player player) {
@@ -286,6 +303,14 @@ namespace InnoVault.GameSystem
             }
 
             return true;
+        }
+
+        public static void ModifyGravity(Player player) {
+            if (TryFetchByPlayer(player, out var values))
+                foreach (var value in SnapshotOverrides(values))
+                    value.ModifyGravity(ref player.gravity);
+
+            DimensionLoader.UpdateDimensionPlayerGravity(player);
         }
 
         private static void On_ModifyHitNPCWithItemHook(On_ModifyHitNPCWithItem_Dalegate orig
