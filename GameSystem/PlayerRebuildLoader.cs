@@ -33,6 +33,7 @@ namespace InnoVault.GameSystem
         public delegate bool On_CanBeHitByProjectile_Dalegate(Player player, Projectile proj);
         public delegate double On_Hurt_Dalegate(Player player, PlayerDeathReason damageSource, int Damage, int hitDirection, out HurtInfo info, bool pvp = false, bool quiet = false
             , int cooldownCounter = -1, bool dodgeable = true, float armorPenetration = 0f, float scalingArmorPenetration = 0f, float knockback = 4.5f);
+        public delegate bool On_PreKill_Dalegate(Player player, double damage, int hitDirection, bool pvp, ref bool playSound, ref bool genGore, ref PlayerDeathReason damageSource);
         public delegate Rectangle On_ItemCheck_EmitUseVisuals_Delegate(Player player, Item sItem, Rectangle itemRectangle);
         public static Type playerLoaderType;
         public static MethodBase onModifyHitNPCWithItemMethod;
@@ -42,6 +43,7 @@ namespace InnoVault.GameSystem
         public static MethodBase onGiveImmuneTimeForCollisionAttackMethod;
         public static MethodBase onCanBeHitByProjectileMethod;
         public static MethodBase onHurtMethod;
+        public static MethodBase onPreKillMethod;
         private static readonly List<VaultHookMethodCache<PlayerOverride>> hooks = [];
         internal static VaultHookMethodCache<PlayerOverride> HookPreIsSceneEffectActiveByPlayer;
         internal static VaultHookMethodCache<PlayerOverride> HookPostIsSceneEffectActiveByPlayer;
@@ -145,6 +147,7 @@ namespace InnoVault.GameSystem
                 ],
                 null
             );
+            onPreKillMethod = typeof(PlayerLoader).GetMethod("PreKill", BindingFlags.Public | BindingFlags.Static);
 
             if (onModifyHitNPCWithItemMethod != null) {
                 VaultHook.Add(onModifyHitNPCWithItemMethod, On_ModifyHitNPCWithItemHook);
@@ -166,6 +169,9 @@ namespace InnoVault.GameSystem
             }
             if (onHurtMethod != null) {
                 VaultHook.Add(onHurtMethod, On_HurtHook);
+            }
+            if (onPreKillMethod != null) {
+                VaultHook.Add(onPreKillMethod, On_PreKill_Hook);
             }
 
             VaultHook.Add(typeof(Player).GetMethod("ItemCheck_EmitUseVisuals", BindingFlags.Instance | BindingFlags.NonPublic), On_ItemCheck_EmitUseVisuals_Hook);
@@ -392,6 +398,23 @@ namespace InnoVault.GameSystem
                 , hurtState.Dodgeable, hurtState.ArmorPenetration, hurtState.ScalingArmorPenetration, hurtState.Knockback);
             info = hurtState.Info;
             return num;
+        }
+
+        private static bool On_PreKill_Hook(On_PreKill_Dalegate orig, Player player, double damage, int hitDirection, bool pvp
+            , ref bool playSound, ref bool genGore, ref PlayerDeathReason damageSource) {
+            if (TryFetchByPlayer(player, out var values)) {
+                bool? result = null;
+                foreach (var value in SnapshotOverrides(values)) {
+                    bool? newResult = value.On_PreKill(damage, hitDirection, pvp, ref playSound, ref genGore, ref damageSource);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                }
+                if (result.HasValue) {
+                    return result.Value;
+                }
+            }
+            return orig.Invoke(player, damage, hitDirection, pvp, ref playSound, ref genGore, ref damageSource);
         }
 
         private static void On_GiveImmuneTimeForCollisionAttackHook(On_GiveImmuneTimeForCollisionAttack_Dalegate orig, Player player, int time) {

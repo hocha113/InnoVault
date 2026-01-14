@@ -106,6 +106,8 @@ namespace InnoVault.GameSystem
         public static MethodBase onGetItemNameValueMethod;
         public static MethodBase onItemNamePropertyGetMethod;
         public static MethodBase onAffixNameMethod;
+        public static MethodBase onShimmeringMethod;
+        public static MethodBase onGetShimmeredMethod;
         public static FieldInfo TooltipLine_ModName_Field { get; set; }
         public static FieldInfo TooltipLine_OneDropLogo_Field { get; set; }
         public static GlobalHookList<GlobalItem> ItemLoader_Shoot_Hook { get; private set; }
@@ -155,6 +157,8 @@ namespace InnoVault.GameSystem
             onGetItemNameValueMethod = typeof(Lang).GetMethod("GetItemNameValue", BindingFlags.Public | BindingFlags.Static);
             onItemNamePropertyGetMethod = typeof(Item).GetProperty("Name", BindingFlags.Instance | BindingFlags.Public).GetGetMethod();
             onAffixNameMethod = typeof(Item).GetMethod("AffixName", BindingFlags.Instance | BindingFlags.Public);
+            onShimmeringMethod = typeof(Item).GetMethod("Shimmering", BindingFlags.Instance | BindingFlags.NonPublic);
+            onGetShimmeredMethod = typeof(Item).GetMethod("GetShimmered", BindingFlags.Instance | BindingFlags.NonPublic);
 
             if (onShootMethod != null) {
                 VaultHook.Add(onShootMethod, OnShootHook);
@@ -225,6 +229,12 @@ namespace InnoVault.GameSystem
             if (onAffixNameMethod != null) {
                 VaultHook.Add(onAffixNameMethod, OnAffixNameHook);
             }
+            if (onShimmeringMethod != null) {
+                VaultHook.Add(onShimmeringMethod, OnShimmeringHook);
+            }
+            if (onGetShimmeredMethod != null) {
+                VaultHook.Add(onGetShimmeredMethod, OnGetShimmeredHook);
+            }
 
             VaultHook.Add(typeof(Player).GetMethod("ItemCheck_Shoot", BindingFlags.Instance | BindingFlags.NonPublic), OnItemCheckShootHook);
 
@@ -275,6 +285,8 @@ namespace InnoVault.GameSystem
             onGetItemNameValueMethod = null;
             onItemNamePropertyGetMethod = null;
             onAffixNameMethod = null;
+            onShimmeringMethod = null;
+            onGetShimmeredMethod = null;
             On_Player.UpdateArmorSets -= UpdateArmorSetHook;
         }
 
@@ -444,6 +456,89 @@ namespace InnoVault.GameSystem
             return orig.Invoke(item);
         }
 
+        public static void OnShimmeringHook(Action<Item> orig, Item item) {
+            if (!VaultLoad.LoadenContent) {
+                orig.Invoke(item);
+                return;
+            }
+            bool result = UniversalForEach(inds => inds.PreShimmering(item));
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values)) {
+                foreach (var value in values.Values) {
+                    if (!value.PreShimmering(item)) {
+                        result = false;
+                    }
+                }
+            }
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (result) {
+                orig.Invoke(item);
+            }
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> values2)) {
+                foreach (var value in values2.Values) {
+                    value.PostShimmering(item);
+                }
+            }
+
+            UniversalForEach(inds => inds.PostShimmering(item));
+        }
+
+        public static void OnGetShimmeredHook(Action<Item> orig, Item item) {
+            if (!VaultLoad.LoadenContent) {
+                orig.Invoke(item);
+                return;
+            }
+
+            int originalType = item.type;
+            bool result = UniversalForEach(inds => inds.PreGetShimmered(item));
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (TryFetchByID(originalType, out Dictionary<Type, ItemOverride> values)) {
+                foreach (var value in values.Values) {
+                    if (!value.PreGetShimmered(item)) {
+                        result = false;
+                    }
+                }
+            }
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            if (result) {
+                orig.Invoke(item);
+            }
+
+            if (!item.Alives()) {
+                return;
+            }
+
+            // 使用原物品类型查找覆盖器，确保调用的是原物品的 Post 钩子
+            if (TryFetchByID(originalType, out Dictionary<Type, ItemOverride> values2)) {
+                foreach (var value in values2.Values) {
+                    value.PostGetShimmered(originalType, item, result);
+                }
+            }
+
+            UniversalForEach(inds => inds.PostGetShimmered(originalType, item, result));
+        }
+
         /// <summary>
         /// 提前于 TML 的方法执行，这样继承重写 <see cref="ItemOverride.On_AltFunctionUse"/> 便拥有阻断后续逻辑的能力，用于进行一些高级修改。
         /// 若多个覆盖器返回了非空值，则优先返回最后一个非空值。
@@ -451,6 +546,11 @@ namespace InnoVault.GameSystem
         public static bool OnAltFunctionUseHook(On_AltFunctionUse_Delegate orig, Item item, Player player) {
             if (item.IsAir) {
                 return false;
+            }
+
+            bool? universalResult = UniversalForEach(inds => inds.On_AltFunctionUse(item, player));
+            if (universalResult.HasValue) {
+                return universalResult.Value;
             }
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
@@ -479,6 +579,10 @@ namespace InnoVault.GameSystem
                 return;
             }
 
+            if (!UniversalForEach(inds => inds.On_UpdateAccessory(item, player, hideVisual))) {
+                return;//阻断执行
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 foreach (var overrideInstance in itemOverrides.Values) {
                     if (!overrideInstance.On_UpdateAccessory(item, player, hideVisual)) {
@@ -489,6 +593,7 @@ namespace InnoVault.GameSystem
 
             orig.Invoke(item, player, hideVisual);
         }
+
         /// <summary>
         /// 提前于TML的方法执行，这样继承重写<br/><see cref="ItemOverride.On_CanConsumeAmmo"/><br/>便拥有可以阻断TML后续方法运行的能力，用于进行一些高级修改
         /// </summary>
@@ -496,6 +601,13 @@ namespace InnoVault.GameSystem
             if (item.IsAir) {
                 return;
             }
+
+            var damageCopy = damage;
+            if (!UniversalForEach(inds => inds.On_ModifyWeaponDamage(item, player, ref damageCopy))) {
+                damage = damageCopy;
+                return;
+            }
+            damage = damageCopy;
 
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -512,6 +624,11 @@ namespace InnoVault.GameSystem
         /// 提前于TML的方法执行，这样继承重写<br/><see cref="ItemOverride.On_CanConsumeAmmo"/><br/>便拥有可以阻断TML后续方法运行的能力，用于进行一些高级修改
         /// </summary>
         public static bool OnCanConsumeAmmoHook(On_CanConsumeAmmo_Delegate orig, Item item, Item ammo, Player player) {
+            bool? universalResult = UniversalForEach(inds => inds.On_CanConsumeAmmo(item, ammo, player));
+            if (universalResult.HasValue) {
+                return universalResult.Value;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -531,6 +648,14 @@ namespace InnoVault.GameSystem
         /// <param name="item"></param>
         /// <param name="itemLoot"></param>
         public static void OnModifyItemLootHook(On_ModifyItemLoot_Delegate orig, Item item, ItemLoot itemLoot) {
+            bool? universalResult = UniversalForEach(inds => inds.On_ModifyItemLoot(item, itemLoot));
+            if (universalResult.HasValue) {
+                if (universalResult.Value) {
+                    item.ModItem?.ModifyItemLoot(itemLoot);
+                }
+                return;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -561,6 +686,17 @@ namespace InnoVault.GameSystem
         /// <param name="player"></param>
         /// <param name="crit"></param>
         public static void OnModifyWeaponCritHook(On_ModifyWeaponCrit_Delegate orig, Item item, Player player, ref float crit) {
+            var critCopy = crit;
+            bool? universalResult = UniversalForEach(inds => inds.On_ModifyWeaponCrit(item, player, ref critCopy));
+            if (universalResult.HasValue) {
+                crit = critCopy;
+                if (universalResult.Value) {
+                    item.ModItem?.ModifyWeaponCrit(player, ref crit);
+                }
+                return;
+            }
+            crit = critCopy;
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -591,6 +727,14 @@ namespace InnoVault.GameSystem
         /// <param name="player"></param>
         /// <returns></returns>
         public static void OnUseAnimationHook(On_UseAnimation_Delegate orig, Item item, Player player) {
+            bool? universalResult = UniversalForEach(inds => inds.On_UseAnimation(item, player));
+            if (universalResult.HasValue) {
+                if (universalResult.Value) {
+                    item.ModItem?.UseAnimation(player);
+                }
+                return;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -698,6 +842,29 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static void OnModifyShootStatsHook(On_ModifyShootStats_Delegate orig, Item item, Player player
             , ref Vector2 position, ref Vector2 velocity, ref int type, ref int damage, ref float knockback) {
+            var positionCopy = position;
+            var velocityCopy = velocity;
+            var typeCopy = type;
+            var damageCopy = damage;
+            var knockbackCopy = knockback;
+            bool? universalResult = UniversalForEach(inds => inds.On_ModifyShootStats(item, player, ref positionCopy, ref velocityCopy, ref typeCopy, ref damageCopy, ref knockbackCopy));
+            if (universalResult.HasValue) {
+                position = positionCopy;
+                velocity = velocityCopy;
+                type = typeCopy;
+                damage = damageCopy;
+                knockback = knockbackCopy;
+                if (universalResult.Value) {
+                    item.ModItem?.ModifyShootStats(player, ref position, ref velocity, ref type, ref damage, ref knockback);
+                }
+                return;
+            }
+            position = positionCopy;
+            velocity = velocityCopy;
+            type = typeCopy;
+            damage = damageCopy;
+            knockback = knockbackCopy;
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -749,6 +916,11 @@ namespace InnoVault.GameSystem
         /// <br/>继承重写<see cref="ItemOverride.On_ConsumeItem(Item, Player)"/>来达到这些目的，用于进行一些高级修改
         /// </summary>
         public static bool OnConsumeItemHook(On_CanUseItem_Delegate orig, Item item, Player player) {
+            bool? universalResult = UniversalForEach(inds => inds.On_ConsumeItem(item, player));
+            if (universalResult.HasValue) {
+                return universalResult.Value;
+            }
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -766,6 +938,9 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnHitNPCHook(On_HitNPC_Delegate orig, Item item, Player player, NPC target, in NPC.HitInfo hit, int damageDone) {
+            var hitCopy = hit;
+            UniversalForEach(inds => inds.On_OnHitNPC(item, player, target, hitCopy, damageDone));
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool result = true;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -783,6 +958,9 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnHitPvpHook(On_HitPvp_Delegate orig, Item item, Player player, Player target, Player.HurtInfo hurtInfo) {
+            var hitCopy = hurtInfo;
+            UniversalForEach(inds => inds.On_OnHitPvp(item, player, target, hitCopy));
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool result = true;
                 foreach (var overrideInstance in itemOverrides.Values) {
@@ -800,6 +978,17 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnModifyHitNPCHook(On_ModifyHitNPC_Delegate orig, Item item, Player player, NPC target, ref NPC.HitModifiers modifiers) {
+            var modifiersCopy = modifiers;
+            bool? universalResult = UniversalForEach(inds => inds.On_ModifyHitNPC(item, player, target, ref modifiersCopy));
+            if (universalResult.HasValue) {
+                modifiers = modifiersCopy;
+                if (universalResult.Value) {
+                    item.ModItem?.ModifyHitNPC(player, target, ref modifiers);
+                }
+                return;
+            }
+            modifiers = modifiersCopy;
+
             if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 bool? result = null;
                 foreach (var overrideInstance in itemOverrides.Values) {

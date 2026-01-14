@@ -26,14 +26,6 @@ namespace InnoVault
         /// </summary>
         private readonly static HashSet<Type> ProcessedTypes = [];
         /// <summary>
-        /// 存储纹理实例
-        /// </summary>
-        private readonly static HashSet<Texture2D> TextureValues = [];
-        /// <summary>
-        /// 存储渲染器实例
-        /// </summary>
-        private readonly static HashSet<Effect> EffectValues = [];
-        /// <summary>
         /// 一个非常靠后的加载钩子，此时本地化、配方修改、菜单排序等内容已经设置完成
         /// </summary>
         public static event Action EndLoadenEvent;
@@ -81,7 +73,9 @@ namespace InnoVault
                 VaultHook.Add(typeof(BossBarLoader).GetMethod("GotoSavedStyle"
                 , BindingFlags.NonPublic | BindingFlags.Static), EndLoaden);
             } catch {
-
+                VaultMod.Instance.Logger.Error(
+                    "Failed to hook BossBarLoader.GotoSavedStyle for VaultLoadenEvent. " +
+                    "This may cause some resources to not load correctly.");
             }
         }
 
@@ -97,6 +91,8 @@ namespace InnoVault
         }
 
         internal static void LoadAsset() {
+            //初始化自定义加载器管理器
+            VaultLoadenHandleManager.Initialize();
             ProcessedTypes.Clear();
             foreach (var t in VaultUtils.GetAnyModCodeType()) {
                 ProcessClassAssets(t, load: true);
@@ -112,9 +108,8 @@ namespace InnoVault
                 ProcessTypeAssets(t, load: false);
             }
             ProcessedTypes.Clear();
-            //事实证明最好不要去自行释放这些纹理实例，因为原版自己也在进行管理，在实例化时注册了Asset<T>即可
-            TextureValues.Clear();
-            EffectValues.Clear();
+            //卸载自定义加载器
+            VaultLoadenHandleManager.Unload();
         }
 
         internal static void ProcessTypeAssets(Type type, bool load) {
@@ -141,7 +136,7 @@ namespace InnoVault
 
         internal static bool FindattributeByMod(Type type, VaultLoadenAttribute attribute) {
             if (attribute.Mod != null) {
-                return true; // 如果已经手动指定了模组对象就不需要进行查找了
+                return true; //如果已经手动指定了模组对象就不需要进行查找了
             }
 
             attribute.Mod = VaultUtils.FindModByType(type, ModLoader.Mods);
@@ -186,9 +181,10 @@ namespace InnoVault
                     attribute.Mod = newMod;
                 }
                 else {
+                    string modName = attribute.Mod != null ? attribute.Mod.Name : pathParts[0];
                     //改为记录调试日志而非抛出异常，支持弱联动
                     VaultMod.Instance.Logger.Debug($"Member {targetName} couldn't find Mod \"{pathParts[0]}\". " +
-                        $"Original Mod Name: \"{attribute.Mod.Name}\". " +
+                        $"Original Mod Name: \"{modName}\". " +
                         $"Resource will use default value instead.");
                     //将资源对象设置为null，后续会使用默认值
                     attribute.Mod = null;
@@ -265,13 +261,43 @@ namespace InnoVault
                 }
             }
 
+            //检查是否有自定义加载器可以处理该类型
+            if (VaultLoadenHandleManager.FindLoader(type) != null) {
+                return AssetMode.Custom;
+            }
+
+            //检查数组元素类型是否有自定义加载器
+            Type arrayElementType = GetArrayElementType(type);
+            if (arrayElementType != null && VaultLoadenHandleManager.FindArrayElementLoader(arrayElementType) != null) {
+                return AssetMode.CustomArray;
+            }
+
             return AssetMode.None;
+        }
+
+        /// <summary>
+        /// 获取数组或列表的元素类型
+        /// </summary>
+        /// <param name="type">数组或列表类型</param>
+        /// <returns>元素类型，如果不是数组或列表则返回null</returns>
+        internal static Type GetArrayElementType(Type type) {
+            if (type.IsArray) {
+                return type.GetElementType();
+            }
+            if (type.IsGenericType && typeof(IList<>).IsAssignableFrom(type.GetGenericTypeDefinition())) {
+                return type.GetGenericArguments()[0];
+            }
+            var ilistInterface = type.GetInterfaces().FirstOrDefault(i => i.IsGenericType && i.GetGenericTypeDefinition() == typeof(IList<>));
+            if (ilistInterface != null) {
+                return ilistInterface.GetGenericArguments()[0];
+            }
+            return null;
         }
 
         private static object LoadValue(MemberInfo member, VaultLoadenAttribute attribute) {
             return attribute.AssetMode switch {//根据资源类型来加载值
                 AssetMode.Sound => new SoundStyle(attribute.Mod.Name + "/" + attribute.Path),
-                AssetMode.Texture => attribute.Mod.Assets.Request<Texture2D>(attribute.Path),
+                AssetMode.Texture => LoadTexture(attribute),
                 AssetMode.Effects => LoadEffect(attribute),
                 AssetMode.ArmorShader => new ArmorShaderData(LoadEffect(attribute), attribute.EffectPassname),
                 AssetMode.MiscShader => LoadMiscShader(attribute),
@@ -284,8 +310,108 @@ namespace InnoVault
                 AssetMode.MiscShaderArray => LoadArrayAsset<MiscShaderData>(member, attribute),
                 AssetMode.TextureValueArray => LoadArrayAsset<Texture2D>(member, attribute),
                 AssetMode.EffectValueArray => LoadArrayAsset<Effect>(member, attribute),
+                AssetMode.Custom => LoadCustomAsset(member, attribute),
+                AssetMode.CustomArray => LoadCustomArrayAsset(member, attribute),
                 _ => null,
             };
+        }
+
+        /// <summary>
+        /// 使用自定义加载器加载资源
+        /// </summary>
+        private static object LoadCustomAsset(MemberInfo member, VaultLoadenAttribute attribute) {
+            Type memberType = member is FieldInfo field ? field.FieldType : (member as PropertyInfo)?.PropertyType;
+            if (memberType == null) {
+                return null;
+            }
+
+            var loader = VaultLoadenHandleManager.FindLoader(memberType);
+            if (loader == null) {
+                VaultMod.Instance.Logger.Warn($"No custom loader found for type {memberType} on member {member.Name}");
+                return null;
+            }
+
+            try {
+                return loader.HandleLoad(member, attribute);
+            }
+            catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Custom loader {loader.GetType().Name} failed to load {member.Name}: {ex.Message}");
+                return loader.GetDefaultValue(memberType);
+            }
+        }
+
+        /// <summary>
+        /// 使用自定义加载器加载数组资源
+        /// </summary>
+        private static object LoadCustomArrayAsset(MemberInfo member, VaultLoadenAttribute attribute) {
+            Type memberType = member is FieldInfo field ? field.FieldType : (member as PropertyInfo)?.PropertyType;
+            if (memberType == null) {
+                return null;
+            }
+
+            Type elementType = GetArrayElementType(memberType);
+            if (elementType == null) {
+                return null;
+            }
+
+            var loader = VaultLoadenHandleManager.FindArrayElementLoader(elementType);
+            if (loader == null) {
+                VaultMod.Instance.Logger.Warn($"No custom array loader found for element type {elementType} on member {member.Name}");
+                return null;
+            }
+
+            //获取当前集合的值以推断长度
+            object currentValue = null;
+            if (member is FieldInfo f) {
+                currentValue = f.GetValue(null);
+            }
+            else if (member is PropertyInfo p && p.CanRead) {
+                currentValue = p.GetValue(null);
+            }
+
+            int count = attribute.ArrayCount;
+            string origPath = attribute.Path;
+
+            if (count == 0 && currentValue != null) {
+                if (currentValue is Array arr) {
+                    count = arr.Length;
+                }
+                else if (currentValue is System.Collections.ICollection col) {
+                    count = col.Count;
+                }
+            }
+
+            //尝试自动探测资源数量
+            if (count == 0 && attribute.Mod != null) {
+                count = ProbeAssetCount(attribute.Mod, origPath, attribute.StartIndex);
+            }
+
+            if (count == 0) {
+                //返回空列表
+                var emptyList = (System.Collections.IList)Activator.CreateInstance(typeof(List<>).MakeGenericType(elementType));
+                return emptyList;
+            }
+
+            //创建列表并加载每个元素
+            var listType = typeof(List<>).MakeGenericType(elementType);
+            var resultList = (System.Collections.IList)Activator.CreateInstance(listType, count);
+
+            for (int i = attribute.StartIndex; i < attribute.StartIndex + count; i++) {
+                attribute.Path = origPath + i;
+                try {
+                    var item = loader.HandleLoad(member, attribute);
+                    resultList.Add(item);
+                }
+                catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"Custom loader {loader.GetType().Name} failed to load array element {i} for {member.Name}: {ex.Message}");
+                    resultList.Add(loader.GetDefaultValue(elementType));
+                }
+            }
+
+            //恢复原始路径
+            attribute.Path = origPath;
+
+            return resultList;
         }
 
         private static T LoadValue<T>(MemberInfo member, VaultLoadenAttribute attribute) => (T)LoadValue(member, attribute);
@@ -310,27 +436,42 @@ namespace InnoVault
             }
 
             int count = attribute.ArrayCount;
+            string origPath = attribute.Path;
+
             if (count == 0) {
-                if (currentValue == null) {//考虑到集合这种引用类型开发者完全有可能不会进行初始化，这里进行判断
-                    return null;
+                //首先尝试从已有集合推断长度
+                if (currentValue != null) {
+                    count = currentValue switch {
+                        T[] arrVal => arrVal.Length,
+                        IList<T> listVal => listVal.Count,
+                        _ => 0
+                    };
                 }
-                //推断元素数量
-                count = currentValue switch {
-                    T[] arrVal => arrVal.Length,
-                    IList<T> listVal => listVal.Count,
-                    _ => 0
-                };
+
+                //如果仍然为0则尝试自动探测资源文件数量
+                if (count == 0 && attribute.Mod != null) {
+                    count = ProbeAssetCount(attribute.Mod, origPath, attribute.StartIndex);
+                    if (count > 0) {
+                        VaultMod.Instance.Logger.Debug($"Auto-probed {count} assets for {member.Name} at path: {attribute.Mod.Name}/{origPath}");
+                    }
+                }
+
+                //如果仍然无法确定数量，返回空列表而非null
+                if (count == 0) {
+                    VaultMod.Instance.Logger.Debug($"No assets found for {member.Name} at path: {attribute.Mod?.Name}/{origPath}, returning empty list.");
+                    return new List<T>();
+                }
+
                 attribute.ArrayCount = count;
             }
 
             //按数量逐个加载
             var newList = new List<T>(count);
-            string origPath = attribute.Path;
             AssetMode origAssetMode = attribute.AssetMode;
             if (TypeToAssetModeMap.TryGetValue(typeof(T), out var assetMode)) {
                 attribute.AssetMode = assetMode;//进行集合类别的元素降级，防止无限迭代
             }
-            for (int i = attribute.StartIndex; i < attribute.ArrayCount; i++) {
+            for (int i = attribute.StartIndex; i < attribute.StartIndex + count; i++) {
                 attribute.Path = origPath + i;
                 newList.Add(LoadValue<T>(member, attribute));//这里如果处理不当会触发死循环，前面的orig参数用于避免这种情况
             }
@@ -353,7 +494,7 @@ namespace InnoVault
             }
 
             if (attribute.Mod == null) {//如果模组对象为null（例如外部模组未启用），使用默认值
-                VaultMod.Instance.Logger.Debug($"{member.MemberType} {member.Name} from Mod is Null, using default value instead.");
+                VaultMod.Instance.Logger.Warn($"{member.MemberType} {member.Name} from Mod is Null, using default value instead.");
                 //尝试为成员设置默认值
                 object defaultValue = GetDefaultValue(valueType);
                 if (member is FieldInfo fieldInfo) {
@@ -394,6 +535,32 @@ namespace InnoVault
         /// <param name="type">目标类型</param>
         /// <returns>该类型的默认值</returns>
         private static object GetDefaultValue(Type type) {
+            if (type == typeof(Texture2D)) {
+                return VaultAsset.placeholder3.Value;
+            }
+            else if (type == typeof(Asset<Texture2D>)) {
+                return VaultAsset.placeholder3;
+            }
+            else if (type == typeof(IList<Texture2D>)) {
+                return new List<Texture2D> { VaultAsset.placeholder3.Value };
+            }
+            else if (type == typeof(IList<Asset<Texture2D>>)) {
+                return new List<Asset<Texture2D>> { VaultAsset.placeholder3 };
+            }
+            //尝试从自定义加载器获取默认值
+            var customLoader = VaultLoadenHandleManager.FindLoader(type);
+            if (customLoader != null) {
+                return customLoader.GetDefaultValue(type);
+            }
+            //检查数组元素的自定义加载器
+            Type elementType = GetArrayElementType(type);
+            if (elementType != null) {
+                var arrayLoader = VaultLoadenHandleManager.FindArrayElementLoader(elementType);
+                if (arrayLoader != null) {
+                    var listType = typeof(List<>).MakeGenericType(elementType);
+                    return Activator.CreateInstance(listType);
+                }
+            }
             if (type.IsValueType) {
                 return Activator.CreateInstance(type);
             }
@@ -416,6 +583,8 @@ namespace InnoVault
             return asset;
         }
 
+        internal static Effect LoadEffectValue(VaultLoadenAttribute attribute) => LoadEffect(attribute, AssetRequestMode.ImmediateLoad).Value;
+
         internal static MiscShaderData LoadMiscShader(VaultLoadenAttribute attribute) {
             MiscShaderData miscShader = new MiscShaderData(LoadEffect(attribute), attribute.EffectPassname);
             string effectName = attribute.Path.Split('/')[^1];
@@ -426,16 +595,59 @@ namespace InnoVault
             return miscShader;
         }
 
-        internal static Texture2D LoadTextureValue(VaultLoadenAttribute attribute) {
-            Texture2D value = attribute.Mod.Assets.Request<Texture2D>(attribute.Path, AssetRequestMode.ImmediateLoad).Value;
-            TextureValues.Add(value);
-            return value;
+        internal static Asset<Texture2D> LoadTexture(VaultLoadenAttribute attribute, AssetRequestMode assetRequestMode = AssetRequestMode.AsyncLoad) {
+            if (attribute.Mod == null) {
+                return VaultAsset.placeholder3;
+            }
+            if (!attribute.Mod.HasAsset(attribute.Path)) {
+                VaultMod.Instance.Logger.Warn($"Texture asset not found: {attribute.Mod.Name}/{attribute.Path}. Using placeholder instead.");
+                return VaultAsset.placeholder3;
+            }
+            return attribute.Mod.Assets.Request<Texture2D>(attribute.Path, assetRequestMode);
         }
 
-        internal static Effect LoadEffectValue(VaultLoadenAttribute attribute) {
-            Effect effect = LoadEffect(attribute, AssetRequestMode.ImmediateLoad).Value;
-            EffectValues.Add(effect);
-            return effect;
+        internal static Texture2D LoadTextureValue(VaultLoadenAttribute attribute) => LoadTexture(attribute, AssetRequestMode.ImmediateLoad).Value;
+
+        /// <summary>
+        /// 自动探测指定路径下存在多少个连续编号的资源文件
+        /// 从startIndex开始迭代检测，直到找不到下一个序号的资源为止
+        /// </summary>
+        /// <param name="mod">目标模组实例</param>
+        /// <param name="basePath">资源基础路径(不含序号后缀)</param>
+        /// <param name="startIndex">起始序号，默认为0</param>
+        /// <param name="maxProbe">最大探测数量上限，防止无限循环，默认为1000</param>
+        /// <returns>探测到的资源文件数量</returns>
+        internal static int ProbeAssetCount(Mod mod, string basePath, int startIndex = 0, int maxProbe = 1000) {
+            if (mod == null || string.IsNullOrEmpty(basePath)) {
+                return 0;
+            }
+
+            int count = 0;
+            for (int i = startIndex; i < startIndex + maxProbe; i++) {
+                string probePath = basePath + i;
+                if (mod.HasAsset(probePath)) {
+                    count++;
+                }
+                else {
+                    //遇到第一个不存在的资源就停止探测
+                    break;
+                }
+            }
+
+            return count;
+        }
+
+        /// <summary>
+        /// 检测指定路径的资源是否存在
+        /// </summary>
+        /// <param name="mod">目标模组实例</param>
+        /// <param name="path">资源路径</param>
+        /// <returns>资源是否存在</returns>
+        internal static bool HasAssetSafe(Mod mod, string path) {
+            if (mod == null || string.IsNullOrEmpty(path)) {
+                return false;
+            }
+            return mod.HasAsset(path);
         }
 
         /// <summary>
@@ -461,8 +673,9 @@ namespace InnoVault
                     attribute.Mod = newMod;
                 }
                 else {
+                    string modName = attribute.Mod != null ? attribute.Mod.Name : pathParts[0];
                     //改为记录调试日志而非抛出异常，支持弱联动
-                    VaultMod.Instance.Logger.Debug($"Class {type.FullName} couldn't find Mod \"{pathParts[0]}\". Original Mod Name: \"{attribute.Mod.Name}\". " +
+                    VaultMod.Instance.Logger.Debug($"Class {type.FullName} couldn't find Mod \"{pathParts[0]}\". Original Mod Name: \"{modName}\". " +
                         $"Class resources will use default values instead.");
                     //将资源对象设置为null，后续会使用默认值
                     attribute.Mod = null;

@@ -1,4 +1,5 @@
-﻿using InnoVault.GameContent;
+﻿using InnoVault.Actors;
+using InnoVault.GameContent;
 using InnoVault.GameSystem;
 using InnoVault.TileProcessors;
 using System.IO;
@@ -10,7 +11,6 @@ namespace InnoVault
     {
         internal enum MessageType : byte
         {
-            NPCOverrideAI,
             NPCOverrideOtherAI,
             NPCOverrideNetWork,
             SendToClient_NPCOverrideRequestAllData,
@@ -37,6 +37,10 @@ namespace InnoVault
             GetServer_TPDataChunkPacketStartPos,
             GetServer_ResetTPDataChunkNet,
             Handler_TPRightClick,
+            NewActor,
+            ActorData,
+            KillActor,
+            RequestActiveActors,
         }
 
         internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
@@ -45,6 +49,7 @@ namespace InnoVault
             StaticImmunitySystem.HandlePacket(type, reader, whoAmI);
             TetheredPlayer.HandlePacket(type, reader, whoAmI);
             TileProcessorNetWork.HandlePacket(type, mod, reader, whoAmI);
+            ActorNetWork.Handle(type, mod, reader, whoAmI);
         }
     }
 }

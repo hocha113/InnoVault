@@ -272,7 +272,20 @@ namespace InnoVault.UIHandles
                 if (!ShouldModifyInterfaceLayers(ui.LayersMode)) {
                     continue;
                 }
-                ui.SaveUIData(tag);
+
+                try {
+                    //尝试读取旧数据，如果没有就新建
+                    if (!tag.TryGet(ui.FullName, out TagCompound uiTag)) {
+                        uiTag = [];
+                    }
+
+                    ui.SaveUIData(uiTag);
+                    if (uiTag.Count > 0) {
+                        tag[ui.FullName] = uiTag;
+                    }
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"An error occurred while saving the ui:{ex.Message}");
+                }
             }
         }
 
@@ -285,7 +298,34 @@ namespace InnoVault.UIHandles
                 if (!ShouldModifyInterfaceLayers(ui.LayersMode)) {
                     continue;
                 }
-                ui.LoadUIData(tag);
+
+                try {
+                    if (tag.TryGet(ui.FullName, out TagCompound uiTag) && uiTag.Count > 0) {
+                        ui.LoadUIData(uiTag);
+                    }
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"An error occurred while loading the ui:{ex.Message}");
+                }
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void SaveWorldData(TagCompound tag) {
+            tag["root:uiData"] = "";
+            try {
+                SaveMod.DoSave<UIDataSave>();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"An error occurred while saving the world:{ex.Message}");
+            }
+        }
+
+        /// <inheritdoc/>
+        public override void LoadWorldData(TagCompound tag) {
+            tag.TryGet("root:uiData", out string _);
+            try {
+                SaveMod.DoLoad<UIDataSave>();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"An error occurred while loading the world:{ex.Message}");
             }
         }
 

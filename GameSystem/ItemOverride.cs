@@ -255,6 +255,39 @@ namespace InnoVault.GameSystem
 
         }
         /// <summary>
+        /// 运行在物品微光转化之前，返回 <see langword="false"/> 可以阻止后续逻辑运行<br/>
+        /// 该钩子会在物品被浸泡在微光液体中时每帧调用，用于修改在物品转化为微光物品之前的行为<br/>
+        /// 如果需要修改物品最终转化为什么物品，请使用 <see cref="PreGetShimmered(Item)"/>
+        /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子
+        /// </summary>
+        /// <param name="item">物品实例，位于世界之中</param>
+        /// <returns></returns>
+        public virtual bool PreShimmering(Item item) => true;
+        /// <summary>
+        /// 运行在物品即将进行微光转化时，返回 <see langword="false"/> 可以阻止后续逻辑运行<br/>
+        /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子
+        /// </summary>
+        /// <param name="item"></param>
+        /// <returns></returns>
+        public virtual bool PreGetShimmered(Item item) => true;
+        /// <summary>
+        /// 运行在物品微光浸泡更新之后<br/>
+        /// 无论 <see cref="PreShimmering"/> 返回什么值，只要物品未被销毁，此钩子都会被调用<br/>
+        /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子
+        /// </summary>
+        /// <param name="item">物品实例，位于世界之中</param>
+        public virtual void PostShimmering(Item item) { }
+        /// <summary>
+        /// 运行在物品微光转化之后，通常用于进行一些额外的效果处理，或者二次修改转化结果<br/>
+        /// 无论 <see cref="PreGetShimmered"/> 返回什么值，只要物品未被销毁，此钩子都会被调用<br/>
+        /// 通过 <paramref name="shimmerOccurred"/> 参数可以判断转化是否实际发生<br/>
+        /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子<br/>
+        /// </summary>
+        /// <param name="originalType">转化前的物品类型 ID</param>
+        /// <param name="item">物品实例，位于世界之中，如果转化发生则为转化后的物品</param>
+        /// <param name="shimmerOccurred">指示微光转化是否实际发生，若为 <see langword="false"/> 表示转化被阻止</param>
+        public virtual void PostGetShimmered(int originalType, Item item, bool shimmerOccurred) { }
+        /// <summary>
         /// 进行背包中的物品绘制，这个函数会执行在Draw之后
         /// </summary>
         public virtual void PostDrawInInventory(Item item, SpriteBatch spriteBatch, Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale) {

@@ -212,6 +212,7 @@ namespace InnoVault.TileProcessors
         public static void TileProcessorInstanceDoSendData(TileProcessor tileProcessor, ModPacket modPacket) {
             try {
                 tileProcessor.SendData(modPacket);
+                SyncVarManager.Send(tileProcessor, modPacket);
             } catch (Exception ex) {
                 tileProcessor.SendCooldownTicks = 60;
                 string msg = $"TileProcessorInstanceDoSendData-Data Send Failure: {ex.Message}\n{ex.StackTrace}";
@@ -228,6 +229,7 @@ namespace InnoVault.TileProcessors
         public static void TileProcessorInstanceDoReceiveData(TileProcessor tileProcessor, BinaryReader reader, int whoAmI) {
             try {
                 tileProcessor.ReceiveData(reader, whoAmI);
+                SyncVarManager.Receive(tileProcessor, reader);
             } catch (Exception ex) {
                 tileProcessor.SendCooldownTicks = 60;
                 string msg = $"TileProcessorInstanceDoReceiveData-Data Reception Failure: {ex.Message}\n{ex.StackTrace}";

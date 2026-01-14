@@ -171,13 +171,15 @@ namespace InnoVault.UIHandles
         public virtual void OnEnterWorld() { }
 
         /// <summary>
-        /// 保存UI数据，UI数据将保存到玩家之上
+        /// 保存UI数据，UI数据将以<see cref="FullName"/>为键作为单例进行保存，<br/>
+        /// 如果没有存入数据，<see cref="LoadUIData"/>就不会被调用
         /// </summary>
         /// <param name="tag"></param>
         public virtual void SaveUIData(TagCompound tag) { }
 
         /// <summary>
-        /// 加载UI数据，UI数据将保存到玩家之上
+        /// 加载UI数据，UI数据将以<see cref="FullName"/>为键作为单例进行保存，<br/>
+        /// 如果 <see cref="SaveUIData"/> 没有存入数据，就不会调用该方法
         /// </summary>
         /// <param name="tag"></param>
         public virtual void LoadUIData(TagCompound tag) { }
