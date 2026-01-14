@@ -58,9 +58,9 @@ namespace InnoVault
 
             //左键：进入石头维度
             if (player.altFunctionUse != 2) {
-                if (!DimensionSystem.AnyActive()) {
+                if (!DimensionLoader.AnyActive()) {
                     //当前在主世界，进入石头维度
-                    if (DimensionSystem.Enter<StoneDimension>()) {
+                    if (DimensionLoader.Enter<StoneDimension>()) {
                         VaultUtils.Text("正在进入石头维度...", Color.Cyan);
                     }
                     else {
@@ -73,8 +73,8 @@ namespace InnoVault
             }
             //右键：退出维度
             else {
-                if (DimensionSystem.AnyActive()) {
-                    DimensionSystem.Exit();
+                if (DimensionLoader.AnyActive()) {
+                    DimensionLoader.Exit();
                     VaultUtils.Text("正在退出维度...", Color.Cyan);
                 }
                 else {

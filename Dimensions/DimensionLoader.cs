@@ -1,4 +1,4 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -21,92 +21,211 @@ using Terraria.WorldBuilding;
 namespace InnoVault.Dimensions
 {
     /// <summary>
-    /// Î¬¶ÈÏµÍ³ºËĞÄ¹ÜÀíÀà£¬¸ºÔğÎ¬¶ÈµÄ½øÈë¡¢ÍË³ö¡¢¸üĞÂºÍÊı¾İÍ¬²½
+    /// ç»´åº¦ç³»ç»Ÿæ ¸å¿ƒç®¡ç†ç±»ï¼Œè´Ÿè´£ç»´åº¦çš„è¿›å…¥ã€é€€å‡ºã€æ›´æ–°å’Œæ•°æ®åŒæ­¥
     /// </summary>
-    public class DimensionSystem : ModSystem
+    public class DimensionLoader : ModSystem
     {
-        #region ¾²Ì¬×´Ì¬
+        #region é™æ€çŠ¶æ€
         /// <summary>
-        /// µ±Ç°ËùÔÚµÄÎ¬¶È£¬null±íÊ¾ÔÚÖ÷ÊÀ½ç
+        /// å½“å‰æ‰€åœ¨çš„ç»´åº¦ï¼Œnullè¡¨ç¤ºåœ¨ä¸»ä¸–ç•Œ
         /// </summary>
         internal static Dimension current;
 
         /// <summary>
-        /// »º´æµÄÉÏÒ»¸öÎ¬¶È£¬ÓÃÓÚÊı¾İ´«µİ
+        /// ç¼“å­˜çš„ä¸Šä¸€ä¸ªç»´åº¦ï¼Œç”¨äºæ•°æ®ä¼ é€’
         /// </summary>
         internal static Dimension cache;
 
         /// <summary>
-        /// Ö÷ÊÀ½çµÄÎÄ¼şÊı¾İ
+        /// ä¸»ä¸–ç•Œçš„æ–‡ä»¶æ•°æ®
         /// </summary>
         private static WorldFileData mainWorld;
 
         /// <summary>
-        /// ÊÇ·ñÕıÔÚ¸´ÖÆÎ¬¶ÈÊı¾İ
+        /// æ˜¯å¦æ­£åœ¨å¤åˆ¶ç»´åº¦æ•°æ®
         /// </summary>
         private static bool copyingDimensionData;
 
         /// <summary>
-        /// ÓÃÓÚÊÀ½ç¼äÊı¾İ´«µİµÄ±êÇ©
+        /// ç”¨äºä¸–ç•Œé—´æ•°æ®ä¼ é€’çš„æ ‡ç­¾
         /// </summary>
         internal static TagCompound copiedData;
+
+        /// <summary>
+        /// æ˜¯å¦æ­£åœ¨ä»ç»´åº¦çŠ¶æ€æ¢å¤ï¼ˆé¿å…é‡å¤åŠ è½½ï¼‰
+        /// </summary>
+        private static bool isRestoringFromState;
+
+        /// <summary>
+        /// ç»´åº¦çŠ¶æ€æ–‡ä»¶ç‰ˆæœ¬å·
+        /// </summary>
+        private const int DimensionStateVersion = 1;
         #endregion
 
-        #region ¹«¿ªÊôĞÔ
+        #region ç»´åº¦çŠ¶æ€æŒä¹…åŒ–
         /// <summary>
-        /// Òş²Ø·µ»Ø°´Å¥
-        /// <br/>ÔÚ <see cref="Dimension.OnEnter"/> µ÷ÓÃÇ°ÖØÖÃ£¬ÔÚ <see cref="Dimension.OnExit"/> µ÷ÓÃºóÖØÖÃ
+        /// è·å–æŒ‡å®šä¸»ä¸–ç•Œçš„ç»´åº¦çŠ¶æ€æ–‡ä»¶è·¯å¾„
+        /// </summary>
+        /// <param name="worldUniqueId">ä¸»ä¸–ç•Œçš„å”¯ä¸€ID</param>
+        /// <returns>ç»´åº¦çŠ¶æ€æ–‡ä»¶çš„å®Œæ•´è·¯å¾„</returns>
+        private static string GetDimensionStatePath(Guid worldUniqueId) {
+            return Path.Combine(Main.WorldPath, worldUniqueId.ToString(), "dimension_state.dat");
+        }
+
+        /// <summary>
+        /// è·å–æŒ‡å®šä¸»ä¸–ç•Œçš„ç»´åº¦ç›®å½•è·¯å¾„
+        /// </summary>
+        /// <param name="worldUniqueId">ä¸»ä¸–ç•Œçš„å”¯ä¸€ID</param>
+        /// <returns>ç»´åº¦ç›®å½•çš„å®Œæ•´è·¯å¾„</returns>
+        public static string GetDimensionDirectory(Guid worldUniqueId) {
+            return Path.Combine(Main.WorldPath, worldUniqueId.ToString());
+        }
+
+        /// <summary>
+        /// ä¿å­˜å½“å‰ç»´åº¦çŠ¶æ€åˆ°æ–‡ä»¶
+        /// </summary>
+        /// <param name="worldUniqueId">ä¸»ä¸–ç•Œçš„å”¯ä¸€ID</param>
+        /// <param name="dimensionIndex">å½“å‰ç»´åº¦ç´¢å¼•ï¼Œ-1 è¡¨ç¤ºåœ¨ä¸»ä¸–ç•Œ</param>
+        private static void SaveDimensionState(Guid worldUniqueId, int dimensionIndex) {
+            try {
+                string statePath = GetDimensionStatePath(worldUniqueId);
+                string directory = Path.GetDirectoryName(statePath);
+                
+                if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory)) {
+                    Directory.CreateDirectory(directory);
+                }
+
+                using FileStream fs = new(statePath, FileMode.Create, FileAccess.Write);
+                using BinaryWriter writer = new(fs);
+                
+                writer.Write(DimensionStateVersion);
+                writer.Write(dimensionIndex);
+                
+                //ä¿å­˜ç»´åº¦çš„å®Œæ•´åç§°ä»¥ä¾¿è·¨æ¨¡ç»„åŠ è½½æ—¶éªŒè¯
+                if (dimensionIndex >= 0 && dimensionIndex < Dimension.Dimensions.Count) {
+                    writer.Write(Dimension.Dimensions[dimensionIndex].FullName);
+                }
+                else {
+                    writer.Write(string.Empty);
+                }
+
+                VaultMod.Instance.Logger.Info($"[DimensionSystem] ä¿å­˜ç»´åº¦çŠ¶æ€: ä¸–ç•Œ={worldUniqueId}, ç»´åº¦ç´¢å¼•={dimensionIndex}");
+            }
+            catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"[DimensionSystem] ä¿å­˜ç»´åº¦çŠ¶æ€å¤±è´¥: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// åŠ è½½æŒ‡å®šä¸»ä¸–ç•Œçš„ç»´åº¦çŠ¶æ€
+        /// </summary>
+        /// <param name="worldUniqueId">ä¸»ä¸–ç•Œçš„å”¯ä¸€ID</param>
+        /// <returns>ç»´åº¦ç´¢å¼•ï¼Œ-1 è¡¨ç¤ºåœ¨ä¸»ä¸–ç•Œæˆ–æ— çŠ¶æ€</returns>
+        private static int LoadDimensionState(Guid worldUniqueId) {
+            try {
+                string statePath = GetDimensionStatePath(worldUniqueId);
+                
+                if (!File.Exists(statePath)) {
+                    return -1;
+                }
+
+                using FileStream fs = new(statePath, FileMode.Open, FileAccess.Read);
+                using BinaryReader reader = new(fs);
+                
+                int version = reader.ReadInt32();
+                if (version != DimensionStateVersion) {
+                    VaultMod.Instance.Logger.Warn($"[DimensionSystem] ç»´åº¦çŠ¶æ€æ–‡ä»¶ç‰ˆæœ¬ä¸åŒ¹é…: æœŸæœ›={DimensionStateVersion}, å®é™…={version}");
+                    return -1;
+                }
+
+                int dimensionIndex = reader.ReadInt32();
+                string dimensionFullName = reader.ReadString();
+
+                //éªŒè¯ç»´åº¦æ˜¯å¦ä»ç„¶å­˜åœ¨
+                if (dimensionIndex >= 0 && !string.IsNullOrEmpty(dimensionFullName)) {
+                    //é€šè¿‡å®Œæ•´åç§°æŸ¥æ‰¾ç»´åº¦ï¼ˆæ¨¡ç»„é‡æ–°åŠ è½½åç´¢å¼•å¯èƒ½å˜åŒ–ï¼‰
+                    for (int i = 0; i < Dimension.Dimensions.Count; i++) {
+                        if (Dimension.Dimensions[i].FullName == dimensionFullName) {
+                            VaultMod.Instance.Logger.Info($"[DimensionSystem] åŠ è½½ç»´åº¦çŠ¶æ€: ä¸–ç•Œ={worldUniqueId}, ç»´åº¦={dimensionFullName}");
+                            return i;
+                        }
+                    }
+                    VaultMod.Instance.Logger.Warn($"[DimensionSystem] ç»´åº¦ '{dimensionFullName}' ä¸å†å­˜åœ¨ï¼Œå°†è¿”å›ä¸»ä¸–ç•Œ");
+                    return -1;
+                }
+
+                return dimensionIndex;
+            }
+            catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"[DimensionSystem] åŠ è½½ç»´åº¦çŠ¶æ€å¤±è´¥: {ex.Message}");
+                return -1;
+            }
+        }
+
+        /// <summary>
+        /// æ¸…é™¤æŒ‡å®šä¸»ä¸–ç•Œçš„ç»´åº¦çŠ¶æ€ï¼ˆç”¨äºæ­£å¸¸é€€å‡ºç»´åº¦æ—¶ï¼‰
+        /// </summary>
+        /// <param name="worldUniqueId">ä¸»ä¸–ç•Œçš„å”¯ä¸€ID</param>
+        private static void ClearDimensionState(Guid worldUniqueId) {
+            SaveDimensionState(worldUniqueId, -1);
+        }
+        #endregion
+
+        #region å…¬å¼€å±æ€§
+        /// <summary>
+        /// éšè—è¿”å›æŒ‰é’®
+        /// <br/>åœ¨ <see cref="Dimension.OnEnter"/> è°ƒç”¨å‰é‡ç½®ï¼Œåœ¨ <see cref="Dimension.OnExit"/> è°ƒç”¨åé‡ç½®
         /// </summary>
         public static bool NoReturn { get; set; }
 
         /// <summary>
-        /// Òş²ØµØÓü±³¾°
-        /// <br/>ÔÚ <see cref="Dimension.OnEnter"/> µ÷ÓÃÇ°ÖØÖÃ£¬ÔÚ <see cref="Dimension.OnExit"/> µ÷ÓÃºóÖØÖÃ
+        /// éšè—åœ°ç‹±èƒŒæ™¯
+        /// <br/>åœ¨ <see cref="Dimension.OnEnter"/> è°ƒç”¨å‰é‡ç½®ï¼Œåœ¨ <see cref="Dimension.OnExit"/> è°ƒç”¨åé‡ç½®
         /// </summary>
         public static bool HideUnderworld { get; set; }
 
         /// <summary>
-        /// µ±Ç°Î¬¶È
+        /// å½“å‰ç»´åº¦
         /// </summary>
         public static Dimension Current => current;
 
         /// <summary>
-        /// ¼ì²éµ±Ç°Î¬¶ÈIDÊÇ·ñÓëÖ¸¶¨IDÆ¥Åä
+        /// æ£€æŸ¥å½“å‰ç»´åº¦IDæ˜¯å¦ä¸æŒ‡å®šIDåŒ¹é…
         /// <code>DimensionSystem.IsActive("MyMod/MyDimension")</code>
         /// </summary>
         public static bool IsActive(string id) => current?.FullName == id;
 
         /// <summary>
-        /// ¼ì²éÖ¸¶¨Î¬¶ÈÊÇ·ñ¼¤»î
+        /// æ£€æŸ¥æŒ‡å®šç»´åº¦æ˜¯å¦æ¿€æ´»
         /// </summary>
         public static bool IsActive<T>() where T : Dimension => current?.GetType() == typeof(T);
 
         /// <summary>
-        /// ¼ì²éÊÇ·ñ²»ÔÚÖ÷ÊÀ½çÖĞ
+        /// æ£€æŸ¥æ˜¯å¦ä¸åœ¨ä¸»ä¸–ç•Œä¸­
         /// </summary>
         public static bool AnyActive() => current != null;
 
         /// <summary>
-        /// ¼ì²éµ±Ç°Î¬¶ÈÊÇ·ñÀ´×ÔÖ¸¶¨Ä£×é
+        /// æ£€æŸ¥å½“å‰ç»´åº¦æ˜¯å¦æ¥è‡ªæŒ‡å®šæ¨¡ç»„
         /// </summary>
         public static bool AnyActive(Mod mod) => current?.Mod == mod;
 
         /// <summary>
-        /// ¼ì²éµ±Ç°Î¬¶ÈÊÇ·ñÀ´×ÔÖ¸¶¨Ä£×é
+        /// æ£€æŸ¥å½“å‰ç»´åº¦æ˜¯å¦æ¥è‡ªæŒ‡å®šæ¨¡ç»„
         /// </summary>
         public static bool AnyActive<T>() where T : Mod => current?.Mod == ModContent.GetInstance<T>();
 
         /// <summary>
-        /// µ±Ç°Î¬¶ÈµÄÎÄ¼şÂ·¾¶
+        /// å½“å‰ç»´åº¦çš„æ–‡ä»¶è·¯å¾„
         /// </summary>
         public static string CurrentPath => mainWorld != null && current != null
             ? Path.Combine(Main.WorldPath, mainWorld.UniqueId.ToString(), current.FileName + ".wld")
             : string.Empty;
         #endregion
 
-        #region ½øÈë/ÍË³öÎ¬¶È
+        #region è¿›å…¥/é€€å‡ºç»´åº¦
         /// <summary>
-        /// ³¢ÊÔ½øÈëÖ¸¶¨IDµÄÎ¬¶È
+        /// å°è¯•è¿›å…¥æŒ‡å®šIDçš„ç»´åº¦
         /// <code>DimensionSystem.Enter("MyMod/MyDimension")</code>
         /// </summary>
         public static bool Enter(string id) {
@@ -124,7 +243,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ½øÈëÖ¸¶¨Î¬¶È
+        /// è¿›å…¥æŒ‡å®šç»´åº¦
         /// </summary>
         public static bool Enter<T>() where T : Dimension {
             if (current != cache) {
@@ -141,7 +260,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ÍË³öµ±Ç°Î¬¶È
+        /// é€€å‡ºå½“å‰ç»´åº¦
         /// </summary>
         public static void Exit() {
             if (current != null && current == cache) {
@@ -150,7 +269,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ¿ªÊ¼½øÈëÎ¬¶ÈµÄÁ÷³Ì
+        /// å¼€å§‹è¿›å…¥ç»´åº¦çš„æµç¨‹
         /// </summary>
         private static void BeginEntering(int index) {
             if (Main.netMode == NetmodeID.Server) {
@@ -158,7 +277,7 @@ namespace InnoVault.Dimensions
             }
 
             if (index == int.MinValue) {
-                //·µ»ØÖ÷²Ëµ¥
+                //è¿”å›ä¸»èœå•
                 current = null;
                 Main.gameMenu = true;
                 Task.Factory.StartNew(ExitWorldCallBack, null);
@@ -177,15 +296,15 @@ namespace InnoVault.Dimensions
                 return;
             }
 
-            //¶àÈËÄ£Ê½£º·¢ËÍÍøÂç°üÇëÇó½øÈëÎ¬¶È
+            //å¤šäººæ¨¡å¼ï¼šå‘é€ç½‘ç»œåŒ…è¯·æ±‚è¿›å…¥ç»´åº¦
             DimensionNetwork.SendEnterDimensionPacket(index);
         }
         #endregion
 
-        #region ÊÀ½çÊı¾İ¸´ÖÆ
+        #region ä¸–ç•Œæ•°æ®å¤åˆ¶
         /// <summary>
-        /// ÔÚ <see cref="Dimension.CopyMainWorldData"/> »ò <see cref="Dimension.OnExit"/> ÖĞµ÷ÓÃ
-        /// <br/>½«Êı¾İ´æ´¢µ½Ö¸¶¨¼üÏÂ£¬ÓÃÓÚÊÀ½ç¼ä´«µİ
+        /// åœ¨ <see cref="Dimension.CopyMainWorldData"/> æˆ– <see cref="Dimension.OnExit"/> ä¸­è°ƒç”¨
+        /// <br/>å°†æ•°æ®å­˜å‚¨åˆ°æŒ‡å®šé”®ä¸‹ï¼Œç”¨äºä¸–ç•Œé—´ä¼ é€’
         /// <code>DimensionSystem.CopyWorldData(nameof(DownedSystem.downedBoss), DownedSystem.downedBoss);</code>
         /// </summary>
         public static void CopyWorldData(string key, object data) {
@@ -195,14 +314,14 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ÔÚ <see cref="Dimension.ReadCopiedMainWorldData"/> »ò <see cref="Dimension.ReadCopiedDimensionData"/> ÖĞµ÷ÓÃ
-        /// <br/>¶ÁÈ¡´ÓÆäËûÊÀ½ç¸´ÖÆµÄÊı¾İ
+        /// åœ¨ <see cref="Dimension.ReadCopiedMainWorldData"/> æˆ– <see cref="Dimension.ReadCopiedDimensionData"/> ä¸­è°ƒç”¨
+        /// <br/>è¯»å–ä»å…¶ä»–ä¸–ç•Œå¤åˆ¶çš„æ•°æ®
         /// <code>DownedSystem.downedBoss = DimensionSystem.ReadCopiedWorldData&lt;bool&gt;(nameof(DownedSystem.downedBoss));</code>
         /// </summary>
         public static T ReadCopiedWorldData<T>(string key) => copiedData.Get<T>(key);
 
         /// <summary>
-        /// ¸´ÖÆÖ÷ÊÀ½çµÄºËĞÄÊı¾İ
+        /// å¤åˆ¶ä¸»ä¸–ç•Œçš„æ ¸å¿ƒæ•°æ®
         /// </summary>
         internal static void CopyMainWorldData() {
             copiedData["mainId"] = Main.ActiveWorldFileData.UniqueId.ToByteArray();
@@ -210,13 +329,13 @@ namespace InnoVault.Dimensions
             copiedData["gameMode"] = Main.ActiveWorldFileData.GameMode;
             copiedData["hardMode"] = Main.hardMode;
 
-            //¸´ÖÆÍ¼¼øÊı¾İ
+            //å¤åˆ¶å›¾é‰´æ•°æ®
             CopyBestiaryData();
 
-            //¸´ÖÆ´´ÒâÄ£Ê½ÄÜÁ¦Êı¾İ
+            //å¤åˆ¶åˆ›æ„æ¨¡å¼èƒ½åŠ›æ•°æ®
             CopyCreativePowersData();
 
-            //¸´ÖÆÊÀ½çÌØÊâ±ê¼Ç
+            //å¤åˆ¶ä¸–ç•Œç‰¹æ®Šæ ‡è®°
             copiedData[nameof(Main.drunkWorld)] = Main.drunkWorld;
             copiedData[nameof(Main.getGoodWorld)] = Main.getGoodWorld;
             copiedData[nameof(Main.tenthAnniversaryWorld)] = Main.tenthAnniversaryWorld;
@@ -226,17 +345,17 @@ namespace InnoVault.Dimensions
             copiedData[nameof(Main.noTrapsWorld)] = Main.noTrapsWorld;
             copiedData[nameof(Main.zenithWorld)] = Main.zenithWorld;
 
-            //¸´ÖÆBoss»÷É±×´Ì¬
+            //å¤åˆ¶Bosså‡»æ€çŠ¶æ€
             CopyDownedData();
 
-            //µ÷ÓÃËùÓĞ ICopyDimensionData µÄ¸´ÖÆ·½·¨
+            //è°ƒç”¨æ‰€æœ‰ ICopyDimensionData çš„å¤åˆ¶æ–¹æ³•
             foreach (ICopyDimensionData data in ModContent.GetContent<ICopyDimensionData>()) {
                 data.CopyMainWorldData();
             }
         }
 
         /// <summary>
-        /// ¶ÁÈ¡¸´ÖÆµÄÖ÷ÊÀ½çÊı¾İ
+        /// è¯»å–å¤åˆ¶çš„ä¸»ä¸–ç•Œæ•°æ®
         /// </summary>
         internal static void ReadCopiedMainWorldData() {
             mainWorld.UniqueId = new Guid(copiedData.Get<byte[]>("mainId"));
@@ -244,13 +363,13 @@ namespace InnoVault.Dimensions
             Main.GameMode = copiedData.Get<int>("gameMode");
             Main.hardMode = copiedData.Get<bool>("hardMode");
 
-            //¶ÁÈ¡Í¼¼øÊı¾İ
+            //è¯»å–å›¾é‰´æ•°æ®
             ReadBestiaryData();
 
-            //¶ÁÈ¡´´ÒâÄ£Ê½ÄÜÁ¦Êı¾İ
+            //è¯»å–åˆ›æ„æ¨¡å¼èƒ½åŠ›æ•°æ®
             ReadCreativePowersData();
 
-            //¶ÁÈ¡ÊÀ½çÌØÊâ±ê¼Ç
+            //è¯»å–ä¸–ç•Œç‰¹æ®Šæ ‡è®°
             Main.drunkWorld = copiedData.Get<bool>(nameof(Main.drunkWorld));
             Main.getGoodWorld = copiedData.Get<bool>(nameof(Main.getGoodWorld));
             Main.tenthAnniversaryWorld = copiedData.Get<bool>(nameof(Main.tenthAnniversaryWorld));
@@ -260,17 +379,17 @@ namespace InnoVault.Dimensions
             Main.noTrapsWorld = copiedData.Get<bool>(nameof(Main.noTrapsWorld));
             Main.zenithWorld = copiedData.Get<bool>(nameof(Main.zenithWorld));
 
-            //¶ÁÈ¡Boss»÷É±×´Ì¬
+            //è¯»å–Bosså‡»æ€çŠ¶æ€
             ReadDownedData();
 
-            //µ÷ÓÃËùÓĞ ICopyDimensionData µÄ¶ÁÈ¡·½·¨
+            //è°ƒç”¨æ‰€æœ‰ ICopyDimensionData çš„è¯»å–æ–¹æ³•
             foreach (ICopyDimensionData data in ModContent.GetContent<ICopyDimensionData>()) {
                 data.ReadCopiedMainWorldData();
             }
         }
         #endregion
 
-        #region Í¼¼øÊı¾İ¸´ÖÆ
+        #region å›¾é‰´æ•°æ®å¤åˆ¶
         private static void CopyBestiaryData() {
             using MemoryStream stream = new();
             using BinaryWriter writer = new(stream);
@@ -333,7 +452,7 @@ namespace InnoVault.Dimensions
         }
         #endregion
 
-        #region ´´ÒâÄ£Ê½ÄÜÁ¦Êı¾İ¸´ÖÆ
+        #region åˆ›æ„æ¨¡å¼èƒ½åŠ›æ•°æ®å¤åˆ¶
         private static void CopyCreativePowersData() {
             using MemoryStream stream = new();
             using BinaryWriter writer = new(stream);
@@ -364,7 +483,7 @@ namespace InnoVault.Dimensions
         }
         #endregion
 
-        #region Boss»÷É±×´Ì¬¸´ÖÆ
+        #region Bosså‡»æ€çŠ¶æ€å¤åˆ¶
         private static void CopyDownedData() {
             copiedData[nameof(NPC.downedSlimeKing)] = NPC.downedSlimeKing;
             copiedData[nameof(NPC.downedBoss1)] = NPC.downedBoss1;
@@ -440,9 +559,9 @@ namespace InnoVault.Dimensions
         }
         #endregion
 
-        #region ÊÀ½ç¼ÓÔØ/Ğ¶ÔØ»Øµ÷
+        #region ä¸–ç•ŒåŠ è½½/å¸è½½å›è°ƒ
         /// <summary>
-        /// ÍË³öÊÀ½çµÄ»Øµ÷£¬ÔËĞĞÔÚºóÌ¨Ïß³Ì
+        /// é€€å‡ºä¸–ç•Œçš„å›è°ƒï¼Œè¿è¡Œåœ¨åå°çº¿ç¨‹
         /// </summary>
         internal static void ExitWorldCallBack(object index) {
             int netMode = Main.netMode;
@@ -463,11 +582,36 @@ namespace InnoVault.Dimensions
                     }
                     if ((int)index >= 0) {
                         CopyMainWorldData();
+                        
+                        //ä¿å­˜ç»´åº¦çŠ¶æ€ï¼šç©å®¶æ­£åœ¨è¿›å…¥ç»´åº¦
+                        if (mainWorld != null) {
+                            SaveDimensionState(mainWorld.UniqueId, (int)index);
+                        }
+                    }
+                    else if (mainWorld != null) {
+                        //ç©å®¶æ­£åœ¨è¿”å›ä¸»ä¸–ç•Œï¼Œæ¸…é™¤ç»´åº¦çŠ¶æ€
+                        ClearDimensionState(mainWorld.UniqueId);
                     }
                 }
                 else {
                     Netplay.Connection.State = 3;
                     cache?.OnExit();
+                }
+            }
+            else {
+                //ç©å®¶ç›´æ¥é€€å‡ºæ¸¸æˆï¼ˆindex == nullï¼‰
+                //å¦‚æœå½“å‰åœ¨ç»´åº¦ä¸­ï¼Œä¿å­˜ç»´åº¦çŠ¶æ€ä»¥ä¾¿ä¸‹æ¬¡æ¢å¤
+                if (mainWorld != null && current != null) {
+                    int currentIndex = -1;
+                    for (int i = 0; i < Dimension.Dimensions.Count; i++) {
+                        if (Dimension.Dimensions[i] == current) {
+                            currentIndex = i;
+                            break;
+                        }
+                    }
+                    if (currentIndex >= 0) {
+                        SaveDimensionState(mainWorld.UniqueId, currentIndex);
+                    }
                 }
             }
 
@@ -509,7 +653,9 @@ namespace InnoVault.Dimensions
             Main.UpdateTimeRate();
 
             if (index == null) {
-                cache = null;
+                //ç©å®¶ç›´æ¥é€€å‡ºåˆ°ä¸»èœå•
+                //é‡ç½®æ‰€æœ‰ç»´åº¦çŠ¶æ€ï¼Œé¿å…æ±¡æŸ“ä¸‹æ¬¡è¿›å…¥çš„ä¸–ç•Œ
+                ResetAllDimensionState();
                 Main.menuMode = 0;
                 return;
             }
@@ -535,7 +681,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ¼ÓÔØÊÀ½ç£¨Î¬¶È»òÖ÷ÊÀ½ç£©
+        /// åŠ è½½ä¸–ç•Œï¼ˆç»´åº¦æˆ–ä¸»ä¸–ç•Œï¼‰
         /// </summary>
         private static void LoadWorld() {
             bool isDimension = current != null;
@@ -608,7 +754,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ¼ÓÔØÎ¬¶È£¨Éú³ÉĞÂÊÀ½ç»ò´ÓÎÄ¼ş¼ÓÔØ£©
+        /// åŠ è½½ç»´åº¦ï¼ˆç”Ÿæˆæ–°ä¸–ç•Œæˆ–ä»æ–‡ä»¶åŠ è½½ï¼‰
         /// </summary>
         private static void LoadDimension(string path, bool cloud) {
             Main.worldName = current.DisplayName.Value;
@@ -671,7 +817,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ³¢ÊÔ¼ÓÔØÊÀ½çÎÄ¼ş
+        /// å°è¯•åŠ è½½ä¸–ç•Œæ–‡ä»¶
         /// </summary>
         private static void TryLoadWorldFile(string path, bool cloud, int tries) {
             LoadWorldFile(path, cloud);
@@ -719,7 +865,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ¼ÓÔØÊÀ½çÎÄ¼ş
+        /// åŠ è½½ä¸–ç•Œæ–‡ä»¶
         /// </summary>
         private static void LoadWorldFile(string path, bool cloud) {
             bool flag = cloud && SocialAPI.Cloud != null;
@@ -741,7 +887,7 @@ namespace InnoVault.Dimensions
                 }
                 SystemLoader.OnWorldLoad();
 
-                //µ÷ÓÃ tModLoader µÄÊÀ½ç¼ÓÔØ
+                //è°ƒç”¨ tModLoader çš„ä¸–ç•ŒåŠ è½½
                 typeof(ModLoader).Assembly.GetType("Terraria.ModLoader.IO.WorldIO")
                     .GetMethod("Load", BindingFlags.NonPublic | BindingFlags.Static)
                     .Invoke(null, [path, flag]);
@@ -772,7 +918,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ÊÀ½çÎÄ¼ş¼ÓÔØºóµÄ´¦Àí
+        /// ä¸–ç•Œæ–‡ä»¶åŠ è½½åçš„å¤„ç†
         /// </summary>
         internal static void PostLoadWorldFile() {
             GenVars.waterLine = Main.maxTilesY;
@@ -809,9 +955,9 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ¸üĞÂÎ¬¶ÈÖĞÍæ¼ÒµÄÖØÁ¦
+        /// æ›´æ–°ç»´åº¦ä¸­ç©å®¶çš„é‡åŠ›
         /// </summary>
-        /// <param name="player">Íæ¼ÒÊµÀı</param>
+        /// <param name="player">ç©å®¶å®ä¾‹</param>
         public static void UpdateDimensionPlayerGravity(Player player) {
             if (Current == null) {
                 return;
@@ -824,10 +970,10 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// »ñÈ¡Ö¸¶¨ÀàĞÍÎ¬¶ÈµÄÊµÀı
+        /// è·å–æŒ‡å®šç±»å‹ç»´åº¦çš„å®ä¾‹
         /// </summary>
-        /// <typeparam name="T">Î¬¶ÈÀàĞÍ</typeparam>
-        /// <returns>Î¬¶ÈÊµÀı£¬Èç¹û²»´æÔÚÔò·µ»Ø null</returns>
+        /// <typeparam name="T">ç»´åº¦ç±»å‹</typeparam>
+        /// <returns>ç»´åº¦å®ä¾‹ï¼Œå¦‚æœä¸å­˜åœ¨åˆ™è¿”å› null</returns>
         public static T GetDimension<T>() where T : Dimension {
             foreach (var dimension in Dimension.Dimensions) {
                 if (dimension is T typedDimension) {
@@ -838,21 +984,21 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ³¢ÊÔ»ñÈ¡Ö¸¶¨ÀàĞÍµÄÎ¬¶ÈÊµÀı
+        /// å°è¯•è·å–æŒ‡å®šç±»å‹çš„ç»´åº¦å®ä¾‹
         /// </summary>
-        /// <typeparam name="T">Î¬¶ÈÀàĞÍ</typeparam>
-        /// <param name="dimension">Êä³öµÄÎ¬¶ÈÊµÀı</param>
-        /// <returns>ÊÇ·ñ³É¹¦»ñÈ¡</returns>
+        /// <typeparam name="T">ç»´åº¦ç±»å‹</typeparam>
+        /// <param name="dimension">è¾“å‡ºçš„ç»´åº¦å®ä¾‹</param>
+        /// <returns>æ˜¯å¦æˆåŠŸè·å–</returns>
         public static bool TryGetDimension<T>(out T dimension) where T : Dimension {
             dimension = GetDimension<T>();
             return dimension != null;
         }
 
         /// <summary>
-        /// Í¨¹ıÍêÕûÃû³Æ»ñÈ¡Î¬¶ÈÊµÀı
+        /// é€šè¿‡å®Œæ•´åç§°è·å–ç»´åº¦å®ä¾‹
         /// </summary>
-        /// <param name="fullName">ÍêÕûÃû³Æ£¨¸ñÊ½£ºModName/DimensionName£©</param>
-        /// <returns>Î¬¶ÈÊµÀı£¬Èç¹û²»´æÔÚÔò·µ»Ø null</returns>
+        /// <param name="fullName">å®Œæ•´åç§°ï¼ˆæ ¼å¼ï¼šModName/DimensionNameï¼‰</param>
+        /// <returns>ç»´åº¦å®ä¾‹ï¼Œå¦‚æœä¸å­˜åœ¨åˆ™è¿”å› null</returns>
         public static Dimension GetDimension(string fullName) {
             foreach (var dimension in Dimension.Dimensions) {
                 if (dimension.FullName == fullName) {
@@ -863,9 +1009,9 @@ namespace InnoVault.Dimensions
         }
         #endregion
 
-        #region ModSystem ÉúÃüÖÜÆÚ
+        #region ModSystem ç”Ÿå‘½å‘¨æœŸ
         /// <summary>
-        /// Íæ¼Ò½øÈëÊÀ½çÊ±µÄÊÂ¼ş´¦Àí
+        /// ç©å®¶è¿›å…¥ä¸–ç•Œæ—¶çš„äº‹ä»¶å¤„ç†
         /// </summary>
         internal static void OnEnterWorld(Player player) {
             if (Main.netMode == NetmodeID.MultiplayerClient) {
@@ -873,17 +1019,55 @@ namespace InnoVault.Dimensions
                 current?.OnLoad();
             }
             cache = current;
+
+            //ä»…åœ¨ä¸»ä¸–ç•Œæ—¶æ£€æŸ¥æ˜¯å¦éœ€è¦æ¢å¤ç»´åº¦çŠ¶æ€
+            if (current == null && !isRestoringFromState && Main.netMode == NetmodeID.SinglePlayer) {
+                TryRestoreDimensionState();
+            }
         }
 
         /// <summary>
-        /// ¶Ï¿ªÁ¬½ÓÊ±µÄÊÂ¼ş´¦Àí
+        /// å°è¯•ä»ä¿å­˜çš„çŠ¶æ€æ¢å¤ç»´åº¦
+        /// </summary>
+        private static void TryRestoreDimensionState() {
+            if (Main.ActiveWorldFileData == null) {
+                return;
+            }
+
+            Guid worldId = Main.ActiveWorldFileData.UniqueId;
+            int savedDimensionIndex = LoadDimensionState(worldId);
+
+            if (savedDimensionIndex >= 0 && savedDimensionIndex < Dimension.Dimensions.Count) {
+                isRestoringFromState = true;
+                
+                VaultMod.Instance.Logger.Info($"[DimensionSystem] æ£€æµ‹åˆ°ç»´åº¦çŠ¶æ€ï¼Œæ­£åœ¨æ¢å¤åˆ°ç»´åº¦: {Dimension.Dimensions[savedDimensionIndex].FullName}");
+                
+                //å»¶è¿Ÿè¿›å…¥ç»´åº¦ï¼Œç¡®ä¿ä¸–ç•Œå®Œå…¨åŠ è½½
+                Main.QueueMainThreadAction(() => {
+                    //è®¾ç½®ä¸»ä¸–ç•Œå¼•ç”¨
+                    mainWorld = Main.ActiveWorldFileData;
+                    
+                    //è¿›å…¥ä¿å­˜çš„ç»´åº¦
+                    current = Dimension.Dimensions[savedDimensionIndex];
+                    Main.gameMenu = true;
+
+                    Task.Factory.StartNew(ExitWorldCallBack, savedDimensionIndex);
+                    
+                    isRestoringFromState = false;
+                });
+            }
+        }
+
+        /// <summary>
+        /// æ–­å¼€è¿æ¥æ—¶çš„äº‹ä»¶å¤„ç†
         /// </summary>
         internal static void OnDisconnect() {
             if (current != null || cache != null) {
                 Main.menuMode = 14;
             }
-            current = null;
-            cache = null;
+            
+            //é‡ç½®æ‰€æœ‰ç»´åº¦ç›¸å…³çŠ¶æ€ï¼Œé¿å…æ±¡æŸ“ä¸‹æ¬¡è¿›å…¥çš„ä¸–ç•Œ
+            ResetAllDimensionState();
         }
 
         /// <inheritdoc/>
@@ -893,14 +1077,52 @@ namespace InnoVault.Dimensions
         }
 
         /// <inheritdoc/>
-        public override void Unload() {
-            Player.Hooks.OnEnterWorld -= OnEnterWorld;
-            Netplay.OnDisconnect -= OnDisconnect;
+        public override void PreSaveAndQuit() {
+            //å½“ç©å®¶é€šè¿‡"ä¿å­˜å¹¶é€€å‡º"æŒ‰é’®é€€å‡ºæ—¶è°ƒç”¨
+            //å¦‚æœå½“å‰åœ¨ç»´åº¦ä¸­ï¼Œä¿å­˜ç»´åº¦çŠ¶æ€
+            if (current != null && mainWorld != null) {
+                int currentIndex = -1;
+                for (int i = 0; i < Dimension.Dimensions.Count; i++) {
+                    if (Dimension.Dimensions[i] == current) {
+                        currentIndex = i;
+                        break;
+                    }
+                }
+                if (currentIndex >= 0) {
+                    SaveDimensionState(mainWorld.UniqueId, currentIndex);
+                    VaultMod.Instance.Logger.Info($"[DimensionSystem] ç©å®¶åœ¨ç»´åº¦ä¸­é€€å‡ºï¼Œå·²ä¿å­˜ç»´åº¦çŠ¶æ€");
+                }
+            }
+            
+            //é‡ç½®æ‰€æœ‰ç»´åº¦çŠ¶æ€ï¼Œé¿å…æ±¡æŸ“ä¸‹æ¬¡è¿›å…¥çš„ä¸–ç•Œ
+            ResetAllDimensionState();
+        }
 
+        /// <summary>
+        /// é‡ç½®æ‰€æœ‰ç»´åº¦ç›¸å…³çš„å†…å­˜çŠ¶æ€
+        /// </summary>
+        private static void ResetAllDimensionState() {
             current = null;
             cache = null;
             mainWorld = null;
             copiedData = null;
+            isRestoringFromState = false;
+            NoReturn = false;
+            HideUnderworld = false;
+        }
+
+        /// <inheritdoc/>
+        public override void OnWorldUnload() {
+            //å½“ä¸–ç•Œå¸è½½æ—¶è°ƒç”¨
+            //æ³¨æ„ï¼šç»´åº¦åˆ‡æ¢æ—¶ä¹Ÿä¼šè§¦å‘ï¼Œéœ€è¦åˆ¤æ–­æ˜¯å¦æ˜¯çœŸæ­£çš„é€€å‡º
+        }
+
+        /// <inheritdoc/>
+        public override void Unload() {
+            Player.Hooks.OnEnterWorld -= OnEnterWorld;
+            Netplay.OnDisconnect -= OnDisconnect;
+
+            ResetAllDimensionState();
         }
         #endregion
     }

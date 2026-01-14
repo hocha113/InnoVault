@@ -1,4 +1,4 @@
-using System.IO;
+ï»¿using System.IO;
 using Terraria;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -6,31 +6,31 @@ using Terraria.ModLoader;
 namespace InnoVault.Dimensions
 {
     /// <summary>
-    /// Î¬¶ÈÍøÂçÏûÏ¢ÀàĞÍ
+    /// ç»´åº¦ç½‘ç»œæ¶ˆæ¯ç±»å‹
     /// </summary>
     internal enum DimensionNetType : byte
     {
         /// <summary>
-        /// ÇëÇó½øÈëÎ¬¶È
+        /// è¯·æ±‚è¿›å…¥ç»´åº¦
         /// </summary>
         EnterDimension = 0,
         /// <summary>
-        /// Í¬²½Î¬¶È×´Ì¬
+        /// åŒæ­¥ç»´åº¦çŠ¶æ€
         /// </summary>
         SyncDimensionState = 1,
         /// <summary>
-        /// Î¬¶ÈÊı¾İÍ¬²½
+        /// ç»´åº¦æ•°æ®åŒæ­¥
         /// </summary>
         SyncDimensionData = 2
     }
 
     /// <summary>
-    /// Î¬¶ÈÏµÍ³µÄÍøÂç´¦ÀíÀà
+    /// ç»´åº¦ç³»ç»Ÿçš„ç½‘ç»œå¤„ç†ç±»
     /// </summary>
     public static class DimensionNetwork
     {
         /// <summary>
-        /// »ñÈ¡Î¬¶ÈÍøÂçÏûÏ¢µÄModPacket
+        /// è·å–ç»´åº¦ç½‘ç»œæ¶ˆæ¯çš„ModPacket
         /// </summary>
         internal static ModPacket GetPacket(DimensionNetType type) {
             ModPacket packet = VaultMod.Instance.GetPacket();
@@ -40,7 +40,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ´¦ÀíÎ¬¶ÈÏà¹ØµÄÍøÂçÏûÏ¢
+        /// å¤„ç†ç»´åº¦ç›¸å…³çš„ç½‘ç»œæ¶ˆæ¯
         /// </summary>
         internal static void HandlePacket(MessageType type, BinaryReader reader, int whoAmI) {
             if (type != MessageType.DimensionMessage) {
@@ -60,7 +60,7 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ·¢ËÍ½øÈëÎ¬¶ÈÇëÇó
+        /// å‘é€è¿›å…¥ç»´åº¦è¯·æ±‚
         /// </summary>
         internal static void SendEnterDimensionPacket(int dimensionIndex) {
             if (Main.netMode != NetmodeID.MultiplayerClient) {
@@ -73,15 +73,15 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ´¦Àí½øÈëÎ¬¶ÈÇëÇó
+        /// å¤„ç†è¿›å…¥ç»´åº¦è¯·æ±‚
         /// </summary>
         private static void HandleEnterDimension(BinaryReader reader, int whoAmI) {
             int dimensionIndex = reader.ReadInt32();
 
             if (Main.netMode == NetmodeID.Server) {
-                //·şÎñÆ÷´¦Àí£ºÑéÖ¤²¢¹ã²¥¸øÆäËû¿Í»§¶Ë
+                //æœåŠ¡å™¨å¤„ç†ï¼šéªŒè¯å¹¶å¹¿æ’­ç»™å…¶ä»–å®¢æˆ·ç«¯
                 if (dimensionIndex >= 0 && dimensionIndex < Dimension.Dimensions.Count) {
-                    //ÏòËùÓĞ¿Í»§¶Ë¹ã²¥Î¬¶È×´Ì¬±ä»¯
+                    //å‘æ‰€æœ‰å®¢æˆ·ç«¯å¹¿æ’­ç»´åº¦çŠ¶æ€å˜åŒ–
                     ModPacket packet = GetPacket(DimensionNetType.SyncDimensionState);
                     packet.Write(whoAmI);
                     packet.Write(dimensionIndex);
@@ -91,21 +91,21 @@ namespace InnoVault.Dimensions
         }
 
         /// <summary>
-        /// ´¦ÀíÎ¬¶È×´Ì¬Í¬²½
+        /// å¤„ç†ç»´åº¦çŠ¶æ€åŒæ­¥
         /// </summary>
         private static void HandleSyncDimensionState(BinaryReader reader, int whoAmI) {
             int playerIndex = reader.ReadInt32();
             int dimensionIndex = reader.ReadInt32();
 
             if (Main.netMode == NetmodeID.MultiplayerClient) {
-                //¿Í»§¶Ë½ÓÊÕ£º¸üĞÂ±¾µØ×´Ì¬
-                //ÕâÀï¿ÉÒÔÏÔÊ¾ÆäËûÍæ¼Ò½øÈëÎ¬¶ÈµÄÌáÊ¾µÈ
+                //å®¢æˆ·ç«¯æ¥æ”¶ï¼šæ›´æ–°æœ¬åœ°çŠ¶æ€
+                //è¿™é‡Œå¯ä»¥æ˜¾ç¤ºå…¶ä»–ç©å®¶è¿›å…¥ç»´åº¦çš„æç¤ºç­‰
                 VaultMod.Instance.Logger.Debug($"Player {playerIndex} entered dimension {dimensionIndex}");
             }
         }
 
         /// <summary>
-        /// ·¢ËÍÎ¬¶ÈÊı¾İÍ¬²½
+        /// å‘é€ç»´åº¦æ•°æ®åŒæ­¥
         /// </summary>
         internal static void SendDimensionData(int toClient = -1, int ignoreClient = -1) {
             if (Main.netMode != NetmodeID.Server) {
@@ -114,21 +114,21 @@ namespace InnoVault.Dimensions
 
             ModPacket packet = GetPacket(DimensionNetType.SyncDimensionData);
 
-            //Ğ´Èëµ±Ç°Î¬¶ÈË÷Òı
-            int currentIndex = DimensionSystem.Current != null ? DimensionSystem.Current.ID : -1;
+            //å†™å…¥å½“å‰ç»´åº¦ç´¢å¼•
+            int currentIndex = DimensionLoader.Current != null ? DimensionLoader.Current.ID : -1;
             packet.Write(currentIndex);
 
             packet.Send(toClient, ignoreClient);
         }
 
         /// <summary>
-        /// ´¦ÀíÎ¬¶ÈÊı¾İÍ¬²½
+        /// å¤„ç†ç»´åº¦æ•°æ®åŒæ­¥
         /// </summary>
         private static void HandleSyncDimensionData(BinaryReader reader, int whoAmI) {
             int dimensionIndex = reader.ReadInt32();
 
             if (Main.netMode == NetmodeID.MultiplayerClient) {
-                //¿Í»§¶Ë¸üĞÂ±¾µØÎ¬¶È×´Ì¬
+                //å®¢æˆ·ç«¯æ›´æ–°æœ¬åœ°ç»´åº¦çŠ¶æ€
                 VaultMod.Instance.Logger.Debug($"Synced dimension index: {dimensionIndex}");
             }
         }

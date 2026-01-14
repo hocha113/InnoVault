@@ -202,7 +202,7 @@ namespace InnoVault.Dimensions
         /// <br/>需要了解原版世界文件加载机制才能正确重写
         /// </summary>
         public virtual void PostReadFile() {
-            DimensionSystem.PostLoadWorldFile();
+            DimensionLoader.PostLoadWorldFile();
         }
         #endregion
 

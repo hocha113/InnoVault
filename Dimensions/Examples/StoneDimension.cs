@@ -25,7 +25,7 @@ namespace InnoVault.Dimensions.Examples
         ];
 
         /// <inheritdoc/>
-        public override bool ShouldSave => false;
+        public override bool ShouldSave => true;
 
         /// <inheritdoc/>
         public override void OnEnter() {
