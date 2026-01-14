@@ -1039,9 +1039,7 @@ namespace InnoVault.Dimensions
 
             if (savedDimensionIndex >= 0 && savedDimensionIndex < Dimension.Dimensions.Count) {
                 isRestoringFromState = true;
-                
-                VaultMod.Instance.Logger.Info($"[DimensionSystem] 检测到维度状态，正在恢复到维度: {Dimension.Dimensions[savedDimensionIndex].FullName}");
-                
+
                 //延迟进入维度，确保世界完全加载
                 Main.QueueMainThreadAction(() => {
                     //设置主世界引用
@@ -1090,7 +1088,6 @@ namespace InnoVault.Dimensions
                 }
                 if (currentIndex >= 0) {
                     SaveDimensionState(mainWorld.UniqueId, currentIndex);
-                    VaultMod.Instance.Logger.Info($"[DimensionSystem] 玩家在维度中退出，已保存维度状态");
                 }
             }
             
