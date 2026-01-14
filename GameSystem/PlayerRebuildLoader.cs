@@ -309,8 +309,6 @@ namespace InnoVault.GameSystem
             if (TryFetchByPlayer(player, out var values))
                 foreach (var value in SnapshotOverrides(values))
                     value.ModifyGravity(ref player.gravity);
-
-            DimensionLoader.UpdateDimensionPlayerGravity(player);
         }
 
         private static void On_ModifyHitNPCWithItemHook(On_ModifyHitNPCWithItem_Dalegate orig

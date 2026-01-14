@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using Terraria;
-using Terraria.IO;
 
 namespace InnoVault.GameSystem
 {
@@ -20,15 +19,6 @@ namespace InnoVault.GameSystem
                 if (!VaultLoad.LoadenContent) {
                     return string.Empty;
                 }
-
-                //如果在维度中，使用维度系统提供的主世界数据
-                if (Dimensions.DimensionLoader.AnyActive()) {
-                    WorldFileData mainWorld = Dimensions.DimensionLoader.MainWorldData;
-                    if (mainWorld != null) {
-                        return Path.GetFileNameWithoutExtension(mainWorld.Path) ?? mainWorld.Name;
-                    }
-                }
-
                 //在主世界中，使用当前世界数据
                 return Path.GetFileNameWithoutExtension(Main.worldPathName) ?? Main.worldName + Main.worldID;
             }
