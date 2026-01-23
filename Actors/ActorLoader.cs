@@ -50,7 +50,7 @@ namespace InnoVault.Actors
             HookPreDraw = AddHook<Func<SpriteBatch, Actor, Color, bool>>(a => a.PreDraw);
             HookPostDraw = AddHook<Action<SpriteBatch, Actor, Color>>(a => a.PostDraw);
 
-            On_Main.DrawBackgroundBlackFill += DrawBeforeTilesHook;
+            On_Main.DoDraw_WallsAndBlacks += DrawBeforeTilesHook;
             On_LegacyPlayerRenderer.DrawPlayers += DrawPlayersHook;
             On_Main.DrawInfernoRings += DrawDefaultHook;
         }
@@ -65,7 +65,7 @@ namespace InnoVault.Actors
             HookPreDraw = null;
             HookPostDraw = null;
 
-            On_Main.DrawBackgroundBlackFill -= DrawBeforeTilesHook;
+            On_Main.DoDraw_WallsAndBlacks -= DrawBeforeTilesHook;
             On_LegacyPlayerRenderer.DrawPlayers -= DrawPlayersHook;
             On_Main.DrawInfernoRings -= DrawDefaultHook;
 
@@ -252,10 +252,10 @@ namespace InnoVault.Actors
             Main.spriteBatch.End();
         }
 
-        private static void DrawBeforeTilesHook(On_Main.orig_DrawBackgroundBlackFill orig, Main self) {
+        private static void DrawBeforeTilesHook(On_Main.orig_DoDraw_WallsAndBlacks orig, Main self) {
             orig(self);
 
-            if (Main.gameMenu || Main.mapFullscreen) {
+            if (Main.gameMenu) {
                 return;
             }
 

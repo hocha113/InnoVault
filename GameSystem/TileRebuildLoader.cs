@@ -22,13 +22,13 @@ namespace InnoVault.GameSystem
             if (method != null) {
                 VaultHook.Add(method, OnRightClickHook);
             }
-            On_Main.DrawBackgroundBlackFill += On_TileDrawing_DrawHook;
+            On_Main.DoDraw_WallsAndBlacks += On_TileDrawing_DrawHook;
         }
         void IVaultLoader.SetupData() {
             HookPreTileDraw = AddHook<Action<SpriteBatch>>(t => t.PreTileDraw);
         }
         void IVaultLoader.UnLoadData() {
-            On_Main.DrawBackgroundBlackFill -= On_TileDrawing_DrawHook;
+            On_Main.DoDraw_WallsAndBlacks -= On_TileDrawing_DrawHook;
             hooks.Clear();
             HookPreTileDraw = null;
             VaultTypeRegistry<TileOverride>.ClearRegisteredVaults();
@@ -69,16 +69,20 @@ namespace InnoVault.GameSystem
         }
 
         //集中管理所有TileDrawing_Draw钩子
-        private static void On_TileDrawing_DrawHook(On_Main.orig_DrawBackgroundBlackFill orig, Main self) {
+        private static void On_TileDrawing_DrawHook(On_Main.orig_DoDraw_WallsAndBlacks orig, Main self) {
             orig.Invoke(self);
             //不要在主页面进行绘制，也不要在全屏地图界面进行绘制
-            if (Main.gameMenu || Main.mapFullscreen) {
+            if (Main.gameMenu) {
                 return;
             }
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, Main.Rasterizer, null, Main.Transform);
             TileProcessorSystem.PreDrawTiles();
             foreach (var tileOverride in HookPreTileDraw.Enumerate()) {
                 tileOverride.PreTileDraw(Main.spriteBatch);
             }
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, Main.Rasterizer, null, Main.Transform);
         }
 
         /// <inheritdoc/>
