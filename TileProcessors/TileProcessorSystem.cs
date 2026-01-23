@@ -1,4 +1,5 @@
-﻿using InnoVault.GameSystem;
+﻿using InnoVault.Debugs;
+using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -219,21 +220,47 @@ namespace InnoVault.TileProcessors
         /// 绘制这个TP实体的调试框
         /// </summary>
         private static void DrawTileProcessorDebugBox(TileProcessor tileProcessor) {
-            if (!VaultClientConfig.Instance.TileProcessorBoxSizeDraw) {
+            //如果没有启用任何调试选项，直接返回
+            if (!DebugSettings.TileProcessorBoxSizeDraw &&
+                !DebugSettings.TileProcessorShowName &&
+                !DebugSettings.TileProcessorShowPosition &&
+                !DebugSettings.TileProcessorShowID) {
                 return;
             }
 
             Vector2 drawPos = tileProcessor.PosInWorld - Main.screenPosition;
 
-            Main.EntitySpriteDraw(VaultAsset.placeholder2.Value, drawPos,
-                new Rectangle(0, 0, (int)tileProcessor.Size.X, (int)tileProcessor.Size.Y),
-                Color.OrangeRed * 0.3f, 0, Vector2.Zero, 1, SpriteEffects.None, 0);
+            //绘制碰撞箱
+            if (DebugSettings.TileProcessorBoxSizeDraw) {
+                Main.EntitySpriteDraw(VaultAsset.placeholder2.Value, drawPos,
+                    new Rectangle(0, 0, (int)tileProcessor.Size.X, (int)tileProcessor.Size.Y),
+                    Color.OrangeRed * 0.3f, 0, Vector2.Zero, 1, SpriteEffects.None, 0);
 
-            Main.EntitySpriteDraw(VaultAsset.placeholder2.Value, drawPos,
-                new Rectangle(0, 0, 16, 16), Color.Red * 0.6f, 0, Vector2.Zero, 1, SpriteEffects.None, 0);
+                Main.EntitySpriteDraw(VaultAsset.placeholder2.Value, drawPos,
+                    new Rectangle(0, 0, 16, 16), Color.Red * 0.6f, 0, Vector2.Zero, 1, SpriteEffects.None, 0);
+            }
 
-            Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, tileProcessor.ToString(),
-                drawPos.X, drawPos.Y - 70, Color.AliceBlue, Color.Black, Vector2.Zero, 1f);
+            //构建调试信息文本
+            float yOffset = -20;
+            if (DebugSettings.TileProcessorShowName) {
+                string nameText = tileProcessor.GetType().Name;
+                Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, nameText,
+                    drawPos.X, drawPos.Y + yOffset, Color.AliceBlue, Color.Black, Vector2.Zero, 0.9f);
+                yOffset -= 18;
+            }
+
+            if (DebugSettings.TileProcessorShowPosition) {
+                string posText = $"Pos: {tileProcessor.Position.X}, {tileProcessor.Position.Y}";
+                Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, posText,
+                    drawPos.X, drawPos.Y + yOffset, Color.LightGreen, Color.Black, Vector2.Zero, 0.8f);
+                yOffset -= 16;
+            }
+
+            if (DebugSettings.TileProcessorShowID) {
+                string idText = $"ID: {tileProcessor.ID}";
+                Utils.DrawBorderStringFourWay(Main.spriteBatch, FontAssets.ItemStack.Value, idText,
+                    drawPos.X, drawPos.Y + yOffset, Color.Yellow, Color.Black, Vector2.Zero, 0.8f);
+            }
         }
 
         /// <summary>

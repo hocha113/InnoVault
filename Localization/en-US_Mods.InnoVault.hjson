@@ -10,16 +10,6 @@ Configs: {
 				Disabled by default — enable to load the world silently in the background
 				'''
 		}
-
-		TileProcessorBoxSizeDraw: {
-			Label: Tile Processor Bounding Box Draw [c/06e33f:(Developer Option)]
-			Tooltip:
-				'''
-				[c/c20909:Not recommended for non-developers]
-				Used for debugging and observing the collision structure of TileProcessor.
-				When enabled, TileProcessor will draw its bounding boxes, type names, and other data in the world.
-				'''
-		}
 	}
 }
 
@@ -48,3 +38,23 @@ Items: {
 
 Projectiles.TestProj.DisplayName: Test Proj
 Dimensions.StoneDimension.DisplayName: Stone Dimension
+
+UI: {
+	DeveloperPanelUI: {
+		TitleText: Developer Debug Panel
+		TPBoxDrawText: TP Collision Box
+		TPShowNameText: TP Name Display
+		TPShowPositionText: TP Position Display
+		TPShowIDText: TP ID Display
+		ResetAllText: Reset All
+		CloseText: Close
+		TPTabText: TileProcessor
+		ActorTabText: Actor
+		ActorBoxDrawText: Collision Box
+		ActorShowNameText: Name Display
+		ActorShowPositionText: Position Display
+		ActorShowIDText: ID Display
+		ActorShowVelocityText: Velocity Display
+		ResetText: Reset
+	}
+}

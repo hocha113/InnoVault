@@ -1,10 +1,12 @@
-﻿using InnoVault.GameSystem;
+﻿using InnoVault.Debugs;
+using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.Graphics;
 using Terraria.Graphics.Renderers;
 using Terraria.ModLoader;
@@ -341,6 +343,64 @@ namespace InnoVault.Actors
                 foreach (var global in HookPostDraw.Enumerate()) {
                     global.PostDraw(spriteBatch, actor, drawColor);
                 }
+
+                //绘制调试信息
+                DrawActorDebugInfo(spriteBatch, actor);
+            }
+        }
+
+        /// <summary>
+        /// 绘制Actor的调试信息
+        /// </summary>
+        private static void DrawActorDebugInfo(SpriteBatch spriteBatch, Actor actor) {
+            //如果没有启用任何调试选项，直接返回
+            if (!DebugSettings.ActorBoxSizeDraw &&
+                !DebugSettings.ActorShowName &&
+                !DebugSettings.ActorShowPosition &&
+                !DebugSettings.ActorShowID &&
+                !DebugSettings.ActorShowVelocity) {
+                return;
+            }
+
+            Vector2 drawPos = actor.Position - Main.screenPosition;
+
+            //绘制碰撞箱
+            if (DebugSettings.ActorBoxSizeDraw) {
+                Main.spriteBatch.Draw(VaultAsset.placeholder2.Value, drawPos,
+                    new Rectangle(0, 0, (int)actor.Size.X, (int)actor.Size.Y),
+                    Color.Cyan * 0.3f, 0, Vector2.Zero, 1, SpriteEffects.None, 0);
+
+                Main.spriteBatch.Draw(VaultAsset.placeholder2.Value, actor.Center - Main.screenPosition,
+                    new Rectangle(0, 0, 4, 4), Color.Yellow * 0.8f, 0, new Vector2(2, 2), 1, SpriteEffects.None, 0);
+            }
+
+            //构建调试信息文本
+            float yOffset = -20;
+            if (DebugSettings.ActorShowName) {
+                string nameText = actor.GetType().Name;
+                Utils.DrawBorderStringFourWay(spriteBatch, FontAssets.ItemStack.Value, nameText,
+                    drawPos.X, drawPos.Y + yOffset, Color.Cyan, Color.Black, Vector2.Zero, 0.9f);
+                yOffset -= 18;
+            }
+
+            if (DebugSettings.ActorShowPosition) {
+                string posText = $"Pos: {(int)actor.Position.X}, {(int)actor.Position.Y}";
+                Utils.DrawBorderStringFourWay(spriteBatch, FontAssets.ItemStack.Value, posText,
+                    drawPos.X, drawPos.Y + yOffset, Color.LightGreen, Color.Black, Vector2.Zero, 0.8f);
+                yOffset -= 16;
+            }
+
+            if (DebugSettings.ActorShowID) {
+                string idText = $"ID: {actor.ID} | WhoAmI: {actor.WhoAmI}";
+                Utils.DrawBorderStringFourWay(spriteBatch, FontAssets.ItemStack.Value, idText,
+                    drawPos.X, drawPos.Y + yOffset, Color.Yellow, Color.Black, Vector2.Zero, 0.8f);
+                yOffset -= 16;
+            }
+
+            if (DebugSettings.ActorShowVelocity) {
+                string velText = $"Vel: {actor.Velocity.X:F1}, {actor.Velocity.Y:F1}";
+                Utils.DrawBorderStringFourWay(spriteBatch, FontAssets.ItemStack.Value, velText,
+                    drawPos.X, drawPos.Y + yOffset, Color.Orange, Color.Black, Vector2.Zero, 0.8f);
             }
         }
 

@@ -10,16 +10,6 @@ Configs: {
 				По умолчанию выключено. При включении загрузка будет происходить незаметно.
 				'''
 		}
-
-		TileProcessorBoxSizeDraw: {
-			Label: Отрисовка корпуса TileProcessor [c/06e33f:(опция разработчика)]
-			Tooltip:
-				'''
-				[c/c20909:Не рекомендуется включать, если вы не разработчик]
-				Используется для отладки и наблюдения за структурой коллизий TileProcessor.
-				При включении TileProcessor будет отображать в мире свои коллизионные границы, имя типа и другие данные.
-				'''
-		}
 	}
 }
 
@@ -48,3 +38,23 @@ Items: {
 
 // Projectiles.TestProj.DisplayName: Test Proj
 // Dimensions.StoneDimension.DisplayName: Stone Dimension
+
+UI: {
+	DeveloperPanelUI: {
+		// TitleText: Developer Debug Panel
+		// TPBoxDrawText: TP Collision Box
+		// TPShowNameText: TP Name Display
+		// TPShowPositionText: TP Position Display
+		// TPShowIDText: TP ID Display
+		// ResetAllText: Reset All
+		// CloseText: Close
+		// TPTabText: TileProcessor
+		// ActorTabText: Actor
+		// ActorBoxDrawText: Collision Box
+		// ActorShowNameText: Name Display
+		// ActorShowPositionText: Position Display
+		// ActorShowIDText: ID Display
+		// ActorShowVelocityText: Velocity Display
+		// ResetText: Reset
+	}
+}

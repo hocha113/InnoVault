@@ -10,16 +10,6 @@ Configs: {
 				默认关闭，开启后将让加载隐形进行
 				'''
 		}
-
-		TileProcessorBoxSizeDraw: {
-			Label: 物块处理器箱体绘制[c/06e33f:(开发者选项)]
-			Tooltip:
-				'''
-				[c/c20909:非开发人员不建议开启]
-				用于调试和观察TileProcessor的碰撞结构，
-				开启后，TileProcessor会在世界中绘制出自身的碰撞箱体、类型名等数据
-				'''
-		}
 	}
 }
 
@@ -48,3 +38,23 @@ Items: {
 
 // Projectiles.TestProj.DisplayName: Test Proj
 // Dimensions.StoneDimension.DisplayName: Stone Dimension
+
+UI: {
+	DeveloperPanelUI: {
+		TitleText: 开发者调试面板
+		TPBoxDrawText: 显示碰撞箱
+		TPShowNameText: 显示内部名
+		TPShowPositionText: 显示位置
+		TPShowIDText: 显示ID
+		ResetAllText: 重置所有
+		CloseText: 关闭
+		TPTabText: TileProcessor
+		ActorTabText: Actor
+		ActorBoxDrawText: 显示碰撞箱
+		ActorShowNameText: 显示内部名
+		ActorShowPositionText: 显示位置
+		ActorShowIDText: 显示ID
+		ActorShowVelocityText: 显示速度
+		ResetText: 重置
+	}
+}

@@ -14,8 +14,5 @@ namespace InnoVault
         [BackgroundColor(60, 130, 180, 155)]
         [DefaultValue(false)]
         public bool HideWorldLoadingScreen { get; set; }
-        [BackgroundColor(60, 130, 180, 155)]
-        [DefaultValue(false)]
-        public bool TileProcessorBoxSizeDraw { get; set; }
     }
 }

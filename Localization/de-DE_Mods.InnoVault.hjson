@@ -10,16 +10,6 @@ Configs: {
 				Standardmäßig deaktiviert. Bei Aktivierung erfolgt das Laden unsichtbar.
 				'''
 		}
-
-		TileProcessorBoxSizeDraw: {
-			Label: TileProcessor-Gehäuseanzeige [c/06e33f:(Entwickleroption)]
-			Tooltip:
-				'''
-				[c/c20909:Nicht empfohlen für Nicht-Entwickler]
-				Dient zum Debuggen und Beobachten der Kollisionsstruktur des TileProcessors.
-				Bei Aktivierung werden Kollisionsboxen, Typnamen und weitere Daten im Spiel angezeigt.
-				'''
-		}
 	}
 }
 
@@ -48,3 +38,23 @@ Items: {
 
 // Projectiles.TestProj.DisplayName: Test Proj
 // Dimensions.StoneDimension.DisplayName: Stone Dimension
+
+UI: {
+	DeveloperPanelUI: {
+		// TitleText: Developer Debug Panel
+		// TPBoxDrawText: TP Collision Box
+		// TPShowNameText: TP Name Display
+		// TPShowPositionText: TP Position Display
+		// TPShowIDText: TP ID Display
+		// ResetAllText: Reset All
+		// CloseText: Close
+		// TPTabText: TileProcessor
+		// ActorTabText: Actor
+		// ActorBoxDrawText: Collision Box
+		// ActorShowNameText: Name Display
+		// ActorShowPositionText: Position Display
+		// ActorShowIDText: ID Display
+		// ActorShowVelocityText: Velocity Display
+		// ResetText: Reset
+	}
+}
