@@ -27,7 +27,7 @@ namespace InnoVault.Dimensions
     }
 
     /// <summary>
-    /// 维度基类，继承此类可创建自定义维度（子世界）
+    /// 维度基类，继承此类可创建自定义维度
     /// <br/>维度是独立于主世界的空间，玩家可以自由进出
     /// </summary>
     public abstract class Dimension : VaultType<Dimension>, ICopyDimensionData, ILocalizedModType
