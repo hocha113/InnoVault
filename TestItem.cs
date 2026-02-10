@@ -1,6 +1,4 @@
 ﻿using InnoVault.Actors;
-using InnoVault.Dimensions;
-using InnoVault.Dimensions.Examples;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -56,31 +54,31 @@ namespace InnoVault
                 return true;
             }
 
-            //左键：进入石头维度
-            if (player.altFunctionUse != 2) {
-                if (!DimensionLoader.AnyActive()) {
-                    //当前在主世界，进入石头维度
-                    if (DimensionLoader.Enter<StoneDimension>()) {
-                        VaultUtils.Text("正在进入石头维度...", Color.Cyan);
-                    }
-                    else {
-                        VaultUtils.Text("无法进入石头维度！", Color.Red);
-                    }
-                }
-                else {
-                    VaultUtils.Text("你已经在维度中了！右键退出", Color.Yellow);
-                }
-            }
-            //右键：退出维度
-            else {
-                if (DimensionLoader.AnyActive()) {
-                    DimensionLoader.Exit();
-                    VaultUtils.Text("正在退出维度...", Color.Cyan);
-                }
-                else {
-                    VaultUtils.Text("你已经在主世界了！", Color.Yellow);
-                }
-            }
+            ////左键：进入石头维度
+            //if (player.altFunctionUse != 2) {
+            //    if (!DimensionLoader.AnyActive()) {
+            //        //当前在主世界，进入石头维度
+            //        if (DimensionLoader.Enter<StoneDimension>()) {
+            //            VaultUtils.Text("正在进入石头维度...", Color.Cyan);
+            //        }
+            //        else {
+            //            VaultUtils.Text("无法进入石头维度！", Color.Red);
+            //        }
+            //    }
+            //    else {
+            //        VaultUtils.Text("你已经在维度中了！右键退出", Color.Yellow);
+            //    }
+            //}
+            ////右键：退出维度
+            //else {
+            //    if (DimensionLoader.AnyActive()) {
+            //        DimensionLoader.Exit();
+            //        VaultUtils.Text("正在退出维度...", Color.Cyan);
+            //    }
+            //    else {
+            //        VaultUtils.Text("你已经在主世界了！", Color.Yellow);
+            //    }
+            //}
 
             return true;
         }
