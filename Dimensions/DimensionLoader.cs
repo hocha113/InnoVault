@@ -288,9 +288,6 @@ namespace InnoVault.Dimensions
                 Task.Factory.StartNew(ExecuteWorldTransition, targetIndex);
                 return;
             }
-
-            //多人模式发送网络请求
-            DimensionNetwork.SendEnterDimensionPacket(targetIndex);
         }
         #endregion
 

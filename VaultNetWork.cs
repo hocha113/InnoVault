@@ -73,8 +73,6 @@ namespace InnoVault
         KillActor,
         /// <summary>请求活跃的Actor</summary>
         RequestActiveActors,
-        /// <summary>维度系统消息</summary>
-        DimensionMessage,
     }
 
     internal class VaultNetwork : IVaultLoader
@@ -86,7 +84,6 @@ namespace InnoVault
             TetheredPlayer.HandlePacket(type, reader, whoAmI);
             TileProcessorNetWork.HandlePacket(type, mod, reader, whoAmI);
             ActorNetWork.Handle(type, mod, reader, whoAmI);
-            DimensionNetwork.HandlePacket(type, reader, whoAmI);
         }
     }
 }
