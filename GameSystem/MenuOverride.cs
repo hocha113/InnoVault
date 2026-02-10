@@ -73,5 +73,19 @@ namespace InnoVault.GameSystem
         public virtual void PostDrawModMenu(GameTime gameTime, Color color, float logoRotation, float logoScale) {
 
         }
+        /// <summary>
+        /// 添加菜单按钮
+        /// </summary>
+        /// <param name="main"></param>
+        /// <param name="selectedMenu"></param>
+        /// <param name="buttonNames"></param>
+        /// <param name="buttonScales"></param>
+        /// <param name="offY"></param>
+        /// <param name="spacing"></param>
+        /// <param name="buttonIndex"></param>
+        /// <param name="numButtons"></param>
+        public virtual void AddMenuButtons(Main main, int selectedMenu, string[] buttonNames, float[] buttonScales, ref int offY, ref int spacing, ref int buttonIndex, ref int numButtons) {
+
+        }
     }
 }
