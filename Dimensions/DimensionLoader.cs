@@ -622,8 +622,7 @@ namespace InnoVault.Dimensions
                 }
 
                 VaultMod.Instance.Logger.Info($"[Dimension] 状态已持久化: worldId={worldId}, dimIndex={dimIndex}");
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 VaultMod.Instance.Logger.Warn($"[Dimension] 状态持久化失败: {ex.Message}");
             }
         }
@@ -659,8 +658,7 @@ namespace InnoVault.Dimensions
                 }
 
                 return dimIndex;
-            }
-            catch (Exception ex) {
+            } catch (Exception ex) {
                 VaultMod.Instance.Logger.Warn($"[Dimension] 加载持久化状态失败: {ex.Message}");
                 return -1;
             }
@@ -973,8 +971,7 @@ namespace InnoVault.Dimensions
                     ctx.CachedDimension?.ReadCopiedDimensionData();
                     ctx.TransferData = null;
                 }
-            }
-            catch {
+            } catch {
                 WorldGen.loadFailed = true;
                 WorldGen.loadSuccess = false;
             }

@@ -1,5 +1,4 @@
 ﻿using InnoVault.Actors;
-using InnoVault.Dimensions;
 using InnoVault.GameContent;
 using InnoVault.GameSystem;
 using InnoVault.TileProcessors;
