@@ -297,6 +297,9 @@ namespace InnoVault.TileProcessors
         }
 
         internal static void InitializeWorldTP() {
+            //在初始化世界TP列表时，立即清空上一个世界的缓存数据，防止跨世界数据污染
+            ActiveWorldTagData = null;
+
             if (TP_InWorld == null) {
                 TP_InWorld = [];
             }
@@ -455,7 +458,6 @@ namespace InnoVault.TileProcessors
                 list.Add(thisTag);
             }
             tag[key_TPData_TagList] = list;
-            ActiveWorldTagData = tag;
         }
 
         /// <summary>
