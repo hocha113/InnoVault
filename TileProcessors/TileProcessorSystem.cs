@@ -267,9 +267,9 @@ namespace InnoVault.TileProcessors
         /// 更新所有在世界中的TP实例
         /// </summary>
         private static void UpdateInWorldProcessors() {
-            //重置计数器
-            foreach (TileProcessor tileProcessor in TP_Instances) {
-                TP_ID_To_InWorld_Count[tileProcessor.ID] = 0;
+            //仅重置上一帧有计数的ID，避免遍历所有已注册的TP类型
+            foreach (var key in TP_ID_To_InWorld_Count.Keys) {
+                TP_ID_To_InWorld_Count[key] = 0;
             }
 
             Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);
@@ -376,9 +376,16 @@ namespace InnoVault.TileProcessors
 
             //玩家距离检测，如果没有任何玩家在范围内则跳过更新
             if (tileProcessor.IdleDistance > 0) {
-                long idleDistanceSQ = tileProcessor.IdleDistance * tileProcessor.IdleDistance;
+                long idleDistanceSQ = (long)tileProcessor.IdleDistance * tileProcessor.IdleDistance;
                 Vector2 posInWorld = tileProcessor.PosInWorld;
-                bool isPlayerInRange = Main.player.Any(p => p.active && p.position.DistanceSQ(posInWorld) < idleDistanceSQ);
+                bool isPlayerInRange = false;
+                for (int pi = 0; pi < Main.maxPlayers; pi++) {
+                    Player p = Main.player[pi];
+                    if (p.active && p.position.DistanceSQ(posInWorld) < idleDistanceSQ) {
+                        isPlayerInRange = true;
+                        break;
+                    }
+                }
                 if (!isPlayerInRange) {
                     return;
                 }
