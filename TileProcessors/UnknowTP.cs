@@ -40,15 +40,18 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 未加载瓦片ID集合，在TML的实现中，未知物块有很多种类型，这里用于枚举
         /// </summary>
-        public static HashSet<int> UnloadedTiles { get; private set; }
+        private static HashSet<int> UnloadedTiles { get; set; } = [];
         /// <inheritdoc/>
-        public override void SetStaticDefaults() {
-            UnloadedTiles.Add(ModContent.TileType<UnloadedChest>());
-            UnloadedTiles.Add(ModContent.TileType<UnloadedDresser>());
-            UnloadedTiles.Add(ModContent.TileType<UnloadedNonSolidTile>());
-            UnloadedTiles.Add(ModContent.TileType<UnloadedSemiSolidTile>());
-            UnloadedTiles.Add(ModContent.TileType<UnloadedSolidTile>());
-            UnloadedTiles.Add(ModContent.TileType<UnloadedSupremeFurniture>());
+        private static void FindUnloadedTiles() {
+            if (UnloadedTiles.Count > 0) {
+                return;
+            }
+            UnloadedTiles.Add(ModContent.GetInstance<UnloadedChest>().Type);
+            UnloadedTiles.Add(ModContent.GetInstance<UnloadedDresser>().Type);
+            UnloadedTiles.Add(ModContent.GetInstance<UnloadedNonSolidTile>().Type);
+            UnloadedTiles.Add(ModContent.GetInstance<UnloadedSemiSolidTile>().Type);
+            UnloadedTiles.Add(ModContent.GetInstance<UnloadedSolidTile>().Type);
+            UnloadedTiles.Add(ModContent.GetInstance<UnloadedSupremeFurniture>().Type);
         }
         /// <inheritdoc/>
         public override void UnLoad() {
@@ -69,6 +72,7 @@ namespace InnoVault.TileProcessors
                 return true;
             }
 
+            FindUnloadedTiles();
             if (!UnloadedTiles.Contains(Tile.TileType)) {
                 return true;
             }
