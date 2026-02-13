@@ -6,6 +6,7 @@ using Terraria;
 using Terraria.DataStructures;
 using Terraria.GameContent;
 using Terraria.ModLoader;
+using Terraria.ModLoader.Default;
 using Terraria.ModLoader.IO;
 using static InnoVault.TileProcessors.TileProcessorLoader;
 
@@ -36,6 +37,23 @@ namespace InnoVault.TileProcessors
         /// 悬浮查看时应该显示的字符
         /// </summary>
         public string HoverString => GetFullName(UnModName, UnTypeName);
+        /// <summary>
+        /// 未加载瓦片ID集合，在TML的实现中，未知物块有很多种类型，这里用于枚举
+        /// </summary>
+        public static HashSet<int> UnloadedTiles { get; private set; }
+        /// <inheritdoc/>
+        public override void SetStaticDefaults() {
+            UnloadedTiles.Add(ModContent.TileType<UnloadedChest>());
+            UnloadedTiles.Add(ModContent.TileType<UnloadedDresser>());
+            UnloadedTiles.Add(ModContent.TileType<UnloadedNonSolidTile>());
+            UnloadedTiles.Add(ModContent.TileType<UnloadedSemiSolidTile>());
+            UnloadedTiles.Add(ModContent.TileType<UnloadedSolidTile>());
+            UnloadedTiles.Add(ModContent.TileType<UnloadedSupremeFurniture>());
+        }
+        /// <inheritdoc/>
+        public override void UnLoad() {
+            UnloadedTiles.Clear();
+        }
         /// <inheritdoc/>
         public override bool IsDaed() {
             //在多人游戏中，不允许客户端自行杀死Tp实体，这些要通过服务器的统一广播来管理
@@ -48,6 +66,10 @@ namespace InnoVault.TileProcessors
             }
 
             if (!Tile.HasTile) {
+                return true;
+            }
+
+            if (!UnloadedTiles.Contains(Tile.TileType)) {
                 return true;
             }
 
