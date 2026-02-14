@@ -17,7 +17,10 @@ namespace InnoVault.GameSystem
         public delegate void On_DrawMenu_Dlelgate(Main main, GameTime gameTime);
         public delegate void On_AddMenuButtons_Dlelgate(Main main, int selectedMenu, string[] buttonNames, float[] buttonScales, ref int offY, ref int spacing, ref int buttonIndex, ref int numButtons);
 #pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
+        private static readonly FixedTickTimer menuTickTimer = new();
+
         void IVaultLoader.LoadData() {
+            menuTickTimer.Reset();
             VaultHook.Add(typeof(Main).GetMethod("DrawMenu", BindingFlags.Instance | BindingFlags.NonPublic), OnDrawMenuHook);
             VaultHook.Add(typeof(MenuLoader).GetMethod("UpdateAndDrawModMenu", BindingFlags.Static | BindingFlags.NonPublic), OnUpdateAndDrawModMenuHook);
             VaultHook.Add(typeof(Main).Assembly.GetType("Terraria.ModLoader.UI.Interface").GetMethod("AddMenuButtons", BindingFlags.Static | BindingFlags.NonPublic), OnAddMenuButtonsHook);
@@ -68,7 +71,35 @@ namespace InnoVault.GameSystem
             }
         }
 
+        /// <summary>
+        /// 处理主菜单的固定步长逻辑更新，以60tick/s的频率驱动 <see cref="MenuOverride.MenuLogicUpdate"/><br/>
+        /// 通过 <see cref="FixedTickTimer"/> 在绘制线程中模拟稳定的逻辑更新频率，不受帧率影响
+        /// </summary>
+        internal static void ProcessMenuLogicUpdates() {
+            menuTickTimer.Update();
+            while (menuTickTimer.Tick()) {
+                foreach (var inds in Instances) {
+                    if (inds.ignoreBug > 0) {
+                        continue;
+                    }
+
+                    try {
+                        if (!inds.CanOverride()) {
+                            continue;
+                        }
+                        inds.MenuLogicUpdate();
+                    } catch (Exception ex) {
+                        inds.ignoreBug = 600;
+                        inds.errorCount++;
+                        VaultMod.Instance.Logger.Error($"{inds} encountered an error {inds.errorCount} times in MenuLogicUpdate: {ex}");
+                    }
+                }
+            }
+        }
+
         private static void OnDrawMenuHook(On_DrawMenu_Dlelgate orig, Main main, GameTime gameTime) {
+            ProcessMenuLogicUpdates();
+
             bool result = true;
             foreach (var inds in Instances) {
                 if (inds.ignoreBug > 0) {

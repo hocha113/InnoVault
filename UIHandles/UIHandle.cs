@@ -161,9 +161,17 @@ namespace InnoVault.UIHandles
         public virtual void Update() { }
 
         /// <summary>
-        /// 更新逻辑相关，该更新钩子运行在游戏主循环的逻辑更新中，在主菜单中不会被调用，因为主菜单只有绘制线程更新可用
+        /// 更新逻辑相关，该更新钩子运行在游戏主循环的逻辑更新中，在主菜单中不会被调用，因为主菜单只有绘制线程更新可用<br/>
+        /// 如果需要在主菜单中获取稳定60tick的逻辑更新，请使用 <see cref="MenuLogicUpdate"/>
         /// </summary>
         public virtual void LogicUpdate() { }
+
+        /// <summary>
+        /// 主菜单逻辑更新，以固定60tick频率调用，与帧率无关<br/>
+        /// 由于主菜单没有独立的逻辑线程，此方法通过时间累积器在绘制线程中驱动<br/>
+        /// 仅在 <see cref="Main.gameMenu"/> 为 <see langword="true"/> 且 <see cref="LayersMode"/> 为 <see cref="LayersModeEnum.Mod_MenuLoad"/> 时才会被调用
+        /// </summary>
+        public virtual void MenuLogicUpdate() { }
 
         /// <summary>
         /// 玩家进入世界时调用一次该方法，可以用于一些UI的初始化操作

@@ -161,6 +161,8 @@ namespace InnoVault.UIHandles
         public static object UIModItemSpriteBatch { get; private set; }
 
         internal static readonly LayersModeEnum[] allLayersModes = (LayersModeEnum[])Enum.GetValues(typeof(LayersModeEnum));
+
+        private static readonly FixedTickTimer menuUITickTimer = new();
         #endregion
 
         /// <summary>
@@ -331,6 +333,7 @@ namespace InnoVault.UIHandles
 
         /// <inheritdoc/>
         public override void Load() {
+            menuUITickTimer.Reset();
             UIModItemType = typeof(Main).Assembly.GetTypes().First(t => t.Name == "UIModItem");
             IL_Main.DrawMenu += IL_MenuLoadDraw_Hook;
             VaultHook.Add(UIModItemType.GetMethod("Draw", BindingFlags.Instance | BindingFlags.Public), On_UIModItem_DrawHook);
@@ -627,8 +630,41 @@ namespace InnoVault.UIHandles
             _ = potlevel.EmitDelegate(() => MenuLoadDraw(Main.spriteBatch));
         }
 
+        /// <summary>
+        /// 处理主菜单中UIHandle的固定步长逻辑更新，以60tick/s的频率驱动 <see cref="UIHandle.MenuLogicUpdate"/><br/>
+        /// 通过 <see cref="FixedTickTimer"/> 在绘制线程中模拟稳定的逻辑更新频率，不受帧率影响
+        /// </summary>
+        internal static void ProcessMenuUILogicUpdates() {
+            if (!Main.gameMenu || UIHandles_Mod_MenuLoad == null || UIHandles_Mod_MenuLoad.Count <= 0) {
+                return;
+            }
+
+            menuUITickTimer.Update();
+            while (menuUITickTimer.Tick()) {
+                for (int i = 0; i < UIHandles_Mod_MenuLoad.Count; i++) {
+                    UIHandle ui = UIHandles_Mod_MenuLoad[i];
+                    if (ui.ignoreBug > 0) {
+                        continue;
+                    }
+
+                    if (!ui.Active) {
+                        continue;
+                    }
+
+                    try {
+                        ui.MenuLogicUpdate();
+                    } catch (Exception ex) {
+                        ui.ignoreBug = 600;
+                        ui.errorCount++;
+                        VaultMod.Instance.Logger.Error($"{ui} encountered an error {ui.errorCount} times in MenuLogicUpdate: {ex}");
+                    }
+                }
+            }
+        }
+
         private static void MenuLoadDraw(SpriteBatch spriteBatch) {
             if (Main.gameMenu && UIHandles_Mod_MenuLoad != null && UIHandles_Mod_MenuLoad.Count > 0) {
+                ProcessMenuUILogicUpdates();
                 spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp
                     , DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
                 UpdateKeyState();

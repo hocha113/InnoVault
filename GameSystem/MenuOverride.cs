@@ -74,6 +74,14 @@ namespace InnoVault.GameSystem
 
         }
         /// <summary>
+        /// 主菜单逻辑更新，以固定60tick频率调用，与帧率无关<br/>
+        /// 由于主菜单没有独立的逻辑线程，此方法通过时间累积器在绘制线程中驱动，请注意线程安全<br/>
+        /// 仅在 <see cref="Main.gameMenu"/> 为 <see langword="true"/> 时才会被调用
+        /// </summary>
+        public virtual void MenuLogicUpdate() {
+
+        }
+        /// <summary>
         /// 添加菜单按钮
         /// </summary>
         /// <param name="main"></param>
