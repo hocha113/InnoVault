@@ -8,25 +8,11 @@ using Terraria;
 namespace InnoVault.Trails
 {
     /// <summary>
-    /// 一个传递平滑点集方式的委托
-    /// </summary>
-    /// <param name="controlPoints"></param>
-    /// <param name="offset"></param>
-    /// <param name="totalPoints"></param>
-    /// <param name="rotations"></param>
-    /// <returns></returns>
-    public delegate List<Vector2> PathPointRetrievalDelegation(IEnumerable<Vector2> controlPoints
-            , Vector2 offset, int totalPoints, IEnumerable<float> rotations = null);
-    /// <summary>
-    /// 一个用于传递纹理映射采样方式的委托
-    /// </summary>
-    /// <param name="t"></param>
-    /// <param name="leftTexCoord"></param>
-    /// <param name="rightTexCoord"></param>
-    public delegate void HandlerTexturePossDelegation(float t, out Vector2 leftTexCoord, out Vector2 rightTexCoord);
-    /// <summary>
     /// 关于绘制路径效果的另一种实现，更加简洁
+    /// <para>该类的核心功能已迁移至 <see cref="Trail"/>，此类作为向下兼容的包装保留，
+    /// 已有的使用代码无需修改即可继续工作</para>
     /// </summary>
+    [Obsolete("已经过时，请直接使用 Trail 类来实现路径效果，PathEffect 作为向下兼容的包装保留，已有代码无需修改即可继续工作")]
     public class PathEffect
     {
         #region Data
@@ -91,15 +77,12 @@ namespace InnoVault.Trails
             ThicknessEvaluator = thicknessEvaluator;
             ColorEvaluator = colorEvaluator;
 
-            // 默认路径点生成算法：平滑贝塞尔曲线
             PathPointRetrieval = pointRetrievalFunction ?? GenerateSmoothPath;
 
-            // 默认参数化坐标映射函数
-            ParametricPositionFunction = parametricPositionFunction ?? DefaultParametricPosition;
+            ParametricPositionFunction = parametricPositionFunction ?? Trail.DefaultParametricPosition;
 
-            HandlerTexturePoss = handlerTexturePoss ?? DefaultHandlerTexturePoss;
+            HandlerTexturePoss = handlerTexturePoss ?? Trail.DefaultHandlerTexturePoss;
 
-            // 初始化基本渲染效果
             BaseEffect = new BasicEffect(Main.instance.GraphicsDevice) {
                 VertexColorEnabled = true,
                 TextureEnabled = false
@@ -113,36 +96,14 @@ namespace InnoVault.Trails
         /// <param name="points"></param>
         /// <param name="T"></param>
         /// <returns></returns>
-        public static Vector2 Evaluate(Vector2[] points, float T) {
-            while (points.Length > 2) {
-                Vector2[] nextPoints = new Vector2[points.Length - 1];
-                for (int i = 0; i < points.Length - 1; i++) {
-                    nextPoints[i] = Vector2.Lerp(points[i], points[i + 1], T);
-                }
-                points = nextPoints;
-            }
-            return Vector2.Lerp(points[0], points[1], T);
-        }
+        public static Vector2 Evaluate(Vector2[] points, float T) => Trail.BezierEvaluate(points, T);
 
         /// <summary>
         /// 补全链接点的方式
         /// </summary>
         /// <param name="totalPoints"></param>
         /// <returns></returns>
-        public List<Vector2> GetPoints(int totalPoints) {
-            float straightnessFactor = 0f;
-            // straightnessFactor: 控制直线和曲线的平衡，0完全曲线，1完全直线
-            straightnessFactor = MathHelper.Clamp(straightnessFactor, 0f, 1f);
-            float perStep = 1f / totalPoints;
-            List<Vector2> points = new();
-            for (float step = 0f; step <= 1f; step += perStep) {
-                // 使用直线和贝塞尔曲线的加权插值
-                Vector2 bezierPoint = Evaluate(ControlPoints, MathHelper.Clamp(step, 0f, 1f));
-                Vector2 linearPoint = Vector2.Lerp(ControlPoints[0], ControlPoints[^1], step); // 起点到终点的直线
-                points.Add(Vector2.Lerp(bezierPoint, linearPoint, straightnessFactor));
-            }
-            return points;
-        }
+        public List<Vector2> GetPoints(int totalPoints) => Trail.SampleBezierPoints(ControlPoints, totalPoints);
 
         /// <summary>
         /// 默认的纹理映射采样方式
@@ -150,43 +111,25 @@ namespace InnoVault.Trails
         /// <param name="t"></param>
         /// <param name="leftTexCoord"></param>
         /// <param name="rightTexCoord"></param>
-        public static void DefaultHandlerTexturePoss(float t, out Vector2 leftTexCoord, out Vector2 rightTexCoord) {
-            leftTexCoord = new Vector2(t, 0f);
-            rightTexCoord = new Vector2(t, 1f);
-        }
+        public static void DefaultHandlerTexturePoss(float t, out Vector2 leftTexCoord, out Vector2 rightTexCoord)
+            => Trail.DefaultHandlerTexturePoss(t, out leftTexCoord, out rightTexCoord);
 
         /// <summary>
         /// 默认的参数化坐标函数（简单映射到直线坐标）
         /// </summary>
-        public static Vector2 DefaultParametricPosition(float t) => new Vector2(t, t);
+        public static Vector2 DefaultParametricPosition(float t) => Trail.DefaultParametricPosition(t);
 
         /// <summary>
         /// 计算透视投影和视图矩阵，用于2D渲染的场景转换
         /// </summary>
-        public static void CalculateRenderingMatrices(out Matrix viewMatrix, out Matrix projectionMatrix) {
-            Vector2 zoom = Main.GameViewMatrix.Zoom;
-            Matrix zoomScaleMatrix = Matrix.CreateScale(zoom.X, zoom.Y, 1f);
-
-            int width = Main.instance.GraphicsDevice.Viewport.Width;
-            int height = Main.instance.GraphicsDevice.Viewport.Height;
-
-            viewMatrix = Matrix.CreateLookAt(Vector3.Zero, Vector3.UnitZ, Vector3.Up);
-            viewMatrix *= Matrix.CreateTranslation(0f, -height, 0f);
-            viewMatrix *= Matrix.CreateRotationZ(MathHelper.Pi);
-
-            if (Main.LocalPlayer.gravDir < 0f) {
-                viewMatrix *= Matrix.CreateScale(1f, -1f, 1f) * Matrix.CreateTranslation(0f, height, 0f);
-            }
-
-            viewMatrix *= zoomScaleMatrix;
-            projectionMatrix = Matrix.CreateOrthographicOffCenter(0f, width * zoom.X, 0f, height * zoom.Y, 0f, 1f) * zoomScaleMatrix;
-        }
+        public static void CalculateRenderingMatrices(out Matrix viewMatrix, out Matrix projectionMatrix)
+            => Trail.CalculateRenderingMatrices(out viewMatrix, out projectionMatrix);
 
         /// <summary>
         /// 更新基本效果的投影矩阵和视图矩阵
         /// </summary>
         public void UpdateRenderingMatrices(out Matrix projection, out Matrix view) {
-            CalculateRenderingMatrices(out view, out projection);
+            Trail.CalculateRenderingMatrices(out view, out projection);
             BaseEffect.View = view;
             BaseEffect.Projection = projection;
         }
@@ -196,7 +139,6 @@ namespace InnoVault.Trails
         /// </summary>
         public short[] GenerateIndices(int pointCount) {
             short[] indices = new short[(pointCount - 1) * 6];
-            //他妈的这里必须是pointCount - 2，别问我为什么
             for (int i = 0; i < pointCount - 2; i++) {
                 int startIndex = i * 6;
                 int vertexIndex = i * 2;
@@ -230,8 +172,10 @@ namespace InnoVault.Trails
 
             UpdateRenderingMatrices(out Matrix projection, out Matrix view);
 
-            ColoredVertex[] vertices = GenerateVertices(pathPoints);
-            short[] indices = GenerateIndices(pathPoints.Count);
+            Trail.GenerateInterleavedMesh(pathPoints, ThicknessEvaluator, ColorEvaluator
+                , out ColoredVertex[] vertices, out short[] indices
+                , ParametricPositionFunction, HandlerTexturePoss, StickPoint);
+
             if (indices.Length % 6 != 0 || vertices.Length % 2 != 0) {
                 return default;
             }
@@ -248,47 +192,36 @@ namespace InnoVault.Trails
         /// 渲染路径效果，使用前必须调用<see cref="GetPathData(IEnumerable{Vector2}, Vector2, int, IEnumerable{float})"/>
         /// </summary>
         public void Draw() {
-            Main.instance.GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
             if (PathData.vertices == null || PathData.indices == null) {
                 return;
             }
 
-            Main.instance.GraphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, PathData.vertices, 0
-                , PathData.vertices.Length, PathData.indices, 0, PathData.indices.Length / 3);
+            Trail.DrawUserPrimitives(PathData.vertices, PathData.indices);
         }
 
         /// <summary>
         /// 渲染路径效果，使用前必须调用<see cref="GetPathData(IEnumerable{Vector2}, Vector2, int, IEnumerable{float})"/>
         /// </summary>
         public void Draw(Texture2D texture2D) {
-            Main.instance.GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
             if (PathData.vertices == null || PathData.indices == null) {
                 return;
             }
 
             Main.graphics.GraphicsDevice.Textures[0] = texture2D;
-
-            Main.instance.GraphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, PathData.vertices, 0
-                , PathData.vertices.Length, PathData.indices, 0, PathData.indices.Length / 3);
+            Trail.DrawUserPrimitives(PathData.vertices, PathData.indices);
         }
 
         /// <summary>
         /// 渲染路径效果
         /// </summary>
         public void Draw(IEnumerable<Vector2> controlPoints, Vector2 offset, int totalPoints, IEnumerable<float> rotations = null) {
-            Main.instance.GraphicsDevice.RasterizerState = RasterizerState.CullNone;
-
             PathDataStruct pathData = GetPathData(controlPoints, offset, totalPoints, rotations);
             if (pathData.vertices == null || pathData.indices == null) {
                 return;
             }
 
             BaseEffect.CurrentTechnique.Passes[0].Apply();
-
-            Main.instance.GraphicsDevice.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, pathData.vertices, 0
-                , pathData.vertices.Length, pathData.indices, 0, pathData.indices.Length / 3);
+            Trail.DrawUserPrimitives(pathData.vertices, pathData.indices);
         }
 
         /// <summary>
@@ -307,31 +240,9 @@ namespace InnoVault.Trails
         /// 根据路径点生成顶点数组，包含纹理坐标
         /// </summary>
         public ColoredVertex[] GenerateVertices(List<Vector2> pathPoints) {
-            ColoredVertex[] vertices = new ColoredVertex[pathPoints.Count * 2 - 2];
-            for (int i = 0; i < pathPoints.Count - 1; i++) {
-                float t = (float)i / (pathPoints.Count - 1);
-                float width = ThicknessEvaluator(t);
-                Color color = ColorEvaluator(ParametricPositionFunction(t));
-
-                Vector2 current = pathPoints[i];
-                Vector2 direction = Utils.SafeNormalize(pathPoints[i + 1] - current, Vector2.Zero);
-
-                HandlerTexturePoss.Invoke(t, out Vector2 leftTexCoord, out Vector2 rightTexCoord);
-
-                Vector2 sideOffset = new Vector2(-direction.Y, direction.X) * width;
-
-                Vector2 left = current - sideOffset;
-                Vector2 right = current + sideOffset;
-
-                if (i == 0 && StickPoint != Vector2.Zero) {
-                    left = StickPoint;
-                    right = StickPoint;
-                }
-
-                vertices[i * 2] = new ColoredVertex(left, color, leftTexCoord.ToVector3());
-                vertices[i * 2 + 1] = new ColoredVertex(right, color, rightTexCoord.ToVector3());
-            }
-
+            Trail.GenerateInterleavedMesh(pathPoints, ThicknessEvaluator, ColorEvaluator
+                , out ColoredVertex[] vertices, out _
+                , ParametricPositionFunction, HandlerTexturePoss, StickPoint);
             return vertices;
         }
     }

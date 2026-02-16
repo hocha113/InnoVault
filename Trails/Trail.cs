@@ -1,11 +1,30 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using Terraria;
 
 namespace InnoVault.Trails
 {
+    /// <summary>
+    /// 一个传递平滑点集方式的委托
+    /// </summary>
+    /// <param name="controlPoints"></param>
+    /// <param name="offset"></param>
+    /// <param name="totalPoints"></param>
+    /// <param name="rotations"></param>
+    /// <returns></returns>
+    public delegate List<Vector2> PathPointRetrievalDelegation(IEnumerable<Vector2> controlPoints
+            , Vector2 offset, int totalPoints, IEnumerable<float> rotations = null);
+    /// <summary>
+    /// 一个用于传递纹理映射采样方式的委托
+    /// </summary>
+    /// <param name="t"></param>
+    /// <param name="leftTexCoord"></param>
+    /// <param name="rightTexCoord"></param>
+    public delegate void HandlerTexturePossDelegation(float t, out Vector2 leftTexCoord, out Vector2 rightTexCoord);
+
     /// <summary>
     /// 路径网格生成器接口，用于定义生成路径网格数据的行为。任何实现此接口的类都需要提供生成路径网格顶点和索引的逻辑
     /// </summary>
@@ -64,6 +83,7 @@ namespace InnoVault.Trails
     /// <remarks>
     /// Trail 类主要用于渲染动态的轨迹效果（例如武器挥舞的光效、投射物的轨迹等）
     /// 它通过一组顶点和索引构建网格，并使用指定的宽度和颜色计算委托来动态调整轨迹外观
+    /// 同时也支持基于贝塞尔曲线的路径效果绘制，以及自定义纹理坐标映射等高级功能
     /// </remarks>
     public class Trail : IDisposable
     {
@@ -232,6 +252,180 @@ namespace InnoVault.Trails
         /// 释放轨迹的资源
         /// </summary>
         public void Dispose() => renderer?.Dispose();
+
+        #region PathEffect 功能
+
+        /// <summary>
+        /// 贝塞尔曲线求值函数，通过 De Casteljau 算法计算曲线上的点
+        /// </summary>
+        /// <param name="points">控制点数组</param>
+        /// <param name="T">参数 t，范围 [0, 1]</param>
+        /// <returns>曲线上对应参数 t 的点</returns>
+        public static Vector2 BezierEvaluate(Vector2[] points, float T) {
+            while (points.Length > 2) {
+                Vector2[] nextPoints = new Vector2[points.Length - 1];
+                for (int i = 0; i < points.Length - 1; i++) {
+                    nextPoints[i] = Vector2.Lerp(points[i], points[i + 1], T);
+                }
+                points = nextPoints;
+            }
+            return Vector2.Lerp(points[0], points[1], T);
+        }
+
+        /// <summary>
+        /// 使用贝塞尔曲线对控制点进行平滑采样，生成指定数量的路径点
+        /// </summary>
+        /// <param name="controlPoints">控制点数组</param>
+        /// <param name="totalPoints">需要采样的总点数</param>
+        /// <returns>平滑路径点列表</returns>
+        public static List<Vector2> SampleBezierPoints(Vector2[] controlPoints, int totalPoints) {
+            float perStep = 1f / totalPoints;
+            List<Vector2> points = new();
+            for (float step = 0f; step <= 1f; step += perStep) {
+                Vector2 bezierPoint = BezierEvaluate(controlPoints, MathHelper.Clamp(step, 0f, 1f));
+                points.Add(bezierPoint);
+            }
+            return points;
+        }
+
+        /// <summary>
+        /// 使用平滑贝塞尔曲线生成路径点，过滤零向量并应用偏移
+        /// </summary>
+        /// <param name="controlPoints">原始控制点</param>
+        /// <param name="offset">偏移量</param>
+        /// <param name="totalPoints">采样总点数</param>
+        /// <param name="rotations">预留的旋转参数（暂未使用）</param>
+        /// <returns>平滑路径点列表</returns>
+        public static List<Vector2> GenerateSmoothPath(IEnumerable<Vector2> controlPoints, Vector2 offset, int totalPoints, IEnumerable<float> rotations = null) {
+            List<Vector2> adjustedPoints = controlPoints.Where(p => p != Vector2.Zero).Select(p => p + offset).ToList();
+            if (adjustedPoints.Count < 2) {
+                return adjustedPoints;
+            }
+            return SampleBezierPoints(adjustedPoints.ToArray(), totalPoints);
+        }
+
+        /// <summary>
+        /// 默认的纹理映射采样方式
+        /// </summary>
+        /// <param name="t">路径进度 [0, 1]</param>
+        /// <param name="leftTexCoord">左侧纹理坐标</param>
+        /// <param name="rightTexCoord">右侧纹理坐标</param>
+        public static void DefaultHandlerTexturePoss(float t, out Vector2 leftTexCoord, out Vector2 rightTexCoord) {
+            leftTexCoord = new Vector2(t, 0f);
+            rightTexCoord = new Vector2(t, 1f);
+        }
+
+        /// <summary>
+        /// 默认的参数化坐标函数（简单映射到直线坐标）
+        /// </summary>
+        /// <param name="t">路径进度 [0, 1]</param>
+        /// <returns>参数化后的二维坐标</returns>
+        public static Vector2 DefaultParametricPosition(float t) => new Vector2(t, t);
+
+        /// <summary>
+        /// 计算透视投影和视图矩阵，用于2D渲染的场景转换
+        /// </summary>
+        /// <param name="viewMatrix">输出的视图矩阵</param>
+        /// <param name="projectionMatrix">输出的投影矩阵</param>
+        public static void CalculateRenderingMatrices(out Matrix viewMatrix, out Matrix projectionMatrix) {
+            Vector2 zoom = Main.GameViewMatrix.Zoom;
+            Matrix zoomScaleMatrix = Matrix.CreateScale(zoom.X, zoom.Y, 1f);
+
+            int width = Main.instance.GraphicsDevice.Viewport.Width;
+            int height = Main.instance.GraphicsDevice.Viewport.Height;
+
+            viewMatrix = Matrix.CreateLookAt(Vector3.Zero, Vector3.UnitZ, Vector3.Up);
+            viewMatrix *= Matrix.CreateTranslation(0f, -height, 0f);
+            viewMatrix *= Matrix.CreateRotationZ(MathHelper.Pi);
+
+            if (Main.LocalPlayer.gravDir < 0f) {
+                viewMatrix *= Matrix.CreateScale(1f, -1f, 1f) * Matrix.CreateTranslation(0f, height, 0f);
+            }
+
+            viewMatrix *= zoomScaleMatrix;
+            projectionMatrix = Matrix.CreateOrthographicOffCenter(0f, width * zoom.X, 0f, height * zoom.Y, 0f, 1f) * zoomScaleMatrix;
+        }
+
+        /// <summary>
+        /// 根据路径点生成交错布局的顶点数组和索引数组，使用 <see cref="ColoredVertex"/> 顶点格式，
+        /// 适用于 <see cref="GraphicsDevice.DrawUserIndexedPrimitives{ColoredVertex}(PrimitiveType, ColoredVertex[], int, int, short[], int, int)"/> 轻量渲染
+        /// </summary>
+        /// <param name="pathPoints">路径点列表</param>
+        /// <param name="thicknessEvaluator">宽度计算委托</param>
+        /// <param name="colorEvaluator">颜色计算委托</param>
+        /// <param name="vertices">输出的顶点数组</param>
+        /// <param name="indices">输出的索引数组</param>
+        /// <param name="parametricPositionFunction">参数化位置函数，为 null 时使用 <see cref="DefaultParametricPosition"/></param>
+        /// <param name="handlerTexturePoss">纹理坐标映射委托，为 null 时使用 <see cref="DefaultHandlerTexturePoss"/></param>
+        /// <param name="stickPoint">起点粘合点，为 <see cref="Vector2.Zero"/> 时不启用</param>
+        public static void GenerateInterleavedMesh(List<Vector2> pathPoints
+            , TrailThicknessCalculator thicknessEvaluator, TrailColorEvaluator colorEvaluator
+            , out ColoredVertex[] vertices, out short[] indices
+            , Func<float, Vector2> parametricPositionFunction = null
+            , HandlerTexturePossDelegation handlerTexturePoss = null
+            , Vector2 stickPoint = default) {
+            parametricPositionFunction ??= DefaultParametricPosition;
+            handlerTexturePoss ??= DefaultHandlerTexturePoss;
+
+            vertices = new ColoredVertex[pathPoints.Count * 2 - 2];
+            for (int i = 0; i < pathPoints.Count - 1; i++) {
+                float t = (float)i / (pathPoints.Count - 1);
+                float width = thicknessEvaluator(t);
+                Color color = colorEvaluator(parametricPositionFunction(t));
+
+                Vector2 current = pathPoints[i];
+                Vector2 direction = Utils.SafeNormalize(pathPoints[i + 1] - current, Vector2.Zero);
+
+                handlerTexturePoss.Invoke(t, out Vector2 leftTexCoord, out Vector2 rightTexCoord);
+
+                Vector2 sideOffset = new Vector2(-direction.Y, direction.X) * width;
+
+                Vector2 left = current - sideOffset;
+                Vector2 right = current + sideOffset;
+
+                if (i == 0 && stickPoint != Vector2.Zero) {
+                    left = stickPoint;
+                    right = stickPoint;
+                }
+
+                vertices[i * 2] = new ColoredVertex(left, color, leftTexCoord.ToVector3());
+                vertices[i * 2 + 1] = new ColoredVertex(right, color, rightTexCoord.ToVector3());
+            }
+
+            indices = new short[(pathPoints.Count - 1) * 6];
+            for (int i = 0; i < pathPoints.Count - 2; i++) {
+                int startIndex = i * 6;
+                int vertexIndex = i * 2;
+
+                indices[startIndex] = (short)vertexIndex;
+                indices[startIndex + 1] = (short)(vertexIndex + 1);
+                indices[startIndex + 2] = (short)(vertexIndex + 2);
+
+                indices[startIndex + 3] = (short)(vertexIndex + 2);
+                indices[startIndex + 4] = (short)(vertexIndex + 1);
+                indices[startIndex + 5] = (short)(vertexIndex + 3);
+            }
+        }
+
+        /// <summary>
+        /// 使用 <see cref="GraphicsDevice.DrawUserIndexedPrimitives{T}(PrimitiveType, T[], int, int, short[], int, int)"/> 轻量方式渲染 <see cref="ColoredVertex"/> 网格数据，
+        /// 无需 GPU 缓冲区管理
+        /// </summary>
+        /// <param name="vertices">顶点数组</param>
+        /// <param name="indices">索引数组</param>
+        /// <param name="device">图形设备，为 null 时使用 <see cref="Main.instance"/>.GraphicsDevice</param>
+        public static void DrawUserPrimitives(ColoredVertex[] vertices, short[] indices, GraphicsDevice device = null) {
+            if (vertices == null || indices == null || vertices.Length < 3 || indices.Length < 3) {
+                return;
+            }
+
+            device ??= Main.instance.GraphicsDevice;
+            device.RasterizerState = RasterizerState.CullNone;
+            device.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertices, 0
+                , vertices.Length, indices, 0, indices.Length / 3);
+        }
+
+        #endregion
     }
 
     /// <summary>

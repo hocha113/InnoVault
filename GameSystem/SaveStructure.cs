@@ -760,7 +760,7 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="tile"></param>
         /// <returns></returns>
-        public static bool TileIsAir(Tile tile) => !tile.HasTile && tile.WallType == 0 && tile.LiquidAmount == 0;
+        public static bool TileIsAir(Tile tile) => !tile.HasTile && tile.WallType == WallID.None && tile.LiquidAmount == 0;
         /// <summary>
         /// 保存指定矩形范围的方块数据
         /// </summary>
