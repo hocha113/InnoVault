@@ -560,21 +560,38 @@ namespace InnoVault.GameSystem
 
         #region NetWork
         /// <summary>
-        /// 用于网络同步，该方法在多人游戏中运行
+        /// 用于网络同步，该方法在多人游戏中运行。
+        /// 使用位掩码仅发送非零的ai槽位，以减少高频同步时的带宽消耗
         /// </summary>
         /// <param name="writer"></param>
         public virtual void NetSend(BinaryWriter writer) {
+            ushort mask = 0;
             for (int i = 0; i < MaxAISlot; i++) {
-                writer.Write(ai[i]);
+                if (ai[i] != 0f) {
+                    mask |= (ushort)(1 << i);
+                }
+            }
+            writer.Write(mask);
+            for (int i = 0; i < MaxAISlot; i++) {
+                if ((mask & (1 << i)) != 0) {
+                    writer.Write(ai[i]);
+                }
             }
         }
         /// <summary>
-        /// 用于网络同步，该方法在多人游戏中运行
+        /// 用于网络同步，该方法在多人游戏中运行。
+        /// 使用位掩码仅接收非零的ai槽位，与<see cref="NetSend"/>对应
         /// </summary>
         /// <param name="reader"></param>
         public virtual void NetReceive(BinaryReader reader) {
+            ushort mask = reader.ReadUInt16();
             for (int i = 0; i < MaxAISlot; i++) {
-                ai[i] = reader.ReadSingle();
+                if ((mask & (1 << i)) != 0) {
+                    ai[i] = reader.ReadSingle();
+                }
+                else {
+                    ai[i] = 0f;
+                }
             }
         }
         /// <summary>
@@ -596,7 +613,7 @@ namespace InnoVault.GameSystem
         }
 
         internal static void OtherNetWorkReceiveHander(BinaryReader reader) {
-            NPC npc = Main.npc[reader.ReadInt32()];
+            NPC npc = Main.npc[reader.ReadInt16()];
             ushort id = reader.ReadUInt16();
             if (npc.TryGetOverride(out var values)) {
                 foreach (var npcOverrideInstance in values.Values) {
@@ -616,7 +633,7 @@ namespace InnoVault.GameSystem
 
             ModPacket netMessage = Mod.GetPacket();
             netMessage.Write((byte)MessageType.NPCOverrideOtherAI);
-            netMessage.Write(npc.whoAmI);
+            netMessage.Write((short)npc.whoAmI);
             netMessage.Write(OverrideID);
             OtherNetWorkSend(netMessage);
             SyncVarManager.Send(this, netMessage);
@@ -668,10 +685,20 @@ namespace InnoVault.GameSystem
             }
             ModPacket netMessage = VaultMod.Instance.GetPacket();
             netMessage.Write((byte)MessageType.NPCOverrideNetWork);
-            netMessage.Write(npc.whoAmI);
+            netMessage.Write((short)npc.whoAmI);
             netMessage.Write(OverrideID);
+            //使用位掩码仅发送非零的ai槽位
+            ushort mask = 0;
             for (int i = 0; i < MaxAISlot; i++) {
-                netMessage.Write(ai[i]);
+                if (ai[i] != 0f) {
+                    mask |= (ushort)(1 << i);
+                }
+            }
+            netMessage.Write(mask);
+            for (int i = 0; i < MaxAISlot; i++) {
+                if ((mask & (1 << i)) != 0) {
+                    netMessage.Write(ai[i]);
+                }
             }
             OtherNetWorkSend(netMessage);//手动发送网络数据
             SyncVarManager.Send(this, netMessage);
@@ -684,11 +711,13 @@ namespace InnoVault.GameSystem
         /// <param name="reader"></param>
         /// <param name="whoAmI"></param>
         public static void ReceiveNetworkData(BinaryReader reader, int whoAmI) {
-            int npcIndex = reader.ReadInt32();
+            int npcIndex = (int)reader.ReadInt16();
             ushort overrideID = reader.ReadUInt16();
+            //使用位掩码读取ai数据
+            ushort mask = reader.ReadUInt16();
             float[] newAI = new float[MaxAISlot];
             for (int i = 0; i < MaxAISlot; i++) {
-                newAI[i] = reader.ReadSingle();
+                newAI[i] = (mask & (1 << i)) != 0 ? reader.ReadSingle() : 0f;
             }
 
             if (!npcIndex.TryGetNPC(out NPC npc)) {
@@ -711,20 +740,22 @@ namespace InnoVault.GameSystem
             npcModify.OtherNetWorkReceive(reader);
             SyncVarManager.Receive(npcModify, reader);
 
+            //服务器负责将数据广播给其他客户端
             if (VaultUtils.isServer) {
-                return;
+                ModPacket netMessage = VaultMod.Instance.GetPacket();
+                netMessage.Write((byte)MessageType.NPCOverrideNetWork);
+                netMessage.Write((short)npc.whoAmI);
+                netMessage.Write(overrideID);
+                netMessage.Write(mask);
+                for (int i = 0; i < MaxAISlot; i++) {
+                    if ((mask & (1 << i)) != 0) {
+                        netMessage.Write(newAI[i]);
+                    }
+                }
+                npcModify.OtherNetWorkSend(netMessage);
+                SyncVarManager.Send(npcModify, netMessage);
+                netMessage.Send(-1, whoAmI);
             }
-
-            ModPacket netMessage = VaultMod.Instance.GetPacket();
-            netMessage.Write((byte)MessageType.NPCOverrideNetWork);
-            netMessage.Write(npc.whoAmI);
-            netMessage.Write(overrideID);
-            for (int i = 0; i < MaxAISlot; i++) {
-                netMessage.Write(newAI[i]);
-            }
-            npcModify.OtherNetWorkSend(netMessage);
-            SyncVarManager.Send(npcModify, netMessage);
-            netMessage.Send(-1, whoAmI);
         }
 
         /// <summary>
@@ -767,17 +798,27 @@ namespace InnoVault.GameSystem
                 var netMessage = VaultMod.Instance.GetPacket();
                 netMessage.Write((byte)MessageType.Handler_NPCOverrideRequestAllData);
 
-                //写入当前批次的数量
-                netMessage.Write(count);
+                //写入当前批次的数量，batchSize最大25，用byte足够
+                netMessage.Write((byte)count);
 
                 for (int i = start; i < end; i++) {
                     var npcOverride = npcOverrides[i];
 
-                    netMessage.Write(npcOverride.npc.whoAmI);
+                    netMessage.Write((short)npcOverride.npc.whoAmI);
                     netMessage.Write(npcOverride.OverrideID);
 
-                    foreach (var aiValue in npcOverride.ai) {
-                        netMessage.Write(aiValue);
+                    //使用位掩码仅发送非零的ai槽位
+                    ushort mask = 0;
+                    for (int j = 0; j < MaxAISlot; j++) {
+                        if (npcOverride.ai[j] != 0f) {
+                            mask |= (ushort)(1 << j);
+                        }
+                    }
+                    netMessage.Write(mask);
+                    for (int j = 0; j < MaxAISlot; j++) {
+                        if ((mask & (1 << j)) != 0) {
+                            netMessage.Write(npcOverride.ai[j]);
+                        }
                     }
 
                     npcOverride.OtherNetWorkSend(netMessage);
@@ -792,9 +833,9 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="reader"></param>
         internal static void Handler_NPCOverrideRequestAllData(BinaryReader reader) {
-            int count = reader.ReadInt32();
+            int count = reader.ReadByte();
             for (int i = 0; i < count; i++) {
-                int npcIndex = reader.ReadInt32();
+                int npcIndex = (int)reader.ReadInt16();
                 ushort overrideID = reader.ReadUInt16();
 
                 if (!npcIndex.TryGetNPC(out NPC npc)) {
@@ -806,8 +847,10 @@ namespace InnoVault.GameSystem
                 }
 
                 NPCOverride value = values[OverrideIDToType[overrideID]];
+                //使用位掩码读取ai数据
+                ushort mask = reader.ReadUInt16();
                 for (int j = 0; j < MaxAISlot; j++) {
-                    value.ai[j] = reader.ReadSingle();
+                    value.ai[j] = (mask & (1 << j)) != 0 ? reader.ReadSingle() : 0f;
                 }
                 value.OtherNetWorkReceive(reader);
                 SyncVarManager.Receive(value, reader);
