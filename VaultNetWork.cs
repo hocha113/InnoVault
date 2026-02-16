@@ -50,16 +50,10 @@ namespace InnoVault
         Handler_TPDeathByClient,
         /// <summary>发送到客户端：TP数据</summary>
         SendToClient_TPData,
-        /// <summary>发送到客户端：TP数据块</summary>
-        SendToClient_TPDataChunk,
-        /// <summary>发送到客户端：最大TP数据块数量</summary>
-        SendToClient_MaxTPDataChunkCount,
         /// <summary>获取服务器：TP数据块</summary>
         GetServer_TPDataChunk,
         /// <summary>获取服务器：最大TP数据块数量</summary>
         GetServer_MaxTPDataChunkCount,
-        /// <summary>获取服务器：TP数据块包起始位置</summary>
-        GetServer_TPDataChunkPacketStartPos,
         /// <summary>获取服务器：重置TP数据块网络</summary>
         GetServer_ResetTPDataChunkNet,
         /// <summary>处理：TP右键点击</summary>
