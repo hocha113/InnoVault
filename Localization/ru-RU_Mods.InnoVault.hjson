@@ -6,8 +6,8 @@ Configs: {
 			Label: Скрыть экран загрузки мира
 			Tooltip:
 				'''
-				Этап загрузки мира больше не будет отображать экран загрузки.
-				По умолчанию выключено. При включении загрузка будет происходить незаметно.
+				Интерфейс загрузки больше не будет отображаться при входе в мир.
+				По умолчанию выключено. Включение сделает загрузку невидимой.
 				'''
 		}
 	}
@@ -17,44 +17,43 @@ Loadings: {
 	WorldLoadingText: {
 		Text1: Загрузка мира
 		Text2: Чтение данных сохранения
-		Text3: Загрузка обработчика блоков
+		Text3: Загрузка обработчика тайлов (Tile Processor)
 		Text4: Получение сетевых данных
 		Text5: Сохранение мира
 		NetWaringTimeoutMsg:
 			'''
-			[VaultNet] Время ожидания загрузки по сети истекло. Некоторые сетевые данные могли быть потеряны или задержаны.
-			Это может привести к неполной загрузке объектов мира или некорректному состоянию.
-			Пожалуйста, проверьте подключение к сети и рассмотрите возможность повторного подключения к серверу.
+			[VaultNet] Время ожидания сетевой загрузки истекло. Часть данных могла быть потеряна или задержана.
+			Это может привести к неполным сущностям мира или несогласованному состоянию.
+			Рекомендуется проверить подключение к сети и попытаться перезайти на сервер.
 			'''
 	}
 }
 
 Items: {
 	TestItem: {
-		// DisplayName: Test Item
-		// Tooltip: ""
+		DisplayName: Тестовый предмет
+		Tooltip: ""
 	}
 }
 
-// Projectiles.TestProj.DisplayName: Test Proj
-// Dimensions.StoneDimension.DisplayName: Stone Dimension
+Projectiles.TestProj.DisplayName: Тестовый снаряд
 
 UI: {
 	DeveloperPanelUI: {
-		// TitleText: Developer Debug Panel
-		// TPBoxDrawText: TP Collision Box
-		// TPShowNameText: TP Name Display
-		// TPShowPositionText: TP Position Display
-		// TPShowIDText: TP ID Display
-		// ResetAllText: Reset All
-		// CloseText: Close
-		// TPTabText: TileProcessor
-		// ActorTabText: Actor
-		// ActorBoxDrawText: Collision Box
-		// ActorShowNameText: Name Display
-		// ActorShowPositionText: Position Display
-		// ActorShowIDText: ID Display
-		// ActorShowVelocityText: Velocity Display
-		// ResetText: Reset
+		TitleText: Панель отладки разработчика
+		TPBoxDrawText: Показать хитбоксы
+		TPShowNameText: Показать внутр. имя
+		TPShowPositionText: Показать позицию
+		TPShowIDText: Показать ID
+		ResetAllText: Сбросить всё
+		CloseText: Закрыть
+		TPTabText: TileProcessor
+		ActorTabText: Actor
+		ActorBoxDrawText: Показать хитбоксы
+		ActorShowNameText: Показать внутр. имя
+		ActorShowPositionText: Показать позицию
+		ActorShowIDText: Показать ID
+		ActorShowVelocityText: Показать скорость
+		ResetText: Сброс
 	}
 }

@@ -1,13 +1,13 @@
 Configs: {
 	VaultClientConfig: {
-		DisplayName: Clienteinstellungen
+		DisplayName: Client-Einstellungen
 
 		HideWorldLoadingScreen: {
-			Label: Ladebildschirm der Welt ausblenden
+			Label: Welt-Ladebildschirm verbergen
 			Tooltip:
 				'''
-				Die Ladephase beim Betreten der Welt zeigt kein Lade-UI mehr an.
-				Standardmäßig deaktiviert. Bei Aktivierung erfolgt das Laden unsichtbar.
+				Die Ladeoberfläche wird beim Betreten einer Welt nicht mehr angezeigt.
+				Standardmäßig aus; Aktivieren macht den Ladevorgang unsichtbar.
 				'''
 		}
 	}
@@ -15,46 +15,45 @@ Configs: {
 
 Loadings: {
 	WorldLoadingText: {
-		Text1: Welt wird geladen
-		Text2: Speicherdateien werden gelesen
-		Text3: Blockprozessor wird geladen
-		Text4: Netzwerkdaten werden empfangen
-		Text5: Welt wird gespeichert
+		Text1: Lade Welt
+		Text2: Lese Speicherdaten
+		Text3: Lade Tile Processor
+		Text4: Empfange Netzwerkdaten
+		Text5: Speichere Welt
 		NetWaringTimeoutMsg:
 			'''
-			[VaultNet] Die Netzwerkverbindung hat ein Timeout erreicht. Einige Netzwerkdaten könnten verloren gegangen oder verzögert worden sein.
-			Dies kann zu unvollständigen Weltobjekten oder einem inkonsistenten Zustand führen.
-			Bitte überprüfen Sie Ihre Netzwerkverbindung und erwägen Sie, dem Server erneut beizutreten.
+			[VaultNet] Zeitüberschreitung beim Netzwerkladen. Einige Daten sind möglicherweise verloren gegangen oder verzögert.
+			Dies kann zu unvollständigen Welt-Entitäten oder inkonsistenten Zuständen führen.
+			Es wird empfohlen, die Netzwerkverbindung zu überprüfen und erneut dem Server beizutreten.
 			'''
 	}
 }
 
 Items: {
 	TestItem: {
-		// DisplayName: Test Item
-		// Tooltip: ""
+		DisplayName: Testgegenstand
+		Tooltip: ""
 	}
 }
 
-// Projectiles.TestProj.DisplayName: Test Proj
-// Dimensions.StoneDimension.DisplayName: Stone Dimension
+Projectiles.TestProj.DisplayName: Testprojektil
 
 UI: {
 	DeveloperPanelUI: {
-		// TitleText: Developer Debug Panel
-		// TPBoxDrawText: TP Collision Box
-		// TPShowNameText: TP Name Display
-		// TPShowPositionText: TP Position Display
-		// TPShowIDText: TP ID Display
-		// ResetAllText: Reset All
-		// CloseText: Close
-		// TPTabText: TileProcessor
-		// ActorTabText: Actor
-		// ActorBoxDrawText: Collision Box
-		// ActorShowNameText: Name Display
-		// ActorShowPositionText: Position Display
-		// ActorShowIDText: ID Display
-		// ActorShowVelocityText: Velocity Display
-		// ResetText: Reset
+		TitleText: Entwickler-Debug-Panel
+		TPBoxDrawText: Hitbox anzeigen
+		TPShowNameText: Interne Namen anzeigen
+		TPShowPositionText: Position anzeigen
+		TPShowIDText: ID anzeigen
+		ResetAllText: Alles zurücksetzen
+		CloseText: Schließen
+		TPTabText: TileProcessor
+		ActorTabText: Actor
+		ActorBoxDrawText: Hitbox anzeigen
+		ActorShowNameText: Interne Namen anzeigen
+		ActorShowPositionText: Position anzeigen
+		ActorShowIDText: ID anzeigen
+		ActorShowVelocityText: Geschwindigkeit anz.
+		ResetText: Reset
 	}
 }

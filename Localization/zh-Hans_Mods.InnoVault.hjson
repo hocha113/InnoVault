@@ -31,13 +31,12 @@ Loadings: {
 
 Items: {
 	TestItem: {
-		// DisplayName: Test Item
-		// Tooltip: ""
+		DisplayName: 测试物品
+		Tooltip: ""
 	}
 }
 
-// Projectiles.TestProj.DisplayName: Test Proj
-// Dimensions.StoneDimension.DisplayName: Stone Dimension
+Projectiles.TestProj.DisplayName: 测试弹幕
 
 UI: {
 	DeveloperPanelUI: {

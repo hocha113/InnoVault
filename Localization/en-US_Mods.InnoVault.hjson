@@ -1,13 +1,13 @@
 Configs: {
 	VaultClientConfig: {
-		DisplayName: Client Config
+		DisplayName: Client Settings
 
 		HideWorldLoadingScreen: {
 			Label: Hide World Loading Screen
 			Tooltip:
 				'''
-				Hides the loading UI when entering a world
-				Disabled by default — enable to load the world silently in the background
+				The buffering UI will no longer be shown during the world loading phase.
+				Default is Off; enabling this will make loading invisible.
 				'''
 		}
 	}
@@ -15,16 +15,16 @@ Configs: {
 
 Loadings: {
 	WorldLoadingText: {
-		Text1: Loading The World
-		Text2: Loading Save Data
+		Text1: Loading World
+		Text2: Reading Save Data
 		Text3: Loading Tile Processor
-		Text4: Receive Network Data
-		Text5: Save World
+		Text4: Receiving Network Data
+		Text5: Saving World
 		NetWaringTimeoutMsg:
 			'''
-			[VaultNet] Network loading has timed out. Some network data may have been lost or delayed.
-			This may lead to incomplete world entities or inconsistent state.
-			Please Check your network connection and consider rejoining the server.
+			[VaultNet] Network loading timed out. Some network data may be lost or delayed.
+			This may result in incomplete world entities or inconsistent states.
+			It is recommended to check your network connection and try rejoining the server.
 			'''
 	}
 }
@@ -36,25 +36,24 @@ Items: {
 	}
 }
 
-Projectiles.TestProj.DisplayName: Test Proj
-Dimensions.StoneDimension.DisplayName: Stone Dimension
+Projectiles.TestProj.DisplayName: Test Projectile
 
 UI: {
 	DeveloperPanelUI: {
 		TitleText: Developer Debug Panel
-		TPBoxDrawText: TP Collision Box
-		TPShowNameText: TP Name Display
-		TPShowPositionText: TP Position Display
-		TPShowIDText: TP ID Display
+		TPBoxDrawText: Show Hitbox
+		TPShowNameText: Show Internal Name
+		TPShowPositionText: Show Position
+		TPShowIDText: Show ID
 		ResetAllText: Reset All
 		CloseText: Close
 		TPTabText: TileProcessor
 		ActorTabText: Actor
-		ActorBoxDrawText: Collision Box
-		ActorShowNameText: Name Display
-		ActorShowPositionText: Position Display
-		ActorShowIDText: ID Display
-		ActorShowVelocityText: Velocity Display
+		ActorBoxDrawText: Show Hitbox
+		ActorShowNameText: Show Internal Name
+		ActorShowPositionText: Show Position
+		ActorShowIDText: Show ID
+		ActorShowVelocityText: Show Velocity
 		ResetText: Reset
 	}
 }
