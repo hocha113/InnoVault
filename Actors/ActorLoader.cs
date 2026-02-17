@@ -22,7 +22,7 @@ namespace InnoVault.Actors
         /// <summary>
         /// 游戏世界中最多允许存在的Actor数量
         /// </summary>
-        public const int MaxActorCount = 2000;
+        public const int MaxActorCount = short.MaxValue;
         /// <summary>
         /// 游戏世界中所有活跃的Actor实例
         /// </summary>
