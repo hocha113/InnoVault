@@ -136,7 +136,7 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 在物块绘制之后绘制<br/>
-        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回时必须保持 Active
+        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回前必须结束
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>

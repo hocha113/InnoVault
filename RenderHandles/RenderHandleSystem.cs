@@ -27,17 +27,7 @@ namespace InnoVault.RenderHandles
 
             RenderHandleLoader.EnsureScreenSwap();
             var gd = Main.instance.GraphicsDevice;
-
-            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
-                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-
-            foreach (var render in RenderHandle.Instances) {
-                RenderHandleLoader.HandleRenderAction(render, "DrawAfterTiles", () =>
-                    render.DrawAfterTiles(Main.spriteBatch, gd, RenderHandleLoader.ScreenSwap)
-                );
-            }
-
-            Main.spriteBatch.End();
+            RenderHandleLoader.DrawBatch("DrawAfterTiles", render => render.DrawAfterTiles(Main.spriteBatch, gd, RenderHandleLoader.ScreenSwap));
         }
     }
 }

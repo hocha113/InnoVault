@@ -33,6 +33,7 @@ namespace InnoVault.RenderHandles
             Main.OnResolutionChanged -= Main_OnResolutionChanged;
             On_Main.DrawDust -= DrawDustHook;
             On_Main.DoDraw_WallsAndBlacks -= DrawBeforeTilesHook;
+            On_Main.DoDraw_DrawNPCsOverTiles -= DrawNPCsOverTilesHook;
             On_LegacyPlayerRenderer.DrawPlayers -= DrawPlayersHook;
 
             if (VaultUtils.isServer) {
@@ -174,7 +175,7 @@ namespace InnoVault.RenderHandles
         /// <summary>
         /// 在已有活跃的 SpriteBatch 环境中插入绘制（End → Begin → Draw → End → Begin）
         /// </summary>
-        private static void DrawBatch(string stage, Action<RenderHandle> drawAction) {
+        internal static void DrawBatch(string stage, Action<RenderHandle> drawAction) {
             bool any = false;
             foreach (var render in RenderHandle.Instances) {
                 any = true;
