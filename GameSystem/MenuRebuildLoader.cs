@@ -29,7 +29,8 @@ namespace InnoVault.GameSystem
         //这个函数内部已经是处理好了画布状态的，所以不需要再去管理画布相关
         private static void OnUpdateAndDrawModMenuHook(Action<SpriteBatch, GameTime, Color, float, float> orig, SpriteBatch spriteBatch, GameTime gameTime, Color color, float logoRotation, float logoScale) {
             bool result = true;
-            foreach (var inds in Instances) {
+            var snapshot = Instances.ToArray();
+            foreach (var inds in snapshot) {
                 if (inds.ignoreBug > 0) {
                     inds.ignoreBug--;
                     continue;
@@ -53,7 +54,7 @@ namespace InnoVault.GameSystem
                 orig.Invoke(spriteBatch, gameTime, color, logoRotation, logoScale);
             }
 
-            foreach (var inds in Instances) {
+            foreach (var inds in snapshot) {
                 if (inds.ignoreBug > 0) {
                     inds.ignoreBug--;
                     continue;
@@ -77,8 +78,9 @@ namespace InnoVault.GameSystem
         /// </summary>
         internal static void ProcessMenuLogicUpdates() {
             menuTickTimer.Update();
+            var snapshot = Instances.ToArray();
             while (menuTickTimer.Tick()) {
-                foreach (var inds in Instances) {
+                foreach (var inds in snapshot) {
                     if (inds.ignoreBug > 0) {
                         continue;
                     }
@@ -101,7 +103,8 @@ namespace InnoVault.GameSystem
             ProcessMenuLogicUpdates();
 
             bool result = true;
-            foreach (var inds in Instances) {
+            var snapshot = Instances.ToArray();
+            foreach (var inds in snapshot) {
                 if (inds.ignoreBug > 0) {
                     inds.ignoreBug--;
                     continue;
@@ -131,7 +134,7 @@ namespace InnoVault.GameSystem
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend
                 , SamplerState.LinearClamp, DepthStencilState.None, Main.Rasterizer, null, Main.UIScaleMatrix);
 
-            foreach (var inds in Instances) {
+            foreach (var inds in snapshot) {
                 if (inds.ignoreBug > 0) {
                     inds.ignoreBug--;
                     continue;

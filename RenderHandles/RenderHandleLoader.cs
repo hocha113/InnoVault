@@ -1,8 +1,11 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using Terraria;
+using Terraria.Graphics;
 using Terraria.Graphics.Effects;
+using Terraria.Graphics.Renderers;
 
 namespace InnoVault.RenderHandles
 {
@@ -19,12 +22,16 @@ namespace InnoVault.RenderHandles
         void IVaultLoader.LoadData() {
             On_FilterManager.EndCapture += FilterManager_EndCapture;
             Main.OnResolutionChanged += Main_OnResolutionChanged;
-            On_Main.DrawDust += EndDraw;
+            On_Main.DrawDust += DrawDustHook;
+            On_Main.DoDraw_WallsAndBlacks += DrawBeforeTilesHook;
+            On_LegacyPlayerRenderer.DrawPlayers += DrawPlayersHook;
         }
         void IVaultLoader.UnLoadData() {
             On_FilterManager.EndCapture -= FilterManager_EndCapture;
             Main.OnResolutionChanged -= Main_OnResolutionChanged;
-            On_Main.DrawDust -= EndDraw;
+            On_Main.DrawDust -= DrawDustHook;
+            On_Main.DoDraw_WallsAndBlacks -= DrawBeforeTilesHook;
+            On_LegacyPlayerRenderer.DrawPlayers -= DrawPlayersHook;
 
             if (VaultUtils.isServer) {
                 return;
@@ -33,7 +40,7 @@ namespace InnoVault.RenderHandles
             Main.QueueMainThreadAction(() => {
                 DisposeScreen();
                 foreach (var render in RenderHandle.Instances) {
-                    render.InitializeScreenTargets(create: false);
+                    render.DisposeScreenTargets();
                 }
 
                 RenderHandle.Instances?.Clear();
@@ -44,7 +51,7 @@ namespace InnoVault.RenderHandles
             DisposeScreen();
             ScreenSwap = new RenderTarget2D(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight);
             foreach (var render in RenderHandle.Instances) {
-                render.InitializeScreenTargets(create: true);
+                render.CreateScreenTargets();
                 render.OnResolutionChanged(screenSize);
             }
         }
@@ -55,6 +62,22 @@ namespace InnoVault.RenderHandles
             ScreenSwap = null;
         }
 
+        /// <summary>
+        /// 确保 <see cref="ScreenSwap"/> 及各实例的 <see cref="RenderHandle.ScreenTargets"/> 已初始化，
+        /// 任何绘制阶段均可安全调用
+        /// </summary>
+        internal static void EnsureScreenSwap() {
+            if (ScreenSwap != null) {
+                return;
+            }
+
+            ScreenSwap = new RenderTarget2D(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight);
+            foreach (var render in RenderHandle.Instances) {
+                render.CreateScreenTargets();
+            }
+        }
+
+        #region EndCapture 阶段
         private static void FilterManager_EndCapture(On_FilterManager.orig_EndCapture orig
             , FilterManager filterManager
             , RenderTarget2D finalTexture
@@ -62,17 +85,12 @@ namespace InnoVault.RenderHandles
             , RenderTarget2D screenTarget2
             , Color clearColor) {
 
-            if (RenderHandle.Instances?.Count == 0) {//列表为空的话直接返回
+            if (RenderHandle.Instances?.Count == 0) {
                 orig.Invoke(filterManager, finalTexture, screenTarget1, screenTarget2, clearColor);
                 return;
             }
 
-            if (ScreenSwap == null) {
-                ScreenSwap = new RenderTarget2D(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight);
-                foreach (var render in RenderHandle.Instances) {
-                    render.InitializeScreenTargets(create: true);
-                }
-            }
+            EnsureScreenSwap();
 
             foreach (var render in RenderHandle.Instances) {
                 render.filterManager = filterManager;
@@ -97,20 +115,104 @@ namespace InnoVault.RenderHandles
 
             orig.Invoke(filterManager, finalTexture, screenTarget1, screenTarget2, clearColor);
         }
+        #endregion
 
-        private void EndDraw(On_Main.orig_DrawDust orig, Main main) {
+        #region 分层绘制阶段
+        private static void DrawBeforeTilesHook(On_Main.orig_DoDraw_WallsAndBlacks orig, Main self) {
+            orig(self);
+
+            if (Main.gameMenu) {
+                return;
+            }
+
+            EnsureScreenSwap();
+            var gd = Main.instance.GraphicsDevice;
+            DrawInActiveBatch("DrawBeforeTiles", render => render.DrawBeforeTiles(Main.spriteBatch, gd, ScreenSwap));
+        }
+
+        private static void DrawPlayersHook(On_LegacyPlayerRenderer.orig_DrawPlayers orig, LegacyPlayerRenderer self, Camera camera, IEnumerable<Player> players) {
+            EnsureScreenSwap();
+            var gd = Main.instance.GraphicsDevice;
+            DrawInStandaloneBatch("DrawBeforePlayers", render => render.DrawBeforePlayers(Main.spriteBatch, gd, ScreenSwap));
+
+            orig(self, camera, players);
+
+            DrawInStandaloneBatch("DrawAfterPlayers", render => render.DrawAfterPlayers(Main.spriteBatch, gd, ScreenSwap));
+        }
+
+        private void DrawDustHook(On_Main.orig_DrawDust orig, Main main) {
             orig(main);
             if (Main.gameMenu) {
                 return;
             }
+
+            EnsureScreenSwap();
+            var gd = Main.instance.GraphicsDevice;
             foreach (var render in RenderHandle.Instances) {
+                HandleRenderAction(render, "EndEntityDraw", () =>
+                    render.EndEntityDraw(Main.spriteBatch, main, gd, ScreenSwap)
+                );
                 HandleRenderAction(render, "EndEntityDraw", () =>
                     render.EndEntityDraw(Main.spriteBatch, main)
                 );
             }
+
+            DrawInActiveBatch("DrawAfterEntities", render => render.DrawAfterEntities(Main.spriteBatch, gd, ScreenSwap));
+        }
+        #endregion
+
+        #region SpriteBatch 辅助
+        /// <summary>
+        /// 在已有活跃的 SpriteBatch 环境中插入绘制（End → Begin → Draw → End → Begin）
+        /// </summary>
+        private static void DrawInActiveBatch(string stage, Action<RenderHandle> drawAction) {
+            bool any = false;
+            foreach (var render in RenderHandle.Instances) {
+                any = true;
+                break;
+            }
+            if (!any) {
+                return;
+            }
+
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+
+            foreach (var render in RenderHandle.Instances) {
+                HandleRenderAction(render, stage, () => drawAction(render));
+            }
+
+            Main.spriteBatch.End();
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
         }
 
-        private static void HandleRenderAction(RenderHandle render, string stage, Action action) {
+        /// <summary>
+        /// 在 SpriteBatch 未开启的钩子入口使用独立的 Begin → Draw → End 模式
+        /// </summary>
+        private static void DrawInStandaloneBatch(string stage, Action<RenderHandle> drawAction) {
+            bool any = false;
+            foreach (var render in RenderHandle.Instances) {
+                any = true;
+                break;
+            }
+            if (!any) {
+                return;
+            }
+
+            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
+
+            foreach (var render in RenderHandle.Instances) {
+                HandleRenderAction(render, stage, () => drawAction(render));
+            }
+
+            Main.spriteBatch.End();
+        }
+        #endregion
+
+        internal static void HandleRenderAction(RenderHandle render, string stage, Action action) {
             if (render.ignoreBug > 0) {
                 return;
             }
