@@ -114,7 +114,7 @@ namespace InnoVault.RenderHandles
         #region 分层绘制阶段
         /// <summary>
         /// 在物块绘制之前（墙壁和黑色背景之后）绘制<br/>
-        /// 调用时 SpriteBatch 已以 <see cref="Main.GameViewMatrix"/> 开启，返回时必须保持 Active
+        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回时必须保持 Active
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
@@ -124,8 +124,19 @@ namespace InnoVault.RenderHandles
         }
 
         /// <summary>
+        /// 在NPC绘制之前，物块完成绘制之后绘制<br/>
+        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回前必须结束
+        /// </summary>
+        /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
+        /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
+        /// <param name="screenSwap">自动维护的中间屏幕对象，可用于 RT 管线级操作</param>
+        public virtual void DrawNPCsOverTiles(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
+            
+        }
+
+        /// <summary>
         /// 在物块绘制之后绘制<br/>
-        /// 调用时 SpriteBatch 已以 <see cref="Main.GameViewMatrix"/> 开启，返回时必须保持 Active
+        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回时必须保持 Active
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
@@ -136,7 +147,7 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 在玩家绘制之前绘制<br/>
-        /// 调用时 SpriteBatch 已以 <see cref="Main.GameViewMatrix"/> 开启，返回时必须保持 Active
+        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回时必须保持 Active
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
@@ -147,7 +158,7 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 在玩家绘制之后绘制<br/>
-        /// 调用时 SpriteBatch 已以 <see cref="Main.GameViewMatrix"/> 开启，返回时必须保持 Active
+        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回时必须保持 Active
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
@@ -158,7 +169,7 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 在实体（粒子等）绘制结束后绘制<br/>
-        /// 调用时 SpriteBatch 已以 <see cref="Main.GameViewMatrix"/> 开启，返回时必须保持 Active
+        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回前必须结束
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
@@ -169,7 +180,7 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 实体绘制结束后的回调，可以在此绘制额外效果<br/>
-        /// 调用时 SpriteBatch 处于原生活跃状态，返回时必须保持 Active
+        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回前必须结束
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="main">Main 实例</param>
@@ -181,11 +192,11 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 实体绘制结束后的回调，可以在此绘制额外效果<br/>
-        /// 调用时 SpriteBatch 处于原生活跃状态，返回时必须保持 Active
+        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回前必须结束
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="main">Main 实例</param>
-        public virtual void EndEntityDraw(SpriteBatch spriteBatch, Main main) {//为了向下兼容，提供一个不带 GraphicsDevice 和 screenSwap 的重载版本，实际调用时会优先调用带 screenSwap 的版本
+        public virtual void EndEntityDraw(SpriteBatch spriteBatch, Main main) {
 
         }
         #endregion

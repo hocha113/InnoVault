@@ -24,8 +24,10 @@ namespace InnoVault.RenderHandles
             Main.OnResolutionChanged += Main_OnResolutionChanged;
             On_Main.DrawDust += DrawDustHook;
             On_Main.DoDraw_WallsAndBlacks += DrawBeforeTilesHook;
+            On_Main.DoDraw_DrawNPCsOverTiles += DrawNPCsOverTilesHook;
             On_LegacyPlayerRenderer.DrawPlayers += DrawPlayersHook;
         }
+
         void IVaultLoader.UnLoadData() {
             On_FilterManager.EndCapture -= FilterManager_EndCapture;
             Main.OnResolutionChanged -= Main_OnResolutionChanged;
@@ -127,17 +129,30 @@ namespace InnoVault.RenderHandles
 
             EnsureScreenSwap();
             var gd = Main.instance.GraphicsDevice;
-            DrawInActiveBatch("DrawBeforeTiles", render => render.DrawBeforeTiles(Main.spriteBatch, gd, ScreenSwap));
+            DrawBatch("DrawBeforeTiles", render => render.DrawBeforeTiles(Main.spriteBatch, gd, ScreenSwap));
+        }
+
+        private static void DrawNPCsOverTilesHook(On_Main.orig_DoDraw_DrawNPCsOverTiles orig, Main self) {
+            if (Main.gameMenu) {
+                orig(self);
+                return;
+            }
+
+            EnsureScreenSwap();
+            var gd = Main.instance.GraphicsDevice;
+            DrawBatch("DrawNPCsOverTiles", render => render.DrawNPCsOverTiles(Main.spriteBatch, gd, ScreenSwap));
+
+            orig(self);
         }
 
         private static void DrawPlayersHook(On_LegacyPlayerRenderer.orig_DrawPlayers orig, LegacyPlayerRenderer self, Camera camera, IEnumerable<Player> players) {
             EnsureScreenSwap();
             var gd = Main.instance.GraphicsDevice;
-            DrawInStandaloneBatch("DrawBeforePlayers", render => render.DrawBeforePlayers(Main.spriteBatch, gd, ScreenSwap));
+            DrawBatch("DrawBeforePlayers", render => render.DrawBeforePlayers(Main.spriteBatch, gd, ScreenSwap));
 
             orig(self, camera, players);
 
-            DrawInStandaloneBatch("DrawAfterPlayers", render => render.DrawAfterPlayers(Main.spriteBatch, gd, ScreenSwap));
+            DrawBatch("DrawAfterPlayers", render => render.DrawAfterPlayers(Main.spriteBatch, gd, ScreenSwap));
         }
 
         private void DrawDustHook(On_Main.orig_DrawDust orig, Main main) {
@@ -147,17 +162,11 @@ namespace InnoVault.RenderHandles
             }
 
             EnsureScreenSwap();
-            var gd = Main.instance.GraphicsDevice;
-            foreach (var render in RenderHandle.Instances) {
-                HandleRenderAction(render, "EndEntityDraw", () =>
-                    render.EndEntityDraw(Main.spriteBatch, main, gd, ScreenSwap)
-                );
-                HandleRenderAction(render, "EndEntityDraw", () =>
-                    render.EndEntityDraw(Main.spriteBatch, main)
-                );
-            }
 
-            DrawInActiveBatch("DrawAfterEntities", render => render.DrawAfterEntities(Main.spriteBatch, gd, ScreenSwap));
+            var gd = Main.instance.GraphicsDevice;
+            DrawBatch("OldEndEntityDraw", render => render.EndEntityDraw(Main.spriteBatch, main));
+            DrawBatch("EndEntityDraw", render => render.EndEntityDraw(Main.spriteBatch, main, gd, ScreenSwap));
+            DrawBatch("DrawAfterEntities", render => render.DrawAfterEntities(Main.spriteBatch, gd, ScreenSwap));
         }
         #endregion
 
@@ -165,7 +174,7 @@ namespace InnoVault.RenderHandles
         /// <summary>
         /// 在已有活跃的 SpriteBatch 环境中插入绘制（End → Begin → Draw → End → Begin）
         /// </summary>
-        private static void DrawInActiveBatch(string stage, Action<RenderHandle> drawAction) {
+        private static void DrawBatch(string stage, Action<RenderHandle> drawAction) {
             bool any = false;
             foreach (var render in RenderHandle.Instances) {
                 any = true;
@@ -174,41 +183,9 @@ namespace InnoVault.RenderHandles
             if (!any) {
                 return;
             }
-
-            Main.spriteBatch.End();
-            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
-                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-
             foreach (var render in RenderHandle.Instances) {
                 HandleRenderAction(render, stage, () => drawAction(render));
             }
-
-            Main.spriteBatch.End();
-            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
-                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-        }
-
-        /// <summary>
-        /// 在 SpriteBatch 未开启的钩子入口使用独立的 Begin → Draw → End 模式
-        /// </summary>
-        private static void DrawInStandaloneBatch(string stage, Action<RenderHandle> drawAction) {
-            bool any = false;
-            foreach (var render in RenderHandle.Instances) {
-                any = true;
-                break;
-            }
-            if (!any) {
-                return;
-            }
-
-            Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
-                , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-
-            foreach (var render in RenderHandle.Instances) {
-                HandleRenderAction(render, stage, () => drawAction(render));
-            }
-
-            Main.spriteBatch.End();
         }
         #endregion
 

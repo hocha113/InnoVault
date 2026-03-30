@@ -21,6 +21,10 @@ namespace InnoVault.RenderHandles
         }
 
         public override void PostDrawTiles() {
+            if (RenderHandle.Instances.Count == 0) {
+                return;
+            }
+
             RenderHandleLoader.EnsureScreenSwap();
             var gd = Main.instance.GraphicsDevice;
 
