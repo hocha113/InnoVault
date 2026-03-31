@@ -424,7 +424,7 @@ namespace InnoVault.GameSystem
                 }
             }
             else {
-                ItemAllowPrefixDic[item.type] = null;
+                ItemAllowPrefixDic.TryAdd(item.type, null);
             }
 
             return orig.Invoke(item, pre);
@@ -437,7 +437,7 @@ namespace InnoVault.GameSystem
                 }
             }
             else {
-                ItemMeleePrefixDic[item.type] = null;
+                ItemMeleePrefixDic.TryAdd(item.type, null);
             }
 
             return orig.Invoke(item);
@@ -450,7 +450,7 @@ namespace InnoVault.GameSystem
                 }
             }
             else {
-                ItemRangedPrefixDic[item.type] = null;
+                ItemRangedPrefixDic.TryAdd(item.type, null);
             }
 
             return orig.Invoke(item);

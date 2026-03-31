@@ -70,10 +70,11 @@ namespace InnoVault.RenderHandles
         /// 任何绘制阶段均可安全调用
         /// </summary>
         internal static void EnsureScreenSwap() {
-            if (ScreenSwap != null) {
+            if (ScreenSwap != null && !ScreenSwap.IsDisposed) {
                 return;
             }
 
+            ScreenSwap?.Dispose();
             ScreenSwap = new RenderTarget2D(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight);
             foreach (var render in RenderHandle.Instances) {
                 render.CreateScreenTargets();
@@ -147,6 +148,11 @@ namespace InnoVault.RenderHandles
         }
 
         private static void DrawPlayersHook(On_LegacyPlayerRenderer.orig_DrawPlayers orig, LegacyPlayerRenderer self, Camera camera, IEnumerable<Player> players) {
+            if (Main.gameMenu) {
+                orig(self, camera, players);
+                return;
+            }
+
             EnsureScreenSwap();
             var gd = Main.instance.GraphicsDevice;
             DrawBatch("DrawBeforePlayers", render => render.DrawBeforePlayers(Main.spriteBatch, gd, ScreenSwap));

@@ -1,5 +1,6 @@
 ﻿using InnoVault.GameSystem;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
@@ -32,7 +33,7 @@ namespace InnoVault
         /// <summary>
         /// 存储模组内报错时间戳
         /// </summary>
-        internal static readonly Dictionary<string, DateTime> lastErrorByKey = [];
+        internal static readonly ConcurrentDictionary<string, DateTime> lastErrorByKey = new();
         /// <summary>
         /// 报错节流冷却间隔
         /// </summary>

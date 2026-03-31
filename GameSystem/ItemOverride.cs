@@ -1,6 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.DataStructures;
@@ -41,7 +42,7 @@ namespace InnoVault.GameSystem
         /// 值为 <see langword="false"/>：强制禁止所有前缀<br/>
         /// 值为 <see langword="null"/>：使用默认逻辑
         /// </summary>
-        public static Dictionary<int, bool?> ItemAllowPrefixDic { get; set; } = [];
+        public static ConcurrentDictionary<int, bool?> ItemAllowPrefixDic { get; set; } = new();
         /// <summary>
         /// 控制指定物品类型是否允许近战前缀<br/>
         /// 该属性只在游戏加载阶段生效，应当在<see cref="ModType.SetStaticDefaults"/>或者其他调用时机合适的函数中修改<br/>
@@ -49,7 +50,7 @@ namespace InnoVault.GameSystem
         /// 值为 <see langword="false"/>：强制禁止所有近战前缀<br/>
         /// 值为 <see langword="null"/>：使用默认逻辑
         /// </summary>
-        public static Dictionary<int, bool?> ItemMeleePrefixDic { get; set; } = [];
+        public static ConcurrentDictionary<int, bool?> ItemMeleePrefixDic { get; set; } = new();
         /// <summary>
         /// 控制指定物品类型是否允许远程前缀<br/>
         /// 该属性只在游戏加载阶段生效，应当在<see cref="ModType.SetStaticDefaults"/>或者其他调用时机合适的函数中修改<br/>
@@ -57,7 +58,7 @@ namespace InnoVault.GameSystem
         /// 值为 <see langword="false"/>：强制禁止所有远程前缀<br/>
         /// 值为 <see langword="null"/>：使用默认逻辑
         /// </summary>
-        public static Dictionary<int, bool?> ItemRangedPrefixDic { get; set; } = [];
+        public static ConcurrentDictionary<int, bool?> ItemRangedPrefixDic { get; set; } = new();
         /// <summary>
         /// 重置对象的目标ID，默认为<see cref="ItemID.None"/>，即什么都不做
         /// </summary>

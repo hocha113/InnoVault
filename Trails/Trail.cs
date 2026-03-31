@@ -578,7 +578,8 @@ namespace InnoVault.Trails
         /// </summary>
         /// <param name="effect">用于渲染的效果（通常是一个Shader），包含渲染网格所需的着色器程序</param>
         public void Draw(Effect effect) {
-            if (vertexDataBuffer is null || indexDataBuffer is null) {
+            if (vertexDataBuffer is null || indexDataBuffer is null
+                || vertexDataBuffer.IsDisposed || indexDataBuffer.IsDisposed) {
                 return;
             }
 
@@ -598,7 +599,7 @@ namespace InnoVault.Trails
         /// </summary>
         /// <param name="vertices">新的顶点数据，包含了网格的顶点位置、颜色和纹理坐标等信息</param>
         public void UpdateVertexBuffer(VertexPositionColorTexture[] vertices) {
-            if (vertexDataBuffer == null) {
+            if (vertexDataBuffer == null || vertexDataBuffer.IsDisposed) {
                 return;
             }
             // 计算顶点数据的偏移量和大小
@@ -614,7 +615,7 @@ namespace InnoVault.Trails
         /// </summary>
         /// <param name="indices">新的索引数据，表示如何连接顶点形成三角形</param>
         public void UpdateIndexBuffer(short[] indices) {
-            if (indexDataBuffer == null) {
+            if (indexDataBuffer == null || indexDataBuffer.IsDisposed) {
                 return;
             }
             int indexOffset = 0;

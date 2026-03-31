@@ -273,6 +273,11 @@ namespace InnoVault.Actors
         }
 
         private static void DrawPlayersHook(On_LegacyPlayerRenderer.orig_DrawPlayers orig, LegacyPlayerRenderer self, Camera camera, IEnumerable<Player> players) {
+            if (Main.gameMenu) {
+                orig(self, camera, players);
+                return;
+            }
+
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
                 , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
 
@@ -291,6 +296,11 @@ namespace InnoVault.Actors
         }
 
         private static void DrawDefaultHook(Terraria.On_Main.orig_DrawInfernoRings orig, Main self) {
+            if (Main.gameMenu) {
+                orig(self);
+                return;
+            }
+
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
                 , DepthStencilState.None, Main.Rasterizer, null, Main.GameViewMatrix.TransformationMatrix);

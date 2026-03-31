@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq.Expressions;
 using System.Reflection;
@@ -27,7 +28,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 存储声音接口内报错的时间戳
         /// </summary>
-        private static readonly Dictionary<object, DateTime> lastErrorByKey = [];
+        private static readonly ConcurrentDictionary<object, DateTime> lastErrorByKey = new();
 
         void IVaultLoader.LoadData() {
             foreach (var sceneOverride in VaultUtils.GetDerivedInstances<SceneOverride>()) {
