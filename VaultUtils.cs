@@ -31,7 +31,6 @@ using Terraria.ModLoader.Core;
 using Terraria.ModLoader.IO;
 using Terraria.ObjectData;
 using Terraria.Social;
-using static InnoVault.GameSystem.StaticImmunitySystem;
 
 namespace InnoVault
 {
@@ -1983,453 +1982,155 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 获取源 NPC ID
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID"></param>
-        /// <returns></returns>
-        public static int GetSourceNPC(int npcID) => NPCID_To_SourceID[npcID];
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static int GetSourceNPC(int npcID) => -1;
 
         /// <summary>
-        /// 根据源 NPC 来获取所有更迭的附属 NPC
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID"></param>
-        /// <returns></returns>
-        public static int[] SourceNPCByHoverNPC(int npcID) {
-            int sourceID = NPCID_To_SourceID[npcID];
-            List<int> hovers = [];
-            foreach (var key in NPCID_To_SourceID.Keys) {
-                if (NPCID_To_SourceID[key] == sourceID) {
-                    hovers.Add(key);
-                }
-            }
-            return [.. hovers];
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static int[] SourceNPCByHoverNPC(int npcID) => [];
 
         /// <summary>
-        /// 是否注册有无敌帧数据
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID"></param>
-        /// <returns></returns>
-        public static bool HasStaticImmunity(int npcID) => NPCID_To_SourceID[npcID] > NPCID.None && NPCID_To_UseStaticImmunity[npcID];
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool HasStaticImmunity(int npcID) => false;
 
         /// <summary>
-        /// 判断指定 NPC 当前是否对指定玩家拥有静态免疫状态<br/>
-        /// 静态免疫状态意味着该 NPC 会暂时无视来自该玩家的重复伤害
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npc">目标 NPC 实例</param>
-        /// <param name="whoAmI">玩家索引</param>
-        /// <returns>若该玩家对该 NPC 处于静态免疫中，返回 true</returns>
-        public static bool HasStaticImmunity(this NPC npc, int whoAmI) => HasStaticImmunity(npc.type, whoAmI);
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool HasStaticImmunity(this NPC npc, int whoAmI) => false;
 
         /// <summary>
-        /// 判断指定 NPC 类型是否对指定玩家拥有静态免疫状态<br/>
-        /// 通过静态 ID 查表方式确认免疫状态是否生效
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID">目标 NPC 的类型 ID</param>
-        /// <param name="whoAmI">玩家索引</param>
-        /// <returns>若该玩家对该 NPC 处于静态免疫中，返回 true</returns>
-        public static bool HasStaticImmunity(int npcID, int whoAmI) {
-            if (NPCID_To_SourceID[npcID] == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
-                return false;
-            }
-
-            if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
-                return false;
-            }
-
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                whoAmI = isServer ? 0 : Main.myPlayer;
-            }
-
-            return immuneTicks[whoAmI] > 0;
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool HasStaticImmunity(int npcID, int whoAmI) => false;
 
         /// <summary>
-        /// 判断指定 NPC 是否对玩家使用的物品具有静态免疫状态
-        /// 查询基于命中记录字典中对应值是否大于零
+        /// [已弃用] 该系统已移除
         /// </summary>
-        public static bool HasStaticImmunity(NPC npc, Player player, Item item) {
-            if (!HasStaticImmunity(npc.type)) {
-                return false;
-            }
-
-            if (!NPCSourceID_To_ByItemCooldowns.TryGetValue(new HitByHitData(npc.type, item.type, (byte)player.whoAmI), out int[] immuneTicks)) {
-                return false;
-            }
-
-            return immuneTicks[player.whoAmI] > 0;
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool HasStaticImmunity(NPC npc, Player player, Item item) => false;
 
         /// <summary>
-        /// 判断指定 NPC 是否对玩家使用的弹幕具有静态免疫状态
-        /// 查询基于命中记录字典中对应值是否大于零
+        /// [已弃用] 该系统已移除
         /// </summary>
-        public static bool HasStaticImmunity(NPC npc, Player player, Projectile projectile) {
-            if (!HasStaticImmunity(npc.type)) {
-                return false;
-            }
-
-            if (!NPCSourceID_To_ByProjectileCooldowns.TryGetValue(new HitByHitData(npc.type, projectile.type, (byte)player.whoAmI), out int[] immuneTicks)) {
-                return false;
-            }
-
-            return immuneTicks[player.whoAmI] > 0;
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool HasStaticImmunity(NPC npc, Player player, Projectile projectile) => false;
 
         /// <summary>
-        /// 为指定弹幕命中注册静态免疫冷却
-        /// 支持使用弹幕本身的局部冷却时间作为自定义冷却
-        /// 支持网络同步可选
+        /// [已弃用] 该系统已移除
         /// </summary>
-        public static bool AddStaticImmunity(NPC npc, Player player, Projectile projectile, int customCooldowns = -2, bool netUpdate = true) {
-            if (customCooldowns == -2 && projectile.usesLocalNPCImmunity
-                && NPCID_To_StaticImmunityCooldown.TryGetValue(npc.type, out int cooldown)
-                && projectile.localNPCHitCooldown > 0 && projectile.localNPCHitCooldown < cooldown) {
-                customCooldowns = projectile.localNPCHitCooldown;
-            }
-
-            return AddStaticImmunity(
-                NPCSourceID_To_ByProjectileCooldowns,
-                npc.type,
-                player.whoAmI,
-                projectile.type,
-                customCooldowns,
-                netUpdate,
-                (byte)MessageType.AddStaticImmunityByProj
-            );
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool AddStaticImmunity(NPC npc, Player player, Projectile projectile, int customCooldowns = -2, bool netUpdate = true) => false;
 
         /// <summary>
-        /// 为指定物品命中注册静态免疫冷却
-        /// 支持自定义冷却时间和网络同步
+        /// [已弃用] 该系统已移除
         /// </summary>
-        public static bool AddStaticImmunity(NPC npc, Player player, Item item, int customCooldowns = -2, bool netUpdate = true)
-            => AddStaticImmunity(
-                NPCSourceID_To_ByItemCooldowns,
-                npc.type,
-                player.whoAmI,
-                item.type,
-                customCooldowns,
-                netUpdate,
-                (byte)MessageType.AddStaticImmunityByItem
-            );
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool AddStaticImmunity(NPC npc, Player player, Item item, int customCooldowns = -2, bool netUpdate = true) => false;
 
         /// <summary>
-        /// 静态免疫注册主函数
-        /// 允许注册到任意指定数据表
-        /// 可指定自定义冷却时间
-        /// 可启用远程同步通过 ModPacket 通信实现
+        /// [已弃用] 该系统已移除
         /// </summary>
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
         public static bool AddStaticImmunity(Dictionary<HitByHitData, int[]> data, int npcID, int whoAmI
-            , int hitID, int customCooldowns = -2, bool netUpdate = true, byte messageType = default) {
-
-            if (!HasStaticImmunity(npcID)) {
-                return false;
-            }
-
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                return false;
-            }
-
-            HitByHitData hitByHitData = new HitByHitData(npcID, hitID, (byte)whoAmI);
-
-            if (!data.TryGetValue(hitByHitData, out int[] value)) {
-                value = [.. normalWhoAmIs]; //复制默认玩家冷却数组以初始化
-                data[hitByHitData] = value;
-            }
-
-            if (!NPCID_To_StaticImmunityCooldown.TryGetValue(npcID, out int cooldown)) {
-                return false;
-            }
-
-            value[whoAmI] = customCooldowns > 0 ? customCooldowns : cooldown;
-
-            if (!isSinglePlayer && netUpdate && messageType != default) {
-                ModPacket modPacket = VaultMod.Instance.GetPacket();
-                modPacket.Write(messageType);           //写入消息类型用于同步标识
-                hitByHitData.Write(modPacket);          //写入命中标识数据
-                modPacket.Write(customCooldowns);       //写入自定义冷却时间
-                modPacket.Send();                       //发送数据包到服务器或其他客户端
-            }
-
-            return true;
-        }
+            , int hitID, int customCooldowns = -2, bool netUpdate = true, byte messageType = default) => false;
 
         /// <summary>
-        /// 为指定 NPC 实例添加对指定玩家的静态免疫冷却计时<br/>
-        /// 实际行为将委托给类型 ID 版本的方法
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npc">目标 NPC 实例</param>
-        /// <param name="whoAmI">玩家索引</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        public static bool AddStaticImmunity(this NPC npc, int whoAmI, bool netUpdate = true)
-            => AddStaticImmunity(npc.type, whoAmI, netUpdate);
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool AddStaticImmunity(this NPC npc, int whoAmI, bool netUpdate = true) => false;
 
         /// <summary>
-        /// 为指定 NPC 类型添加对指定玩家的静态免疫冷却计时
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID">目标 NPC 的类型 ID</param>
-        /// <param name="whoAmI">玩家索引</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        public static bool AddStaticImmunity(int npcID, int whoAmI, bool netUpdate = true) {
-            int sourceID = NPCID_To_SourceID[npcID];
-            if (sourceID == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
-                return false;
-            }
-
-            if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(sourceID, out int[] value)) {
-                return false;
-            }
-
-            if (!NPCID_To_StaticImmunityCooldown.TryGetValue(npcID, out int cooldown)) {
-                return false;
-            }
-
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                whoAmI = isServer ? 0 : Main.myPlayer;
-            }
-
-            value[whoAmI] = cooldown;
-
-            if (!isSinglePlayer && netUpdate) {
-                SendAddStaticImmunityData(npcID, whoAmI);
-            }
-
-            return true;
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool AddStaticImmunity(int npcID, int whoAmI, bool netUpdate = true) => false;
 
         /// <summary>
-        /// 为指定 NPC 实例添加对指定玩家的静态免疫冷却计时<br/>
-        /// 实际行为将委托给类型 ID 版本的方法
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npc">目标 NPC 实例</param>
-        /// <param name="whoAmI">玩家索引</param>
-        /// <param name="localNPCHitCooldown">局部无敌帧</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        public static bool AddStaticImmunity(this NPC npc, int whoAmI, short localNPCHitCooldown, bool netUpdate = true)
-            => AddStaticImmunity(npc.type, whoAmI, localNPCHitCooldown, netUpdate);
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool AddStaticImmunity(this NPC npc, int whoAmI, short localNPCHitCooldown, bool netUpdate = true) => false;
 
         /// <summary>
-        /// 为指定 NPC 类型添加对指定玩家的静态免疫冷却计时
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID">目标 NPC 的类型 ID</param>
-        /// <param name="whoAmI">玩家索引</param>
-        /// <param name="localNPCHitCooldown">局部无敌帧</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        public static bool AddStaticImmunity(int npcID, int whoAmI, short localNPCHitCooldown, bool netUpdate = true) {
-            int sourceID = NPCID_To_SourceID[npcID];
-            if (sourceID == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
-                return false;
-            }
-
-            if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(sourceID, out int[] value)) {
-                return false;
-            }
-
-            if (!NPCID_To_StaticImmunityCooldown.TryGetValue(npcID, out int cooldown)) {
-                return false;
-            }
-
-            //考虑到全局无敌帧带来的负收益已经够多了，这里避免一些武器的设置带来更大的负收益
-            if (localNPCHitCooldown >= 0 && localNPCHitCooldown < cooldown) {//启用局部无敌帧覆盖
-                cooldown = localNPCHitCooldown;
-            }
-
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                whoAmI = isServer ? 0 : Main.myPlayer;
-            }
-
-            value[whoAmI] = cooldown;
-
-            if (!isSinglePlayer && netUpdate) {
-                SendAddStaticImmunityData(npcID, whoAmI);
-            }
-
-            return true;
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static bool AddStaticImmunity(int npcID, int whoAmI, short localNPCHitCooldown, bool netUpdate = true) => false;
 
         /// <summary>
-        /// 向客户端广播某个 NPC 对某位玩家新增静态免疫状态<br/>
-        /// 仅在多人模式中使用，用于保持服务器与客户端之间的免疫状态同步
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID">目标 NPC 类型 ID</param>
-        /// <param name="whoAmI">目标玩家索引</param>
-        /// <param name="localNPCHitCooldown">局部无敌帧</param>
-        public static void SendAddStaticImmunityData(int npcID, int whoAmI, short localNPCHitCooldown = -2) {
-            ModPacket modPacket = VaultMod.Instance.GetPacket();
-            modPacket.Write((byte)MessageType.AddStaticImmunity);
-            modPacket.Write(npcID);
-            modPacket.Write(whoAmI);
-            modPacket.Write(localNPCHitCooldown);
-            modPacket.Send();
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void SendAddStaticImmunityData(int npcID, int whoAmI, short localNPCHitCooldown = -2) { }
 
         /// <summary>
-        /// 发送设置后的静态免疫状态
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID"></param>
-        /// <param name="whoAmI"></param>
-        /// <param name="immunity"></param>
-        public static void SendSetStaticImmunityData(int npcID, int whoAmI, int immunity) {
-            ModPacket modPacket = VaultMod.Instance.GetPacket();
-            modPacket.Write((byte)MessageType.SetStaticImmunity);
-            modPacket.Write(npcID);
-            modPacket.Write(whoAmI);
-            modPacket.Write(immunity);
-            modPacket.Send();
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void SendSetStaticImmunityData(int npcID, int whoAmI, int immunity) { }
 
         /// <summary>
-        /// 初始化指定 NPC 的静态免疫数据<br/>
-        /// 通常在 Mod 加载阶段调用，如<see cref="ModType.SetStaticDefaults"/><br/>
-        /// 如果需要手动注册，应当使用 <see cref="LoadenNPCStaticImmunityData(int, IEnumerable{int}, int)"/>
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID">目标 NPC 类型 ID</param>
-        /// <param name="npcSourceID">该 NPC 对应的源行为 ID，用于复用免疫状态</param>
-        /// <param name="staticImmuneCool">静态免疫冷却时间（单位为帧）, 默认为0</param>
-        public static void LoadenNPCStaticImmunityData(int npcSourceID, int npcID, int staticImmuneCool = 0) {
-            NPCID_To_SourceID[npcID] = npcSourceID;
-            NPCID_To_StaticImmunityCooldown[npcID] = staticImmuneCool;
-            NPCSourceID_To_PlayerCooldowns[npcSourceID] = [.. Enumerable.Range(0, Main.maxPlayers)];
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void LoadenNPCStaticImmunityData(int npcSourceID, int npcID, int staticImmuneCool = 0) { }
 
         /// <summary>
-        /// 批量初始化多个 NPC 的静态免疫数据，并统一指定其源行为 NPC 和默认冷却时间<br/>
-        /// 通常在 Mod 加载阶段调用，如<see cref="ModType.SetStaticDefaults"/>
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcSourceID">源 NPC 类型 ID，用于定义免疫状态行为的来源</param>
-        /// <param name="npcIDs">所有需要复用该源 NPC 静态免疫逻辑的 NPC 类型 ID</param>
-        /// <param name="staticImmuneCool">静态免疫冷却时间（单位为帧），默认值为 0</param>
-        public static void LoadenNPCStaticImmunityData(int npcSourceID, IEnumerable<int> npcIDs, int staticImmuneCool = 0) {
-            //源自身也可以使用（如果没包含在 npcIDs 中）
-            NPCID_To_SourceID[npcSourceID] = npcSourceID;
-            NPCID_To_StaticImmunityCooldown[npcSourceID] = staticImmuneCool;
-
-            //初始化冷却数组（只初始化一次）
-            if (!NPCSourceID_To_PlayerCooldowns.ContainsKey(npcSourceID)) {
-                NPCSourceID_To_PlayerCooldowns[npcSourceID] = [.. Enumerable.Range(0, Main.maxPlayers)];
-            }
-
-            foreach (int npcID in npcIDs) {
-                NPCID_To_SourceID[npcID] = npcSourceID;
-                NPCID_To_StaticImmunityCooldown[npcID] = staticImmuneCool;
-            }
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void LoadenNPCStaticImmunityData(int npcSourceID, IEnumerable<int> npcIDs, int staticImmuneCool = 0) { }
 
         /// <summary>
-        /// 同步所有具有相同源 NPC ID 的 NPC，其静态免疫冷却时间为该组中的最大值<br/>
-        /// 用于统一设置派生 NPC 的冷却时间，确保不被覆盖为 0 或较小值
+        /// [已弃用] 该系统已移除
         /// </summary>
-        public static void NormalizeStaticImmunityCooldowns() {
-            foreach (var group in NPCID_To_SourceID.GroupBy(pair => pair.Value)) {
-                int sourceID = group.Key;
-
-                if (sourceID == -1) {
-                    continue;
-                }
-
-                //获取该组中最大的冷却时间
-                int maxCooldown = group
-                    .Select(pair => NPCID_To_StaticImmunityCooldown.TryGetValue(pair.Key, out int cool) ? cool : 0)
-                    .Max();
-
-                //同步该值给组内所有成员
-                foreach (var npcID in group.Select(pair => pair.Key)) {
-                    NPCID_To_StaticImmunityCooldown[npcID] = maxCooldown;
-                }
-            }
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void NormalizeStaticImmunityCooldowns() { }
 
         /// <summary>
-        /// 设置指定玩家（whoAmI）对指定类型 NPC（npcID）的静态免疫冷却时间（单位为帧）
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID">目标 NPC 的类型 ID</param>
-        /// <param name="whoAmI">玩家的索引，表示要设置免疫冷却的来源玩家</param>
-        /// <param name="immunity">设置的冷却时间（以帧为单位），期间该 NPC 不会再次受到该玩家的攻击</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        public static void SetStaticImmunity(int npcID, int whoAmI, int immunity, bool netUpdate = true) {
-            if (NPCID_To_SourceID[npcID] == -1 || !NPCID_To_UseStaticImmunity[npcID]) {
-                return;
-            }
-
-            if (!NPCSourceID_To_PlayerCooldowns.TryGetValue(NPCID_To_SourceID[npcID], out int[] immuneTicks)) {
-                return;
-            }
-
-            if (whoAmI == -1 || whoAmI >= Main.maxPlayers) {
-                whoAmI = isServer ? 0 : Main.myPlayer;
-            }
-
-            immuneTicks[whoAmI] = immunity;
-
-            if (isSinglePlayer) {
-                return;
-            }
-
-            if (netUpdate) {
-                SendSetStaticImmunityData(npcID, whoAmI, immunity);
-            }
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void SetStaticImmunity(int npcID, int whoAmI, int immunity, bool netUpdate = true) { }
 
         /// <summary>
-        /// 启用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npc">目标 NPC 实例</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void EnableStaticImmunity(this NPC npc, bool netUpdate = true) => EnableStaticImmunity(npc.type, netUpdate);
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void EnableStaticImmunity(this NPC npc, bool netUpdate = true) { }
 
         /// <summary>
-        /// 启用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID">NPC 类型 ID</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void EnableStaticImmunity(int npcID, bool netUpdate = true) => ConfigureStaticImmunityUsage(npcID, true, netUpdate);
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void EnableStaticImmunity(int npcID, bool netUpdate = true) { }
 
         /// <summary>
-        /// 禁用指定 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npc">目标 NPC 实例</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void DisableStaticImmunity(this NPC npc, bool netUpdate = true) => DisableStaticImmunity(npc.type, netUpdate);
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void DisableStaticImmunity(this NPC npc, bool netUpdate = true) { }
 
         /// <summary>
-        /// 禁用指定类型的 NPC 的静态无敌帧逻辑（由其来源 NPC 定义）
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID">NPC 类型 ID</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void DisableStaticImmunity(int npcID, bool netUpdate = true) => ConfigureStaticImmunityUsage(npcID, false, netUpdate);
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void DisableStaticImmunity(int npcID, bool netUpdate = true) { }
 
         /// <summary>
-        /// 设置指定类型的 NPC 是否启用静态无敌帧逻辑
+        /// [已弃用] 该系统已移除
         /// </summary>
-        /// <param name="npcID">NPC 类型 ID</param>
-        /// <param name="enabled">是否启用</param>
-        /// <param name="netUpdate">是否广播此更改至其他客户端（在多人游戏中）</param>
-        /// <exception cref="InvalidOperationException">若未为该类型注册静态无敌源</exception>
-        public static void ConfigureStaticImmunityUsage(int npcID, bool enabled, bool netUpdate = true) {
-            if (!NPCID_To_SourceID.TryGetValue(npcID, out int sourceID) || sourceID == -1) {
-                throw new InvalidOperationException($"No static immunity data found for NPC type {npcID}. " +
-                    $"Make sure to register it using LoadenNPCStaticImmunityData().");
-            }
-
-            foreach (var key in NPCID_To_UseStaticImmunity.Keys) {
-                if (NPCID_To_SourceID[key] == sourceID) {
-                    NPCID_To_UseStaticImmunity[key] = enabled;
-                }
-            }
-
-            if (!isSinglePlayer && netUpdate) {
-                ModPacket modPacket = VaultMod.Instance.GetPacket();
-                modPacket.Write((byte)MessageType.UseStaticImmunity);
-                modPacket.Write(npcID);
-                modPacket.Write(enabled);
-                modPacket.Send();
-            }
-        }
+        [Obsolete("StaticImmunity系统已弃用，该系统存在性能问题已被移除，请移除对此方法的使用")]
+        public static void ConfigureStaticImmunityUsage(int npcID, bool enabled, bool netUpdate = true) { }
 
         /// <summary>
         /// 获取指定NPC的所有掉落物品ID

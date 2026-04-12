@@ -1,4 +1,5 @@
-﻿using InnoVault.Actors;
+﻿using System;
+using InnoVault.Actors;
 using InnoVault.GameContent;
 using InnoVault.GameSystem;
 using InnoVault.TileProcessors;
@@ -32,15 +33,20 @@ namespace InnoVault
         TetheredPlayer_DownRight,
         /// <summary>绑定玩家：鼠标位置</summary>
         TetheredPlayer_InMousePos,
-        /// <summary>添加静态免疫</summary>
+        /// <summary>[已弃用] 添加静态免疫</summary>
+        [Obsolete("StaticImmunity系统已弃用")]
         AddStaticImmunity,
-        /// <summary>通过弹幕添加静态免疫</summary>
+        /// <summary>[已弃用] 通过弹幕添加静态免疫</summary>
+        [Obsolete("StaticImmunity系统已弃用")]
         AddStaticImmunityByProj,
-        /// <summary>通过物品添加静态免疫</summary>
+        /// <summary>[已弃用] 通过物品添加静态免疫</summary>
+        [Obsolete("StaticImmunity系统已弃用")]
         AddStaticImmunityByItem,
-        /// <summary>设置静态免疫</summary>
+        /// <summary>[已弃用] 设置静态免疫</summary>
+        [Obsolete("StaticImmunity系统已弃用")]
         SetStaticImmunity,
-        /// <summary>使用静态免疫</summary>
+        /// <summary>[已弃用] 使用静态免疫</summary>
+        [Obsolete("StaticImmunity系统已弃用")]
         UseStaticImmunity,
         /// <summary>处理：在世界中放置</summary>
         Handler_PlaceInWorld,
@@ -73,7 +79,6 @@ namespace InnoVault
         internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
             MessageType type = (MessageType)reader.ReadByte();
             NPCOverride.HandlePacket(type, reader, whoAmI);
-            StaticImmunitySystem.HandlePacket(type, reader, whoAmI);
             TetheredPlayer.HandlePacket(type, reader, whoAmI);
             TileProcessorNetWork.HandlePacket(type, mod, reader, whoAmI);
             ActorNetWork.Handle(type, mod, reader, whoAmI);
