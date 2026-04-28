@@ -12,7 +12,7 @@ namespace InnoVault
         public override void OnLoaded() => Instance = this;
 
         [BackgroundColor(60, 130, 180, 155)]
-        [DefaultValue(false)]
+        [DefaultValue(true)]
         public bool HideWorldLoadingScreen { get; set; }
     }
 }
