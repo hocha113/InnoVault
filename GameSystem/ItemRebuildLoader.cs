@@ -47,6 +47,10 @@ namespace InnoVault.GameSystem
             return result;
         }
 
+        private static readonly object allowPrefixLock = new();
+        private static readonly object meleePrefixLock = new();
+        private static readonly object rangedPrefixLock = new();
+
         #region On and IL
         public delegate bool On_Item_Dalegate(Item item);
         public delegate void On_Item_Void_Dalegate(Item item);
@@ -418,39 +422,57 @@ namespace InnoVault.GameSystem
         }
 
         public static bool OnAllowPrefixHook(On_AllowPrefix_Dalegate orig, Item item, int pre) {
-            if (ItemAllowPrefixDic.TryGetValue(item.type, out bool? value)) {
-                if (value.HasValue) {
-                    return value.Value;
+            bool? cached;
+            lock (allowPrefixLock) {
+                if (ItemAllowPrefixDic.TryGetValue(item.type, out bool? value)) {
+                    cached = value;
+                }
+                else {
+                    ItemAllowPrefixDic.TryAdd(item.type, null);
+                    cached = null;
                 }
             }
-            else {
-                ItemAllowPrefixDic.TryAdd(item.type, null);
+
+            if (cached.HasValue) {
+                return cached.Value;
             }
 
             return orig.Invoke(item, pre);
         }
 
         public static bool OnMeleePrefixHook(On_Item_Dalegate orig, Item item) {
-            if (ItemMeleePrefixDic.TryGetValue(item.type, out bool? value)) {
-                if (value.HasValue) {
-                    return value.Value;
+            bool? cached;
+            lock (meleePrefixLock) {
+                if (ItemMeleePrefixDic.TryGetValue(item.type, out bool? value)) {
+                    cached = value;
+                }
+                else {
+                    ItemMeleePrefixDic.TryAdd(item.type, null);
+                    cached = null;
                 }
             }
-            else {
-                ItemMeleePrefixDic.TryAdd(item.type, null);
+
+            if (cached.HasValue) {
+                return cached.Value;
             }
 
             return orig.Invoke(item);
         }
 
         public static bool OnRangedPrefixHook(On_Item_Dalegate orig, Item item) {
-            if (ItemRangedPrefixDic.TryGetValue(item.type, out bool? value)) {
-                if (value.HasValue) {
-                    return value.Value;
+            bool? cached;
+            lock (rangedPrefixLock) {
+                if (ItemRangedPrefixDic.TryGetValue(item.type, out bool? value)) {
+                    cached = value;
+                }
+                else {
+                    ItemRangedPrefixDic.TryAdd(item.type, null);
+                    cached = null;
                 }
             }
-            else {
-                ItemRangedPrefixDic.TryAdd(item.type, null);
+
+            if (cached.HasValue) {
+                return cached.Value;
             }
 
             return orig.Invoke(item);

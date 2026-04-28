@@ -26,6 +26,7 @@ namespace InnoVault.RenderHandles
             On_Main.DoDraw_WallsAndBlacks += DrawBeforeTilesHook;
             On_Main.DoDraw_DrawNPCsOverTiles += DrawNPCsOverTilesHook;
             On_LegacyPlayerRenderer.DrawPlayers += DrawPlayersHook;
+            On_Main.DrawInfernoRings += DrawInfernoRingsHook;
         }
 
         void IVaultLoader.UnLoadData() {
@@ -35,6 +36,7 @@ namespace InnoVault.RenderHandles
             On_Main.DoDraw_WallsAndBlacks -= DrawBeforeTilesHook;
             On_Main.DoDraw_DrawNPCsOverTiles -= DrawNPCsOverTilesHook;
             On_LegacyPlayerRenderer.DrawPlayers -= DrawPlayersHook;
+            On_Main.DrawInfernoRings -= DrawInfernoRingsHook;
 
             if (VaultUtils.isServer) {
                 return;
@@ -160,6 +162,19 @@ namespace InnoVault.RenderHandles
             orig(self, camera, players);
 
             DrawBatch("DrawAfterPlayers", render => render.DrawAfterPlayers(Main.spriteBatch, gd, ScreenSwap));
+        }
+
+        private static void DrawInfernoRingsHook(On_Main.orig_DrawInfernoRings orig, Main self) {
+            if (Main.gameMenu) {
+                orig(self);
+                return;
+            }
+
+            EnsureScreenSwap();
+            var gd = Main.instance.GraphicsDevice;
+            DrawBatch("DrawBeforeInfernoRings", render => render.DrawBeforeInfernoRings(Main.spriteBatch, gd, ScreenSwap));
+
+            orig(self);
         }
 
         private void DrawDustHook(On_Main.orig_DrawDust orig, Main main) {

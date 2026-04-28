@@ -114,7 +114,7 @@ namespace InnoVault.RenderHandles
         #region 分层绘制阶段
         /// <summary>
         /// 在物块绘制之前（墙壁和黑色背景之后）绘制<br/>
-        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回时必须保持 Active
+        /// 调用时 SpriteBatch 处于活跃状态，函数内部如需切换渲染状态应先 End 再 Begin，返回时必须保持 Active
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
@@ -125,7 +125,7 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 在NPC绘制之前，物块完成绘制之后绘制<br/>
-        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回前必须结束
+        /// 调用时 SpriteBatch 状态由调用方决定，函数内部需自行管理画布，返回前必须结束
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
@@ -136,7 +136,7 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 在物块绘制之后绘制<br/>
-        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回前必须结束
+        /// 调用时 SpriteBatch 未处于活跃状态，函数内部需自行 Begin 绘制，返回前必须 End
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
@@ -147,7 +147,7 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 在玩家绘制之前绘制<br/>
-        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回时必须保持 Active
+        /// 调用时 SpriteBatch 未处于活跃状态，函数内部需自行 Begin 绘制，返回前必须 End
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
@@ -158,12 +158,23 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 在玩家绘制之后绘制<br/>
-        /// 此函数在调用时不会自动设置画布，需要自行管理 SpriteBatch 的状态，返回时必须保持 Active
+        /// 调用时 SpriteBatch 未处于活跃状态，函数内部需自行 Begin 绘制，返回前必须 End
         /// </summary>
         /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
         /// <param name="screenSwap">自动维护的中间屏幕对象，可用于 RT 管线级操作</param>
         public virtual void DrawAfterPlayers(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
+
+        }
+
+        /// <summary>
+        /// 在 DrawInfernoRings 调用之前绘制<br/>
+        /// 调用时 SpriteBatch 处于活跃状态，函数内部如需切换渲染状态应先 End 再 Begin，返回时必须保持 Active
+        /// </summary>
+        /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
+        /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
+        /// <param name="screenSwap">自动维护的中间屏幕对象，可用于 RT 管线级操作</param>
+        public virtual void DrawBeforeInfernoRings(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
 
         }
 
