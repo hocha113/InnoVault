@@ -1,8 +1,8 @@
-﻿using System;
-using InnoVault.Actors;
+﻿using InnoVault.Actors;
 using InnoVault.GameContent;
 using InnoVault.GameSystem;
 using InnoVault.TileProcessors;
+using System;
 using System.IO;
 using Terraria.ModLoader;
 

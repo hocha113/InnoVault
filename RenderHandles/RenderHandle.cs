@@ -131,7 +131,7 @@ namespace InnoVault.RenderHandles
         /// <param name="graphicsDevice">渲染对象，等价于 Main.instance.GraphicsDevice</param>
         /// <param name="screenSwap">自动维护的中间屏幕对象，可用于 RT 管线级操作</param>
         public virtual void DrawNPCsOverTiles(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
-            
+
         }
 
         /// <summary>
