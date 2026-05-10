@@ -58,7 +58,11 @@ namespace InnoVault.PRT
         /// <summary>
         /// 单一类型在对象池中的最大缓存数量，过大占用内存，过小则池命中率不足
         /// </summary>
-        private const int MaxPoolPerType = 4096;
+        /// <remarks>
+        /// 总体内存上界 ≈ 启用 <see cref="BasePRT.CanPool"/> 的类型数 × <see cref="MaxPoolPerType"/> × 单实例字节
+        /// 池满时多出的死亡实例会被丢弃给 GC，<see cref="TryReturnToPool"/> 会直接 <see langword="return"/>
+        /// </remarks>
+        internal const int MaxPoolPerType = 4096;
         /// <summary>
         /// 一个列表，存储所有活跃的粒子实例（BasePRT）用于批量管理和更新粒子实体
         /// </summary>
@@ -218,6 +222,11 @@ namespace InnoVault.PRT
         /// 仅用于<see cref="NewParticle(int, Vector2, Vector2, Color, float, int, int, int)"/>等内部生成路径
         /// 公开出口<see cref="GetPRTInstance{T}"/>/<see cref="GetPRTInstance(int)"/>/<see cref="BasePRT.Clone"/>始终返回全新对象，不参与池化
         /// </summary>
+        /// <remarks>
+        /// 与<see cref="TryReturnToPool"/>配合实现"出池<c>_fromPool=true</c> / 在池<c>_fromPool=false</c>"的两态机
+        /// 取出时必须把<see cref="BasePRT._fromPool"/>设回 <see langword="true"/>，
+        /// 否则该实例死亡时会被当作"非池来源"丢弃给GC，破坏复用语义
+        /// </remarks>
         private static BasePRT Spawn(int id) {
             BasePRT template = PRT_IDToInstances[id];
             if (template.CanPool && _prtPool != null) {
@@ -226,6 +235,7 @@ namespace InnoVault.PRT
                 if (last >= 0) {
                     BasePRT pooled = bucket[last];
                     bucket.RemoveAt(last);
+                    //从池中取出后即视为"在用中"，归还时再切回 false——保证"在池"与"在用"互斥
                     pooled._fromPool = true;
                     return pooled;
                 }
@@ -243,6 +253,12 @@ namespace InnoVault.PRT
         /// 仅当实例确实来自池系统（<see cref="BasePRT._fromPool"/>为<see langword="true"/>）且未超过池容量上限时执行
         /// 调用<see cref="BasePRT.Reset"/>清理实例字段使其回到接近"全新"的状态供后续<see cref="Spawn(int)"/>复用
         /// </summary>
+        /// <remarks>
+        /// 防御性把<see cref="BasePRT._fromPool"/>置回 <see langword="false"/>后再 <see cref="List{T}.Add"/>，
+        /// 这样即使外层逻辑因为重复 <see cref="AddParticle(BasePRT)"/> 等错误使用导致同一实例被回收两次，
+        /// 第二次进入此函数时会因 <c>_fromPool==false</c> 而提前返回，避免同一物理对象在池中出现多份引用
+        /// 池满时直接丢弃实例（交GC），<see cref="BasePRT.CanPool"/>注释中已说明此妥协
+        /// </remarks>
         private static void TryReturnToPool(BasePRT particle) {
             if (particle == null || !particle._fromPool || _prtPool == null) {
                 return;
@@ -253,8 +269,11 @@ namespace InnoVault.PRT
             }
             List<BasePRT> bucket = _prtPool[id];
             if (bucket.Count >= MaxPoolPerType) {
+                //池满：保持 _fromPool=true 不变（此实例本帧反正会被GC回收，不影响下一次循环）
                 return;
             }
+            //先切到"在池"态再 Reset/Add：哪怕 Reset 抛异常，已切的状态也能阻止二次入池
+            particle._fromPool = false;
             particle.Reset();
             bucket.Add(particle);
         }

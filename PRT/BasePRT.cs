@@ -131,6 +131,11 @@ namespace InnoVault.PRT
         /// 默认为 <see cref="PRTRenderLayer.BeforeInfernoRings"/>，与历史 PRT 单点渲染时机一致
         /// 与决定混合方式的 <see cref="PRTDrawMode"/> 正交，可独立配置
         /// </summary>
+        /// <remarks>
+        /// 桶按帧懒加载：只有 <see cref="PRTLoader.PostUpdateEverything"/> 末尾会标脏并在下一帧首个渲染钩子里重建桶
+        /// 因此<b>在 <see cref="AI"/> 或更晚的钩子里修改本字段，要等到下一帧才会真正生效</b>
+        /// 推荐在 <see cref="SetProperty"/> 中（粒子刚生成时）一次性设定，避免出现"切换帧"视觉断层
+        /// </remarks>
         public PRTRenderLayer RenderLayer = PRTRenderLayer.BeforeInfernoRings;
         /// <summary>
         /// 这个粒子将使用的着色器数据，默认为<see langword="null"/>
@@ -141,6 +146,20 @@ namespace InnoVault.PRT
         /// 子类显式重写为<see langword="true"/>表明自身的所有可变字段都会在<see cref="SetProperty"/>或<see cref="Reset"/>中被正确初始化
         /// 不重写则保持现状语义（每次<see cref="PRTLoader.NewParticle(int, Vector2, Vector2, Color, float, int, int, int)"/>都会通过工厂委托新建对象）
         /// </summary>
+        /// <remarks>
+        /// 启用池化的子类有两点<b>额外约束</b>，违反会出现脏数据或不工作：
+        /// <list type="number">
+        /// <item><b>缓存数组类初始化必须放 <see cref="SetProperty"/>，不能放构造函数</b>
+        ///     被池回收过的实例不会再次走构造函数；<see cref="Reset"/> 会把 <see cref="oldPositions"/>/<see cref="oldRotations"/>
+        ///     置为 <see langword="null"/>，依赖它们的拖尾/插值代码必须在 <see cref="SetProperty"/> 中重新调用
+        ///     <see cref="InitializePositionCache"/>/<see cref="InitializeRotationCache"/>/<see cref="InitializeCaches"/></item>
+        /// <item><b>新增的字段必须在重写 <see cref="Reset"/> 时清零</b>
+        ///     基类 <see cref="Reset"/> 只覆盖 <see cref="BasePRT"/> 自身的字段，子类自定义字段需要 <c>base.Reset()</c> 后自行复位</item>
+        /// </list>
+        /// 池容量为 <see cref="PRTLoader.MaxPoolPerType"/>（默认 4096），超过部分的"死亡"实例会被直接丢弃给 GC
+        /// 这意味着在大量同类粒子集中死亡时，一旦池满，多余实例的复用收益就退化为普通分配/回收的开销
+        /// 总体内存上界 ≈ 池化类型数 × <see cref="PRTLoader.MaxPoolPerType"/> × 单实例字节，按需评估
+        /// </remarks>
         public virtual bool CanPool => false;
         /// <summary>
         /// 标记此实例由池系统创建当死亡被<see cref="PRTLoader"/>移除时会回收到池中

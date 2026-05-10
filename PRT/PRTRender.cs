@@ -11,8 +11,9 @@ namespace InnoVault.PRT
     /// <summary>
     /// PRT粒子的渲染器，集中负责把 <see cref="PRTLoader.PRT_InGame_World_Inds"/> 中的粒子按
     /// （<see cref="PRTRenderLayer"/>，<see cref="PRTDrawModeEnum"/>）二维分桶并执行实际绘制
-    /// 渲染时机由 <see cref="PRTRender"/>（一个 <see cref="RenderHandles.RenderHandle"/> 派生类）
-    /// 在 <see cref="RenderHandles.RenderHandleLoader"/> 的多个钩子上触发，使粒子能够被分配到不同的渲染层级
+    /// 本类自身就是一个 <see cref="RenderHandles.RenderHandle"/> 派生类，在 <see cref="RenderHandles.RenderHandleLoader"/>
+    /// 的多个钩子（<see cref="DrawBeforeTiles"/>、<see cref="DrawAfterTiles"/>、<see cref="DrawBeforePlayers"/>、
+    /// <see cref="DrawAfterPlayers"/>、<see cref="DrawBeforeInfernoRings"/>）上触发，使粒子能够被分配到不同的渲染层级
     /// </summary>
     /// <remarks>
     /// 桶的填充采用懒加载：每帧 <see cref="MarkBucketsDirty"/> 标记为脏，下一次 <see cref="DrawLayer"/> 调用时一次性重建
@@ -105,7 +106,15 @@ namespace InnoVault.PRT
         /// 重新扫描 <see cref="PRTLoader.PRT_InGame_World_Inds"/> 把粒子重新分配到对应的（layer, mode）桶或 shader 桶
         /// 仅在 <see cref="_bucketsDirty"/> 为真时执行
         /// </summary>
+        /// <remarks>
+        /// 自带 null 守卫：未初始化或已 <see cref="Dispose"/> 时直接置位 dirty=false 后返回，
+        /// 避免未来误从其它路径调用此私有方法时崩溃
+        /// </remarks>
         private static void RebuildBuckets() {
+            if (_modeBuckets == null || _shaderBuckets == null) {
+                _bucketsDirty = false;
+                return;
+            }
             //先清空再重填，避免残留引用
             for (int i = 0; i < _modeBuckets.Length; i++) {
                 _modeBuckets[i].Clear();
@@ -176,8 +185,13 @@ namespace InnoVault.PRT
         #region 渲染入口
         /// <summary>
         /// 渲染一个层级中的所有粒子调用约定：进入时 <see cref="SpriteBatch"/> 必须为非活跃状态，离开时仍为非活跃状态
-        /// 由 <see cref="PRTRender"/> 各钩子根据自身 SpriteBatch 状态契约负责进出转换
+        /// 由本类各钩子根据自身 SpriteBatch 状态契约负责进出转换
         /// </summary>
+        /// <remarks>
+        /// 内层 <c>BeginDrawingWithMode</c>/<c>End</c> 配对使用 <see langword="try-finally"/> 保护，
+        /// 即使某个粒子的 <see cref="BasePRT.PreDraw"/>/<see cref="BasePRT.PostDraw"/> 抛出异常，
+        /// <see cref="SpriteBatch"/> 也会回到 non-Active 状态，避免污染下游 RenderHandle
+        /// </remarks>
         /// <param name="spriteBatch">当前帧的 SpriteBatch</param>
         /// <param name="layer">要绘制的层级</param>
         public static void DrawLayer(SpriteBatch spriteBatch, PRTRenderLayer layer) {
@@ -196,10 +210,18 @@ namespace InnoVault.PRT
                 }
 
                 BeginDrawingWithMode((PRTDrawModeEnum)m, spriteBatch);
-                for (int i = 0; i < bucket.Count; i++) {
-                    PRTInstanceDraw(spriteBatch, bucket[i]);
+                try {
+                    for (int i = 0; i < bucket.Count; i++) {
+                        BasePRT particle = bucket[i];
+                        //粒子可能在前一个粒子的 PreDraw/PostDraw 中被 Kill，桶仍持有引用——这里二次校验避免画"已死"粒子
+                        if (particle == null || !particle.active) {
+                            continue;
+                        }
+                        PRTInstanceDraw(spriteBatch, particle);
+                    }
+                } finally {
+                    spriteBatch.End();
                 }
-                spriteBatch.End();
             }
 
             List<BasePRT> shaderBucket = _shaderBuckets[(int)layer];
@@ -212,18 +234,29 @@ namespace InnoVault.PRT
         /// 一次性绘制所有层级的兼容入口供旧代码（或外部 mod）调用 <see cref="PRTLoader.Draw"/> 时仍可正常工作
         /// 调用约定：进入时 <see cref="SpriteBatch"/> 处于活跃状态，离开时仍为活跃状态（与旧 <c>PRTLoader.Draw</c> 一致）
         /// </summary>
+        /// <remarks>
+        /// 桶/世界列表任一未初始化或为空时直接 <see langword="return"/>，避免做出无意义的 End/Begin 配对，
+        /// 也避免在卸载窗口期触碰已置 null 的状态
+        /// 包裹 <c>End</c>→<c>DrawLayer</c>→<c>Begin</c> 的 <see langword="try-finally"/> 保证就算所有层都崩了，
+        /// 进入时活跃的 <see cref="SpriteBatch"/> 在退出前也会被重新 <c>Begin</c>，维持调用方的状态契约
+        /// </remarks>
         /// <param name="spriteBatch">当前帧的 SpriteBatch</param>
         public static void DrawAll(SpriteBatch spriteBatch) {
-            if (PRTLoader.PRT_InGame_World_Inds == null || PRTLoader.PRT_InGame_World_Inds.Count <= 0) {
+            if (_modeBuckets == null || _shaderBuckets == null
+                || PRTLoader.PRT_InGame_World_Inds == null
+                || PRTLoader.PRT_InGame_World_Inds.Count <= 0) {
                 return;
             }
 
             spriteBatch.End();
-            for (int l = 0; l < _layerCount; l++) {
-                DrawLayer(spriteBatch, (PRTRenderLayer)l);
+            try {
+                for (int l = 0; l < _layerCount; l++) {
+                    DrawLayer(spriteBatch, (PRTRenderLayer)l);
+                }
+            } finally {
+                spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
+                    , DepthStencilState.None, Main.Rasterizer, null, Main.Transform);
             }
-            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState
-                , DepthStencilState.None, Main.Rasterizer, null, Main.Transform);
         }
         #endregion
 
@@ -311,6 +344,10 @@ namespace InnoVault.PRT
         /// 绘制一组使用 Shader 的粒子按 (shader, drawMode) 二级分组以减少状态切换次数
         /// 调用约定：进入时 <see cref="SpriteBatch"/> 必须为非活跃状态，离开时仍为非活跃状态
         /// </summary>
+        /// <remarks>
+        /// 内层 <c>BeginDrawingWithMode</c>/<c>End</c> 配对使用 <see langword="try-finally"/> 保护，
+        /// 防止粒子绘制中途抛异常时把 <see cref="SpriteBatch"/> 留在 Active 状态污染下游
+        /// </remarks>
         /// <param name="spriteBatch">画布实例</param>
         /// <param name="particles">传入的粒子集合，所有粒子的 <see cref="BasePRT.shader"/> 都不为 null</param>
         public static void HandleShaderPRTDrawList(SpriteBatch spriteBatch, List<BasePRT> particles) {
@@ -323,14 +360,19 @@ namespace InnoVault.PRT
 
                 foreach (var drawModeGroup in groupedByDrawMode) {
                     BeginDrawingWithMode(drawModeGroup.Key, spriteBatch, SpriteSortMode.Immediate);
+                    try {
+                        shaderGroup.Key?.Apply(null);
 
-                    shaderGroup.Key?.Apply(null);
-
-                    foreach (BasePRT particle in drawModeGroup) {
-                        PRTInstanceDraw(spriteBatch, particle);
+                        foreach (BasePRT particle in drawModeGroup) {
+                            //同样防御桶里残留 active=false 的脏引用
+                            if (particle == null || !particle.active) {
+                                continue;
+                            }
+                            PRTInstanceDraw(spriteBatch, particle);
+                        }
+                    } finally {
+                        spriteBatch.End();
                     }
-
-                    spriteBatch.End();
                 }
             }
         }
