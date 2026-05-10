@@ -13,7 +13,7 @@ using Terraria.ModLoader;
 namespace InnoVault.Debugs
 {
     /// <summary>
-    /// 调试选项卡的基类
+    /// ????????????
     /// </summary>
     internal abstract class DebugTab
     {
@@ -31,7 +31,7 @@ namespace InnoVault.Debugs
     }
 
     /// <summary>
-    /// TileProcessor调试选项卡
+    /// TileProcessor???????
     /// </summary>
     internal class TileProcessorDebugTab : DebugTab
     {
@@ -60,7 +60,7 @@ namespace InnoVault.Debugs
     }
 
     /// <summary>
-    /// Actor调试选项卡
+    /// Actor???????
     /// </summary>
     internal class ActorDebugTab : DebugTab
     {
@@ -92,7 +92,7 @@ namespace InnoVault.Debugs
     }
 
     /// <summary>
-    /// 复选框数据类
+    /// ???????????
     /// </summary>
     internal class DebugCheckbox
     {
@@ -108,8 +108,8 @@ namespace InnoVault.Debugs
     }
 
     /// <summary>
-    /// 调试状态缩略窗口
-    /// 当有调试选项启用且主面板关闭时显示
+    /// ?????????????
+    /// ????????????????????????????
     /// </summary>
     internal class DebugMiniIndicator : UIHandle
     {
@@ -121,11 +121,11 @@ namespace InnoVault.Debugs
         private bool hoveringIndicator;
         private bool hoveringCloseAll;
 
-        //拖拽
+        //???
         private bool isDragging;
         private Vector2 dragOffset;
 
-        public override bool Active => DebugSettings.AnyDebugEnabled && !DeveloperPanelUI.Instance.Open;
+        public override bool Active => DebugSettings.AnyDebugEnabled && !DeveloperPanelUI.Instance.IsPanelOpen;
 
         public override void OnEnterWorld() {
             DrawPosition = new Vector2(Main.screenWidth - IndicatorWidth - 20, 100);
@@ -135,7 +135,7 @@ namespace InnoVault.Debugs
             pulseTimer += 0.05f;
             if (pulseTimer > MathHelper.TwoPi) pulseTimer -= MathHelper.TwoPi;
 
-            //限制位置
+            //????????
             DrawPosition.X = MathHelper.Clamp(DrawPosition.X, 10, Main.screenWidth - IndicatorWidth - 10);
             DrawPosition.Y = MathHelper.Clamp(DrawPosition.Y, 10, Main.screenHeight - IndicatorHeight - 10);
 
@@ -180,8 +180,8 @@ namespace InnoVault.Debugs
                 SoundEngine.PlaySound(SoundID.MenuClose);
             }
             else if (hoveringIndicator && !isDragging) {
-                //点击打开主面板
-                DeveloperPanelUI.Instance.Toggle();
+                //??????????
+                DeveloperPanelUI.Instance.TogglePanel();
             }
         }
 
@@ -189,28 +189,28 @@ namespace InnoVault.Debugs
             Texture2D px = VaultAsset.placeholder2.Value;
             float pulse = (float)Math.Sin(pulseTimer) * 0.3f + 0.7f;
 
-            //背景
+            //????
             spriteBatch.Draw(px, indicatorRect, new Rectangle(0, 0, 1, 1), new Color(10, 25, 45) * 0.92f);
 
-            //边框 - 带脉冲效果表示调试模式激活
+            //??? - ???????????????????????
             Color borderColor = Color.Lerp(new Color(80, 150, 220), new Color(120, 200, 255), pulse);
             spriteBatch.Draw(px, new Rectangle(indicatorRect.X, indicatorRect.Y, indicatorRect.Width, 2), new Rectangle(0, 0, 1, 1), borderColor * 0.9f);
             spriteBatch.Draw(px, new Rectangle(indicatorRect.X, indicatorRect.Bottom - 2, indicatorRect.Width, 2), new Rectangle(0, 0, 1, 1), borderColor * 0.5f);
             spriteBatch.Draw(px, new Rectangle(indicatorRect.X, indicatorRect.Y, 2, indicatorRect.Height), new Rectangle(0, 0, 1, 1), borderColor * 0.7f);
             spriteBatch.Draw(px, new Rectangle(indicatorRect.Right - 2, indicatorRect.Y, 2, indicatorRect.Height), new Rectangle(0, 0, 1, 1), borderColor * 0.7f);
 
-            //状态指示灯
+            //??????
             Vector2 ledPos = new(indicatorRect.X + 14, indicatorRect.Center.Y);
             Color ledColor = Color.Lerp(new Color(100, 200, 255), new Color(150, 230, 255), pulse);
             spriteBatch.Draw(px, ledPos, new Rectangle(0, 0, 1, 1), ledColor, 0f, new Vector2(0.5f), 6f, SpriteEffects.None, 0f);
             spriteBatch.Draw(px, ledPos, new Rectangle(0, 0, 1, 1), Color.White * 0.5f, 0f, new Vector2(0.5f), 3f, SpriteEffects.None, 0f);
 
-            //文本
+            //???
             string text = $"DEBUG [{DebugSettings.EnabledCount}]";
             Color textColor = hoveringIndicator && !hoveringCloseAll ? new Color(200, 230, 255) : new Color(150, 190, 230);
             Utils.DrawBorderString(spriteBatch, text, new Vector2(indicatorRect.X + 26, indicatorRect.Y + 8), textColor, 0.7f);
 
-            //关闭全部按钮
+            //?????????
             Rectangle closeAllRect = new(indicatorRect.Right - 28, indicatorRect.Y + 6, 22, 24);
             Color closeBg = hoveringCloseAll ? new Color(80, 40, 40) : new Color(40, 30, 35);
             Color closeBorder = hoveringCloseAll ? new Color(255, 120, 120) : new Color(120, 80, 80);
@@ -219,7 +219,7 @@ namespace InnoVault.Debugs
             spriteBatch.Draw(px, new Rectangle(closeAllRect.X, closeAllRect.Y, closeAllRect.Width, 1), new Rectangle(0, 0, 1, 1), closeBorder * 0.7f);
             spriteBatch.Draw(px, new Rectangle(closeAllRect.X, closeAllRect.Y, 1, closeAllRect.Height), new Rectangle(0, 0, 1, 1), closeBorder * 0.5f);
 
-            //X图标
+            //X???
             Vector2 xCenter = closeAllRect.Center.ToVector2();
             Color xColor = hoveringCloseAll ? new Color(255, 150, 150) : new Color(180, 120, 120);
             spriteBatch.Draw(px, xCenter, new Rectangle(0, 0, 1, 1), xColor, MathHelper.PiOver4, new Vector2(0.5f), new Vector2(10f, 1.5f), SpriteEffects.None, 0f);
@@ -228,34 +228,38 @@ namespace InnoVault.Debugs
     }
 
     /// <summary>
-    /// InnoVault开发者调试面板
+    /// InnoVault????????????
     /// </summary>
     internal class DeveloperPanelUI : UIHandle, ILocalizedModType
     {
-        //面板尺寸
+        //?????
         private const float PanelWidth = 400f;
         private const float PanelHeight = 380f;
         private const float TabHeight = 35f;
         private const float TitleHeight = 45f;
 
-        //动画变量
+        //????????
         private float scanLineTimer;
         private float pulseTimer;
         private float glowTimer;
         private float dataFlowTimer;
 
         public static DeveloperPanelUI Instance => UIHandleLoader.GetUIHandleOfType<DeveloperPanelUI>();
-        public bool Open;
-        public override bool Active => Open || uiFadeAlpha > 0;
+        /// <summary>
+        /// ?????????????????????????????????????<see cref="UIHandle.IsOpen"/>?????
+        /// ??????????????????????????/??????
+        /// </summary>
+        public bool IsPanelOpen;
+        public override bool Active => IsPanelOpen || uiFadeAlpha > 0;
 
-        //UI淡入淡出
+        //UI??????
         private float uiFadeAlpha;
 
-        //拖拽功能
+        //???????
         private bool isDragging;
         private Vector2 dragOffset;
 
-        //面板区域
+        //???????
         private Rectangle panelRect;
         private Rectangle titleRect;
         private Rectangle tabBarRect;
@@ -264,12 +268,12 @@ namespace InnoVault.Debugs
         private Rectangle resetButtonRect;
         private Rectangle resetAllButtonRect;
 
-        //选项卡系统
+        //?????
         private readonly List<DebugTab> tabs = [];
         private int currentTabIndex;
         private readonly List<Rectangle> tabRects = [];
 
-        //悬停状态
+        //?????
         private bool hoveringPanel;
         private bool hoveringCloseButton;
         private bool hoveringResetButton;
@@ -277,7 +281,7 @@ namespace InnoVault.Debugs
         private int hoveringTab = -1;
         private int hoveringCheckbox = -1;
 
-        //本地化文本
+        //????????
         protected internal static LocalizedText TitleText;
         protected internal static LocalizedText TPTabText;
         protected internal static LocalizedText ActorTabText;
@@ -330,9 +334,12 @@ namespace InnoVault.Debugs
             currentTabIndex = 0;
         }
 
-        public void Toggle() {
-            Open = !Open;
-            if (Open) {
+        /// <summary>
+        /// ???????????????
+        /// </summary>
+        public void TogglePanel() {
+            IsPanelOpen = !IsPanelOpen;
+            if (IsPanelOpen) {
                 DrawPosition = new Vector2(Main.screenWidth / 2, Main.screenHeight / 2);
                 if (tabs.Count == 0) {
                     InitializeTabs();
@@ -344,8 +351,8 @@ namespace InnoVault.Debugs
         }
 
         public override void Update() {
-            //淡入淡出
-            if (Open) {
+            //??????
+            if (IsPanelOpen) {
                 uiFadeAlpha = Math.Min(1f, uiFadeAlpha + 0.12f);
             }
             else {
@@ -356,14 +363,14 @@ namespace InnoVault.Debugs
                 return;
             }
 
-            //处理拖拽
+            //???????
             HandleDragging();
 
-            //限制面板位置
+            //???????????
             DrawPosition.X = MathHelper.Clamp(DrawPosition.X, PanelWidth / 2 + 10, Main.screenWidth - PanelWidth / 2 - 10);
             DrawPosition.Y = MathHelper.Clamp(DrawPosition.Y, PanelHeight / 2 + 10, Main.screenHeight - PanelHeight / 2 - 10);
 
-            //更新动画
+            //???????
             scanLineTimer += 0.03f;
             pulseTimer += 0.02f;
             glowTimer += 0.035f;
@@ -374,7 +381,7 @@ namespace InnoVault.Debugs
             if (glowTimer > MathHelper.TwoPi) glowTimer -= MathHelper.TwoPi;
             if (dataFlowTimer > MathHelper.TwoPi) dataFlowTimer -= MathHelper.TwoPi;
 
-            //计算面板区域
+            //???????????
             Vector2 topLeft = DrawPosition - new Vector2(PanelWidth / 2, PanelHeight / 2);
             panelRect = new Rectangle((int)topLeft.X, (int)topLeft.Y, (int)PanelWidth, (int)PanelHeight);
             titleRect = new Rectangle(panelRect.X, panelRect.Y, panelRect.Width, (int)TitleHeight);
@@ -384,17 +391,17 @@ namespace InnoVault.Debugs
             resetButtonRect = new Rectangle(panelRect.X + 15, panelRect.Bottom - 40, 80, 28);
             resetAllButtonRect = new Rectangle(panelRect.X + 105, panelRect.Bottom - 40, 90, 28);
 
-            //计算选项卡区域
+            //???????????
             UpdateTabRects();
 
-            //鼠标交互检测
+            //????????
             Vector2 mousePos = new(Main.mouseX, Main.mouseY);
             hoveringPanel = panelRect.Contains(mousePos.ToPoint());
             hoveringCloseButton = closeButtonRect.Contains(mousePos.ToPoint()) && !isDragging;
             hoveringResetButton = resetButtonRect.Contains(mousePos.ToPoint()) && !isDragging;
             hoveringResetAllButton = resetAllButtonRect.Contains(mousePos.ToPoint()) && !isDragging;
 
-            //检测悬停选项卡
+            //?????????
             hoveringTab = -1;
             if (!isDragging) {
                 for (int i = 0; i < tabRects.Count; i++) {
@@ -405,7 +412,7 @@ namespace InnoVault.Debugs
                 }
             }
 
-            //检测悬停复选框
+            //???????????
             hoveringCheckbox = -1;
             if (!isDragging && currentTabIndex >= 0 && currentTabIndex < tabs.Count) {
                 var currentTab = tabs[currentTabIndex];
@@ -423,7 +430,7 @@ namespace InnoVault.Debugs
                 player.mouseInterface = true;
             }
 
-            //处理按钮点击
+            //??????????
             HandleButtonClicks();
         }
 
@@ -464,7 +471,7 @@ namespace InnoVault.Debugs
             }
 
             if (hoveringCloseButton) {
-                Open = false;
+                IsPanelOpen = false;
                 SoundEngine.PlaySound(SoundID.MenuClose);
             }
             else if (hoveringResetAllButton) {
@@ -504,7 +511,7 @@ namespace InnoVault.Debugs
             Texture2D px = VaultAsset.placeholder2.Value;
             float alpha = uiFadeAlpha;
 
-            //主背景
+            //??????
             int segments = 40;
             for (int i = 0; i < segments; i++) {
                 float t = i / (float)segments;
@@ -747,11 +754,11 @@ namespace InnoVault.Debugs
             float alpha = uiFadeAlpha;
             Texture2D px = VaultAsset.placeholder2.Value;
 
-            //Reset按钮（重置当前选项卡）
+            //Reset????????????????
             DrawButton(sb, resetButtonRect, ResetText?.Value ?? "Reset", hoveringResetButton, alpha,
                 new Color(25, 45, 75), new Color(40, 60, 100), new Color(60, 120, 180), new Color(100, 160, 220));
 
-            //Reset All按钮（重置全部）- 使用警告色
+            //Reset All??????????????- ???????
             DrawButton(sb, resetAllButtonRect, ResetAllText?.Value ?? "Reset All", hoveringResetAllButton, alpha,
                 new Color(50, 35, 30), new Color(70, 45, 40), new Color(180, 100, 80), new Color(220, 140, 100));
         }

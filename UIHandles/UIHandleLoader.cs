@@ -7,6 +7,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using Terraria;
+using Terraria.GameInput;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.UI;
@@ -35,11 +36,21 @@ namespace InnoVault.UIHandles
         /// 当前的右键按下状态
         /// </summary>
         public static bool downR;
+        /// <summary>
+        /// 旧的中键按下状态
+        /// </summary>
+        public static bool oldDownM;
+        /// <summary>
+        /// 当前的中键按下状态
+        /// </summary>
+        public static bool downM;
         //逻辑线程状态
         private static bool oldDownL_Logic;
         private static bool downL_Logic;
         private static bool oldDownR_Logic;
         private static bool downR_Logic;
+        private static bool oldDownM_Logic;
+        private static bool downM_Logic;
         /// <summary>
         /// 左键按键状态，此值伴随于绘制线程更新，不建议在绘制线程以外的地方使用
         /// </summary>
@@ -49,6 +60,10 @@ namespace InnoVault.UIHandles
         /// </summary>
         public static KeyPressState keyRightPressState;
         /// <summary>
+        /// 中键按键状态，此值伴随于绘制线程更新，不建议在绘制线程以外的地方使用
+        /// </summary>
+        public static KeyPressState keyMiddlePressState;
+        /// <summary>
         /// 左键按键状态，此值伴随于逻辑线程更新，不建议在逻辑线程以外的地方使用
         /// </summary>
         public static KeyPressState logicKeyLeftPressState;
@@ -56,6 +71,10 @@ namespace InnoVault.UIHandles
         /// 右键按键状态，此值伴随于逻辑线程更新，不建议在逻辑线程以外的地方使用
         /// </summary>
         public static KeyPressState logicKeyRightPressState;
+        /// <summary>
+        /// 中键按键状态，此值伴随于逻辑线程更新，不建议在逻辑线程以外的地方使用
+        /// </summary>
+        public static KeyPressState logicKeyMiddlePressState;
         /// <summary>
         /// 当左键保持按下时触发的事件用于捕捉玩家持续按住左键的行为
         /// </summary>
@@ -80,6 +99,18 @@ namespace InnoVault.UIHandles
         /// 当右键释放时触发的事件用于捕捉玩家松开右键的瞬间
         /// </summary>
         public static event Action RightReleasedEvent;
+        /// <summary>
+        /// 当中键保持按下时触发的事件
+        /// </summary>
+        public static event Action MiddleHeldEvent;
+        /// <summary>
+        /// 当中键被按下时触发的事件
+        /// </summary>
+        public static event Action MiddlePressedEvent;
+        /// <summary>
+        /// 当中键释放时触发的事件
+        /// </summary>
+        public static event Action MiddleReleasedEvent;
         /// <summary>
         /// 全局的 UI 处理器列表包含所有 UI 元素的处理器实例
         /// </summary>
@@ -363,12 +394,16 @@ namespace InnoVault.UIHandles
             //重置按键状态
             oldDownL = downL = false;
             oldDownR = downR = false;
+            oldDownM = downM = false;
             oldDownL_Logic = downL_Logic = false;
             oldDownR_Logic = downR_Logic = false;
+            oldDownM_Logic = downM_Logic = false;
             keyLeftPressState = KeyPressState.None;
             keyRightPressState = KeyPressState.None;
+            keyMiddlePressState = KeyPressState.None;
             logicKeyLeftPressState = KeyPressState.None;
             logicKeyRightPressState = KeyPressState.None;
+            logicKeyMiddlePressState = KeyPressState.None;
 
             LeftHeldEvent = null;
             LeftPressedEvent = null;
@@ -376,6 +411,9 @@ namespace InnoVault.UIHandles
             RightHeldEvent = null;
             RightPressedEvent = null;
             RightReleasedEvent = null;
+            MiddleHeldEvent = null;
+            MiddlePressedEvent = null;
+            MiddleReleasedEvent = null;
             IL_Main.DrawMenu -= IL_MenuLoadDraw_Hook;
 
             UIModItemType = null;
@@ -429,6 +467,30 @@ namespace InnoVault.UIHandles
             return KeyPressState.None;
         }
 
+        /// <summary>
+        /// 检查中键按键状态的变化，返回按键状态枚举
+        /// </summary>
+        public static KeyPressState CheckMiddleKeyState() {
+            oldDownM = downM;
+            downM = Main.myPlayer == Main.LocalPlayer.whoAmI && PlayerInput.Triggers.Current.MouseMiddle;
+            if (downM && oldDownM) return KeyPressState.Held;
+            if (downM && !oldDownM) return KeyPressState.Pressed;
+            if (!downM && oldDownM) return KeyPressState.Released;
+            return KeyPressState.None;
+        }
+
+        /// <summary>
+        /// 检查中键按键状态的变化(逻辑线程)
+        /// </summary>
+        private static KeyPressState CheckMiddleKeyState_Logic() {
+            oldDownM_Logic = downM_Logic;
+            downM_Logic = Main.myPlayer == Main.LocalPlayer.whoAmI && PlayerInput.Triggers.Current.MouseMiddle;
+            if (downM_Logic && oldDownM_Logic) return KeyPressState.Held;
+            if (downM_Logic && !oldDownM_Logic) return KeyPressState.Pressed;
+            if (!downM_Logic && oldDownM_Logic) return KeyPressState.Released;
+            return KeyPressState.None;
+        }
+
         internal static void UpdateKeyState() {
             keyLeftPressState = CheckLeftKeyState();
             if (keyLeftPressState != KeyPressState.None) {
@@ -456,6 +518,21 @@ namespace InnoVault.UIHandles
                         break;
                     case KeyPressState.Released:
                         RightReleasedEvent?.Invoke();
+                        break;
+                }
+            }
+
+            keyMiddlePressState = CheckMiddleKeyState();
+            if (keyMiddlePressState != KeyPressState.None) {
+                switch (keyMiddlePressState) {
+                    case KeyPressState.Held:
+                        MiddleHeldEvent?.Invoke();
+                        break;
+                    case KeyPressState.Pressed:
+                        MiddlePressedEvent?.Invoke();
+                        break;
+                    case KeyPressState.Released:
+                        MiddleReleasedEvent?.Invoke();
                         break;
                 }
             }
@@ -523,6 +600,9 @@ namespace InnoVault.UIHandles
                 }
 
                 if (reset) {
+                    //驱动基类内置的悬停 / 拖拽 / ESC / 动画进度 / GlobalTimer
+                    //放在用户 Update 之前，让用户 Update 中可以直接读到当前帧的 hoverInMainPage 与最新的 OpenProgress
+                    hander.BuiltinPreUpdate();
                     hander.Update();
                     hander.Draw(Main.spriteBatch);
                 }
@@ -578,6 +658,7 @@ namespace InnoVault.UIHandles
             //更新逻辑线程的按键状态
             logicKeyLeftPressState = CheckLeftKeyState_Logic();
             logicKeyRightPressState = CheckRightKeyState_Logic();
+            logicKeyMiddlePressState = CheckMiddleKeyState_Logic();
 
             //在逻辑更新中调用UIHandle的LogicUpdate
             UIHandle.IsLogicUpdate = true;
