@@ -1,4 +1,4 @@
-using InnoVault.UIHandles;
+﻿using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -12,9 +12,6 @@ using Terraria.ModLoader;
 
 namespace InnoVault.Debugs
 {
-    /// <summary>
-    /// ????????????
-    /// </summary>
     internal abstract class DebugTab
     {
         public abstract string TabName { get; }
@@ -30,9 +27,6 @@ namespace InnoVault.Debugs
         }
     }
 
-    /// <summary>
-    /// TileProcessor???????
-    /// </summary>
     internal class TileProcessorDebugTab : DebugTab
     {
         public override string TabName => DeveloperPanelUI.TPTabText?.Value ?? "TileProcessor";
@@ -59,9 +53,6 @@ namespace InnoVault.Debugs
         }
     }
 
-    /// <summary>
-    /// Actor???????
-    /// </summary>
     internal class ActorDebugTab : DebugTab
     {
         public override string TabName => DeveloperPanelUI.ActorTabText?.Value ?? "Actor";
@@ -91,9 +82,6 @@ namespace InnoVault.Debugs
         }
     }
 
-    /// <summary>
-    /// ???????????
-    /// </summary>
     internal class DebugCheckbox
     {
         public string Label;
@@ -107,10 +95,6 @@ namespace InnoVault.Debugs
         }
     }
 
-    /// <summary>
-    /// ?????????????
-    /// ????????????????????????????
-    /// </summary>
     internal class DebugMiniIndicator : UIHandle
     {
         private const float IndicatorWidth = 140f;
@@ -135,7 +119,6 @@ namespace InnoVault.Debugs
             pulseTimer += 0.05f;
             if (pulseTimer > MathHelper.TwoPi) pulseTimer -= MathHelper.TwoPi;
 
-            //????????
             DrawPosition.X = MathHelper.Clamp(DrawPosition.X, 10, Main.screenWidth - IndicatorWidth - 10);
             DrawPosition.Y = MathHelper.Clamp(DrawPosition.Y, 10, Main.screenHeight - IndicatorHeight - 10);
 
@@ -180,7 +163,6 @@ namespace InnoVault.Debugs
                 SoundEngine.PlaySound(SoundID.MenuClose);
             }
             else if (hoveringIndicator && !isDragging) {
-                //??????????
                 DeveloperPanelUI.Instance.TogglePanel();
             }
         }
@@ -189,28 +171,23 @@ namespace InnoVault.Debugs
             Texture2D px = VaultAsset.placeholder2.Value;
             float pulse = (float)Math.Sin(pulseTimer) * 0.3f + 0.7f;
 
-            //????
             spriteBatch.Draw(px, indicatorRect, new Rectangle(0, 0, 1, 1), new Color(10, 25, 45) * 0.92f);
 
-            //??? - ???????????????????????
             Color borderColor = Color.Lerp(new Color(80, 150, 220), new Color(120, 200, 255), pulse);
             spriteBatch.Draw(px, new Rectangle(indicatorRect.X, indicatorRect.Y, indicatorRect.Width, 2), new Rectangle(0, 0, 1, 1), borderColor * 0.9f);
             spriteBatch.Draw(px, new Rectangle(indicatorRect.X, indicatorRect.Bottom - 2, indicatorRect.Width, 2), new Rectangle(0, 0, 1, 1), borderColor * 0.5f);
             spriteBatch.Draw(px, new Rectangle(indicatorRect.X, indicatorRect.Y, 2, indicatorRect.Height), new Rectangle(0, 0, 1, 1), borderColor * 0.7f);
             spriteBatch.Draw(px, new Rectangle(indicatorRect.Right - 2, indicatorRect.Y, 2, indicatorRect.Height), new Rectangle(0, 0, 1, 1), borderColor * 0.7f);
 
-            //??????
             Vector2 ledPos = new(indicatorRect.X + 14, indicatorRect.Center.Y);
             Color ledColor = Color.Lerp(new Color(100, 200, 255), new Color(150, 230, 255), pulse);
             spriteBatch.Draw(px, ledPos, new Rectangle(0, 0, 1, 1), ledColor, 0f, new Vector2(0.5f), 6f, SpriteEffects.None, 0f);
             spriteBatch.Draw(px, ledPos, new Rectangle(0, 0, 1, 1), Color.White * 0.5f, 0f, new Vector2(0.5f), 3f, SpriteEffects.None, 0f);
 
-            //???
             string text = $"DEBUG [{DebugSettings.EnabledCount}]";
             Color textColor = hoveringIndicator && !hoveringCloseAll ? new Color(200, 230, 255) : new Color(150, 190, 230);
             Utils.DrawBorderString(spriteBatch, text, new Vector2(indicatorRect.X + 26, indicatorRect.Y + 8), textColor, 0.7f);
 
-            //?????????
             Rectangle closeAllRect = new(indicatorRect.Right - 28, indicatorRect.Y + 6, 22, 24);
             Color closeBg = hoveringCloseAll ? new Color(80, 40, 40) : new Color(40, 30, 35);
             Color closeBorder = hoveringCloseAll ? new Color(255, 120, 120) : new Color(120, 80, 80);
@@ -219,7 +196,6 @@ namespace InnoVault.Debugs
             spriteBatch.Draw(px, new Rectangle(closeAllRect.X, closeAllRect.Y, closeAllRect.Width, 1), new Rectangle(0, 0, 1, 1), closeBorder * 0.7f);
             spriteBatch.Draw(px, new Rectangle(closeAllRect.X, closeAllRect.Y, 1, closeAllRect.Height), new Rectangle(0, 0, 1, 1), closeBorder * 0.5f);
 
-            //X???
             Vector2 xCenter = closeAllRect.Center.ToVector2();
             Color xColor = hoveringCloseAll ? new Color(255, 150, 150) : new Color(180, 120, 120);
             spriteBatch.Draw(px, xCenter, new Rectangle(0, 0, 1, 1), xColor, MathHelper.PiOver4, new Vector2(0.5f), new Vector2(10f, 1.5f), SpriteEffects.None, 0f);
@@ -227,39 +203,28 @@ namespace InnoVault.Debugs
         }
     }
 
-    /// <summary>
-    /// InnoVault????????????
-    /// </summary>
     internal class DeveloperPanelUI : UIHandle, ILocalizedModType
     {
-        //?????
         private const float PanelWidth = 400f;
         private const float PanelHeight = 380f;
         private const float TabHeight = 35f;
         private const float TitleHeight = 45f;
 
-        //????????
         private float scanLineTimer;
         private float pulseTimer;
         private float glowTimer;
         private float dataFlowTimer;
 
         public static DeveloperPanelUI Instance => UIHandleLoader.GetUIHandleOfType<DeveloperPanelUI>();
-        /// <summary>
-        /// ?????????????????????????????????????<see cref="UIHandle.IsOpen"/>?????
-        /// ??????????????????????????/??????
-        /// </summary>
+
         public bool IsPanelOpen;
         public override bool Active => IsPanelOpen || uiFadeAlpha > 0;
 
-        //UI??????
         private float uiFadeAlpha;
 
-        //???????
         private bool isDragging;
         private Vector2 dragOffset;
 
-        //???????
         private Rectangle panelRect;
         private Rectangle titleRect;
         private Rectangle tabBarRect;
@@ -268,12 +233,10 @@ namespace InnoVault.Debugs
         private Rectangle resetButtonRect;
         private Rectangle resetAllButtonRect;
 
-        //?????
         private readonly List<DebugTab> tabs = [];
         private int currentTabIndex;
         private readonly List<Rectangle> tabRects = [];
 
-        //?????
         private bool hoveringPanel;
         private bool hoveringCloseButton;
         private bool hoveringResetButton;
@@ -281,7 +244,6 @@ namespace InnoVault.Debugs
         private int hoveringTab = -1;
         private int hoveringCheckbox = -1;
 
-        //????????
         protected internal static LocalizedText TitleText;
         protected internal static LocalizedText TPTabText;
         protected internal static LocalizedText ActorTabText;
@@ -334,9 +296,6 @@ namespace InnoVault.Debugs
             currentTabIndex = 0;
         }
 
-        /// <summary>
-        /// ???????????????
-        /// </summary>
         public void TogglePanel() {
             IsPanelOpen = !IsPanelOpen;
             if (IsPanelOpen) {
@@ -351,7 +310,6 @@ namespace InnoVault.Debugs
         }
 
         public override void Update() {
-            //??????
             if (IsPanelOpen) {
                 uiFadeAlpha = Math.Min(1f, uiFadeAlpha + 0.12f);
             }
@@ -363,14 +321,11 @@ namespace InnoVault.Debugs
                 return;
             }
 
-            //???????
             HandleDragging();
 
-            //???????????
             DrawPosition.X = MathHelper.Clamp(DrawPosition.X, PanelWidth / 2 + 10, Main.screenWidth - PanelWidth / 2 - 10);
             DrawPosition.Y = MathHelper.Clamp(DrawPosition.Y, PanelHeight / 2 + 10, Main.screenHeight - PanelHeight / 2 - 10);
 
-            //???????
             scanLineTimer += 0.03f;
             pulseTimer += 0.02f;
             glowTimer += 0.035f;
@@ -381,7 +336,6 @@ namespace InnoVault.Debugs
             if (glowTimer > MathHelper.TwoPi) glowTimer -= MathHelper.TwoPi;
             if (dataFlowTimer > MathHelper.TwoPi) dataFlowTimer -= MathHelper.TwoPi;
 
-            //???????????
             Vector2 topLeft = DrawPosition - new Vector2(PanelWidth / 2, PanelHeight / 2);
             panelRect = new Rectangle((int)topLeft.X, (int)topLeft.Y, (int)PanelWidth, (int)PanelHeight);
             titleRect = new Rectangle(panelRect.X, panelRect.Y, panelRect.Width, (int)TitleHeight);
@@ -391,17 +345,14 @@ namespace InnoVault.Debugs
             resetButtonRect = new Rectangle(panelRect.X + 15, panelRect.Bottom - 40, 80, 28);
             resetAllButtonRect = new Rectangle(panelRect.X + 105, panelRect.Bottom - 40, 90, 28);
 
-            //???????????
             UpdateTabRects();
 
-            //????????
             Vector2 mousePos = new(Main.mouseX, Main.mouseY);
             hoveringPanel = panelRect.Contains(mousePos.ToPoint());
             hoveringCloseButton = closeButtonRect.Contains(mousePos.ToPoint()) && !isDragging;
             hoveringResetButton = resetButtonRect.Contains(mousePos.ToPoint()) && !isDragging;
             hoveringResetAllButton = resetAllButtonRect.Contains(mousePos.ToPoint()) && !isDragging;
 
-            //?????????
             hoveringTab = -1;
             if (!isDragging) {
                 for (int i = 0; i < tabRects.Count; i++) {
@@ -412,7 +363,6 @@ namespace InnoVault.Debugs
                 }
             }
 
-            //???????????
             hoveringCheckbox = -1;
             if (!isDragging && currentTabIndex >= 0 && currentTabIndex < tabs.Count) {
                 var currentTab = tabs[currentTabIndex];
@@ -430,7 +380,6 @@ namespace InnoVault.Debugs
                 player.mouseInterface = true;
             }
 
-            //??????????
             HandleButtonClicks();
         }
 
@@ -511,7 +460,6 @@ namespace InnoVault.Debugs
             Texture2D px = VaultAsset.placeholder2.Value;
             float alpha = uiFadeAlpha;
 
-            //??????
             int segments = 40;
             for (int i = 0; i < segments; i++) {
                 float t = i / (float)segments;
@@ -754,11 +702,9 @@ namespace InnoVault.Debugs
             float alpha = uiFadeAlpha;
             Texture2D px = VaultAsset.placeholder2.Value;
 
-            //Reset????????????????
             DrawButton(sb, resetButtonRect, ResetText?.Value ?? "Reset", hoveringResetButton, alpha,
                 new Color(25, 45, 75), new Color(40, 60, 100), new Color(60, 120, 180), new Color(100, 160, 220));
 
-            //Reset All??????????????- ???????
             DrawButton(sb, resetAllButtonRect, ResetAllText?.Value ?? "Reset All", hoveringResetAllButton, alpha,
                 new Color(50, 35, 30), new Color(70, 45, 40), new Color(180, 100, 80), new Color(220, 140, 100));
         }

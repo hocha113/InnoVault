@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Input;
+using System;
 using Terraria;
 using Terraria.GameInput;
 
@@ -28,7 +29,8 @@ namespace InnoVault.UIHandles
 
         /// <summary>
         /// 是否启用拖拽，默认<see langword="false"/><br/>
-        /// 启用后基类会监听<see cref="DragMouseButton"/>的按下/释放，自动维护<see cref="IsDragging"/>并实时更新<see cref="DrawPosition"/>
+        /// 启用后基类会监听<see cref="DragMouseButton"/>的按下/释放，自动维护<see cref="IsDragging"/>并实时更新<see cref="DrawPosition"/><br/>
+        /// 同一时刻只允许一个UI处于拖拽状态，由<see cref="UIHandleLoader.CurrentDragOwner"/>裁决
         /// </summary>
         public virtual bool CanDrag => false;
 
@@ -110,14 +112,15 @@ namespace InnoVault.UIHandles
 
         #endregion
 
-        #region 内置预更新（由 UIHandleLoader 调用）
+        #region 内置预/后更新（由 UIHandleLoader 调用）
 
         /// <summary>
         /// 每帧由<see cref="UIHandleLoader.UIHanderElementUpdate"/>在用户的<see cref="Update"/>之前调用<br/>
-        /// 负责推进基类内置的动画进度、悬停判定、拖拽、ESC关闭等通用逻辑<br/>
+        /// 负责推进基类内置的悬停判定、拖拽、ESC关闭、<see cref="OpenProgress"/>动画和<see cref="GlobalTimer"/><br/>
         /// 该方法不打算被子类直接调用，但被声明为<see langword="protected"/>+<see langword="virtual"/>以便完全自定义场景下覆盖
         /// </summary>
-        protected internal virtual void BuiltinPreUpdate() {
+        /// <param name="frames">本帧代表多少个"60FPS 帧"，用于驱动帧率无关的动画</param>
+        protected internal virtual void BuiltinPreUpdate(float frames) {
             //自动维护 UIHitBox 与悬停判定
             if (AutoUpdateHitBox && Size != Vector2.Zero) {
                 UIHitBox = DrawPosition.GetRectangle(Size);
@@ -139,11 +142,20 @@ namespace InnoVault.UIHandles
                 player.mouseInterface = true;
             }
 
-            //推进动画
-            OpenProgress.Update();
+            //推进打开进度（HoverProgress 在 BuiltinPostUpdate 中处理，
+            //以便用户在 Update 中手动设置 hoverInMainPage 后能反映到当前帧）
+            OpenProgress.Update(frames);
+            GlobalTimer += frames * (1f / 60f);
+        }
+
+        /// <summary>
+        /// 每帧由<see cref="UIHandleLoader.UIHanderElementUpdate"/>在用户的<see cref="Update"/>之后、<see cref="Draw"/>之前调用<br/>
+        /// 负责推进依赖"用户 Update 后才确定"的状态量，目前仅有<see cref="HoverProgress"/>
+        /// </summary>
+        /// <param name="frames">本帧代表多少个"60FPS 帧"，用于驱动帧率无关的动画</param>
+        protected internal virtual void BuiltinPostUpdate(float frames) {
             HoverProgress.TweenTo(hoverInMainPage ? 1f : 0f);
-            HoverProgress.Update();
-            GlobalTimer += 1f / 60f;
+            HoverProgress.Update(frames);
         }
 
         /// <summary>
@@ -154,6 +166,10 @@ namespace InnoVault.UIHandles
             KeyPressState state = GetKeyState(DragMouseButton);
 
             if (!IsDragging) {
+                //已有其他UI在拖拽时，本UI禁止抢占
+                if (UIHandleLoader.CurrentDragOwner != null && UIHandleLoader.CurrentDragOwner != this) {
+                    return;
+                }
                 if (!hoverInMainPage || state != KeyPressState.Pressed) {
                     return;
                 }
@@ -163,7 +179,12 @@ namespace InnoVault.UIHandles
                 }
                 _dragOffset = DrawPosition - MousePosition;
                 IsDragging = true;
-                OnDragStart();
+                UIHandleLoader.CurrentDragOwner = this;
+                try {
+                    OnDragStart();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"{this} OnDragStart threw: {ex}");
+                }
                 return;
             }
 
@@ -171,7 +192,14 @@ namespace InnoVault.UIHandles
             DrawPosition = MousePosition + _dragOffset;
             if (state == KeyPressState.Released || state == KeyPressState.None) {
                 IsDragging = false;
-                OnDragEnd();
+                if (UIHandleLoader.CurrentDragOwner == this) {
+                    UIHandleLoader.CurrentDragOwner = null;
+                }
+                try {
+                    OnDragEnd();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"{this} OnDragEnd threw: {ex}");
+                }
             }
         }
 

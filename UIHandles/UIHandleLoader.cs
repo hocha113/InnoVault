@@ -1,4 +1,5 @@
 ﻿using InnoVault.GameSystem;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Mono.Cecil.Cil;
 using MonoMod.Cil;
@@ -111,6 +112,32 @@ namespace InnoVault.UIHandles
         /// 当中键释放时触发的事件
         /// </summary>
         public static event Action MiddleReleasedEvent;
+        /// <summary>
+        /// 当前正在被拖拽的UI实例（由<see cref="UIHandle.UpdateDrag"/>设置/清理）<br/>
+        /// 用作全局拖拽互斥锁：当此值非<see langword="null"/>时其它<see cref="UIHandle"/>不会抢占拖拽，<br/>
+        /// 也建议外部手动实现的拖拽（例如<c>HalibutUIPanel</c>那种自维护拖拽的UI）在开始拖拽时设置该值，<br/>
+        /// 结束时清理为<see langword="null"/>，以与基类拖拽体系协同
+        /// </summary>
+        public static UIHandle CurrentDragOwner { get; set; }
+
+        /// <summary>
+        /// 当前帧相对 60FPS 的"帧倍数"，用于驱动帧率独立的UI动画。<br/>
+        /// - 60FPS 时约为 1<br/>
+        /// - 144FPS 时约为 0.42<br/>
+        /// - 30FPS 时约为 2<br/>
+        /// 为防止极端帧率（窗口最小化/卡顿）跳变动画，会被钳制到 [0.05, 5] 范围
+        /// </summary>
+        public static float CurrentFrameDelta {
+            get {
+                GameTime gt = Main.gameTimeCache;
+                if (gt == null) {
+                    return 1f;
+                }
+                float dt = (float)gt.ElapsedGameTime.TotalSeconds;
+                return MathHelper.Clamp(dt * 60f, 0.05f, 5f);
+            }
+        }
+
         /// <summary>
         /// 全局的 UI 处理器列表包含所有 UI 元素的处理器实例
         /// </summary>
@@ -414,6 +441,7 @@ namespace InnoVault.UIHandles
             MiddleHeldEvent = null;
             MiddlePressedEvent = null;
             MiddleReleasedEvent = null;
+            CurrentDragOwner = null;
             IL_Main.DrawMenu -= IL_MenuLoadDraw_Hook;
 
             UIModItemType = null;
@@ -472,7 +500,8 @@ namespace InnoVault.UIHandles
         /// </summary>
         public static KeyPressState CheckMiddleKeyState() {
             oldDownM = downM;
-            downM = Main.myPlayer == Main.LocalPlayer.whoAmI && PlayerInput.Triggers.Current.MouseMiddle;
+            //中键由本地输入驱动，仅在客户端有效（专用服务器无<see cref="PlayerInput"/>）
+            downM = !Main.dedServ && PlayerInput.Triggers.Current.MouseMiddle;
             if (downM && oldDownM) return KeyPressState.Held;
             if (downM && !oldDownM) return KeyPressState.Pressed;
             if (!downM && oldDownM) return KeyPressState.Released;
@@ -484,7 +513,7 @@ namespace InnoVault.UIHandles
         /// </summary>
         private static KeyPressState CheckMiddleKeyState_Logic() {
             oldDownM_Logic = downM_Logic;
-            downM_Logic = Main.myPlayer == Main.LocalPlayer.whoAmI && PlayerInput.Triggers.Current.MouseMiddle;
+            downM_Logic = !Main.dedServ && PlayerInput.Triggers.Current.MouseMiddle;
             if (downM_Logic && oldDownM_Logic) return KeyPressState.Held;
             if (downM_Logic && !oldDownM_Logic) return KeyPressState.Pressed;
             if (!downM_Logic && oldDownM_Logic) return KeyPressState.Released;
@@ -602,8 +631,11 @@ namespace InnoVault.UIHandles
                 if (reset) {
                     //驱动基类内置的悬停 / 拖拽 / ESC / 动画进度 / GlobalTimer
                     //放在用户 Update 之前，让用户 Update 中可以直接读到当前帧的 hoverInMainPage 与最新的 OpenProgress
-                    hander.BuiltinPreUpdate();
+                    float frames = CurrentFrameDelta;
+                    hander.BuiltinPreUpdate(frames);
                     hander.Update();
+                    //在用户 Update 之后驱动依赖最新 hoverInMainPage 的状态量（HoverProgress 等）
+                    hander.BuiltinPostUpdate(frames);
                     hander.Draw(Main.spriteBatch);
                 }
 
