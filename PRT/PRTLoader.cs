@@ -4,7 +4,6 @@ using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Linq.Expressions;
 using Terraria;
 using Terraria.ModLoader;
@@ -47,6 +46,20 @@ namespace InnoVault.PRT
         /// </summary>
         public static Dictionary<int, BasePRT> PRT_IDToInstances { get; private set; } = [];
         /// <summary>
+        /// 一个字典，将粒子<see cref="Type"/>映射到其无参构造工厂委托
+        /// 在<see cref="BasePRT.DoRegister"/>注册阶段编译生成，用于代替反射 <see cref="Activator.CreateInstance(Type)"/>
+        /// </summary>
+        internal static Dictionary<Type, Func<BasePRT>> PRT_TypeToFactory { get; private set; } = [];
+        /// <summary>
+        /// 每种粒子<see cref="BasePRT.ID"/>对应的对象池仅当<see cref="BasePRT.CanPool"/>为<see langword="true"/>时启用
+        /// 池在<see cref="Load"/>中按已注册类型数量分配，在<see cref="Unload"/>中清空
+        /// </summary>
+        private static List<BasePRT>[] _prtPool;
+        /// <summary>
+        /// 单一类型在对象池中的最大缓存数量，过大占用内存，过小则池命中率不足
+        /// </summary>
+        private const int MaxPoolPerType = 4096;
+        /// <summary>
         /// 一个列表，存储所有活跃的粒子实例（BasePRT）用于批量管理和更新粒子实体
         /// </summary>
         public static List<BasePRT> PRTInstances { get; private set; } = [];
@@ -76,15 +89,12 @@ namespace InnoVault.PRT
         /// </summary>
         public override void Load() {
             PRT_TypeToID = [];
+            PRT_TypeToFactory = [];
             PRT_IDToTexture = [];
             PRT_IDToInGame_World_Count = [];
             PRT_IDToInstances = [];
             PRTInstances = [];
             PRT_InGame_World_Inds = [];
-            PRT_AlphaBlend_Draw = [];
-            PRT_AdditiveBlend_Draw = [];
-            PRT_NonPremultiplied_Draw = [];
-            PRT_HasShader_Draw = [];
 
             PRTInstances = VaultUtils.GetDerivedInstances<BasePRT>(null, true);
             PRTInstances.RemoveAll(prt => !prt.CanLoad());
@@ -94,7 +104,16 @@ namespace InnoVault.PRT
             }
             VaultTypeRegistry<BasePRT>.CompleteLoading();
 
-            On_Main.DrawInfernoRings += DrawHook;
+            //在所有ID分配完成后，按类型数量分配池槽，仅 CanPool 的类型实际会写入元素
+            int typeCount = PRTInstances.Count;
+            _prtPool = new List<BasePRT>[typeCount];
+            for (int i = 0; i < typeCount; i++) {
+                _prtPool[i] = [];
+            }
+
+            //初始化分层渲染桶，并把旧公开字段（PRT_AlphaBlend_Draw 等）指向默认层的桶以保持向后兼容
+            //渲染时机由 PRTRenderHandle 通过 RenderHandleLoader 的多个钩子触发，不再注册 On_Main.DrawInfernoRings
+            PRTRender.Initialize();
         }
 
         void IVaultLoader.SetupData() {
@@ -135,6 +154,7 @@ namespace InnoVault.PRT
         /// </summary>
         public override void Unload() {
             PRT_TypeToID = null;
+            PRT_TypeToFactory = null;
             PRT_IDToTexture = null;
             PRT_IDToInGame_World_Count = null;
             PRT_IDToInstances = null;
@@ -144,7 +164,13 @@ namespace InnoVault.PRT
             PRT_AdditiveBlend_Draw = null;
             PRT_NonPremultiplied_Draw = null;
             PRT_HasShader_Draw = null;
-            On_Main.DrawInfernoRings -= DrawHook;
+            if (_prtPool != null) {
+                for (int i = 0; i < _prtPool.Length; i++) {
+                    _prtPool[i]?.Clear();
+                }
+                _prtPool = null;
+            }
+            PRTRender.Dispose();
 
             GlobalPRT.Instances.Clear();
 
@@ -172,14 +198,65 @@ namespace InnoVault.PRT
         public static void InitializeWorldPRT() {
             //确保所有与世界相关的列表是全新的
             PRT_InGame_World_Inds.Clear();
-            PRT_AlphaBlend_Draw.Clear();
-            PRT_AdditiveBlend_Draw.Clear();
-            PRT_NonPremultiplied_Draw.Clear();
-            PRT_HasShader_Draw.Clear();
-            //重置粒子计数器
-            foreach (var key in PRT_IDToInGame_World_Count.Keys.ToList()) {
+            //渲染桶（包括默认层指向的 PRT_AlphaBlend_Draw 等兼容字段）由 PRTRender 统一清空
+            PRTRender.Reset();
+            //重置粒子计数器，仅修改值不修改键，无需 ToList()
+            foreach (var key in PRT_IDToInGame_World_Count.Keys) {
                 PRT_IDToInGame_World_Count[key] = 0;
             }
+            //世界切换时丢弃池中残留的旧粒子，避免跨世界对象复用导致的不一致
+            if (_prtPool != null) {
+                for (int i = 0; i < _prtPool.Length; i++) {
+                    _prtPool[i]?.Clear();
+                }
+            }
+        }
+
+        /// <summary>
+        /// 内部分配接口：按ID获取一个可用的<see cref="BasePRT"/>实例
+        /// 当对应类型的<see cref="BasePRT.CanPool"/>为<see langword="true"/>且池非空时，从池中复用；否则使用工厂委托新建
+        /// 仅用于<see cref="NewParticle(int, Vector2, Vector2, Color, float, int, int, int)"/>等内部生成路径
+        /// 公开出口<see cref="GetPRTInstance{T}"/>/<see cref="GetPRTInstance(int)"/>/<see cref="BasePRT.Clone"/>始终返回全新对象，不参与池化
+        /// </summary>
+        private static BasePRT Spawn(int id) {
+            BasePRT template = PRT_IDToInstances[id];
+            if (template.CanPool && _prtPool != null) {
+                List<BasePRT> bucket = _prtPool[id];
+                int last = bucket.Count - 1;
+                if (last >= 0) {
+                    BasePRT pooled = bucket[last];
+                    bucket.RemoveAt(last);
+                    pooled._fromPool = true;
+                    return pooled;
+                }
+            }
+            BasePRT created = template.Clone();
+            //标记此实例归属于池系统，使得它在销毁时能被回收，而非交给GC
+            if (template.CanPool) {
+                created._fromPool = true;
+            }
+            return created;
+        }
+
+        /// <summary>
+        /// 内部回收接口：将一个已死亡的<see cref="BasePRT"/>实例放回所属类型的池中
+        /// 仅当实例确实来自池系统（<see cref="BasePRT._fromPool"/>为<see langword="true"/>）且未超过池容量上限时执行
+        /// 调用<see cref="BasePRT.Reset"/>清理实例字段使其回到接近"全新"的状态供后续<see cref="Spawn(int)"/>复用
+        /// </summary>
+        private static void TryReturnToPool(BasePRT particle) {
+            if (particle == null || !particle._fromPool || _prtPool == null) {
+                return;
+            }
+            int id = particle.ID;
+            if ((uint)id >= (uint)_prtPool.Length) {
+                return;
+            }
+            List<BasePRT> bucket = _prtPool[id];
+            if (bucket.Count >= MaxPoolPerType) {
+                return;
+            }
+            particle.Reset();
+            bucket.Add(particle);
         }
 
         /// <inheritdoc/>
@@ -189,10 +266,11 @@ namespace InnoVault.PRT
 
         /// <summary>
         /// 根据指定的粒子绘制模式，返回对应的粒子实例列表
+        /// 兼容性入口：返回的是 <see cref="PRTRenderLayer.BeforeInfernoRings"/> 默认层中对应 <paramref name="drawMode"/> 的桶
+        /// 这与历史单层渲染时的语义一致；若需访问其它层级的桶请直接使用 <see cref="PRTRender"/> 接口
         /// </summary>
         /// <param name="drawMode">指定的粒子绘制模式 <see cref="PRTDrawModeEnum"/></param>
         /// <returns>与指定绘制模式对应的粒子实例列表，如果模式未定义则返回 null</returns>
-        /// <exception cref="ArgumentOutOfRangeException">如果传入的绘制模式不在已定义的范围内</exception>
         public static List<BasePRT> GetPRTInstancesByDrawMode(PRTDrawModeEnum drawMode) {
             return drawMode switch {
                 PRTDrawModeEnum.AlphaBlend => PRT_AlphaBlend_Draw,
@@ -302,7 +380,7 @@ namespace InnoVault.PRT
         /// <param name="ai2">粒子的自定义属性 ai2，默认为0</param>
         public static BasePRT NewParticle(int prtID, Vector2 position, Vector2 velocity
             , Color color = default, float scale = 1f, int ai0 = 0, int ai1 = 0, int ai2 = 0) {
-            BasePRT prtEntity = PRT_IDToInstances[prtID].Clone();
+            BasePRT prtEntity = Spawn(prtID);
             prtEntity.Position = position;
             prtEntity.Velocity = velocity;
             prtEntity.Scale = scale;
@@ -324,7 +402,7 @@ namespace InnoVault.PRT
         /// <param name="Scale"></param>
         /// <returns></returns>
         public static BasePRT NewParticle(Vector2 center, Vector2 velocity, int type, Color newColor = default, float Scale = 1f) {
-            BasePRT prtEntity = PRT_IDToInstances[type].Clone();
+            BasePRT prtEntity = Spawn(type);
             prtEntity.Position = center;
             prtEntity.Velocity = velocity;
             prtEntity.Color = newColor;
@@ -343,7 +421,7 @@ namespace InnoVault.PRT
         /// <param name="Scale"></param>
         /// <returns></returns>
         public static T NewParticle<T>(Vector2 center, Vector2 velocity, Color newColor = default, float Scale = 1f) where T : BasePRT {
-            T prtEntity = GetPRTInstance<T>();
+            T prtEntity = (T)Spawn(GetParticleID<T>());
             prtEntity.Position = center;
             prtEntity.Velocity = velocity;
             prtEntity.Color = newColor;
@@ -460,7 +538,24 @@ namespace InnoVault.PRT
                 PRT_IDToInGame_World_Count[particle.ID] = 0;
             }
 
-            PRT_InGame_World_Inds.RemoveAll(p => p == null || !p.active);
+            //手写双指针剔除非活跃粒子，并把可池化的实例归还池系统
+            //相比 RemoveAll(lambda) 省去委托分配、避免 null 比较，并把"回收"合并到这一次扫描里
+            List<BasePRT> list = PRT_InGame_World_Inds;
+            int write = 0;
+            for (int read = 0; read < list.Count; read++) {
+                BasePRT p = list[read];
+                if (p != null && p.active) {
+                    list[write++] = p;
+                    continue;
+                }
+                TryReturnToPool(p);
+            }
+            if (write < list.Count) {
+                list.RemoveRange(write, list.Count - write);
+            }
+
+            //粒子集合在本帧已发生变化（新增、销毁、AI 改写字段），通知 PRTRender 在下一次绘制时重建桶
+            PRTRender.MarkBucketsDirty();
         }
 
         private static void UpdateParticleVelocity(BasePRT particle) {
@@ -484,172 +579,48 @@ namespace InnoVault.PRT
         /// <returns></returns>
         public static int GetParticleID(Type sType) => PRT_TypeToID[sType];
 
-        private static void AddDrawHander() {
-            foreach (BasePRT particle in PRT_InGame_World_Inds) {
-                if (particle == null || !particle.active) {
-                    continue;
-                }
-
-                if (particle.PRTLayersMode == PRTLayersModeEnum.NoDraw) {
-                    continue;
-                }
-
-                if (particle.shader != null) {
-                    PRT_HasShader_Draw.Add(particle);
-                    continue;
-                }
-
-                GetPRTInstancesByDrawMode(particle.PRTDrawMode).Add(particle);
-            }
-        }
-
-        private static void DrawHook(Terraria.On_Main.orig_DrawInfernoRings orig, Main self) {
-            Draw(Main.spriteBatch);
-            orig(self);
-        }
-
-        private static void DefaultDraw(SpriteBatch spriteBatch, BasePRT particle) {
-            Texture2D value = PRT_IDToTexture[particle.ID];
-            if (particle.Frame == default) {
-                particle.Frame = new Rectangle(0, 0, value.Width, value.Height);
-            }
-            spriteBatch.Draw(value, particle.Position - Main.screenPosition, particle.Frame, particle.Color
-                , particle.Rotation, particle.Frame.Size() * 0.5f, particle.Scale, SpriteEffects.None, 0f);
-        }
-
         /// <summary>
         /// 根据 <see cref="PRTDrawModeEnum"/> 获取对应的 <see cref="BlendState"/>
+        /// 兼容性入口转发到 <see cref="PRTRender.GetBlendStateFor"/>
         /// </summary>
         /// <param name="drawMode">粒子的绘制模式</param>
         /// <returns>对应的 BlendState 实例</returns>
-        public static BlendState GetBlendStateFor(PRTDrawModeEnum drawMode) {
-            return drawMode switch {
-                PRTDrawModeEnum.AdditiveBlend => BlendState.Additive,
-                PRTDrawModeEnum.NonPremultiplied => BlendState.NonPremultiplied,
-                PRTDrawModeEnum.AlphaBlend => BlendState.AlphaBlend,
-                // 提供一个默认值以防未来添加新的枚举成员
-                _ => BlendState.AlphaBlend,
-            };
-        }
+        public static BlendState GetBlendStateFor(PRTDrawModeEnum drawMode) => PRTRender.GetBlendStateFor(drawMode);
 
         /// <summary>
         /// 根据指定的绘制模式 <see cref="PRTDrawModeEnum"/>，为 <see cref="SpriteBatch"/> 设置适当的渲染状态并开始绘制
+        /// 兼容性入口转发到 <see cref="PRTRender.BeginDrawingWithMode"/>
         /// </summary>
         /// <param name="drawMode">绘制模式枚举 <see cref="PRTDrawModeEnum"/></param>
         /// <param name="spriteBatch">用于进行绘制操作的 <see cref="SpriteBatch"/></param>
         /// <param name="spriteSortMode">是否立即应用绘制，默认为 <see cref="SpriteSortMode.Deferred"/></param>
-        public static void BeginDrawingWithMode(PRTDrawModeEnum drawMode, SpriteBatch spriteBatch, SpriteSortMode spriteSortMode = SpriteSortMode.Deferred) {
-            var rasterizer = Main.Rasterizer;
-            rasterizer.ScissorTestEnable = true;
-            Main.instance.GraphicsDevice.RasterizerState.ScissorTestEnable = true;
-            Main.instance.GraphicsDevice.ScissorRectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
-
-            switch (drawMode) {
-                case PRTDrawModeEnum.AlphaBlend:
-                    spriteBatch.Begin(spriteSortMode, BlendState.AlphaBlend, Main.DefaultSamplerState
-                    , DepthStencilState.None, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-                    break;
-                case PRTDrawModeEnum.AdditiveBlend:
-                    spriteBatch.Begin(spriteSortMode, BlendState.Additive, SamplerState.PointClamp
-                    , DepthStencilState.Default, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-                    break;
-                case PRTDrawModeEnum.NonPremultiplied:
-                    spriteBatch.Begin(spriteSortMode, BlendState.NonPremultiplied, SamplerState.PointClamp
-                    , DepthStencilState.Default, rasterizer, null, Main.GameViewMatrix.TransformationMatrix);
-                    break;
-            }
-        }
+        public static void BeginDrawingWithMode(PRTDrawModeEnum drawMode, SpriteBatch spriteBatch, SpriteSortMode spriteSortMode = SpriteSortMode.Deferred)
+            => PRTRender.BeginDrawingWithMode(drawMode, spriteBatch, spriteSortMode);
 
         /// <summary>
         /// 完整的处理一个粒子的绘制操作
+        /// 兼容性入口转发到 <see cref="PRTRender.PRTInstanceDraw"/>，被 <see cref="PRTGroup.Draw"/> 等处使用
         /// </summary>
         /// <param name="spriteBatch"></param>
         /// <param name="particle"></param>
-        public static void PRTInstanceDraw(SpriteBatch spriteBatch, BasePRT particle) {
-            bool result = true;
-            foreach (var global in HookPreDrawPRT.Enumerate()) {
-                if (!global.PreDrawPRT(spriteBatch, particle)) {
-                    result = false;
-                }
-            }
-
-            if (result && particle.PreDraw(spriteBatch)) {
-                DefaultDraw(spriteBatch, particle);
-            }
-
-            particle.PostDraw(spriteBatch);
-
-            foreach (var global in HookPostDrawPRT.Enumerate()) {
-                global.PostDrawPRT(spriteBatch, particle);
-            }
-        }
+        public static void PRTInstanceDraw(SpriteBatch spriteBatch, BasePRT particle) => PRTRender.PRTInstanceDraw(spriteBatch, particle);
 
         /// <summary>
         /// 用于绘制使用Shader效果的粒子集合
+        /// 兼容性入口转发到 <see cref="PRTRender.HandleShaderPRTDrawList"/>
         /// </summary>
         /// <param name="spriteBatch">画布实例</param>
         /// <param name="particles">传入的粒子集合，其中所有的粒子要求<see cref="BasePRT.shader"/>不为<see langword="null"/></param>
-        public static void HanderHasShaderPRTDrawList(SpriteBatch spriteBatch, List<BasePRT> particles) {
-            //第一次分组：按着色器实例分组，这是最高代价的切换
-            var groupedByShader = particles.GroupBy(p => p.shader);
-
-            foreach (var shaderGroup in groupedByShader) {
-                //第二次分组：在每个着色器组内部，再按绘制模式分组
-                var groupedByDrawMode = shaderGroup.GroupBy(p => p.PRTDrawMode);
-
-                foreach (var drawModeGroup in groupedByDrawMode) {
-                    //设置当前组的绘制模式画布
-                    BeginDrawingWithMode(drawModeGroup.Key, spriteBatch, SpriteSortMode.Immediate);
-
-                    //应用当前组的着色器
-                    shaderGroup.Key?.Apply(null);
-
-                    //绘制所有属于这个子组（相同shader和相同drawMode）的粒子
-                    foreach (BasePRT particle in drawModeGroup) {
-                        PRTInstanceDraw(spriteBatch, particle);
-                    }
-
-                    spriteBatch.End();
-                }
-            }
-        }
+        public static void HanderHasShaderPRTDrawList(SpriteBatch spriteBatch, List<BasePRT> particles)
+            => PRTRender.HandleShaderPRTDrawList(spriteBatch, particles);
 
         /// <summary>
         /// 所有PRT的绘制更新都在这里
+        /// 兼容性入口：现在 PRT 的渲染由 <see cref="PRTRender"/> 在 <see cref="RenderHandles.RenderHandleLoader"/> 的多个钩子上分层触发
+        /// 此方法转发到 <see cref="PRTRender.DrawAll"/>，一次性绘制所有层级，供旧调用方仍可手动触发
         /// </summary>
         /// <param name="spriteBatch"></param>
-        public static void Draw(SpriteBatch spriteBatch) {
-            if (PRT_InGame_World_Inds.Count <= 0) {
-                return;
-            }
-
-            spriteBatch.End();
-            AddDrawHander();
-
-            foreach (PRTDrawModeEnum drawMode in allDrawModes) {
-                List<BasePRT> targetPRTs = GetPRTInstancesByDrawMode(drawMode);
-                if (targetPRTs.Count <= 0) {
-                    continue;
-                }
-
-                BeginDrawingWithMode(drawMode, spriteBatch);
-                for (int i = 0; i < targetPRTs.Count; i++) {
-                    PRTInstanceDraw(spriteBatch, targetPRTs[i]);
-                }
-                spriteBatch.End();
-            }
-
-            if (PRT_HasShader_Draw.Count > 0) {
-                HanderHasShaderPRTDrawList(spriteBatch, PRT_HasShader_Draw);
-            }
-
-            PRT_AlphaBlend_Draw.Clear();
-            PRT_NonPremultiplied_Draw.Clear();
-            PRT_AdditiveBlend_Draw.Clear();
-            PRT_HasShader_Draw.Clear();
-
-            spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, Main.DefaultSamplerState, DepthStencilState.None, Main.Rasterizer, null, Main.Transform);
-        }
+        public static void Draw(SpriteBatch spriteBatch) => PRTRender.DrawAll(spriteBatch);
 
         /// <summary>
         /// 给出可用粒子槽的数量。当一次需要多个粒子来制作效果，并且不希望由于缺乏粒子槽而只绘制一半时非常有用

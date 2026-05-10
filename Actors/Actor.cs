@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq.Expressions;
 
 namespace InnoVault.Actors
 {
@@ -100,14 +101,22 @@ namespace InnoVault.Actors
         /// 注册内容
         /// </summary>
         protected sealed override void VaultRegister() {
+            Type type = GetType();
             ID = Instances.Count;
             Instances.Add(this);
-            TypeToID[GetType()] = ID;
-            TypeToInstance[GetType()] = this;
+            TypeToID[type] = ID;
+            TypeToInstance[type] = this;
             IDToInstance[ID] = this;
             ByID[ID] = new Dictionary<Type, Actor> {
-                { GetType(), this }
+                { type, this }
             };
+            //预编译无参构造为委托，避免在 Clone/AddActor 路径上反复触发 Activator.CreateInstance 的反射开销
+            //失败时不抛出（例如缺少公共无参构造），Clone 会自动回退到 Activator.CreateInstance 兜底
+            try {
+                ActorLoader.ActorFactory[type] = Expression.Lambda<Func<Actor>>(Expression.New(type)).Compile();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"Actor factory compile failed for {type.FullName}, will fall back to Activator: {ex.Message}");
+            }
         }
         /// <summary>
         /// 封闭内容
@@ -116,10 +125,17 @@ namespace InnoVault.Actors
             SetStaticDefaults();
         }
         /// <summary>
-        /// 克隆这个Actor实例
+        /// 克隆这个<see cref="Actor"/>实例，返回一个全新的、字段为类型默认值的对象
+        /// 内部实现优先使用<see cref="ActorLoader.ActorFactory"/>中预编译好的工厂委托；若类型未注册或编译失败，则回退到<see cref="Activator.CreateInstance(Type)"/>以保证健壮性
         /// </summary>
         /// <returns>克隆的Actor实例</returns>
-        public Actor Clone() => (Actor)Activator.CreateInstance(GetType());
+        public Actor Clone() {
+            Type type = GetType();
+            if (ActorLoader.ActorFactory.TryGetValue(type, out Func<Actor> factory)) {
+                return factory();
+            }
+            return (Actor)Activator.CreateInstance(type);
+        }
         /// <summary>
         /// 每帧调用以处理实体的AI逻辑
         /// </summary>

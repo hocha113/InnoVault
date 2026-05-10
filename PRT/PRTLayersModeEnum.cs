@@ -4,7 +4,7 @@
 public enum PRTLayersModeEnum
 {
     /// <summary>
-    /// 不参与自动更新，仅仅是装载进实例列表，这个模式很少使用，一般用于特殊的UI更新位置，以供开发者手动调用
+    /// 不参与自动更新，仅仅是装载进实例列表，一般用于特殊的UI更新位置，以供开发者手动调用
     /// </summary>
     None,
     /// <summary>

@@ -2,6 +2,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Linq.Expressions;
 using Terraria.Graphics.Shaders;
 using Terraria.ModLoader;
 using static InnoVault.PRT.PRTLoader;
@@ -126,9 +127,26 @@ namespace InnoVault.PRT
         /// </summary>
         public PRTLayersModeEnum PRTLayersMode = PRTLayersModeEnum.InWorld;
         /// <summary>
+        /// 渲染层级，决定该粒子由 <see cref="PRTRender"/> 在哪个绘制阶段交给 <see cref="PRTRender.DrawLayer"/> 渲染
+        /// 默认为 <see cref="PRTRenderLayer.BeforeInfernoRings"/>，与历史 PRT 单点渲染时机一致
+        /// 与决定混合方式的 <see cref="PRTDrawMode"/> 正交，可独立配置
+        /// </summary>
+        public PRTRenderLayer RenderLayer = PRTRenderLayer.BeforeInfernoRings;
+        /// <summary>
         /// 这个粒子将使用的着色器数据，默认为<see langword="null"/>
         /// </summary>
         public ArmorShaderData shader;
+        /// <summary>
+        /// 是否启用对象池复用本实例的子类型默认为<see langword="false"/>
+        /// 子类显式重写为<see langword="true"/>表明自身的所有可变字段都会在<see cref="SetProperty"/>或<see cref="Reset"/>中被正确初始化
+        /// 不重写则保持现状语义（每次<see cref="PRTLoader.NewParticle(int, Vector2, Vector2, Color, float, int, int, int)"/>都会通过工厂委托新建对象）
+        /// </summary>
+        public virtual bool CanPool => false;
+        /// <summary>
+        /// 标记此实例由池系统创建当死亡被<see cref="PRTLoader"/>移除时会回收到池中
+        /// 用户自行<see langword="new"/>构造并通过<see cref="PRTLoader.AddParticle(BasePRT)"/>提交的实例不会被归池
+        /// </summary>
+        internal bool _fromPool;
 
         #endregion
         /// <summary>
@@ -153,6 +171,13 @@ namespace InnoVault.PRT
             TypeToMod[type] = VaultUtils.FindModByType(type);
             PRT_IDToInstances.Add(ID, this);
             PRT_IDToInGame_World_Count.Add(ID, 0);
+            //预编译无参构造为委托，避免在 Clone/Spawn 热路径上反复触发 Activator.CreateInstance 的反射开销
+            //如果类型缺少公共无参构造，这里会在编译期抛出异常，与原 Activator 报错时机一致
+            try {
+                PRT_TypeToFactory[type] = Expression.Lambda<Func<BasePRT>>(Expression.New(type)).Compile();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"PRT factory compile failed for {type.FullName}, will fall back to Activator: {ex.Message}");
+            }
             VaultTypeRegistry<BasePRT>.Register(this);//这里提取手动加载好所有的粒子实例
         }
 
@@ -185,9 +210,51 @@ namespace InnoVault.PRT
         public virtual void DrawInUI(SpriteBatch spriteBatch) { }
         /// <summary>
         /// 克隆这个实例，注意，克隆出的新对象与原实例将不再具有任何引用关系
+        /// 该方法始终返回一个全新的、字段为类型默认值的实例（不会从对象池获取脏对象），保持公开 API 语义不变
+        /// 内部实现优先使用<see cref="PRTLoader.PRT_TypeToFactory"/>中预编译好的工厂委托；若类型未注册则回退到<see cref="Activator.CreateInstance(Type)"/>以保证健壮性
         /// </summary>
         /// <returns></returns>
-        public BasePRT Clone() => (BasePRT)Activator.CreateInstance(GetType());
+        public BasePRT Clone() {
+            Type type = GetType();
+            if (PRT_TypeToFactory != null && PRT_TypeToFactory.TryGetValue(type, out Func<BasePRT> factory)) {
+                return factory();
+            }
+            return (BasePRT)Activator.CreateInstance(type);
+        }
+        /// <summary>
+        /// 当本实例被对象池回收前调用，用于把<see cref="BasePRT"/>自身的所有可变字段重置为构造默认值
+        /// 默认实现已经覆盖了基类全部字段子类如果引入了自己的状态字段，且声明<see cref="CanPool"/>为<see langword="true"/>，
+        /// 则<b>必须</b>重写此方法把这些字段也复位（推荐先<see langword="base"/>.<see cref="Reset"/>，再恢复自身字段），
+        /// 否则下一次从池中取出时会保留上一辈子的脏数据
+        /// </summary>
+        public virtual void Reset() {
+            Frame = default;
+            active = false;
+            ShouldKillWhenOffScreen = true;
+            Time = 0;
+            Lifetime = -1;
+            Opacity = 0;
+            Position = default;
+            Velocity = default;
+            Origin = default;
+            Color = default;
+            Rotation = 0;
+            Scale = 0;
+            //ai 数组保留，仅清零，避免每次回收都重新分配
+            if (ai != null) {
+                for (int i = 0; i < ai.Length; i++) {
+                    ai[i] = 0;
+                }
+            }
+            //历史轨迹缓存所有权可能与具体子类相关，统一释放即可，需要的子类会在 SetProperty 中重新初始化
+            oldPositions = null;
+            oldRotations = null;
+            PRTDrawMode = PRTDrawModeEnum.AlphaBlend;
+            PRTLayersMode = PRTLayersModeEnum.InWorld;
+            RenderLayer = PRTRenderLayer.BeforeInfernoRings;
+            shader = null;
+            //ID 与 _fromPool 不在此处重置：ID 用于回到正确的池槽，_fromPool 是身份标记
+        }
         /// <summary>
         /// 粒子是否应该在逻辑更新中自动更新位置数据，默认为<see langword="true"/>
         /// </summary>

@@ -29,6 +29,12 @@ namespace InnoVault.Actors
         /// 下一个可用的Actor槽位索引
         /// </summary>
         private static int nextFreeSlot = 0;
+        /// <summary>
+        /// 一个字典，将<see cref="Actor"/>类型映射到其无参构造工厂委托
+        /// 在<see cref="Actor.VaultRegister"/>注册阶段编译生成，用于代替反射 <see cref="Activator.CreateInstance(Type)"/>
+        /// 使用字段初始化器保证<see cref="Actor.VaultRegister"/>调用时此字典已可用（注册阶段早于<see cref="IVaultLoader.LoadData"/>）
+        /// </summary>
+        internal static Dictionary<Type, Func<Actor>> ActorFactory { get; private set; } = [];
 
         private static readonly List<VaultHookMethodCache<GlobalActor>> hooks = [];
         internal static VaultHookMethodCache<GlobalActor> HookPreAI;
@@ -60,6 +66,9 @@ namespace InnoVault.Actors
             HookOnSpawn = null;
             HookPreDraw = null;
             HookPostDraw = null;
+
+            //仅清空内容而非置 null，保证下一次注册阶段（早于 LoadData）字典立即可用
+            ActorFactory.Clear();
 
             GlobalActor.Instances?.Clear();
             VaultTypeRegistry<GlobalActor>.ClearRegisteredVaults();
