@@ -577,7 +577,7 @@ namespace InnoVault.UIHandles
         /// </summary>
         protected KeyPressState CheckLeftKeyState() {
             oldDownL = downL;
-            downL = Main.LocalPlayer.PressKey(); // 检查左键是否按下
+            downL = Main.LocalPlayer.PressKey(); //检查左键是否按下
             if (downL && oldDownL) return KeyPressState.Held;
             if (downL && !oldDownL) return KeyPressState.Pressed;
             if (!downL && oldDownL) return KeyPressState.Released;
@@ -594,7 +594,7 @@ namespace InnoVault.UIHandles
         /// </summary>
         protected KeyPressState CheckRightKeyState() {
             oldDownR = downR;
-            downR = Main.LocalPlayer.PressKey(false); // 检查右键是否按下
+            downR = Main.LocalPlayer.PressKey(false); //检查右键是否按下
             if (downR && oldDownR) return KeyPressState.Held;
             if (downR && !oldDownR) return KeyPressState.Pressed;
             if (!downR && oldDownR) return KeyPressState.Released;
