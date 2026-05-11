@@ -14,12 +14,8 @@ namespace InnoVault.UIHandles
     /// <summary>
     /// UI处理器，一个简易的UI基类，继承它用于自定义各种UI实现
     /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-UI"/></br>
-    /// <para/>
-    /// 本类型为 <see langword="partial"/>，扩展功能拆分至同目录下的多个分部文件：<br/>
-    /// - <c>UIHandle.Lifecycle.cs</c>：<see cref="IsOpen"/> / <see cref="Open"/> / <see cref="Close"/> / <see cref="Toggle"/> / 状态事件 / 动画进度<br/>
-    /// - <c>UIHandle.Interaction.cs</c>：自动悬停判定、拖拽、ESC关闭、滚轮、修饰键等输入辅助
     /// </summary>
-    public abstract partial class UIHandle : VaultType<UIHandle>
+    public abstract class UIHandle : VaultType<UIHandle>
     {
         #region 生命周期事件
 
