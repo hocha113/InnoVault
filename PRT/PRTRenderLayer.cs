@@ -3,7 +3,7 @@ namespace InnoVault.PRT
     /// <summary>
     /// PRT粒子的渲染层级枚举每一项对应 <see cref="RenderHandles.RenderHandle"/> 系统中的一个绘制阶段
     /// 决定粒子在屏幕"什么时候"被画，与决定混合方式的 <see cref="PRTDrawModeEnum"/> 正交
-    /// 默认值为 <see cref="BeforeInfernoRings"/>，保持与历史 PRT 单点渲染时的行为一致
+    /// 默认值为 <see cref="BeforeInfernoRings"/>
     /// </summary>
     public enum PRTRenderLayer
     {
@@ -28,7 +28,7 @@ namespace InnoVault.PRT
         /// </summary>
         AfterPlayers,
         /// <summary>
-        /// 默认层在 <c>DrawInfernoRings</c> 之前绘制，与历史 PRT 渲染时机一致
+        /// 默认层在 <c>DrawInfernoRings</c> 之前绘制
         /// 没有显式指定 RenderLayer 的粒子都落在此层
         /// </summary>
         BeforeInfernoRings,

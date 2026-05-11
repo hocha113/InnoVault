@@ -9,16 +9,8 @@ using Terraria;
 namespace InnoVault.PRT
 {
     /// <summary>
-    /// PRT粒子的渲染器，集中负责把 <see cref="PRTLoader.PRT_InGame_World_Inds"/> 中的粒子按
-    /// （<see cref="PRTRenderLayer"/>，<see cref="PRTDrawModeEnum"/>）二维分桶并执行实际绘制
-    /// 本类自身就是一个 <see cref="RenderHandles.RenderHandle"/> 派生类，在 <see cref="RenderHandles.RenderHandleLoader"/>
-    /// 的多个钩子（<see cref="DrawBeforeTiles"/>、<see cref="DrawAfterTiles"/>、<see cref="DrawBeforePlayers"/>、
-    /// <see cref="DrawAfterPlayers"/>、<see cref="DrawBeforeInfernoRings"/>）上触发，使粒子能够被分配到不同的渲染层级
+    /// PRT粒子的渲染器
     /// </summary>
-    /// <remarks>
-    /// 桶的填充采用懒加载：每帧 <see cref="MarkBucketsDirty"/> 标记为脏，下一次 <see cref="DrawLayer"/> 调用时一次性重建
-    /// 所有渲染辅助方法（混合状态切换、shader 分组绘制等）也集中在此类，<see cref="PRTLoader"/> 中保留同名薄包装以兼容旧调用
-    /// </remarks>
     public sealed class PRTRender : RenderHandle
     {
         #region Data
