@@ -317,8 +317,8 @@ namespace InnoVault.UIHandles
         /// <summary>
         /// 中键按键状态。当 <see cref="LayersMode"/> 为 <see cref="LayersModeEnum.None"/> 时此值不会被自动更新
         /// </summary>
-        public KeyPressState keyMiddlePressState
-            => IsLogicUpdate ? logicKeyMiddlePressState : keyMiddlePressState;
+        public static KeyPressState keyMiddlePressState
+            => IsLogicUpdate ? UIHandleLoader.logicKeyMiddlePressState : UIHandleLoader.keyMiddlePressState;
 
         /// <summary>
         /// 当前帧的鼠标滚轮增量（向上为正），等价于<see cref="PlayerInput.ScrollWheelDeltaForUI"/>
