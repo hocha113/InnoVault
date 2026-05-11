@@ -1,7 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using Microsoft.Xna.Framework.Input;
 using System;
 using Terraria;
+using Terraria.Audio;
+using Terraria.GameInput;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using static InnoVault.UIHandles.UIHandleLoader;
@@ -18,6 +21,442 @@ namespace InnoVault.UIHandles
     /// </summary>
     public abstract partial class UIHandle : VaultType<UIHandle>
     {
+        #region 生命周期事件
+
+        /// <summary>
+        /// 当UI被请求打开时触发，<b>在<see cref="OnOpen"/>调用之前</b>。<br/>
+        /// 用于外部订阅打开请求（例如统计、保存上次状态等）
+        /// </summary>
+        public event Action<UIHandle> OnOpening;
+        /// <summary>
+        /// 当UI被请求打开时触发，<b>在<see cref="OnOpen"/>与<see cref="OpenSound"/>之后</b>。<br/>
+        /// 用于外部订阅"已经成功完成打开流程"的时机
+        /// </summary>
+        public event Action<UIHandle> OnOpened;
+        /// <summary>
+        /// 当UI被请求关闭时触发，<b>在<see cref="OnClose"/>调用之前</b>。<br/>
+        /// 用于外部订阅关闭请求
+        /// </summary>
+        public event Action<UIHandle> OnClosing;
+        /// <summary>
+        /// 当UI被请求关闭时触发，<b>在<see cref="OnClose"/>与<see cref="CloseSound"/>之后</b>。<br/>
+        /// 用于外部订阅"已经成功完成关闭流程"的时机
+        /// </summary>
+        public event Action<UIHandle> OnClosed;
+
+        #endregion
+
+        #region 开关状态
+
+        private bool _isOpen;
+        /// <summary>
+        /// 阻止<see cref="Open"/>/<see cref="Close"/>在自己的事件 / 钩子中被递归触发，<br/>
+        /// 例如<see cref="OnOpen"/>里直接<see cref="Close"/>会让 _isOpen 变成<see langword="false"/>而<see cref="OpenProgress"/>仍指向 1，状态错乱
+        /// </summary>
+        private bool _inLifecycleTransition;
+
+        /// <summary>
+        /// UI是否处于"已打开"状态<br/>
+        /// 注意：刚关闭后<see cref="OpenProgress"/>仍可能大于0用于播放淡出动画，<br/>
+        /// 此时<see cref="IsOpen"/>已经为<see langword="false"/>，请使用<see cref="IsClosing"/>判断该过渡
+        /// </summary>
+        public bool IsOpen => _isOpen;
+
+        /// <summary>
+        /// UI是否处于打开过渡阶段（已请求打开，但<see cref="OpenProgress"/>尚未到达1）
+        /// </summary>
+        public bool IsOpening => _isOpen && OpenProgress.Current < 1f;
+
+        /// <summary>
+        /// UI是否处于关闭过渡阶段（已请求关闭，但<see cref="OpenProgress"/>尚未归零）
+        /// </summary>
+        public bool IsClosing => !_isOpen && OpenProgress.Current > 0f;
+
+        #endregion
+
+        #region 动画进度
+
+        /// <summary>
+        /// UI的整体打开进度 [0, 1]，由基类自动跟随<see cref="IsOpen"/>平滑过渡<br/>
+        /// 在子类的<see cref="Draw"/>中可以直接将其作为透明度/缩放系数使用
+        /// </summary>
+        public AnimatedFloat OpenProgress = new AnimatedFloat(0f, AnimatedFloat.DefaultSpeed);
+
+        /// <summary>
+        /// 鼠标悬停的动画进度 [0, 1]，由基类根据<see cref="hoverInMainPage"/>自动跟随平滑过渡<br/>
+        /// 适合用于按钮/槽位的悬停高亮淡入淡出
+        /// </summary>
+        public AnimatedFloat HoverProgress = new AnimatedFloat(0f, 0.25f);
+
+        /// <summary>
+        /// 全局时间累计（秒），便于子类计算呼吸/闪烁/脉动等周期性动画。<br/>
+        /// 由<see cref="UIHandleLoader"/>按真实时间累加，与帧率无关；<br/>
+        /// 仅在UI<see cref="Active"/>为<see langword="true"/>时累加
+        /// </summary>
+        public float GlobalTimer { get; protected set; }
+
+        #endregion
+
+        #region 可重写的钩子
+
+        /// <summary>
+        /// 是否在按下 ESC 键时自动调用<see cref="Close"/>，默认<see langword="false"/>
+        /// </summary>
+        public virtual bool CloseOnEscape => false;
+
+        /// <summary>
+        /// 打开UI时播放的音效，默认<see langword="null"/>表示不播放<br/>
+        /// 仅在<see cref="Open"/>实际产生状态变化（false→true）时触发一次，时机位于<see cref="OnOpen"/>之后、<see cref="OnOpened"/>之前
+        /// </summary>
+        public virtual SoundStyle? OpenSound => null;
+
+        /// <summary>
+        /// 关闭UI时播放的音效，默认<see langword="null"/>表示不播放<br/>
+        /// 仅在<see cref="Close"/>实际产生状态变化（true→false）时触发一次，时机位于<see cref="OnClose"/>之后、<see cref="OnClosed"/>之前
+        /// </summary>
+        public virtual SoundStyle? CloseSound => null;
+
+        /// <summary>
+        /// 当UI被打开时调用一次，子类可重写以执行自定义初始化逻辑（在<see cref="OnOpened"/>事件之前）
+        /// </summary>
+        protected virtual void OnOpen() { }
+
+        /// <summary>
+        /// 当UI被关闭时调用一次，子类可重写以执行自定义清理逻辑（在<see cref="OnClosed"/>事件之前）
+        /// </summary>
+        protected virtual void OnClose() { }
+
+        #endregion
+
+        #region 公开开关接口
+
+        /// <summary>
+        /// 打开UI。如果UI已经是打开状态则不会重复触发事件与音效；<br/>
+        /// 在<see cref="OnOpening"/>/<see cref="OnOpen"/>/<see cref="OnOpened"/>内部递归调用<see cref="Open"/>或<see cref="Close"/>会被忽略以避免状态错乱<br/>
+        /// 调用本方法等价于让<see cref="OpenProgress"/>开始向 1 过渡，并依次触发<see cref="OnOpening"/> → <see cref="OnOpen"/> → <see cref="OpenSound"/> → <see cref="OnOpened"/>
+        /// </summary>
+        public virtual void Open() {
+            if (_isOpen || _inLifecycleTransition) {
+                return;
+            }
+            _inLifecycleTransition = true;
+            try {
+                _isOpen = true;
+                OpenProgress.TweenTo(1f);
+
+                InvokeLifecycleEvent(OnOpening, nameof(OnOpening));
+                InvokeLifecycleHook(OnOpen, nameof(OnOpen));
+
+                if (OpenSound.HasValue && !Main.dedServ) {
+                    SoundEngine.PlaySound(OpenSound.Value);
+                }
+
+                InvokeLifecycleEvent(OnOpened, nameof(OnOpened));
+            } finally {
+                _inLifecycleTransition = false;
+            }
+        }
+
+        /// <summary>
+        /// 关闭UI。如果UI已经是关闭状态则不会重复触发事件与音效；<br/>
+        /// 在<see cref="OnClosing"/>/<see cref="OnClose"/>/<see cref="OnClosed"/>内部递归调用<see cref="Open"/>或<see cref="Close"/>会被忽略<br/>
+        /// 调用本方法不会立即将<see cref="OpenProgress"/>清零，而是开始向 0 过渡，<br/>
+        /// 期间<see cref="IsClosing"/>为<see langword="true"/>，绘制依然会被调用以播放淡出动画
+        /// </summary>
+        public virtual void Close() {
+            if (!_isOpen || _inLifecycleTransition) {
+                return;
+            }
+            _inLifecycleTransition = true;
+            try {
+                _isOpen = false;
+                OpenProgress.TweenTo(0f);
+
+                //关闭时强制结束拖拽，避免重新打开后出现"幽灵拖拽"
+                ForceEndDragOnClose();
+
+                InvokeLifecycleEvent(OnClosing, nameof(OnClosing));
+                InvokeLifecycleHook(OnClose, nameof(OnClose));
+
+                if (CloseSound.HasValue && !Main.dedServ) {
+                    SoundEngine.PlaySound(CloseSound.Value);
+                }
+
+                InvokeLifecycleEvent(OnClosed, nameof(OnClosed));
+            } finally {
+                _inLifecycleTransition = false;
+            }
+        }
+
+        /// <summary>
+        /// 切换UI的开关状态。若当前为打开状态则<see cref="Close"/>，否则<see cref="Open"/>
+        /// </summary>
+        public void Toggle() {
+            if (_isOpen) {
+                Close();
+            }
+            else {
+                Open();
+            }
+        }
+
+        /// <summary>
+        /// 立即将<see cref="OpenProgress"/>设为目标值，跳过过渡动画<br/>
+        /// 通常用于场景切换或加载完成后避免一次"突然滑入"
+        /// </summary>
+        public void SnapOpenProgress() => OpenProgress.Snap(_isOpen ? 1f : 0f);
+
+        #endregion
+
+        #region 内部辅助
+
+        /// <summary>
+        /// 独立 try/catch 调用一次<see cref="Action{UIHandle}"/>事件，单个订阅者抛出不会影响后续订阅或主流程
+        /// </summary>
+        private void InvokeLifecycleEvent(Action<UIHandle> evt, string evtName) {
+            if (evt == null) {
+                return;
+            }
+            //逐个订阅者调用，避免一个订阅者抛出影响其他订阅
+            foreach (Action<UIHandle> handler in evt.GetInvocationList()) {
+                try {
+                    handler(this);
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"{this} {evtName} subscriber threw: {ex}");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 独立 try/catch 调用一次<see langword="protected"/>钩子（<see cref="OnOpen"/> / <see cref="OnClose"/>）
+        /// </summary>
+        private void InvokeLifecycleHook(Action hook, string hookName) {
+            try {
+                hook();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"{this} {hookName} threw: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// 由<see cref="Close"/>触发：如果当前正在被拖拽，则强制重置拖拽状态并触发<see cref="OnDragEnd"/>，<br/>
+        /// 同时清理<see cref="CurrentDragOwner"/>
+        /// </summary>
+        private void ForceEndDragOnClose() {
+            if (!IsDragging) {
+                return;
+            }
+            IsDragging = false;
+            if (CurrentDragOwner == this) {
+                CurrentDragOwner = null;
+            }
+            try {
+                OnDragEnd();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"{this} OnDragEnd (forced by Close) threw: {ex}");
+            }
+        }
+
+        #endregion
+
+        #region 自动悬停判定
+
+        /// <summary>
+        /// 是否在每帧的<see cref="UIHanderElementUpdate"/>调用<see cref="Update"/>之前，<br/>
+        /// 由基类自动用<see cref="DrawPosition"/>+<see cref="Size"/>更新<see cref="UIHitBox"/>与<see cref="hoverInMainPage"/><br/>
+        /// 默认<see langword="false"/>，需要子类显式开启以避免破坏现有手动维护逻辑
+        /// </summary>
+        public virtual bool AutoUpdateHitBox => false;
+
+        /// <summary>
+        /// 当<see cref="hoverInMainPage"/>为<see langword="true"/>时是否自动设置<see cref="Player.mouseInterface"/>=<see langword="true"/>，<br/>
+        /// 默认<see langword="false"/>，需要子类显式开启以避免破坏现有手动维护逻辑
+        /// </summary>
+        public virtual bool BlockMouseWhenHovered => false;
+
+        #endregion
+
+        #region 拖拽
+
+        /// <summary>
+        /// 是否启用拖拽，默认<see langword="false"/><br/>
+        /// 启用后基类会监听<see cref="DragMouseButton"/>的按下/释放，自动维护<see cref="IsDragging"/>并实时更新<see cref="DrawPosition"/><br/>
+        /// 同一时刻只允许一个UI处于拖拽状态，由<see cref="CurrentDragOwner"/>裁决
+        /// </summary>
+        public virtual bool CanDrag => false;
+
+        /// <summary>
+        /// 拖拽使用的鼠标按键，默认<see cref="MouseButtonType.Right"/><br/>
+        /// 与游戏内大多数UI的"右键拖动面板"约定保持一致
+        /// </summary>
+        public virtual MouseButtonType DragMouseButton => MouseButtonType.Right;
+
+        /// <summary>
+        /// 限制可触发拖拽的矩形区域，默认<see langword="null"/>表示整个<see cref="UIHitBox"/>都可拖拽<br/>
+        /// 子类可重写以仅在标题栏等指定区域内允许拖拽
+        /// </summary>
+        public virtual Rectangle? DragHandleRect => null;
+
+        /// <summary>
+        /// 当前是否正在被拖拽
+        /// </summary>
+        public bool IsDragging { get; private set; }
+
+        private Vector2 _dragOffset;
+
+        /// <summary>
+        /// 拖拽开始时调用
+        /// </summary>
+        protected virtual void OnDragStart() { }
+
+        /// <summary>
+        /// 拖拽结束时调用
+        /// </summary>
+        protected virtual void OnDragEnd() { }
+
+        #endregion
+
+        #region 扩展输入便利属性（修饰键 / 滚轮 / 中键）
+
+        /// <summary>
+        /// 中键按键状态。当 <see cref="LayersMode"/> 为 <see cref="LayersModeEnum.None"/> 时此值不会被自动更新
+        /// </summary>
+        public KeyPressState keyMiddlePressState
+            => IsLogicUpdate ? logicKeyMiddlePressState : keyMiddlePressState;
+
+        /// <summary>
+        /// 当前帧的鼠标滚轮增量（向上为正），等价于<see cref="PlayerInput.ScrollWheelDeltaForUI"/>
+        /// </summary>
+        public static int MouseScrollDelta => PlayerInput.ScrollWheelDeltaForUI;
+
+        /// <summary>
+        /// 当前帧 Shift 键是否按下（任意一边）
+        /// </summary>
+        public static bool ShiftHeld => Main.keyState.IsKeyDown(Keys.LeftShift) || Main.keyState.IsKeyDown(Keys.RightShift);
+
+        /// <summary>
+        /// 当前帧 Ctrl 键是否按下（任意一边）
+        /// </summary>
+        public static bool CtrlHeld => Main.keyState.IsKeyDown(Keys.LeftControl) || Main.keyState.IsKeyDown(Keys.RightControl);
+
+        /// <summary>
+        /// 当前帧 Alt 键是否按下（任意一边）
+        /// </summary>
+        public static bool AltHeld => Main.keyState.IsKeyDown(Keys.LeftAlt) || Main.keyState.IsKeyDown(Keys.RightAlt);
+
+        /// <summary>
+        /// 鼠标在屏幕上的整数坐标，等价于<c>MousePosition.ToPoint()</c>
+        /// </summary>
+        public Point MousePoint => MousePosition.ToPoint();
+
+        /// <summary>
+        /// 根据按键类型获取对应的当前帧按键状态
+        /// </summary>
+        public KeyPressState GetKeyState(MouseButtonType button) {
+            return button switch {
+                MouseButtonType.Left => keyLeftPressState,
+                MouseButtonType.Right => keyRightPressState,
+                MouseButtonType.Middle => keyMiddlePressState,
+                _ => KeyPressState.None,
+            };
+        }
+
+        #endregion
+
+        #region 内置预/后更新（由 UIHandleLoader 调用）
+
+        /// <summary>
+        /// 每帧由<see cref="UIHanderElementUpdate"/>在用户的<see cref="Update"/>之前调用<br/>
+        /// 负责推进基类内置的悬停判定、拖拽、ESC关闭、<see cref="OpenProgress"/>动画和<see cref="GlobalTimer"/><br/>
+        /// 该方法不打算被子类直接调用，但被声明为<see langword="protected"/>+<see langword="virtual"/>以便完全自定义场景下覆盖
+        /// </summary>
+        /// <param name="frames">本帧代表多少个"60FPS 帧"，用于驱动帧率无关的动画</param>
+        protected internal virtual void BuiltinPreUpdate(float frames) {
+            //自动维护 UIHitBox 与悬停判定
+            if (AutoUpdateHitBox && Size != Vector2.Zero) {
+                UIHitBox = DrawPosition.GetRectangle(Size);
+                hoverInMainPage = UIHitBox.Intersects(MouseHitBox);
+            }
+
+            //处理拖拽
+            if (CanDrag) {
+                UpdateDrag();
+            }
+
+            //ESC 关闭
+            if (CloseOnEscape && IsOpen && Main.keyState.IsKeyDown(Keys.Escape) && !Main.oldKeyState.IsKeyDown(Keys.Escape)) {
+                Close();
+            }
+
+            //悬停时阻挡鼠标交互
+            if (BlockMouseWhenHovered && hoverInMainPage) {
+                player.mouseInterface = true;
+            }
+
+            //推进打开进度（HoverProgress 在 BuiltinPostUpdate 中处理，
+            //以便用户在 Update 中手动设置 hoverInMainPage 后能反映到当前帧）
+            OpenProgress.Update(frames);
+            GlobalTimer += frames * (1f / 60f);
+        }
+
+        /// <summary>
+        /// 每帧由<see cref="UIHanderElementUpdate"/>在用户的<see cref="Update"/>之后、<see cref="Draw"/>之前调用<br/>
+        /// 负责推进依赖"用户 Update 后才确定"的状态量，目前仅有<see cref="HoverProgress"/>
+        /// </summary>
+        /// <param name="frames">本帧代表多少个"60FPS 帧"，用于驱动帧率无关的动画</param>
+        protected internal virtual void BuiltinPostUpdate(float frames) {
+            HoverProgress.TweenTo(hoverInMainPage ? 1f : 0f);
+            HoverProgress.Update(frames);
+        }
+
+        /// <summary>
+        /// 处理拖拽逻辑：在<see cref="hoverInMainPage"/>且<see cref="DragHandleRect"/>命中时进入拖拽，<br/>
+        /// 实时跟随鼠标更新<see cref="DrawPosition"/>，按键释放时退出拖拽
+        /// </summary>
+        private void UpdateDrag() {
+            KeyPressState state = GetKeyState(DragMouseButton);
+
+            if (!IsDragging) {
+                //已有其他UI在拖拽时，本UI禁止抢占
+                if (CurrentDragOwner != null && CurrentDragOwner != this) {
+                    return;
+                }
+                if (!hoverInMainPage || state != KeyPressState.Pressed) {
+                    return;
+                }
+                Rectangle? handle = DragHandleRect;
+                if (handle.HasValue && !handle.Value.Intersects(MouseHitBox)) {
+                    return;
+                }
+                _dragOffset = DrawPosition - MousePosition;
+                IsDragging = true;
+                CurrentDragOwner = this;
+                try {
+                    OnDragStart();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"{this} OnDragStart threw: {ex}");
+                }
+                return;
+            }
+
+            //拖拽进行中
+            DrawPosition = MousePosition + _dragOffset;
+            if (state == KeyPressState.Released || state == KeyPressState.None) {
+                IsDragging = false;
+                if (CurrentDragOwner == this) {
+                    CurrentDragOwner = null;
+                }
+                try {
+                    OnDragEnd();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"{this} OnDragEnd threw: {ex}");
+                }
+            }
+        }
+
+        #endregion
+
+        #region Data
         /// <summary>
         /// 一个纹理的占位，可以重写它用于获取UI的主要纹理
         /// </summary>
@@ -101,6 +540,8 @@ namespace InnoVault.UIHandles
         /// 当前更新周期是否为逻辑更新
         /// </summary>
         public static bool IsLogicUpdate { get; set; }
+
+        #endregion
 
         /// <summary>
         /// 封闭内容
