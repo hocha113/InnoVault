@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.IO;
 using Terraria;
 using Terraria.DataStructures;
+using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.ObjectData;
@@ -73,9 +74,19 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 玩家鼠标是否悬停在实体之上<br/>
         /// 该值同时考虑了智能光标(Smart Cursor)的 snap 目标：
-        /// 当智能光标开启并将瞄准重定向到此 TP 所附着的图格上时，该值同样会被置为 <see langword="true"/>
+        /// 当智能光标开启并将瞄准重定向到此 TP 所附着的图格上时，该值同样会被置为 <see langword="true"/><br/>
+        /// 智能光标分支可通过 <see cref="CanSmartCursorSelect"/> 关闭
         /// </summary>
         public bool HoverTP;
+        /// <summary>
+        /// 是否允许智能光标(Smart Cursor)将瞄准 snap 到本 TP 附着的图格上时把 <see cref="HoverTP"/> 置为 <see langword="true"/><br/>
+        /// 默认值由 <see cref="InitializePositionAndBounds"/> 调用 <see cref="ShouldSmartCursorSelectByDefault"/> 推导，
+        /// 默认实现读取附着物块的 <see cref="TileID.Sets.HasOutlines"/> 与 <see cref="TileID.Sets.DisableSmartCursor"/>：
+        /// 仅当原版会在该物块上绘制描边、且未显式禁用智能光标时才默认为 <see langword="true"/><br/>
+        /// 开发者可在 <see cref="SetProperty"/> 等钩子中按需覆盖此值，或重写
+        /// <see cref="ShouldSmartCursorSelectByDefault"/> 自定义默认策略
+        /// </summary>
+        public bool CanSmartCursorSelect = true;
         /// <summary>
         /// 这个实体是否在玩家的画面内，该值在绘制函数中实时更新
         /// </summary>
@@ -328,6 +339,28 @@ namespace InnoVault.TileProcessors
             _size = new(Width, Height);
             _hitBox = _posInWorld.GetRectangle(Size);
             _centerInWorld = _posInWorld + Size / 2;
+            //从附着物块推导智能光标默认接管开关，随后 SetProperty 可由开发者自由覆盖
+            CanSmartCursorSelect = ShouldSmartCursorSelectByDefault();
+        }
+
+        /// <summary>
+        /// 计算 <see cref="CanSmartCursorSelect"/> 的默认值<br/>
+        /// 默认实现读取附着物块的 <see cref="TileID.Sets.HasOutlines"/> 与 <see cref="TileID.Sets.DisableSmartCursor"/>：
+        /// 仅当原版会为该物块绘制描边、且未显式禁用智能光标时才返回 <see langword="true"/><br/>
+        /// 派生类可重写此方法以提供自定义的默认策略，运行时也可在
+        /// <see cref="SetProperty"/> 中直接覆写 <see cref="CanSmartCursorSelect"/>
+        /// </summary>
+        protected virtual bool ShouldSmartCursorSelectByDefault() {
+            if (Tile == null || !Tile.HasTile) {
+                return false;
+            }
+            int type = Tile.TileType;
+            if (type < 0
+                || type >= TileID.Sets.HasOutlines.Length
+                || type >= TileID.Sets.DisableSmartCursor.Length) {
+                return false;
+            }
+            return TileID.Sets.HasOutlines[type] && !TileID.Sets.DisableSmartCursor[type];
         }
 
         /// <summary>

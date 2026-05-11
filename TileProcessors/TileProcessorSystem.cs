@@ -283,8 +283,11 @@ namespace InnoVault.TileProcessors
                 if (!tileProcessor.Active) continue;
 
                 //更新鼠标悬浮状态，同时考虑智能光标 snap 到 TP 的情况
+                //每个 TP 通过 CanSmartCursorSelect 决定是否接收智能光标的 snap
                 bool hoverByMouse = tileProcessor.HitBox.Intersects(mouseRec);
-                bool hoverBySmart = smartCursorActive && tileProcessor.HitBox.Intersects(smartRec);
+                bool hoverBySmart = smartCursorActive
+                    && tileProcessor.CanSmartCursorSelect
+                    && tileProcessor.HitBox.Intersects(smartRec);
                 tileProcessor.HoverTP = tileProcessor.InScreen && (hoverByMouse || hoverBySmart);
 
                 TP_ID_To_InWorld_Count[tileProcessor.ID]++;
