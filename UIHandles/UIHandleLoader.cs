@@ -614,18 +614,28 @@ namespace InnoVault.UIHandles
         /// <inheritdoc/>
         public static void UIHanderElementUpdate(UIHandle hander) {
             if (hander.ignoreBug > 0) {
+                if (CurrentDragOwner == hander) {
+                    hander.ForceEndDrag("error cooldown");
+                }
                 hander.ignoreBug--;
                 return;
             }
 
             try {
                 if (!hander.Active) {
+                    if (CurrentDragOwner == hander) {
+                        hander.ForceEndDrag("inactive");
+                    }
                     return;
                 }
 
                 bool reset = true;
                 foreach (var global in UIHandleGlobalHooks) {
                     reset = global.PreUIHanderElementUpdate(hander);
+                }
+
+                if (!reset && CurrentDragOwner == hander) {
+                    hander.ForceEndDrag("pre-update cancellation");
                 }
 
                 if (reset) {

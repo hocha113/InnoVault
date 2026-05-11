@@ -169,7 +169,7 @@ namespace InnoVault.UIHandles
                 OpenProgress.TweenTo(0f);
 
                 //关闭时强制结束拖拽，避免重新打开后出现"幽灵拖拽"
-                ForceEndDragOnClose();
+                ForceEndDrag(nameof(Close));
 
                 InvokeLifecycleEvent(OnClosing, nameof(OnClosing));
                 InvokeLifecycleHook(OnClose, nameof(OnClose));
@@ -235,21 +235,28 @@ namespace InnoVault.UIHandles
         }
 
         /// <summary>
-        /// 由<see cref="Close"/>触发：如果当前正在被拖拽，则强制重置拖拽状态并触发<see cref="OnDragEnd"/>，<br/>
-        /// 同时清理<see cref="CurrentDragOwner"/>
+        /// 强制释放本UI持有的拖拽状态与全局拖拽锁。<br/>
+        /// 如果当前处于基类拖拽状态，则会触发<see cref="OnDragEnd"/>
         /// </summary>
-        private void ForceEndDragOnClose() {
-            if (!IsDragging) {
+        internal void ForceEndDrag(string reason) {
+            bool wasDragging = IsDragging;
+            if (!wasDragging && CurrentDragOwner != this) {
                 return;
             }
+
             IsDragging = false;
             if (CurrentDragOwner == this) {
                 CurrentDragOwner = null;
             }
+
+            if (!wasDragging) {
+                return;
+            }
+
             try {
                 OnDragEnd();
             } catch (Exception ex) {
-                VaultMod.Instance.Logger.Error($"{this} OnDragEnd (forced by Close) threw: {ex}");
+                VaultMod.Instance.Logger.Error($"{this} OnDragEnd (forced by {reason}) threw: {ex}");
             }
         }
 
