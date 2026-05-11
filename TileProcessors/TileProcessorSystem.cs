@@ -273,13 +273,19 @@ namespace InnoVault.TileProcessors
             }
 
             Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);
+            //智能光标(Smart Cursor)不会移动鼠标真实坐标，它把"被瞄准的图格"重定向到附近的可交互物块
+            //原版用 Player.tileTargetX/Y 来表达这个目标。这里额外构造一个 16x16 矩形以覆盖这种情况
+            Rectangle smartRec = new Rectangle(Player.tileTargetX * 16, Player.tileTargetY * 16, 16, 16);
+            bool smartCursorActive = Main.SmartCursorIsUsed;
             //使用for循环以安全地处理更新过程中集合的增删
             for (int i = 0; i < TP_InWorld.Count; i++) {
                 TileProcessor tileProcessor = TP_InWorld[i];
                 if (!tileProcessor.Active) continue;
 
-                //更新鼠标悬浮状态
-                tileProcessor.HoverTP = tileProcessor.InScreen && tileProcessor.HitBox.Intersects(mouseRec);
+                //更新鼠标悬浮状态，同时考虑智能光标 snap 到 TP 的情况
+                bool hoverByMouse = tileProcessor.HitBox.Intersects(mouseRec);
+                bool hoverBySmart = smartCursorActive && tileProcessor.HitBox.Intersects(smartRec);
+                tileProcessor.HoverTP = tileProcessor.InScreen && (hoverByMouse || hoverBySmart);
 
                 TP_ID_To_InWorld_Count[tileProcessor.ID]++;
 

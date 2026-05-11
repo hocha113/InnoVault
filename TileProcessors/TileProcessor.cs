@@ -71,7 +71,9 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public bool PlaceNet = false;
         /// <summary>
-        /// 玩家鼠标是否悬停在实体之上
+        /// 玩家鼠标是否悬停在实体之上<br/>
+        /// 该值同时考虑了智能光标(Smart Cursor)的 snap 目标：
+        /// 当智能光标开启并将瞄准重定向到此 TP 所附着的图格上时，该值同样会被置为 <see langword="true"/>
         /// </summary>
         public bool HoverTP;
         /// <summary>

@@ -55,7 +55,11 @@ namespace InnoVault.GameSystem
                     return result.Value;
                 }
             }
-            if (TileProcessorLoader.TargetTileTypes.Contains(tile.TileType)
+            //智能光标(Smart Cursor)对一些可交互物块走的内部路径不会消费 Main.mouseRightRelease，
+            //这会导致按住右键时每一帧都进到本 hook 里，进而把 TP.RightClick 与广播包反复触发。
+            //通过 mouseRightRelease 做一层按下沿(press edge)守门：仅在按下当帧才向 TP 派发右键事件
+            if (Main.mouseRightRelease
+                && TileProcessorLoader.TargetTileTypes.Contains(tile.TileType)
                 && VaultUtils.SafeGetTopLeft(i, j, out var point)
                 && TPUtils.TryGetTP(point, out var tp)) {
                 result = tp.RightClick(i, j, tile, Main.LocalPlayer);
