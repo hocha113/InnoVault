@@ -81,8 +81,8 @@ namespace InnoVault.TileProcessors
         /// <summary>
         /// 是否允许智能光标(Smart Cursor)将瞄准 snap 到本 TP 附着的图格上时把 <see cref="HoverTP"/> 置为 <see langword="true"/><br/>
         /// 默认值由 <see cref="InitializePositionAndBounds"/> 调用 <see cref="ShouldSmartCursorSelectByDefault"/> 推导，
-        /// 默认实现读取附着物块的 <see cref="TileID.Sets.HasOutlines"/> 与 <see cref="TileID.Sets.DisableSmartCursor"/>：
-        /// 仅当原版会在该物块上绘制描边、且未显式禁用智能光标时才默认为 <see langword="true"/><br/>
+        /// 默认实现读取附着物块的 <see cref="TileID.Sets.HasOutlines"/>：
+        /// 该集合代表"原版会在该物块被瞄准时为其绘制描边"，是可交互物块通用的语义信号<br/>
         /// 开发者可在 <see cref="SetProperty"/> 等钩子中按需覆盖此值，或重写
         /// <see cref="ShouldSmartCursorSelectByDefault"/> 自定义默认策略
         /// </summary>
@@ -345,8 +345,9 @@ namespace InnoVault.TileProcessors
 
         /// <summary>
         /// 计算 <see cref="CanSmartCursorSelect"/> 的默认值<br/>
-        /// 默认实现读取附着物块的 <see cref="TileID.Sets.HasOutlines"/> 与 <see cref="TileID.Sets.DisableSmartCursor"/>：
-        /// 仅当原版会为该物块绘制描边、且未显式禁用智能光标时才返回 <see langword="true"/><br/>
+        /// 默认实现读取附着物块的 <see cref="TileID.Sets.HasOutlines"/>：
+        /// 该集合在原版中代表"被瞄准时会绘制描边"，门、椅子、容器等右键可交互物块通常都会置为
+        /// <see langword="true"/>，作为"是否值得让智能光标接管"的默认依据已经足够准确<br/>
         /// 派生类可重写此方法以提供自定义的默认策略，运行时也可在
         /// <see cref="SetProperty"/> 中直接覆写 <see cref="CanSmartCursorSelect"/>
         /// </summary>
@@ -355,12 +356,10 @@ namespace InnoVault.TileProcessors
                 return false;
             }
             int type = Tile.TileType;
-            if (type < 0
-                || type >= TileID.Sets.HasOutlines.Length
-                || type >= TileID.Sets.DisableSmartCursor.Length) {
+            if (type < 0 || type >= TileID.Sets.HasOutlines.Length) {
                 return false;
             }
-            return TileID.Sets.HasOutlines[type] && !TileID.Sets.DisableSmartCursor[type];
+            return TileID.Sets.HasOutlines[type];
         }
 
         /// <summary>
