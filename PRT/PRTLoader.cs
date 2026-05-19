@@ -318,7 +318,6 @@ namespace InnoVault.PRT
         /// </code>
         /// </para>
         /// </remarks>
-        [Obsolete("Passing a manually constructed instance bypasses the object pool and factory optimization, causing unnecessary GC pressure. Use PRTLoader.NewParticle<T>(...).Configure(...) instead.")]
         public static void AddParticle(BasePRT particle) {
             if (Main.gamePaused || Main.dedServ || PRT_InGame_World_Inds == null) {
                 return;
@@ -365,7 +364,6 @@ namespace InnoVault.PRT
         /// </code>
         /// </para>
         /// </remarks>
-        [Obsolete("Passing a manually constructed instance bypasses the object pool and factory optimization, causing unnecessary GC pressure. Use PRTLoader.NewParticle<T>(...).Configure(...) instead.")]
         public static void AddParticle(BasePRT particle, bool setProperty) {
             if (Main.gamePaused || Main.dedServ || PRT_InGame_World_Inds == null) {
                 return;
@@ -416,9 +414,7 @@ namespace InnoVault.PRT
             prtEntity.ai[0] = ai0;
             prtEntity.ai[1] = ai1;
             prtEntity.ai[2] = ai2;
-#pragma warning disable CS0618
             AddParticle(prtEntity);
-#pragma warning restore CS0618
             return prtEntity;
         }
 
@@ -443,9 +439,7 @@ namespace InnoVault.PRT
             prtEntity.ai[0] = ai0;
             prtEntity.ai[1] = ai1;
             prtEntity.ai[2] = ai2;
-#pragma warning disable CS0618
             AddParticle(prtEntity);
-#pragma warning restore CS0618
             return prtEntity;
         }
 
@@ -464,9 +458,7 @@ namespace InnoVault.PRT
             prtEntity.Velocity = velocity;
             prtEntity.Color = newColor;
             prtEntity.Scale = Scale;
-#pragma warning disable CS0618
             AddParticle(prtEntity);
-#pragma warning restore CS0618
             return prtEntity;
         }
 
@@ -485,9 +477,7 @@ namespace InnoVault.PRT
             prtEntity.Velocity = velocity;
             prtEntity.Color = newColor;
             prtEntity.Scale = Scale;
-#pragma warning disable CS0618
             AddParticle(prtEntity);
-#pragma warning restore CS0618
             return prtEntity;
         }
 
