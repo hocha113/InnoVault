@@ -24,7 +24,7 @@ namespace InnoVault.PRT
         /// <summary>
         /// 游戏中每个世界最多允许存在的粒子数量用于限制游戏中的粒子实体数量，防止性能问题
         /// </summary>
-        public const int InGame_World_MaxPRTCount = 20000;
+        public const int InGame_World_MaxPRTCount = short.MaxValue;
         /// <summary>
         /// 一个字典，用于将粒子类型（Type）映射到粒子ID每个粒子类型都会有一个唯一的ID，方便在系统中进行管理
         /// </summary>
