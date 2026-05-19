@@ -302,6 +302,23 @@ namespace InnoVault.PRT
         /// <summary>
         /// 生成提供给世界的粒子实例
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>⚠ 不推荐直接调用此方法</b><br/>
+        /// 此接口接受一个由外部自行构造的实例，绕过了 <see cref="Spawn(int)"/> 的对象池与工厂委托路径，
+        /// 导致每次生成都会触发 GC 分配，无法享受 <see cref="BasePRT.CanPool"/> 和 <see cref="PRT_TypeToFactory"/> 带来的复用优化
+        /// </para>
+        /// <para>
+        /// <b>推荐用法：</b>改用 <see cref="NewParticle{T}(Vector2, Vector2, Color, float)"/> 系列方法，
+        /// 它们内部经由 <see cref="Spawn(int)"/> 分发，自动命中对象池。如有额外字段需要初始化，
+        /// 请在 <see cref="BasePRT"/> 子类上定义链式 <c>Configure(...)</c> 方法并在生成后调用：
+        /// <code>
+        /// PRTLoader.NewParticle&lt;MyPRT&gt;(position, velocity, color, scale)
+        ///          .Configure(lifetime, extraParam);
+        /// </code>
+        /// </para>
+        /// </remarks>
+        [Obsolete("Passing a manually constructed instance bypasses the object pool and factory optimization, causing unnecessary GC pressure. Use PRTLoader.NewParticle<T>(...).Configure(...) instead.")]
         public static void AddParticle(BasePRT particle) {
             if (Main.gamePaused || Main.dedServ || PRT_InGame_World_Inds == null) {
                 return;
@@ -332,6 +349,23 @@ namespace InnoVault.PRT
         /// <summary>
         /// 生成提供给世界的粒子实例
         /// </summary>
+        /// <remarks>
+        /// <para>
+        /// <b>⚠ 不推荐直接调用此方法</b><br/>
+        /// 此接口接受一个由外部自行构造的实例，绕过了 <see cref="Spawn(int)"/> 的对象池与工厂委托路径，
+        /// 导致每次生成都会触发 GC 分配，无法享受 <see cref="BasePRT.CanPool"/> 和 <see cref="PRT_TypeToFactory"/> 带来的复用优化
+        /// </para>
+        /// <para>
+        /// <b>推荐用法：</b>改用 <see cref="NewParticle{T}(Vector2, Vector2, Color, float)"/> 系列方法，
+        /// 它们内部经由 <see cref="Spawn(int)"/> 分发，自动命中对象池。如有额外字段需要初始化，
+        /// 请在 <see cref="BasePRT"/> 子类上定义链式 <c>Configure(...)</c> 方法并在生成后调用：
+        /// <code>
+        /// PRTLoader.NewParticle&lt;MyPRT&gt;(position, velocity, color, scale)
+        ///          .Configure(lifetime, extraParam);
+        /// </code>
+        /// </para>
+        /// </remarks>
+        [Obsolete("Passing a manually constructed instance bypasses the object pool and factory optimization, causing unnecessary GC pressure. Use PRTLoader.NewParticle<T>(...).Configure(...) instead.")]
         public static void AddParticle(BasePRT particle, bool setProperty) {
             if (Main.gamePaused || Main.dedServ || PRT_InGame_World_Inds == null) {
                 return;
@@ -382,7 +416,9 @@ namespace InnoVault.PRT
             prtEntity.ai[0] = ai0;
             prtEntity.ai[1] = ai1;
             prtEntity.ai[2] = ai2;
+#pragma warning disable CS0618
             AddParticle(prtEntity);
+#pragma warning restore CS0618
             return prtEntity;
         }
 
@@ -407,7 +443,9 @@ namespace InnoVault.PRT
             prtEntity.ai[0] = ai0;
             prtEntity.ai[1] = ai1;
             prtEntity.ai[2] = ai2;
+#pragma warning disable CS0618
             AddParticle(prtEntity);
+#pragma warning restore CS0618
             return prtEntity;
         }
 
@@ -426,7 +464,9 @@ namespace InnoVault.PRT
             prtEntity.Velocity = velocity;
             prtEntity.Color = newColor;
             prtEntity.Scale = Scale;
+#pragma warning disable CS0618
             AddParticle(prtEntity);
+#pragma warning restore CS0618
             return prtEntity;
         }
 
@@ -445,7 +485,9 @@ namespace InnoVault.PRT
             prtEntity.Velocity = velocity;
             prtEntity.Color = newColor;
             prtEntity.Scale = Scale;
+#pragma warning disable CS0618
             AddParticle(prtEntity);
+#pragma warning restore CS0618
             return prtEntity;
         }
 
