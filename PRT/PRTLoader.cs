@@ -304,7 +304,7 @@ namespace InnoVault.PRT
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <b>⚠ 不推荐直接调用此方法</b><br/>
+        /// <b>不推荐直接调用此方法</b><br/>
         /// 此接口接受一个由外部自行构造的实例，绕过了 <see cref="Spawn(int)"/> 的对象池与工厂委托路径，
         /// 导致每次生成都会触发 GC 分配，无法享受 <see cref="BasePRT.CanPool"/> 和 <see cref="PRT_TypeToFactory"/> 带来的复用优化
         /// </para>
@@ -351,7 +351,7 @@ namespace InnoVault.PRT
         /// </summary>
         /// <remarks>
         /// <para>
-        /// <b>⚠ 不推荐直接调用此方法</b><br/>
+        /// <b>不推荐直接调用此方法</b><br/>
         /// 此接口接受一个由外部自行构造的实例，绕过了 <see cref="Spawn(int)"/> 的对象池与工厂委托路径，
         /// 导致每次生成都会触发 GC 分配，无法享受 <see cref="BasePRT.CanPool"/> 和 <see cref="PRT_TypeToFactory"/> 带来的复用优化
         /// </para>
