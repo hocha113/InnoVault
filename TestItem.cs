@@ -21,6 +21,12 @@ namespace InnoVault
         [VaultLoaden("Assets/Models3D/Sun")]
         public static VaultObjModel SunModel { get; set; }
 
+        /// <summary>
+        /// 通过统一 3D 模型加载器加载 glTF 示例模型
+        /// </summary>
+        [VaultLoaden("Assets/Models3D/SunFace/scene")]
+        public static Vault3DModel SunFaceModel { get; set; }
+
         //========== 示例 2：OnLayerRendered 后处理订阅（一次性挂上） ==========
         //OnLayerRendered 是全局静态事件，在每层 3D 模型画完后、合成回屏之前触发
         //这里订阅 AfterPlayers 层，把 RT 以 Additive blend 叠回一遍，制造一圈外发光halo
@@ -208,6 +214,21 @@ namespace InnoVault
                 },
             };
             Model3DRenderer.Submit(additiveCube);
+
+            Vector2 sunFacePos = player.Center + new Vector2(0f, -420f);
+            if (SunFaceModel != null && SunFaceModel.IsValid) {
+                Model3DRenderer.Submit(new Model3DInstance(SunFaceModel) {
+                    Position = sunFacePos,
+                    Rotation = new Vector3(0f, t * 0.35f, 0f),
+                    Scale = new Vector3(10f),
+                    Tint = Color.White,
+                    LightingEnabled = true,
+                    LightingOverride = BuildCursorLighting(sunFacePos, Main.MouseWorld),
+                    Layer = Model3DLayer.AfterPlayers,
+                    DepthEnabled = true,
+                    CullBackface = false,
+                });
+            }
         }
 
         //把光标当作"灯泡"，让主光从光标方向射向模型中心

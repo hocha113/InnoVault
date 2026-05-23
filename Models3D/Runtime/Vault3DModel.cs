@@ -18,6 +18,7 @@ namespace InnoVault.Models3D.Runtime
         public IReadOnlyDictionary<string, Model3DMaterial> Materials => _materials;
         public Model3DDiagnostic Diagnostic { get; }
         public BoundingBox Bounds { get; internal set; }
+        public Vector3 Pivot { get; internal set; }
         public int VertexCount { get; internal set; }
         public int TriangleCount { get; internal set; }
         public bool IsValid => TriangleCount > 0;
@@ -32,6 +33,7 @@ namespace InnoVault.Models3D.Runtime
             _materials = new Dictionary<string, Model3DMaterial>();
             Diagnostic = new Model3DDiagnostic();
             Bounds = new BoundingBox(Vector3.Zero, Vector3.Zero);
+            Pivot = Vector3.Zero;
         }
 
         internal Vault3DModel(string name, string sourcePath, List<Model3DMeshGroup> groups
@@ -41,6 +43,7 @@ namespace InnoVault.Models3D.Runtime
             _groups = groups ?? new List<Model3DMeshGroup>();
             _materials = materials ?? new Dictionary<string, Model3DMaterial>();
             Diagnostic = diagnostic ?? new Model3DDiagnostic();
+            Pivot = Vector3.Zero;
         }
     }
 }

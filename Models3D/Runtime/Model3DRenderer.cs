@@ -698,7 +698,9 @@ namespace InnoVault.Models3D.Runtime
                 instance.Position.X - Main.screenPosition.X,
                 instance.Position.Y - Main.screenPosition.Y,
                 instance.Depth);
-            return Matrix.CreateScale(instance.Scale)
+            Vector3 pivot = instance.Model?.Pivot ?? Vector3.Zero;
+            return Matrix.CreateTranslation(-pivot)
+                * Matrix.CreateScale(instance.Scale)
                 * Matrix.CreateRotationX(instance.Rotation.X)
                 * Matrix.CreateRotationY(instance.Rotation.Y)
                 * Matrix.CreateRotationZ(instance.Rotation.Z)

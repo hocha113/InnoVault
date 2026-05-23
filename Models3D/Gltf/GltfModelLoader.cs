@@ -67,8 +67,10 @@ namespace InnoVault.Models3D.Gltf
                 , groups, Matrix.Identity, ref min, ref max, ref boundsTouched);
 
             BoundingBox bounds = boundsTouched ? new BoundingBox(min, max) : new BoundingBox(Vector3.Zero, Vector3.Zero);
+            Vector3 pivot = options.CenterPivot && boundsTouched ? (min + max) * 0.5f : Vector3.Zero;
             Vault3DModel model = new Vault3DModel(GetDisplayName(gltfPath), gltfPath, groups, materials, diagnostic) {
                 Bounds = bounds,
+                Pivot = pivot,
             };
             int vertexCount = 0;
             int triangleCount = 0;
@@ -248,8 +250,8 @@ namespace InnoVault.Models3D.Gltf
                 VertexPositionNormalTexture[] vertices = new VertexPositionNormalTexture[positions.Length];
                 for (int i = 0; i < positions.Length; i++) {
                     Vector3 pos = Vector3.Transform(positions[i], world);
-                    pos = options.ApplyImportScale(pos);
-                    Vector3 normal = normals != null ? Vector3.TransformNormal(normals[i], world) : Vector3.Zero;
+                    pos = options.ApplyImportScale(options.ApplyAxis(pos));
+                    Vector3 normal = normals != null ? options.ApplyAxisNormal(Vector3.TransformNormal(normals[i], world)) : Vector3.Zero;
                     if (normal.LengthSquared() > 1e-6f) {
                         normal.Normalize();
                     }
@@ -362,6 +364,8 @@ namespace InnoVault.Models3D.Gltf
         private static Matrix BuildNodeMatrix(GltfNode node) {
             if (node.Matrix != null) {
                 float[] m = node.Matrix;
+                // glTF stores matrices column-major. XNA's row-vector transform expects the same
+                // contiguous values in M11..M44 for equivalent Vector3.Transform behavior.
                 return new Matrix(
                     m[0], m[1], m[2], m[3],
                     m[4], m[5], m[6], m[7],
