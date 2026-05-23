@@ -15,9 +15,6 @@ namespace InnoVault
     {
         public override string Texture => "InnoVault/icon";
 
-        /// <summary>
-        /// 通过 <see cref="VaultLoadenAttribute"/> 自动加载示例 cube 模型
-        /// </summary>
         [VaultLoaden("Assets/Models3D/cube")]
         public static VaultObjModel CubeModel { get; set; }
 
