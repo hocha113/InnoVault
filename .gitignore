@@ -75,7 +75,14 @@ StyleCopReport.xml
 *_h.h
 *.ilk
 *.meta
-*.obj
+#*.obj
+
+# 忽略项目根目录下的 obj 文件夹
+/obj/
+
+# 如果项目中存在嵌套在子目录中的 obj 文件夹（如 Assets/obj/）：
+**/obj/
+
 *.iobj
 *.pch
 *.pdb

@@ -1,4 +1,5 @@
 ﻿using InnoVault.Actors;
+using InnoVault.Models3D.Wavefront;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -12,6 +13,12 @@ namespace InnoVault
     internal class TestItem : ModItem
     {
         public override string Texture => "InnoVault/icon";
+
+        /// <summary>
+        /// 通过 <see cref="VaultLoadenAttribute"/> 自动加载示例 cube 模型
+        /// </summary>
+        [VaultLoaden("Assets/Models3D/cube")]
+        public static VaultObjModel CubeModel { get; set; }
 
         public override bool IsLoadingEnabled(Mod mod) {
             return true;

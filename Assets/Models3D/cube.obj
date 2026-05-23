@@ -1,0 +1,41 @@
+# Minimal sample cube for InnoVault Models3D MVP
+# Y-up, will be converted to Terraria Y-down by ObjImportOptions.YUpToYDown
+# Edge length 64 (centered at origin)
+
+mtllib cube.mtl
+o Cube
+
+v -32.0 -32.0 -32.0
+v  32.0 -32.0 -32.0
+v  32.0  32.0 -32.0
+v -32.0  32.0 -32.0
+v -32.0 -32.0  32.0
+v  32.0 -32.0  32.0
+v  32.0  32.0  32.0
+v -32.0  32.0  32.0
+
+vt 0.0 0.0
+vt 1.0 0.0
+vt 1.0 1.0
+vt 0.0 1.0
+
+vn  0.0  0.0 -1.0
+vn  0.0  0.0  1.0
+vn -1.0  0.0  0.0
+vn  1.0  0.0  0.0
+vn  0.0 -1.0  0.0
+vn  0.0  1.0  0.0
+
+usemtl CubeMaterial
+# back (z = -32), normal -Z
+f 1/1/1 4/4/1 3/3/1 2/2/1
+# front (z = +32), normal +Z
+f 5/1/2 6/2/2 7/3/2 8/4/2
+# left (x = -32), normal -X
+f 1/1/3 5/2/3 8/3/3 4/4/3
+# right (x = +32), normal +X
+f 2/1/4 3/2/4 7/3/4 6/4/4
+# bottom (y = -32), normal -Y
+f 1/1/5 2/2/5 6/3/5 5/4/5
+# top (y = +32), normal +Y
+f 4/1/6 8/2/6 7/3/6 3/4/6
