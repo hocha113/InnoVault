@@ -65,6 +65,26 @@ namespace InnoVault.Models3D.Runtime
         public bool LightingEnabled { get; set; } = false;
 
         /// <summary>
+        /// 实例级光照覆盖配置；<see langword="null"/> 时使用 <see cref="Model3DRenderer.GlobalLighting"/>
+        /// <br/>仅在 <see cref="LightingEnabled"/> 为 <see langword="true"/> 时生效
+        /// <br/>注意：传入的对象会被渲染器拷贝到内部 scratch 后再交给 <see cref="Model3DRenderer.ResolveLighting"/>，
+        /// 因此订阅者的修改不会污染该对象，可放心在多实例间共享同一份配置
+        /// </summary>
+        public Model3DLightingConfig LightingOverride { get; set; }
+
+        /// <summary>
+        /// 是否在未来的阴影系统中作为投影者参与
+        /// <br/><b>当前渲染管线尚未实现阴影，故此字段不被消费</b>，仅作为前向兼容预留
+        /// </summary>
+        public bool CastShadow { get; set; } = false;
+
+        /// <summary>
+        /// 是否在未来的阴影系统中接收阴影
+        /// <br/><b>当前渲染管线尚未实现阴影，故此字段不被消费</b>，仅作为前向兼容预留
+        /// </summary>
+        public bool ReceiveShadow { get; set; } = true;
+
+        /// <summary>
         /// 是否启用深度测试（多个模型相互重叠时可能需要打开）
         /// </summary>
         public bool DepthEnabled { get; set; } = true;

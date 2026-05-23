@@ -23,6 +23,24 @@ namespace InnoVault.Models3D.Runtime
         /// </summary>
         public static Model3DRenderer Instance { get; private set; }
 
+        /// <summary>
+        /// 全局默认光照配置，所有未指定 <see cref="Model3DInstance.LightingOverride"/> 的实例都会使用它
+        /// <br/>默认值与 <see cref="BasicEffect.EnableDefaultLighting"/> 一致
+        /// <br/>开发者可以在 mod 加载阶段或运行时整体替换/修改，实现昼夜变化等全局效果
+        /// </summary>
+        public static Model3DLightingConfig GlobalLighting { get; set; } = Model3DLightingConfig.CreateDefault();
+
+        /// <summary>
+        /// 每实例光照解析事件，在每个可见实例绘制前触发
+        /// <br/>订阅者拿到的 config 是 <see cref="GlobalLighting"/> 或 <see cref="Model3DInstance.LightingOverride"/> 的拷贝，
+        /// 可以放心 mutate；未来扩展点光、阴影等新能力时会在此处加更多解析事件
+        /// <br/>典型用法："让所有 boss 的主光朝向玩家光标"、"按 tile light 调整 ambient"等
+        /// </summary>
+        public static event Model3DLightingResolver ResolveLighting;
+
+        // 每帧/每实例复用，避免分配；写入前从 source 拷贝，写入后由订阅者按需修改
+        private readonly Model3DLightingConfig _scratchLighting = new Model3DLightingConfig();
+
         // 每层一个临时提交桶；每帧绘制完即清空
         private readonly List<Model3DInstance>[] _transientByLayer;
         // 每层一个常驻实例桶；不会在帧间清空
@@ -419,9 +437,23 @@ namespace InnoVault.Models3D.Runtime
             _effect.World = world;
             _effect.View = view;
             _effect.Projection = projection;
-            _effect.LightingEnabled = instance.LightingEnabled;
+
             if (instance.LightingEnabled) {
-                _effect.EnableDefaultLighting();
+                // 解析光照：实例 Override 优先；都为空则用空配置兜底（避免 NRE）
+                Model3DLightingConfig source = instance.LightingOverride ?? GlobalLighting;
+                if (source != null) {
+                    source.CopyTo(_scratchLighting);
+                }
+                else {
+                    Model3DLightingConfig.CreateDefault().CopyTo(_scratchLighting);
+                }
+                // 给订阅者按需 mutate scratch 的机会（光标光、昼夜变化、tile light 整合等）
+                ResolveLighting?.Invoke(instance, _scratchLighting);
+                _effect.LightingEnabled = true;
+                ApplyLighting(_effect, _scratchLighting);
+            }
+            else {
+                _effect.LightingEnabled = false;
             }
 
             for (int g = 0; g < model.Groups.Count; g++) {
@@ -556,6 +588,26 @@ namespace InnoVault.Models3D.Runtime
             if (saved.Depth != null) gd.DepthStencilState = saved.Depth;
             if (saved.Rasterizer != null) gd.RasterizerState = saved.Rasterizer;
             if (saved.Sampler0 != null) gd.SamplerStates[0] = saved.Sampler0;
+        }
+
+        // 把 Model3DLightingConfig 写入 BasicEffect。调用方需先把 LightingEnabled 置 true。
+        private static void ApplyLighting(BasicEffect effect, Model3DLightingConfig cfg) {
+            effect.AmbientLightColor = cfg.AmbientColor;
+            effect.EmissiveColor = cfg.EmissiveColor;
+            effect.SpecularPower = cfg.SpecularPower;
+            ApplyDirLight(effect.DirectionalLight0, cfg.Light0);
+            ApplyDirLight(effect.DirectionalLight1, cfg.Light1);
+            ApplyDirLight(effect.DirectionalLight2, cfg.Light2);
+        }
+
+        private static void ApplyDirLight(DirectionalLight slot, Model3DDirectionalLight src) {
+            slot.Enabled = src.Enabled;
+            if (!src.Enabled) {
+                return;
+            }
+            slot.Direction = src.Direction;
+            slot.DiffuseColor = src.DiffuseColor;
+            slot.SpecularColor = src.SpecularColor;
         }
 
         private static Color MultiplyColor(Color a, Color b) {

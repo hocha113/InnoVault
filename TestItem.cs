@@ -66,8 +66,11 @@ namespace InnoVault
             }
 
             float t = (float)Main.timeForVisualEffects * 0.02f;
+
+            // 主太阳：光标作为主光源
+            Vector2 sunPos1 = player.Center + new Vector2(0f, -220f);
             Model3DRenderer.Submit(new Model3DInstance(SunModel) {
-                Position = player.Center + new Vector2(0f, -220f),
+                Position = sunPos1,
                 Rotation = new Vector3(t * 0.7f, t, t * 0.3f),
                 Scale = Vector3.One * 60,
                 Tint = Color.White,
@@ -75,11 +78,13 @@ namespace InnoVault
                 DepthEnabled = true,
                 CullBackface = false,
                 LightingEnabled = true,
+                LightingOverride = BuildCursorLighting(sunPos1, Main.MouseWorld),
             });
 
-            // 第二个立方体放在玩家身后用于验证不同层级
+            // 第二个小球放在玩家右侧，验证多实例下各自独立计算光向
+            Vector2 sunPos2 = player.Center + new Vector2(220f, 0f);
             Model3DRenderer.Submit(new Model3DInstance(SunModel) {
-                Position = player.Center + new Vector2(220f, 0f),
+                Position = sunPos2,
                 Rotation = new Vector3(0f, t * 1.3f, 0f),
                 Scale = new Vector3(0.5f) * 60,
                 Tint = Color.LightSkyBlue,
@@ -87,7 +92,33 @@ namespace InnoVault
                 DepthEnabled = true,
                 CullBackface = false,
                 LightingEnabled = true,
+                LightingOverride = BuildCursorLighting(sunPos2, Main.MouseWorld),
             });
+
+            // 另一种写法：订阅 Model3DRenderer.ResolveLighting，对所有实例统一施加规则
+            // 例如：Model3DRenderer.ResolveLighting += (inst, cfg) => { cfg.Light0.Direction = ...; };
+        }
+
+        // 把光标当作"灯泡"，让主光从光标方向射向模型中心
+        // zBias 给一个负值让光略偏向相机方向，避免完全侧光导致正面太暗
+        private static Model3DLightingConfig BuildCursorLighting(Vector2 modelWorldPos, Vector2 cursorWorldPos) {
+            const float zBias = -100f;
+            Vector2 toModel = modelWorldPos - cursorWorldPos;
+            Vector3 raw = new Vector3(toModel.X, toModel.Y, zBias);
+            Vector3 dir = raw.LengthSquared() < 1e-4f ? -Vector3.UnitZ : Vector3.Normalize(raw);
+
+            Model3DLightingConfig cfg = Model3DLightingConfig.CreateDefault();
+            cfg.Light0.Enabled = true;
+            cfg.Light0.Direction = dir;
+            cfg.Light0.DiffuseColor = new Vector3(1.4f, 1.2f, 0.95f);
+            cfg.Light0.SpecularColor = new Vector3(1.0f, 0.9f, 0.7f);
+            // 关闭补光和背光，强调"光标即唯一光源"
+            cfg.Light1.Enabled = false;
+            cfg.Light2.Enabled = false;
+            // 保留少量环境光，避免暗面纯黑
+            cfg.AmbientColor = new Vector3(0.12f);
+            cfg.SpecularPower = 24f;
+            return cfg;
         }
 
         public override bool? UseItem(Player player) {
