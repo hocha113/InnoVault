@@ -21,6 +21,9 @@ namespace InnoVault
         [VaultLoaden("Assets/Models3D/cube")]
         public static VaultObjModel CubeModel { get; set; }
 
+        [VaultLoaden("Assets/Models3D/Sun")]
+        public static VaultObjModel SunModel { get; set; }
+
         public override bool IsLoadingEnabled(Mod mod) {
             return true;
         }
@@ -55,7 +58,7 @@ namespace InnoVault
         }
 
         public override void HoldItem(Player player) {
-            if (Main.dedServ || CubeModel == null || !CubeModel.IsValid) {
+            if (Main.dedServ || SunModel == null || !SunModel.IsValid) {
                 return;
             }
             if (player.whoAmI != Main.myPlayer) {
@@ -63,7 +66,7 @@ namespace InnoVault
             }
 
             float t = (float)Main.timeForVisualEffects * 0.02f;
-            Model3DRenderer.Submit(new Model3DInstance(CubeModel) {
+            Model3DRenderer.Submit(new Model3DInstance(SunModel) {
                 Position = player.Center + new Vector2(0f, -120f),
                 Rotation = new Vector3(t * 0.7f, t, t * 0.3f),
                 Scale = Vector3.One,
@@ -74,7 +77,7 @@ namespace InnoVault
             });
 
             // 第二个立方体放在玩家身后用于验证不同层级
-            Model3DRenderer.Submit(new Model3DInstance(CubeModel) {
+            Model3DRenderer.Submit(new Model3DInstance(SunModel) {
                 Position = player.Center + new Vector2(120f, 0f),
                 Rotation = new Vector3(0f, t * 1.3f, 0f),
                 Scale = new Vector3(0.5f),
