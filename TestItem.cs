@@ -74,6 +74,7 @@ namespace InnoVault
                 Layer = Model3DLayer.AfterPlayers,
                 DepthEnabled = true,
                 CullBackface = false,
+                LightingEnabled = true,
             });
 
             // 第二个立方体放在玩家身后用于验证不同层级
@@ -85,6 +86,7 @@ namespace InnoVault
                 Layer = Model3DLayer.BeforePlayers,
                 DepthEnabled = true,
                 CullBackface = false,
+                LightingEnabled = true,
             });
         }
 

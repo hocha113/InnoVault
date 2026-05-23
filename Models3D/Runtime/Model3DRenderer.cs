@@ -32,6 +32,14 @@ namespace InnoVault.Models3D.Runtime
         private BasicEffect _effect;
         private bool _effectInitFailed;
 
+        // Models3D 自己的渲染目标，必须带 Depth24 才能真正使用深度测试
+        private RenderTarget2D _model3DRT;
+        private bool _rtInitFailed;
+
+        // 复用的临时桶，避免每帧分配
+        private readonly List<Model3DInstance> _opaqueScratch = new List<Model3DInstance>(32);
+        private readonly List<Model3DInstance> _transparentScratch = new List<Model3DInstance>(8);
+
         // 保存绘制前的 GraphicsDevice 状态，绘制后恢复
         private struct SavedState
         {
@@ -58,6 +66,13 @@ namespace InnoVault.Models3D.Runtime
         protected override void VaultRegister() {
             base.VaultRegister();
             Instance = this;
+        }
+
+        /// <inheritdoc/>
+        public override void OnResolutionChanged(Vector2 screenSize) {
+            // 屏幕尺寸变化时丢弃旧 RT，下一帧 EnsureRenderTarget 会重建
+            DisposeRenderTarget();
+            _rtInitFailed = false;
         }
 
         /// <summary>
@@ -230,7 +245,6 @@ namespace InnoVault.Models3D.Runtime
             int idx = (int)layer;
 
             // 先取一份持久 + 临时合并的快照，避免持锁绘制
-            List<Model3DInstance> drawList = null;
             int transientCount = _transientByLayer[idx].Count;
             int persistentCount;
             lock (_persistentLock) {
@@ -241,49 +255,154 @@ namespace InnoVault.Models3D.Runtime
                 return;
             }
 
-            drawList = new List<Model3DInstance>(total);
+            _opaqueScratch.Clear();
+            _transparentScratch.Clear();
             lock (_persistentLock) {
-                drawList.AddRange(_persistentByLayer[idx]);
+                List<Model3DInstance> persistent = _persistentByLayer[idx];
+                for (int i = 0; i < persistent.Count; i++) {
+                    BucketizeInstance(persistent[i]);
+                }
             }
-            drawList.AddRange(_transientByLayer[idx]);
+            List<Model3DInstance> transientList = _transientByLayer[idx];
+            for (int i = 0; i < transientList.Count; i++) {
+                BucketizeInstance(transientList[i]);
+            }
 
-            // 按 SortKey 升序，越大越后画
-            drawList.Sort((a, b) => a.SortKey.CompareTo(b.SortKey));
+            if (_opaqueScratch.Count == 0 && _transparentScratch.Count == 0) {
+                return;
+            }
+
+            // 不透明：仅按 SortKey 升序，深度测试自己解决遮挡
+            _opaqueScratch.Sort(static (a, b) => a.SortKey.CompareTo(b.SortKey));
+            // 透明：先按 SortKey 升序，再按 Depth 降序（远的先画，近的覆盖在上）
+            _transparentScratch.Sort(static (a, b) => {
+                int keyCmp = a.SortKey.CompareTo(b.SortKey);
+                if (keyCmp != 0) {
+                    return keyCmp;
+                }
+                return b.Depth.CompareTo(a.Depth);
+            });
 
             if (!EnsureEffect(graphicsDevice)) {
                 return;
             }
+            if (!EnsureRenderTarget(graphicsDevice)) {
+                return;
+            }
 
             SavedState saved = SaveState(graphicsDevice);
+            RenderTargetBinding[] savedRTs = graphicsDevice.GetRenderTargets();
+            bool rtBound = false;
             try {
+                graphicsDevice.SetRenderTarget(_model3DRT);
+                rtBound = true;
+                // 关键：必须同时清颜色和深度。颜色清成透明，合成时不影响下层；深度清为最远值 1
+                graphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Transparent, 1f, 0);
+
                 Matrix view = Main.GameViewMatrix.TransformationMatrix;
                 Matrix projection = Matrix.CreateOrthographicOffCenter(0f, Main.screenWidth, Main.screenHeight, 0f, -10000f, 10000f);
 
-                for (int i = 0; i < drawList.Count; i++) {
-                    Model3DInstance instance = drawList[i];
-                    if (instance == null || !instance.Visible || instance.Model == null) {
-                        continue;
+                // ---- Opaque 桶：写深度 + 写颜色，无 blending ----
+                if (_opaqueScratch.Count > 0) {
+                    graphicsDevice.BlendState = BlendState.Opaque;
+                    graphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
+                    for (int i = 0; i < _opaqueScratch.Count; i++) {
+                        DrawSingle(graphicsDevice, _opaqueScratch[i], view, projection, isTransparent: false);
                     }
-                    if (!instance.Model.IsValid) {
-                        continue;
+                }
+
+                // ---- Transparent 桶：只读深度，按 back-to-front 顺序 alpha blend ----
+                if (_transparentScratch.Count > 0) {
+                    // 使用 NonPremultiplied，让 BasicEffect 输出的直alpha 颜色正确叠加到透明 RT 上
+                    graphicsDevice.BlendState = BlendState.NonPremultiplied;
+                    graphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
+                    for (int i = 0; i < _transparentScratch.Count; i++) {
+                        DrawSingle(graphicsDevice, _transparentScratch[i], view, projection, isTransparent: true);
                     }
-                    DrawSingle(graphicsDevice, instance, view, projection);
                 }
             } catch (Exception ex) {
                 VaultMod.LoggerError($"[Model3DRenderer:{layer}]"
                     , $"Failed to draw 3D models on layer {layer}: {ex.Message}");
             } finally {
+                if (rtBound) {
+                    if (savedRTs == null || savedRTs.Length == 0) {
+                        graphicsDevice.SetRenderTarget(null);
+                    }
+                    else {
+                        graphicsDevice.SetRenderTargets(savedRTs);
+                    }
+                }
                 RestoreState(graphicsDevice, saved);
+                _opaqueScratch.Clear();
+                _transparentScratch.Clear();
+            }
+
+            // ---- 合成阶段：把 _model3DRT 以全屏 quad 形式 alpha blend 回当前 RT ----
+            // 此时 NonPremultiplied 累积到透明背景的结果，RGB 已天然带 alpha 预乘，故合成用 AlphaBlend (premultiplied)
+            try {
+                SpriteBatch sb = Main.spriteBatch;
+                sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp
+                    , DepthStencilState.None, RasterizerState.CullCounterClockwise);
+                sb.Draw(_model3DRT, Vector2.Zero, Color.White);
+                sb.End();
+            } catch (Exception ex) {
+                VaultMod.LoggerError($"[Model3DRenderer:Composite]"
+                    , $"Failed to composite 3D render target on layer {layer}: {ex.Message}");
             }
         }
 
-        private void DrawSingle(GraphicsDevice graphicsDevice, Model3DInstance instance, Matrix view, Matrix projection) {
+        // 把一个实例按透明/不透明分到对应桶。null / 不可见 / 无效模型直接丢弃
+        private void BucketizeInstance(Model3DInstance instance) {
+            if (instance == null || !instance.Visible || instance.Model == null) {
+                return;
+            }
+            if (!instance.Model.IsValid) {
+                return;
+            }
+            if (IsInstanceTransparent(instance)) {
+                _transparentScratch.Add(instance);
+            }
+            else {
+                _opaqueScratch.Add(instance);
+            }
+        }
+
+        // 实例是否需要走透明桶：实例本身半透明、显式 ForceTransparent，或任一材质半透明
+        private static bool IsInstanceTransparent(Model3DInstance instance) {
+            if (instance.ForceTransparent) {
+                return true;
+            }
+            if (instance.Opacity < 0.999f) {
+                return true;
+            }
+            if (instance.Tint.A < 255) {
+                return true;
+            }
+            VaultObjModel model = instance.Model;
+            if (model == null) {
+                return false;
+            }
+            IReadOnlyList<ObjMeshGroup> groups = model.Groups;
+            for (int g = 0; g < groups.Count; g++) {
+                ObjMaterial mat = groups[g].Material;
+                if (mat != null && mat.Opacity < 0.999f) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private void DrawSingle(GraphicsDevice graphicsDevice, Model3DInstance instance, Matrix view, Matrix projection, bool isTransparent) {
             VaultObjModel model = instance.Model;
 
-            // 配置渲染状态：每个实例可以独立选择是否启用深度测试和背面剔除
-            graphicsDevice.BlendState = BlendState.AlphaBlend;
-            graphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
-            graphicsDevice.DepthStencilState = instance.DepthEnabled ? DepthStencilState.Default : DepthStencilState.None;
+            // BlendState 由外层桶统一设置；这里只设置每实例可覆盖的 Depth/Rasterizer
+            if (isTransparent) {
+                // 透明只读深度，避免互相 z-fight 把后面的透明面写丢
+                graphicsDevice.DepthStencilState = instance.DepthEnabled ? DepthStencilState.DepthRead : DepthStencilState.None;
+            }
+            else {
+                graphicsDevice.DepthStencilState = instance.DepthEnabled ? DepthStencilState.Default : DepthStencilState.None;
+            }
             graphicsDevice.RasterizerState = instance.CullBackface ? RasterizerState.CullCounterClockwise : RasterizerState.CullNone;
 
             Vector3 worldOffset = new Vector3(
@@ -356,6 +475,49 @@ namespace InnoVault.Models3D.Runtime
             }
             _effect = null;
             _effectInitFailed = false;
+        }
+
+        /// <summary>
+        /// 释放渲染器持有的 3D 渲染目标（仅供卸载/分辨率变化时调用）
+        /// </summary>
+        internal void DisposeRenderTarget() {
+            if (_model3DRT != null && !_model3DRT.IsDisposed) {
+                try {
+                    _model3DRT.Dispose();
+                } catch {
+                    // GPU 卸载阶段忽略异常
+                }
+            }
+            _model3DRT = null;
+        }
+
+        private bool EnsureRenderTarget(GraphicsDevice graphicsDevice) {
+            int w = Main.screenWidth;
+            int h = Main.screenHeight;
+            if (w <= 0 || h <= 0) {
+                return false;
+            }
+            if (_model3DRT != null && !_model3DRT.IsDisposed
+                && _model3DRT.Width == w && _model3DRT.Height == h) {
+                return true;
+            }
+            if (_rtInitFailed) {
+                return false;
+            }
+
+            try {
+                _model3DRT?.Dispose();
+                // PreserveContents 让我们清楚地控制每层都从 Clear 开始；用 Depth24 才能真正启用深度测试
+                _model3DRT = new RenderTarget2D(graphicsDevice, w, h, false, SurfaceFormat.Color
+                    , DepthFormat.Depth24, 0, RenderTargetUsage.PreserveContents);
+                return true;
+            } catch (Exception ex) {
+                _rtInitFailed = true;
+                _model3DRT = null;
+                VaultMod.LoggerError("[Model3DRenderer:RTInit]"
+                    , $"Failed to create 3D render target ({w}x{h}): {ex.Message}");
+                return false;
+            }
         }
 
         private bool EnsureEffect(GraphicsDevice graphicsDevice) {

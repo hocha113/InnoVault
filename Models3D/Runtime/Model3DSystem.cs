@@ -17,6 +17,7 @@ namespace InnoVault.Models3D.Runtime
             Main.QueueMainThreadAction(() => {
                 Model3DRenderer.ClearPersistent();
                 Model3DRenderer.Instance?.DisposeEffect();
+                Model3DRenderer.Instance?.DisposeRenderTarget();
             });
         }
     }

@@ -75,6 +75,13 @@ namespace InnoVault.Models3D.Runtime
         public bool CullBackface { get; set; } = false;
 
         /// <summary>
+        /// 是否强制将该实例视为半透明，即使材质 / <see cref="Tint"/> / <see cref="Opacity"/> 都满 1
+        /// <br/>开启后该实例会进入透明桶：使用 alpha blend、只读深度、按距离 back-to-front 排序
+        /// <br/>适合发光罩、玻璃外壳等需要从外往里看的"装饰外层"场景
+        /// </summary>
+        public bool ForceTransparent { get; set; } = false;
+
+        /// <summary>
         /// 自定义排序权重（越大越后绘制），同 <see cref="Layer"/> 的实例间排序使用
         /// </summary>
         public float SortKey { get; set; }
