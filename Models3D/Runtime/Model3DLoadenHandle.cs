@@ -46,14 +46,14 @@ namespace InnoVault.Models3D.Runtime
             string ext = GetExtension(normalized);
             try {
                 if (ext == ".obj") {
-                    return ObjModelLoadenHandle.Load(mod, normalized, objOptions ?? ObjImportOptions.Default);
+                    return ObjModelLoader.Load(mod, normalized, objOptions ?? ObjImportOptions.Default);
                 }
                 if (ext == ".gltf") {
                     return GltfModelLoader.Load(mod, normalized, gltfOptions ?? GltfImportOptions.Default);
                 }
 
                 if (TryResolveObjPath(mod, normalized, out string objPath)) {
-                    return ObjModelLoadenHandle.Load(mod, objPath, objOptions ?? ObjImportOptions.Default);
+                    return ObjModelLoader.Load(mod, objPath, objOptions ?? ObjImportOptions.Default);
                 }
                 if (TryResolveGltfPath(mod, normalized, out string gltfPath)) {
                     return GltfModelLoader.Load(mod, gltfPath, gltfOptions ?? GltfImportOptions.Default);

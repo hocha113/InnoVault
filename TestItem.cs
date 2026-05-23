@@ -1,6 +1,5 @@
 ﻿using InnoVault.Actors;
 using InnoVault.Models3D.Runtime;
-using InnoVault.Models3D.Wavefront;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using Terraria;
@@ -16,10 +15,10 @@ namespace InnoVault
         public override string Texture => "InnoVault/icon";
 
         [VaultLoaden("Assets/Models3D/cube")]
-        public static VaultObjModel CubeModel { get; set; }
+        public static Vault3DModel CubeModel { get; set; }
 
         [VaultLoaden("Assets/Models3D/Sun")]
-        public static VaultObjModel SunModel { get; set; }
+        public static Vault3DModel SunModel { get; set; }
 
         /// <summary>
         /// 通过统一 3D 模型加载器加载 glTF 示例模型

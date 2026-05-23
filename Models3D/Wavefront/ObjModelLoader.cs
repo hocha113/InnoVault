@@ -1,10 +1,10 @@
+using InnoVault.Models3D.Runtime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Reflection;
 using System.Text;
 using Terraria;
 using Terraria.ModLoader;
@@ -12,70 +12,38 @@ using Terraria.ModLoader;
 namespace InnoVault.Models3D.Wavefront
 {
     /// <summary>
-    /// 让 <see cref="VaultLoadenAttribute"/> 支持 <see cref="VaultObjModel"/> 类型字段的自动加载
+    /// OBJ 静态模型导入器
     /// <br/>实际加载工作流：读取 OBJ -> 解析 -> 读取 MTL -> 加载贴图 -> 构造 GPU 顶点
     /// </summary>
-    public sealed class ObjModelLoadenHandle : VaultLoadenHandle
+    public static class ObjModelLoader
     {
-        /// <inheritdoc/>
-        public override Type TargetType => typeof(VaultObjModel);
-        /// <inheritdoc/>
-        public override int Priority => 0;
-        /// <inheritdoc/>
-        public override bool SupportArrayLoading => true;
-
-        /// <inheritdoc/>
-        public override object GetDefaultValue(Type type) {
-            return VaultObjModel.Empty;
-        }
-
-        /// <inheritdoc/>
-        public override object HandleLoad(MemberInfo member, VaultLoadenAttribute attribute) {
-            if (Main.dedServ) {
-                //服务器无需 GPU 资源
-                return VaultObjModel.Empty;
-            }
-
-            if (attribute?.Mod == null || string.IsNullOrEmpty(attribute.Path)) {
-                return VaultObjModel.Empty;
-            }
-
-            try {
-                return LoadInternal(attribute.Mod, attribute.Path, ObjImportOptions.Default);
-            } catch (Exception ex) {
-                VaultMod.LoggerError($"[ObjModelLoadenHandle:{attribute.Mod.Name}/{attribute.Path}]"
-                    , $"Unhandled exception while loading OBJ model: {ex.Message}");
-                return VaultObjModel.Empty;
-            }
-        }
-
         /// <summary>
-        /// 直接从模组加载 OBJ 模型，便于其他模组在不使用标签的场景下复用
+        /// 直接从模组加载 OBJ 模型
         /// </summary>
         /// <param name="mod">目标模组</param>
         /// <param name="path">OBJ 路径，可省略 <c>.obj</c> 扩展名</param>
         /// <param name="options">导入选项，<see langword="null"/> 时使用默认值</param>
-        /// <returns>加载完成的模型，失败时返回 <see cref="VaultObjModel.Empty"/></returns>
-        public static VaultObjModel Load(Mod mod, string path, ObjImportOptions options = null) {
+        /// <returns>加载完成的模型，失败时返回 <see cref="Vault3DModel.Empty"/></returns>
+        public static Vault3DModel Load(Mod mod, string path, ObjImportOptions options = null) {
             if (Main.dedServ || mod == null || string.IsNullOrEmpty(path)) {
-                return VaultObjModel.Empty;
+                return Vault3DModel.Empty;
             }
             try {
                 return LoadInternal(mod, path, options ?? ObjImportOptions.Default);
             } catch (Exception ex) {
-                VaultMod.LoggerError($"[ObjModelLoadenHandle:{mod.Name}/{path}]"
+                VaultMod.LoggerError($"[ObjModelLoader:{mod.Name}/{path}]"
                     , $"Unhandled exception while loading OBJ model: {ex.Message}");
-                return VaultObjModel.Empty;
+                return Vault3DModel.Empty;
             }
         }
 
-        private static VaultObjModel LoadInternal(Mod mod, string path, ObjImportOptions options) {
+        private static Vault3DModel LoadInternal(Mod mod, string path, ObjImportOptions options) {
             string normalized = NormalizeSlashes(path);
 
             if (!TryResolveObjPath(mod, normalized, out string objPath)) {
-                VaultMod.LoggerError($"[ObjModelLoadenHandle:{mod.Name}/{path}]"
+                VaultMod.LoggerError($"[ObjModelLoader:{mod.Name}/{path}]"
                     , $"OBJ file not found: '{mod.Name}/{normalized}' (also tried '{normalized}.obj')");
-                return VaultObjModel.Empty;
+                return Vault3DModel.Empty;
             }
 
             string objDirectory = GetDirectory(objPath);
@@ -86,14 +54,13 @@ namespace InnoVault.Models3D.Wavefront
                 if (objStream == null) {
                     diagnostic.Error(objPath, 0, "Failed to open OBJ stream");
                     LogDiagnostic(mod, objPath, diagnostic);
-                    return VaultObjModel.Empty;
+                    return Vault3DModel.Empty;
                 }
                 using StreamReader reader = new StreamReader(objStream);
                 rawData = ObjParser.Parse(reader, diagnostic, objPath, options);
             }
 
-            //解析所有 MTL 库
-            Dictionary<string, ObjMaterial> materials = new();
+            Dictionary<string, ObjMaterial> objMaterials = new();
             foreach (string mtlRef in rawData.MaterialLibraries) {
                 string mtlPath = ResolveRelativePath(objDirectory, mtlRef);
                 if (!mod.FileExists(mtlPath)) {
@@ -108,16 +75,15 @@ namespace InnoVault.Models3D.Wavefront
                 using StreamReader mtlReader = new StreamReader(mtlStream);
                 Dictionary<string, ObjMaterial> parsed = MtlParser.Parse(mtlReader, diagnostic, mtlPath);
                 foreach (KeyValuePair<string, ObjMaterial> kv in parsed) {
-                    if (!materials.ContainsKey(kv.Key)) {
-                        materials[kv.Key] = kv.Value;
+                    if (!objMaterials.ContainsKey(kv.Key)) {
+                        objMaterials[kv.Key] = kv.Value;
                     }
                     else {
                         diagnostic.Warn(mtlPath, 0, $"Duplicate material name '{kv.Key}' across MTL libraries");
-                        materials[kv.Key] = kv.Value;
+                        objMaterials[kv.Key] = kv.Value;
                     }
                 }
 
-                //解析每个材质的贴图
                 foreach (ObjMaterial material in parsed.Values) {
                     if (string.IsNullOrEmpty(material.DiffuseTexturePath)) {
                         continue;
@@ -130,11 +96,13 @@ namespace InnoVault.Models3D.Wavefront
                 }
             }
 
-            List<ObjMeshGroup> groups = ObjMeshBuilder.Build(rawData, materials, options, diagnostic, objPath, out BoundingBox bounds);
-
-            VaultObjModel model = new VaultObjModel(GetDisplayName(objPath), objPath, groups, materials, diagnostic) {
+            List<ObjMeshGroup> objGroups = ObjMeshBuilder.Build(rawData, objMaterials, options, diagnostic, objPath, out BoundingBox bounds);
+            List<Model3DMeshGroup> groups = ToModelGroups(objGroups);
+            Dictionary<string, Model3DMaterial> materials = ToModelMaterials(objMaterials);
+            Vault3DModel model = new Vault3DModel(GetDisplayName(objPath), objPath, groups, materials, diagnostic) {
                 Bounds = bounds,
             };
+
             int totalVertices = 0;
             int totalTriangles = 0;
             for (int i = 0; i < groups.Count; i++) {
@@ -164,6 +132,28 @@ namespace InnoVault.Models3D.Wavefront
             }
         }
 
+        private static List<Model3DMeshGroup> ToModelGroups(List<ObjMeshGroup> objGroups) {
+            List<Model3DMeshGroup> groups = new List<Model3DMeshGroup>(objGroups?.Count ?? 0);
+            if (objGroups == null) {
+                return groups;
+            }
+            for (int i = 0; i < objGroups.Count; i++) {
+                groups.Add(objGroups[i]);
+            }
+            return groups;
+        }
+
+        private static Dictionary<string, Model3DMaterial> ToModelMaterials(Dictionary<string, ObjMaterial> objMaterials) {
+            Dictionary<string, Model3DMaterial> materials = new Dictionary<string, Model3DMaterial>(objMaterials?.Count ?? 0);
+            if (objMaterials == null) {
+                return materials;
+            }
+            foreach (KeyValuePair<string, ObjMaterial> kv in objMaterials) {
+                materials[kv.Key] = kv.Value;
+            }
+            return materials;
+        }
+
         private static bool TryResolveObjPath(Mod mod, string path, out string resolved) {
             resolved = path;
             if (mod.FileExists(path)) {
@@ -177,33 +167,18 @@ namespace InnoVault.Models3D.Wavefront
             return false;
         }
 
-        /// <summary>
-        /// 把可能含 <c>\\</c> 的路径规范成 <c>/</c> 分隔
-        /// </summary>
         private static string NormalizeSlashes(string path) {
-            if (string.IsNullOrEmpty(path)) {
-                return string.Empty;
-            }
-            return path.Replace('\\', '/');
+            return string.IsNullOrEmpty(path) ? string.Empty : path.Replace('\\', '/');
         }
 
-        /// <summary>
-        /// 取一个文件路径的目录部分（含末尾斜杠），如果是顶层则返回空串
-        /// </summary>
         private static string GetDirectory(string filePath) {
             if (string.IsNullOrEmpty(filePath)) {
                 return string.Empty;
             }
             int idx = filePath.LastIndexOf('/');
-            if (idx < 0) {
-                return string.Empty;
-            }
-            return filePath.Substring(0, idx + 1);
+            return idx < 0 ? string.Empty : filePath.Substring(0, idx + 1);
         }
 
-        /// <summary>
-        /// 解析相对路径，正确处理 <c>./</c> 和 <c>../</c> 段
-        /// </summary>
         private static string ResolveRelativePath(string baseDir, string relativePath) {
             string normalizedRel = NormalizeSlashes(relativePath);
             if (normalizedRel.StartsWith("/")) {
@@ -242,10 +217,7 @@ namespace InnoVault.Models3D.Wavefront
             }
             int dot = path.LastIndexOf('.');
             int slash = path.LastIndexOf('/');
-            if (dot > slash && dot >= 0) {
-                return path.Substring(0, dot);
-            }
-            return path;
+            return dot > slash && dot >= 0 ? path.Substring(0, dot) : path;
         }
 
         private static string GetDisplayName(string path) {
@@ -255,10 +227,7 @@ namespace InnoVault.Models3D.Wavefront
             int slash = path.LastIndexOf('/');
             string fileName = slash >= 0 ? path.Substring(slash + 1) : path;
             int dot = fileName.LastIndexOf('.');
-            if (dot >= 0) {
-                fileName = fileName.Substring(0, dot);
-            }
-            return fileName;
+            return dot >= 0 ? fileName.Substring(0, dot) : fileName;
         }
 
         private static void LogDiagnostic(Mod mod, string source, ObjDiagnostic diagnostic) {
@@ -266,13 +235,12 @@ namespace InnoVault.Models3D.Wavefront
                 return;
             }
 
-            //错误级别的信息走错误日志（带节流），警告/信息走 Debug 日志
             if (diagnostic.HasErrors) {
-                VaultMod.LoggerError($"[ObjModelLoadenHandle:{mod.Name}/{source}]"
+                VaultMod.LoggerError($"[ObjModelLoader:{mod.Name}/{source}]"
                     , $"OBJ load reported {diagnostic.ErrorCount} error(s), {diagnostic.WarningCount} warning(s):\n{diagnostic.Format()}");
             }
             else if (diagnostic.WarningCount > 0) {
-                VaultMod.Instance?.Logger.Debug($"[ObjModelLoadenHandle:{mod.Name}/{source}] "
+                VaultMod.Instance?.Logger.Debug($"[ObjModelLoader:{mod.Name}/{source}] "
                     + $"{diagnostic.WarningCount} warning(s):\n{diagnostic.Format()}");
             }
         }
