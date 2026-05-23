@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace InnoVault.Models3D.Runtime
 {
     /// <summary>
-    /// 格式无关的静态 3D 模型资源
+    /// 静态 3D 模型资源
     /// </summary>
     public class Vault3DModel
     {

@@ -44,7 +44,7 @@ namespace InnoVault.Models3D.Runtime
     }
 
     /// <summary>
-    /// 格式无关的 3D 模型导入诊断集合
+    /// 3D 模型导入诊断集合
     /// </summary>
     public class Model3DDiagnostic
     {
