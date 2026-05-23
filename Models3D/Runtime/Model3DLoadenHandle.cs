@@ -5,31 +5,37 @@ using System.Reflection;
 using Terraria;
 using Terraria.ModLoader;
 
-#pragma warning disable CS1591
-
 namespace InnoVault.Models3D.Runtime
 {
     /// <summary>
     /// 格式无关 3D 模型加载器，按文件后缀分发到 OBJ 或 glTF 导入器
+    /// <br/>供 <see cref="VaultLoadenAttribute"/> 自动加载 <see cref="Vault3DModel"/> 字段或属性
     /// </summary>
     public sealed class Model3DLoadenHandle : VaultLoadenHandle
     {
+        /// <inheritdoc/>
         public override Type TargetType => typeof(Vault3DModel);
+        /// <inheritdoc/>
         public override int Priority => 10;
+        /// <inheritdoc/>
         public override bool SupportArrayLoading => true;
 
+        /// <inheritdoc/>
         public override bool CanHandle(Type type) {
             return type == typeof(Vault3DModel);
         }
 
+        /// <inheritdoc/>
         public override bool CanHandleArrayElement(Type elementType) {
             return SupportArrayLoading && CanHandle(elementType);
         }
 
+        /// <inheritdoc/>
         public override object GetDefaultValue(Type type) {
             return Vault3DModel.Empty;
         }
 
+        /// <inheritdoc/>
         public override object HandleLoad(MemberInfo member, VaultLoadenAttribute attribute) {
             if (Main.dedServ || attribute?.Mod == null || string.IsNullOrEmpty(attribute.Path)) {
                 return Vault3DModel.Empty;
@@ -37,6 +43,15 @@ namespace InnoVault.Models3D.Runtime
             return Load(attribute.Mod, attribute.Path);
         }
 
+        /// <summary>
+        /// 加载 3D 模型资源
+        /// <br/>路径可带扩展名，也可省略扩展名并按 OBJ、glTF 顺序探测
+        /// </summary>
+        /// <param name="mod">目标模组</param>
+        /// <param name="path">模型路径</param>
+        /// <param name="gltfOptions">glTF 导入选项</param>
+        /// <param name="objOptions">OBJ 导入选项</param>
+        /// <returns>加载完成的模型</returns>
         public static Vault3DModel Load(Mod mod, string path, GltfImportOptions gltfOptions = null, ObjImportOptions objOptions = null) {
             if (Main.dedServ || mod == null || string.IsNullOrEmpty(path)) {
                 return Vault3DModel.Empty;
@@ -112,4 +127,3 @@ namespace InnoVault.Models3D.Runtime
         }
     }
 }
-#pragma warning restore CS1591

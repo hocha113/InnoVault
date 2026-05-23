@@ -7,12 +7,11 @@ using System.IO;
 using System.Text;
 using Terraria.ModLoader;
 
-#pragma warning disable CS1591
-
 namespace InnoVault.Models3D.Gltf
 {
     /// <summary>
     /// 本地最小 glTF 2.0 静态网格导入器
+    /// <br/>支持外部 bin、静态三角网格、基础材质和节点变换
     /// </summary>
     public static class GltfModelLoader
     {
@@ -22,6 +21,14 @@ namespace InnoVault.Models3D.Gltf
         private const int ComponentFloat = 5126;
         private const int ModeTriangles = 4;
 
+        /// <summary>
+        /// 加载 glTF 静态模型
+        /// <br/>失败时返回 <see cref="Vault3DModel.Empty"/> 并写入日志
+        /// </summary>
+        /// <param name="mod">目标模组</param>
+        /// <param name="path">glTF 路径</param>
+        /// <param name="options">导入选项</param>
+        /// <returns>加载完成的模型</returns>
         public static Vault3DModel Load(Mod mod, string path, GltfImportOptions options = null) {
             options ??= GltfImportOptions.Default;
             string normalized = NormalizeSlashes(path);
@@ -626,4 +633,3 @@ namespace InnoVault.Models3D.Gltf
         }
     }
 }
-#pragma warning restore CS1591
