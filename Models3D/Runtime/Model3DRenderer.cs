@@ -11,7 +11,28 @@ namespace InnoVault.Models3D.Runtime
     /// <summary>
     /// 3D 模型渲染器
     /// <br/>挂载在 <see cref="RenderHandle"/> 的多个分层钩子上，按 <see cref="Model3DLayer"/> 绘制 OBJ 模型
-    /// <br/>对外暴露的便捷 API 见 <see cref="Submit"/> / <see cref="RegisterPersistent"/> / <see cref="Draw(VaultObjModel, Vector2, Vector3, Vector3, Model3DLayer, Color?)"/>
+    /// <br/>对外暴露三层 API：
+    /// <list type="bullet">
+    /// <item><b>便捷 API</b>：<see cref="Submit"/> / <see cref="RegisterPersistent"/>
+    /// / <see cref="Draw(VaultObjModel, Vector2, Vector3, Vector3, Model3DLayer, Color?)"/>，最常用 80% 场景</item>
+    /// <item><b>扩展 API</b>：实例 / 材质上的 <c>Effect</c> / <c>EffectProvider</c> / <c>ConfigureEffect</c> / <c>RenderStateOverride</c>
+    /// / <c>Pre/Post DrawInstance/Group</c> 字段，配合 <see cref="ResolveLighting"/> / <see cref="PreDrawInstance"/>
+    /// / <see cref="PostDrawInstance"/> / <see cref="PreDrawGroup"/> / <see cref="PostDrawGroup"/> 全局静态事件，
+    /// 以及 <see cref="OnLayerRendered"/> / <see cref="CompositeOverride"/> RT 后处理钩子</item>
+    /// <item><b>原子 API</b>：<see cref="DrawInstance"/> / <see cref="DrawMeshGroup"/> / <see cref="DrawMeshPrimitives"/>
+    /// / <see cref="BuildWorldMatrix"/> / <see cref="BuildScreenViewMatrix"/> / <see cref="BuildScreenProjection"/>
+    /// / <see cref="ApplyLighting"/> / <see cref="DefaultEffect"/>，允许开发者在自己的 <see cref="RenderHandle"/>
+    /// 中完全手写一遍 3D 绘制路径，同时仍复用 OBJ 加载与渲染基础设施</item>
+    /// </list>
+    /// <br/><b>Effect 解析优先级链</b>：显式 effectOverride &gt; <see cref="Model3DInstance.Effect"/>
+    /// &gt; <see cref="Model3DInstance.EffectProvider"/>.Resolve &gt; <see cref="Wavefront.ObjMaterial.Effect"/>
+    /// &gt; <see cref="Wavefront.ObjMaterial.EffectProvider"/>.Resolve &gt; 默认 <see cref="BasicEffect"/>
+    /// <br/><b>RenderState 解析顺序</b>：<see cref="Model3DInstance.RenderStateOverride"/>
+    /// &gt; <see cref="Wavefront.ObjMaterial.RenderStateOverride"/> &gt; 桶级默认（Opaque / NonPremultiplied + 实例 bool 字段）
+    /// <br/><b>注意</b>：当使用非 <see cref="BasicEffect"/> 的自定义 Effect 时，渲染器不会自动写入光照 / Tint / Texture 等参数，
+    /// 调用方需自行在 <see cref="IModel3DEffectProvider.Configure"/> 或 <c>ConfigureEffect</c> 委托中处理；
+    /// 这是为了把"自定义 shader 的参数语义"完全交给开发者，避免框架做出不正确的假设
+    /// <br/>World / View / Projection 矩阵会被自动写入（仅当 Effect 实现 <see cref="IEffectMatrices"/>），减少样板代码
     /// </summary>
     public sealed class Model3DRenderer : RenderHandle
     {
@@ -38,8 +59,77 @@ namespace InnoVault.Models3D.Runtime
         /// </summary>
         public static event Model3DLightingResolver ResolveLighting;
 
+        /// <summary>
+        /// 全局静态事件：每个实例绘制开始前触发；调用顺序在 <see cref="Model3DInstance.PreDrawInstance"/> 之后
+        /// <br/>典型用法：让 mod 全局收集"本帧将要绘制的所有 3D 实例"以便做后处理或调试
+        /// </summary>
+        public static event Model3DDrawCallback PreDrawInstance;
+
+        /// <summary>
+        /// 全局静态事件：每个实例的所有 group 绘制完成后触发；调用顺序在 <see cref="Model3DInstance.PostDrawInstance"/> 之前
+        /// </summary>
+        public static event Model3DDrawCallback PostDrawInstance;
+
+        /// <summary>
+        /// 全局静态事件：每个 mesh group 绘制前触发，链路位于实例 / 材质回调之后
+        /// </summary>
+        public static event Model3DDrawCallback PreDrawGroup;
+
+        /// <summary>
+        /// 全局静态事件：每个 mesh group 绘制后触发
+        /// </summary>
+        public static event Model3DDrawCallback PostDrawGroup;
+
+        /// <summary>
+        /// 一层 3D 模型绘制结果已经写入 RT（但尚未合成回屏幕）时触发
+        /// <br/>订阅者可在此 take 一份 RT 的拷贝，做模型描边、外发光、扭曲遮罩等任意后处理
+        /// <br/>注意：触发时 GraphicsDevice 已经从 RT 切回上一级，但 SpriteBatch 处于非 Active 状态
+        /// </summary>
+        public static event Action<Model3DLayer, RenderTarget2D> OnLayerRendered;
+
+        /// <summary>
+        /// 自定义合成回调；返回 <see langword="true"/> 表示"我已经把 RT 合成到屏幕了，渲染器不要再走默认合成路径"
+        /// <br/>典型用法：用自定义 shader 把 3D 层叠加回画面（色调映射、扭曲、辉光等）
+        /// </summary>
+        /// <param name="layer">当前正在合成的层</param>
+        /// <param name="rt">本层 3D 渲染结果（PreMultiplied alpha 风格）</param>
+        /// <param name="spriteBatch">主 <see cref="SpriteBatch"/>，调用时处于非 Active 状态；如自行 Begin 必须 End</param>
+        /// <returns>是否已自行消费合成；返回 false 则继续走默认合成（AlphaBlend + sprite quad）</returns>
+        public delegate bool Model3DCompositeOverride(Model3DLayer layer, RenderTarget2D rt, SpriteBatch spriteBatch);
+
+        /// <summary>
+        /// 整体替换默认合成行为的覆盖函数；为 <see langword="null"/> 时走默认合成
+        /// </summary>
+        public static Model3DCompositeOverride CompositeOverride;
+
+        /// <summary>
+        /// 当前正在被渲染器使用的层级 RT；仅在管线运行中（<see cref="OnLayerRendered"/> / <see cref="CompositeOverride"/> 期间）非空
+        /// <br/>外部不应缓存此 RT，因为分辨率变化时它会被释放重建
+        /// </summary>
+        public static RenderTarget2D CurrentLayerRT => Instance?._model3DRT;
+
+        /// <summary>
+        /// 渲染器持有的默认 <see cref="BasicEffect"/>；首次访问时会按需在主线程构造
+        /// <br/>外部 RenderHandle 在原子 API 路径上需要"借用一个 BasicEffect"时可直接复用此实例，避免重复创建
+        /// </summary>
+        public static BasicEffect DefaultEffect {
+            get {
+                Model3DRenderer self = Instance;
+                if (self == null) {
+                    return null;
+                }
+                GraphicsDevice gd = Main.instance?.GraphicsDevice;
+                if (gd == null) {
+                    return self._effect;
+                }
+                self.EnsureEffect(gd);
+                return self._effect;
+            }
+        }
+
         //每帧/每实例复用，避免分配；写入前从 source 拷贝，写入后由订阅者按需修改
-        private readonly Model3DLightingConfig _scratchLighting = new Model3DLightingConfig();
+        //同时作为公开静态 DrawInstance API 的 lighting scratch（主线程渲染单一调用栈，无并发问题）
+        private static readonly Model3DLightingConfig _scratchLighting = new Model3DLightingConfig();
 
         //每层一个临时提交桶；每帧绘制完即清空
         private readonly List<Model3DInstance>[] _transientByLayer;
@@ -355,14 +445,35 @@ namespace InnoVault.Models3D.Runtime
                 _transparentScratch.Clear();
             }
 
-            //---- 合成阶段：把 _model3DRT 以全屏 quad 形式 alpha blend 回当前 RT ----
-            //此时 NonPremultiplied 累积到透明背景的结果，RGB 已天然带 alpha 预乘，故合成用 AlphaBlend (premultiplied)
+            //RT 已包含本层 3D 内容，未合成回屏；先给订阅者抓 / 自定义后处理的机会
+            try {
+                OnLayerRendered?.Invoke(layer, _model3DRT);
+            } catch (Exception ex) {
+                VaultMod.LoggerError($"[Model3DRenderer:OnLayerRendered]"
+                    , $"OnLayerRendered subscriber threw on layer {layer}: {ex.Message}");
+            }
+
+            //---- 合成阶段：先尝试 CompositeOverride 整体替换，否则走默认 AlphaBlend quad ----
+            //此时 NonPremultiplied 累积到透明背景的结果，RGB 已天然带 alpha 预乘，故默认合成用 AlphaBlend (premultiplied)
             try {
                 SpriteBatch sb = Main.spriteBatch;
-                sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp
-                    , DepthStencilState.None, RasterizerState.CullCounterClockwise);
-                sb.Draw(_model3DRT, Vector2.Zero, Color.White);
-                sb.End();
+                bool consumed = false;
+                Model3DCompositeOverride overrideFn = CompositeOverride;
+                if (overrideFn != null) {
+                    try {
+                        consumed = overrideFn(layer, _model3DRT, sb);
+                    } catch (Exception ex) {
+                        VaultMod.LoggerError($"[Model3DRenderer:CompositeOverride]"
+                            , $"CompositeOverride threw on layer {layer}: {ex.Message}");
+                        consumed = false;
+                    }
+                }
+                if (!consumed) {
+                    sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp
+                        , DepthStencilState.None, RasterizerState.CullCounterClockwise);
+                    sb.Draw(_model3DRT, Vector2.Zero, Color.White);
+                    sb.End();
+                }
             } catch (Exception ex) {
                 VaultMod.LoggerError($"[Model3DRenderer:Composite]"
                     , $"Failed to composite 3D render target on layer {layer}: {ex.Message}");
@@ -385,7 +496,7 @@ namespace InnoVault.Models3D.Runtime
             }
         }
 
-        //实例是否需要走透明桶：实例本身半透明、显式 ForceTransparent，或任一材质半透明
+        //实例是否需要走透明桶：实例本身半透明、显式 ForceTransparent、Blend 覆盖为非 Opaque、或任一材质半透明/Blend 覆盖
         private static bool IsInstanceTransparent(Model3DInstance instance) {
             if (instance.ForceTransparent) {
                 return true;
@@ -396,6 +507,10 @@ namespace InnoVault.Models3D.Runtime
             if (instance.Tint.A < 255) {
                 return true;
             }
+            //RenderStateOverride 显式指定的非 Opaque Blend 必须走透明桶，否则会写深度污染后续画面
+            if (instance.RenderStateOverride != null && instance.RenderStateOverride.ForcesTransparentBucket) {
+                return true;
+            }
             VaultObjModel model = instance.Model;
             if (model == null) {
                 return false;
@@ -403,95 +518,312 @@ namespace InnoVault.Models3D.Runtime
             IReadOnlyList<ObjMeshGroup> groups = model.Groups;
             for (int g = 0; g < groups.Count; g++) {
                 ObjMaterial mat = groups[g].Material;
-                if (mat != null && mat.Opacity < 0.999f) {
+                if (mat == null) {
+                    continue;
+                }
+                if (mat.Opacity < 0.999f) {
+                    return true;
+                }
+                if (mat.RenderStateOverride != null && mat.RenderStateOverride.ForcesTransparentBucket) {
                     return true;
                 }
             }
             return false;
         }
 
-        private void DrawSingle(GraphicsDevice graphicsDevice, Model3DInstance instance, Matrix view, Matrix projection, bool isTransparent) {
+        //========================================================================
+        // 公开原子 API：可以从任意 RenderHandle / 自定义渲染路径上直接调用
+        // 调用约定：SpriteBatch 必须处于非 Active 状态；调用方负责 RT 绑定与状态保存
+        //========================================================================
+
+        /// <summary>
+        /// 把当前实例完整画到 <see cref="GraphicsDevice"/> 上，使用三层优先级链解析的 Effect 与 RenderState
+        /// <br/>这是渲染器内部桶分类绘制路径与"开发者自己写 RenderHandle"路径共享的实现入口
+        /// <br/><b>调用约定</b>：<see cref="SpriteBatch"/> 必须处于非 Active 状态；调用方需自行绑定 RT / 保存恢复 GraphicsDevice 状态
+        /// </summary>
+        /// <param name="graphicsDevice">绘制使用的设备</param>
+        /// <param name="instance">要绘制的实例</param>
+        /// <param name="view">视图矩阵；可通过 <see cref="BuildScreenViewMatrix"/> 获取标准屏幕视图</param>
+        /// <param name="projection">投影矩阵；可通过 <see cref="BuildScreenProjection"/> 获取标准屏幕正交投影</param>
+        /// <param name="layer">该实例归属的层（用于上下文，不影响绘制路径）</param>
+        /// <param name="isTransparent">是否按透明桶约定绘制（影响默认 Blend / Depth）</param>
+        /// <param name="effectOverride">显式 Effect 覆盖；非空时绕过实例 / 材质上挂的 Effect 与 Provider 链</param>
+        public static void DrawInstance(GraphicsDevice graphicsDevice, Model3DInstance instance
+            , Matrix view, Matrix projection, Model3DLayer layer = Model3DLayer.AfterTiles
+            , bool isTransparent = false, Effect effectOverride = null) {
+            if (graphicsDevice == null || instance == null || !instance.Visible) {
+                return;
+            }
             VaultObjModel model = instance.Model;
-
-            //BlendState 由外层桶统一设置；这里只设置每实例可覆盖的 Depth/Rasterizer
-            if (isTransparent) {
-                //透明只读深度，避免互相 z-fight 把后面的透明面写丢
-                graphicsDevice.DepthStencilState = instance.DepthEnabled ? DepthStencilState.DepthRead : DepthStencilState.None;
+            if (model == null || !model.IsValid) {
+                return;
             }
-            else {
-                graphicsDevice.DepthStencilState = instance.DepthEnabled ? DepthStencilState.Default : DepthStencilState.None;
-            }
-            graphicsDevice.RasterizerState = instance.CullBackface ? RasterizerState.CullCounterClockwise : RasterizerState.CullNone;
 
+            Matrix world = BuildWorldMatrix(instance);
+            Model3DLightingConfig lighting = ResolveLightingForInstance(instance);
+            float time = (float)Main.timeForVisualEffects;
+
+            Model3DDrawContext instanceCtx = new Model3DDrawContext(graphicsDevice, instance, model, null, null
+                , layer, world, view, projection, lighting, isTransparent, time);
+
+            instance.PreDrawInstance?.Invoke(in instanceCtx);
+            PreDrawInstance?.Invoke(in instanceCtx);
+
+            //桶级默认状态（DrawInstance 自包含：调用方传 isTransparent 即可决定）
+            BlendState defaultBlend = isTransparent ? BlendState.NonPremultiplied : BlendState.Opaque;
+            DepthStencilState defaultDepth = isTransparent
+                ? (instance.DepthEnabled ? DepthStencilState.DepthRead : DepthStencilState.None)
+                : (instance.DepthEnabled ? DepthStencilState.Default : DepthStencilState.None);
+            RasterizerState defaultRast = instance.CullBackface ? RasterizerState.CullCounterClockwise : RasterizerState.CullNone;
+            SamplerState defaultSampler = SamplerState.LinearClamp;
+
+            for (int g = 0; g < model.Groups.Count; g++) {
+                ObjMeshGroup group = model.Groups[g];
+                if (group == null || group.Vertices.Length == 0 || group.Indices.Length == 0) {
+                    continue;
+                }
+                ObjMaterial material = group.Material;
+                Model3DDrawContext groupCtx = instanceCtx.WithGroup(group, material);
+
+                //渲染状态解析：实例 → 材质 → 桶默认
+                Model3DRenderState.ApplyResolved(graphicsDevice
+                    , instance.RenderStateOverride, material?.RenderStateOverride
+                    , defaultBlend, defaultDepth, defaultRast, defaultSampler);
+
+                //Effect 解析：显式覆盖 > 实例 Effect > 实例 Provider > 材质 Effect > 材质 Provider > 默认 BasicEffect
+                Effect effect = effectOverride
+                    ?? instance.Effect
+                    ?? instance.EffectProvider?.Resolve(in groupCtx)
+                    ?? material?.Effect
+                    ?? material?.EffectProvider?.Resolve(in groupCtx);
+
+                if (effect == null) {
+                    //默认 BasicEffect 路径
+                    BasicEffect basic = GetOrCreateDefaultEffect(graphicsDevice);
+                    if (basic == null) {
+                        continue;
+                    }
+                    effect = basic;
+                    ConfigureBasicEffectFor(basic, instance, material, world, view, projection, lighting);
+                }
+                else {
+                    //自定义 Effect 路径：渲染器不写光照/Tint/Texture（不知道 shader 参数名），由 Provider/Configure 负责
+                    //但矩阵是 3D 绘制的通用前置条件，如果 Effect 实现了 IEffectMatrices 就帮忙写一遍以减少样板代码
+                    //Provider/Configure 之后仍然可以覆盖这些矩阵
+                    if (effect is IEffectMatrices m) {
+                        m.World = world;
+                        m.View = view;
+                        m.Projection = projection;
+                    }
+                    instance.EffectProvider?.Configure(in groupCtx, effect);
+                    material?.EffectProvider?.Configure(in groupCtx, effect);
+                    instance.ConfigureEffect?.Invoke(in groupCtx, effect);
+                    material?.ConfigureEffect?.Invoke(in groupCtx, effect);
+                }
+
+                instance.PreDrawGroup?.Invoke(in groupCtx);
+                material?.PreDrawGroup?.Invoke(in groupCtx);
+                PreDrawGroup?.Invoke(in groupCtx);
+
+                DrawMeshPrimitives(graphicsDevice, group.Vertices, group.Indices, effect);
+
+                material?.PostDrawGroup?.Invoke(in groupCtx);
+                instance.PostDrawGroup?.Invoke(in groupCtx);
+                PostDrawGroup?.Invoke(in groupCtx);
+            }
+
+            PostDrawInstance?.Invoke(in instanceCtx);
+            instance.PostDrawInstance?.Invoke(in instanceCtx);
+        }
+
+        /// <summary>
+        /// 用给定 <see cref="Effect"/> 画一个 <see cref="ObjMeshGroup"/>，自动遍历该 effect 当前 technique 的所有 pass
+        /// <br/>如果 <paramref name="effect"/> 实现了 <see cref="IEffectMatrices"/>，矩阵会被自动写入；否则不写
+        /// <br/>调用方负责设置 BlendState / DepthStencilState / RasterizerState / Sampler
+        /// </summary>
+        public static void DrawMeshGroup(GraphicsDevice graphicsDevice, ObjMeshGroup group
+            , Effect effect, Matrix world, Matrix view, Matrix projection) {
+            if (graphicsDevice == null || group == null || effect == null) {
+                return;
+            }
+            if (group.Vertices.Length == 0 || group.Indices.Length == 0) {
+                return;
+            }
+            if (effect is IEffectMatrices matrices) {
+                matrices.World = world;
+                matrices.View = view;
+                matrices.Projection = projection;
+            }
+            DrawMeshPrimitives(graphicsDevice, group.Vertices, group.Indices, effect);
+        }
+
+        /// <summary>
+        /// 最低层原子：把给定顶点 / 索引 / Effect 直接送入 GPU
+        /// <br/>调用方需保证 effect 的 <c>CurrentTechnique</c> 与参数都已就绪
+        /// </summary>
+        public static void DrawMeshPrimitives(GraphicsDevice graphicsDevice
+            , VertexPositionNormalTexture[] vertices, short[] indices, Effect effect) {
+            if (graphicsDevice == null || effect == null || vertices == null || indices == null) {
+                return;
+            }
+            if (vertices.Length == 0 || indices.Length == 0) {
+                return;
+            }
+            int triangleCount = indices.Length / 3;
+            if (triangleCount <= 0) {
+                return;
+            }
+            EffectPassCollection passes = effect.CurrentTechnique.Passes;
+            for (int p = 0; p < passes.Count; p++) {
+                passes[p].Apply();
+                graphicsDevice.DrawUserIndexedPrimitives(
+                    PrimitiveType.TriangleList,
+                    vertices,
+                    0,
+                    vertices.Length,
+                    indices,
+                    0,
+                    triangleCount);
+            }
+        }
+
+        /// <summary>
+        /// 由 <see cref="Model3DInstance.Position"/> / <see cref="Model3DInstance.Rotation"/> / <see cref="Model3DInstance.Scale"/>
+        /// / <see cref="Model3DInstance.Depth"/> 构造世界矩阵；自动减去 <see cref="Terraria.Main.screenPosition"/> 以适配 Terraria 屏幕坐标
+        /// </summary>
+        public static Matrix BuildWorldMatrix(Model3DInstance instance) {
+            if (instance == null) {
+                return Matrix.Identity;
+            }
             Vector3 worldOffset = new Vector3(
                 instance.Position.X - Main.screenPosition.X,
                 instance.Position.Y - Main.screenPosition.Y,
                 instance.Depth);
-
-            Matrix world = Matrix.CreateScale(instance.Scale)
+            return Matrix.CreateScale(instance.Scale)
                 * Matrix.CreateRotationX(instance.Rotation.X)
                 * Matrix.CreateRotationY(instance.Rotation.Y)
                 * Matrix.CreateRotationZ(instance.Rotation.Z)
                 * Matrix.CreateTranslation(worldOffset);
+        }
 
-            _effect.World = world;
-            _effect.View = view;
-            _effect.Projection = projection;
+        /// <summary>
+        /// 当前帧的标准屏幕视图矩阵；等价于 <see cref="Terraria.Main.GameViewMatrix"/>.TransformationMatrix
+        /// </summary>
+        public static Matrix BuildScreenViewMatrix() {
+            return Main.GameViewMatrix.TransformationMatrix;
+        }
 
-            if (instance.LightingEnabled) {
-                //解析光照：实例 Override 优先；都为空则用空配置兜底（避免 NRE）
-                Model3DLightingConfig source = instance.LightingOverride ?? GlobalLighting;
-                if (source != null) {
-                    source.CopyTo(_scratchLighting);
-                }
-                else {
-                    Model3DLightingConfig.CreateDefault().CopyTo(_scratchLighting);
-                }
-                //给订阅者按需 mutate scratch 的机会（光标光、昼夜变化、tile light 整合等）
-                ResolveLighting?.Invoke(instance, _scratchLighting);
-                _effect.LightingEnabled = true;
-                ApplyLighting(_effect, _scratchLighting);
+        /// <summary>
+        /// 当前屏幕尺寸下使用的标准正交投影；Z 范围 [-10000, 10000]
+        /// </summary>
+        public static Matrix BuildScreenProjection() {
+            return Matrix.CreateOrthographicOffCenter(0f, Main.screenWidth, Main.screenHeight, 0f, -10000f, 10000f);
+        }
+
+        /// <summary>
+        /// 把 <see cref="Model3DLightingConfig"/> 写入任意实现 <see cref="IEffectLights"/> 的 Effect（含 <see cref="BasicEffect"/>）
+        /// <br/>只写 Ambient + 三盏方向光；<see cref="Model3DLightingConfig.EmissiveColor"/> 与 <see cref="Model3DLightingConfig.SpecularPower"/>
+        /// 不在 <see cref="IEffectLights"/> 接口上，自定义 shader 若需要请通过自身参数另行设置
+        /// </summary>
+        public static void ApplyLighting(IEffectLights effect, Model3DLightingConfig cfg) {
+            if (effect == null || cfg == null) {
+                return;
+            }
+            effect.AmbientLightColor = cfg.AmbientColor;
+            ApplyDirLight(effect.DirectionalLight0, cfg.Light0);
+            ApplyDirLight(effect.DirectionalLight1, cfg.Light1);
+            ApplyDirLight(effect.DirectionalLight2, cfg.Light2);
+        }
+
+        //========================================================================
+        // 内部：默认 BasicEffect 路径的参数填写
+        //========================================================================
+
+        //内部桶绘制路径调用入口；现在等价于直接调用公开静态 DrawInstance
+        private void DrawSingle(GraphicsDevice graphicsDevice, Model3DInstance instance, Matrix view, Matrix projection, bool isTransparent) {
+            DrawInstance(graphicsDevice, instance, view, projection, GetInstanceLayer(instance), isTransparent);
+        }
+
+        //尝试反向找出实例所在层（便于上下文回填）；找不到时回落到默认层
+        private Model3DLayer GetInstanceLayer(Model3DInstance instance) {
+            if (instance != null) {
+                return instance.Layer;
+            }
+            return Model3DLayer.AfterTiles;
+        }
+
+        //内部静态：拿到（必要时构造）默认 BasicEffect
+        private static BasicEffect GetOrCreateDefaultEffect(GraphicsDevice graphicsDevice) {
+            Model3DRenderer self = Instance;
+            if (self == null) {
+                return null;
+            }
+            if (!self.EnsureEffect(graphicsDevice)) {
+                return null;
+            }
+            return self._effect;
+        }
+
+        //解析光照配置到静态 scratch 并触发订阅者
+        private static Model3DLightingConfig ResolveLightingForInstance(Model3DInstance instance) {
+            Model3DLightingConfig source = instance.LightingOverride ?? GlobalLighting;
+            if (source != null) {
+                source.CopyTo(_scratchLighting);
             }
             else {
-                _effect.LightingEnabled = false;
+                Model3DLightingConfig.CreateDefault().CopyTo(_scratchLighting);
+            }
+            ResolveLighting?.Invoke(instance, _scratchLighting);
+            return _scratchLighting;
+        }
+
+        //按当前默认 BasicEffect 路径填入材质 / Tint / 光照 / 矩阵参数
+        private static void ConfigureBasicEffectFor(BasicEffect effect, Model3DInstance instance, ObjMaterial material
+            , Matrix world, Matrix view, Matrix projection, Model3DLightingConfig lighting) {
+            effect.World = world;
+            effect.View = view;
+            effect.Projection = projection;
+
+            Color materialColor = material != null ? material.DiffuseColor : Color.White;
+            float materialOpacity = material != null ? material.Opacity : 1f;
+            Color combined = MultiplyColor(materialColor, instance.Tint);
+            float finalAlpha = MathHelper.Clamp(materialOpacity * instance.Opacity * (instance.Tint.A / 255f), 0f, 1f);
+
+            effect.DiffuseColor = combined.ToVector3();
+            effect.Alpha = finalAlpha;
+
+            if (material != null && material.HasTexture) {
+                effect.TextureEnabled = true;
+                effect.Texture = material.DiffuseTexture;
+            }
+            else {
+                effect.TextureEnabled = false;
+                effect.Texture = null;
             }
 
-            for (int g = 0; g < model.Groups.Count; g++) {
-                ObjMeshGroup group = model.Groups[g];
-                if (group.Vertices.Length == 0 || group.Indices.Length == 0) {
-                    continue;
-                }
-
-                Color materialColor = group.Material != null ? group.Material.DiffuseColor : Color.White;
-                float materialOpacity = group.Material != null ? group.Material.Opacity : 1f;
-                Color combined = MultiplyColor(materialColor, instance.Tint);
-                float finalAlpha = MathHelper.Clamp(materialOpacity * instance.Opacity * (instance.Tint.A / 255f), 0f, 1f);
-
-                _effect.DiffuseColor = combined.ToVector3();
-                _effect.Alpha = finalAlpha;
-
-                if (group.Material != null && group.Material.HasTexture) {
-                    _effect.TextureEnabled = true;
-                    _effect.Texture = group.Material.DiffuseTexture;
-                }
-                else {
-                    _effect.TextureEnabled = false;
-                    _effect.Texture = null;
-                }
-
-                EffectPassCollection passes = _effect.CurrentTechnique.Passes;
-                for (int p = 0; p < passes.Count; p++) {
-                    passes[p].Apply();
-                    graphicsDevice.DrawUserIndexedPrimitives(
-                        PrimitiveType.TriangleList,
-                        group.Vertices,
-                        0,
-                        group.Vertices.Length,
-                        group.Indices,
-                        0,
-                        group.TriangleCount);
-                }
+            if (instance.LightingEnabled) {
+                effect.LightingEnabled = true;
+                effect.EmissiveColor = lighting.EmissiveColor;
+                effect.SpecularPower = lighting.SpecularPower;
+                ApplyLighting(effect, lighting);
             }
+            else {
+                effect.LightingEnabled = false;
+            }
+        }
+
+        /// <summary>
+        /// 清空所有静态事件 / 委托订阅，避免下次加载时残留外部 mod 的引用
+        /// <br/>仅供 <see cref="Model3DSystem"/> 卸载流程调用
+        /// </summary>
+        internal static void ClearAllSubscriptions() {
+            ResolveLighting = null;
+            PreDrawInstance = null;
+            PostDrawInstance = null;
+            PreDrawGroup = null;
+            PostDrawGroup = null;
+            OnLayerRendered = null;
+            CompositeOverride = null;
         }
 
         /// <summary>
@@ -588,16 +920,6 @@ namespace InnoVault.Models3D.Runtime
             if (saved.Depth != null) gd.DepthStencilState = saved.Depth;
             if (saved.Rasterizer != null) gd.RasterizerState = saved.Rasterizer;
             if (saved.Sampler0 != null) gd.SamplerStates[0] = saved.Sampler0;
-        }
-
-        //把 Model3DLightingConfig 写入 BasicEffect。调用方需先把 LightingEnabled 置 true。
-        private static void ApplyLighting(BasicEffect effect, Model3DLightingConfig cfg) {
-            effect.AmbientLightColor = cfg.AmbientColor;
-            effect.EmissiveColor = cfg.EmissiveColor;
-            effect.SpecularPower = cfg.SpecularPower;
-            ApplyDirLight(effect.DirectionalLight0, cfg.Light0);
-            ApplyDirLight(effect.DirectionalLight1, cfg.Light1);
-            ApplyDirLight(effect.DirectionalLight2, cfg.Light2);
         }
 
         private static void ApplyDirLight(DirectionalLight slot, Model3DDirectionalLight src) {
