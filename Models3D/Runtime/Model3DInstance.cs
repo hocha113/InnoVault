@@ -1,4 +1,3 @@
-using InnoVault.Models3D.Wavefront;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -24,14 +23,14 @@ namespace InnoVault.Models3D.Runtime
     /// <item><see cref="PreDrawGroup"/> / <see cref="PostDrawGroup"/>：每个 mesh group 的生命周期钩子，
     /// 适合在不接管整个 Effect 的前提下修改 emissive / tint 等少量参数</item>
     /// </list>
-    /// 解析优先级：实例字段 &gt; <see cref="Wavefront.ObjMaterial"/> 上的同名字段 &gt; 框架默认
+    /// 解析优先级：实例字段 &gt; <see cref="Model3DMaterial"/> 上的同名字段 &gt; 框架默认
     /// </remarks>
     public sealed class Model3DInstance
     {
         /// <summary>
         /// 关联的模型资源
         /// </summary>
-        public VaultObjModel Model { get; set; }
+        public Vault3DModel Model { get; set; }
 
         /// <summary>
         /// 世界空间位置（按 Terraria 屏幕坐标系，单位为像素）
@@ -130,8 +129,8 @@ namespace InnoVault.Models3D.Runtime
         /// <summary>
         /// 实例级自定义 <see cref="Microsoft.Xna.Framework.Graphics.Effect"/> 覆盖
         /// <br/>非 <see langword="null"/> 时，渲染器会用它而不是默认 <see cref="BasicEffect"/> 绘制该实例
-        /// <br/>解析优先级：<see cref="Effect"/> &gt; <see cref="EffectProvider"/>.Resolve &gt; <see cref="Wavefront.ObjMaterial.Effect"/>
-        /// &gt; <see cref="Wavefront.ObjMaterial.EffectProvider"/>.Resolve &gt; 渲染器自带 <see cref="BasicEffect"/>
+        /// <br/>解析优先级：<see cref="Effect"/> &gt; <see cref="EffectProvider"/>.Resolve &gt; <see cref="Model3DMaterial.Effect"/>
+        /// &gt; <see cref="Model3DMaterial.EffectProvider"/>.Resolve &gt; 渲染器自带 <see cref="BasicEffect"/>
         /// <br/><b>注意</b>：当使用自定义 Effect 时，渲染器不会自动写入光照 / Tint / Texture / Diffuse 等参数，
         /// 这些参数全部由 <see cref="ConfigureEffect"/>（或 <see cref="EffectProvider"/>.Configure）负责
         /// <br/>World / View / Projection 矩阵会被自动写入（仅当 Effect 实现 <see cref="IEffectMatrices"/>），
@@ -147,7 +146,7 @@ namespace InnoVault.Models3D.Runtime
 
         /// <summary>
         /// 实例级 Effect 参数配置回调；每个 mesh group 绘制前调用一次
-        /// <br/>调用顺序：本回调 → <see cref="Wavefront.ObjMaterial.ConfigureEffect"/>
+        /// <br/>调用顺序：本回调 → <see cref="Model3DMaterial.ConfigureEffect"/>
         /// <br/>使用自定义 Effect 时<b>必须</b>由这里负责写入 World / View / Projection 等矩阵
         /// </summary>
         public Model3DConfigureEffect ConfigureEffect { get; set; }
@@ -191,7 +190,7 @@ namespace InnoVault.Models3D.Runtime
         /// <summary>
         /// 用指定模型构造实例
         /// </summary>
-        public Model3DInstance(VaultObjModel model) {
+        public Model3DInstance(Vault3DModel model) {
             Model = model;
         }
     }

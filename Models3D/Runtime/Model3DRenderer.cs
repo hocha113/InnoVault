@@ -1,4 +1,3 @@
-using InnoVault.Models3D.Wavefront;
 using InnoVault.RenderHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -10,11 +9,11 @@ namespace InnoVault.Models3D.Runtime
 {
     /// <summary>
     /// 3D 模型渲染器
-    /// <br/>挂载在 <see cref="RenderHandle"/> 的多个分层钩子上，按 <see cref="Model3DLayer"/> 绘制 OBJ 模型
+    /// <br/>挂载在 <see cref="RenderHandle"/> 的多个分层钩子上，按 <see cref="Model3DLayer"/> 绘制 3D 模型
     /// <br/>对外暴露三层 API：
     /// <list type="bullet">
     /// <item><b>便捷 API</b>：<see cref="Submit"/> / <see cref="RegisterPersistent"/>
-    /// / <see cref="Draw(VaultObjModel, Vector2, Vector3, Vector3, Model3DLayer, Color?)"/>，最常用 80% 场景</item>
+    /// / <see cref="Draw(Vault3DModel, Vector2, Vector3, Vector3, Model3DLayer, Color?)"/>，最常用 80% 场景</item>
     /// <item><b>扩展 API</b>：实例 / 材质上的 <c>Effect</c> / <c>EffectProvider</c> / <c>ConfigureEffect</c> / <c>RenderStateOverride</c>
     /// / <c>Pre/Post DrawInstance/Group</c> 字段，配合 <see cref="ResolveLighting"/> / <see cref="PreDrawInstance"/>
     /// / <see cref="PostDrawInstance"/> / <see cref="PreDrawGroup"/> / <see cref="PostDrawGroup"/> 全局静态事件，
@@ -25,10 +24,10 @@ namespace InnoVault.Models3D.Runtime
     /// 中完全手写一遍 3D 绘制路径，同时仍复用 OBJ 加载与渲染基础设施</item>
     /// </list>
     /// <br/><b>Effect 解析优先级链</b>：显式 effectOverride &gt; <see cref="Model3DInstance.Effect"/>
-    /// &gt; <see cref="Model3DInstance.EffectProvider"/>.Resolve &gt; <see cref="Wavefront.ObjMaterial.Effect"/>
-    /// &gt; <see cref="Wavefront.ObjMaterial.EffectProvider"/>.Resolve &gt; 默认 <see cref="BasicEffect"/>
+    /// &gt; <see cref="Model3DInstance.EffectProvider"/>.Resolve &gt; <see cref="Model3DMaterial.Effect"/>
+    /// &gt; <see cref="Model3DMaterial.EffectProvider"/>.Resolve &gt; 默认 <see cref="BasicEffect"/>
     /// <br/><b>RenderState 解析顺序</b>：<see cref="Model3DInstance.RenderStateOverride"/>
-    /// &gt; <see cref="Wavefront.ObjMaterial.RenderStateOverride"/> &gt; 桶级默认（Opaque / NonPremultiplied + 实例 bool 字段）
+    /// &gt; <see cref="Model3DMaterial.RenderStateOverride"/> &gt; 桶级默认（Opaque / NonPremultiplied + 实例 bool 字段）
     /// <br/><b>注意</b>：当使用非 <see cref="BasicEffect"/> 的自定义 Effect 时，渲染器不会自动写入光照 / Tint / Texture 等参数，
     /// 调用方需自行在 <see cref="IModel3DEffectProvider.Configure"/> 或 <c>ConfigureEffect</c> 委托中处理；
     /// 这是为了把"自定义 shader 的参数语义"完全交给开发者，避免框架做出不正确的假设
@@ -205,7 +204,7 @@ namespace InnoVault.Models3D.Runtime
         /// <summary>
         /// 便捷绘制：构造一次性实例并提交
         /// </summary>
-        public static void Draw(VaultObjModel model, Vector2 position, Vector3 rotation, Vector3 scale
+        public static void Draw(Vault3DModel model, Vector2 position, Vector3 rotation, Vector3 scale
             , Model3DLayer layer = Model3DLayer.AfterTiles, Color? tint = null) {
             if (model == null) {
                 return;
@@ -511,13 +510,13 @@ namespace InnoVault.Models3D.Runtime
             if (instance.RenderStateOverride != null && instance.RenderStateOverride.ForcesTransparentBucket) {
                 return true;
             }
-            VaultObjModel model = instance.Model;
+            Vault3DModel model = instance.Model;
             if (model == null) {
                 return false;
             }
-            IReadOnlyList<ObjMeshGroup> groups = model.Groups;
+            IReadOnlyList<Model3DMeshGroup> groups = model.Groups;
             for (int g = 0; g < groups.Count; g++) {
-                ObjMaterial mat = groups[g].Material;
+                Model3DMaterial mat = groups[g].Material;
                 if (mat == null) {
                     continue;
                 }
@@ -554,7 +553,7 @@ namespace InnoVault.Models3D.Runtime
             if (graphicsDevice == null || instance == null || !instance.Visible) {
                 return;
             }
-            VaultObjModel model = instance.Model;
+            Vault3DModel model = instance.Model;
             if (model == null || !model.IsValid) {
                 return;
             }
@@ -578,11 +577,11 @@ namespace InnoVault.Models3D.Runtime
             SamplerState defaultSampler = SamplerState.LinearClamp;
 
             for (int g = 0; g < model.Groups.Count; g++) {
-                ObjMeshGroup group = model.Groups[g];
+                Model3DMeshGroup group = model.Groups[g];
                 if (group == null || group.Vertices.Length == 0 || group.Indices.Length == 0) {
                     continue;
                 }
-                ObjMaterial material = group.Material;
+                Model3DMaterial material = group.Material;
                 Model3DDrawContext groupCtx = instanceCtx.WithGroup(group, material);
 
                 //渲染状态解析：实例 → 材质 → 桶默认
@@ -637,11 +636,11 @@ namespace InnoVault.Models3D.Runtime
         }
 
         /// <summary>
-        /// 用给定 <see cref="Effect"/> 画一个 <see cref="ObjMeshGroup"/>，自动遍历该 effect 当前 technique 的所有 pass
+        /// 用给定 <see cref="Effect"/> 画一个 <see cref="Model3DMeshGroup"/>，自动遍历该 effect 当前 technique 的所有 pass
         /// <br/>如果 <paramref name="effect"/> 实现了 <see cref="IEffectMatrices"/>，矩阵会被自动写入；否则不写
         /// <br/>调用方负责设置 BlendState / DepthStencilState / RasterizerState / Sampler
         /// </summary>
-        public static void DrawMeshGroup(GraphicsDevice graphicsDevice, ObjMeshGroup group
+        public static void DrawMeshGroup(GraphicsDevice graphicsDevice, Model3DMeshGroup group
             , Effect effect, Matrix world, Matrix view, Matrix projection) {
             if (graphicsDevice == null || group == null || effect == null) {
                 return;
@@ -662,7 +661,7 @@ namespace InnoVault.Models3D.Runtime
         /// <br/>调用方需保证 effect 的 <c>CurrentTechnique</c> 与参数都已就绪
         /// </summary>
         public static void DrawMeshPrimitives(GraphicsDevice graphicsDevice
-            , VertexPositionNormalTexture[] vertices, short[] indices, Effect effect) {
+            , VertexPositionNormalTexture[] vertices, int[] indices, Effect effect) {
             if (graphicsDevice == null || effect == null || vertices == null || indices == null) {
                 return;
             }
@@ -778,7 +777,7 @@ namespace InnoVault.Models3D.Runtime
         }
 
         //按当前默认 BasicEffect 路径填入材质 / Tint / 光照 / 矩阵参数
-        private static void ConfigureBasicEffectFor(BasicEffect effect, Model3DInstance instance, ObjMaterial material
+        private static void ConfigureBasicEffectFor(BasicEffect effect, Model3DInstance instance, Model3DMaterial material
             , Matrix world, Matrix view, Matrix projection, Model3DLightingConfig lighting) {
             effect.World = world;
             effect.View = view;

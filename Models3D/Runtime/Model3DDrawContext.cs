@@ -1,4 +1,3 @@
-using InnoVault.Models3D.Wavefront;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -26,17 +25,17 @@ namespace InnoVault.Models3D.Runtime
         /// <summary>
         /// 正在绘制的模型资源（即 <see cref="Instance"/> 的 <see cref="Model3DInstance.Model"/>）
         /// </summary>
-        public VaultObjModel Model { get; }
+        public Vault3DModel Model { get; }
 
         /// <summary>
         /// 当前 mesh group；仅在 group 级回调中非空，实例级回调中为 <see langword="null"/>
         /// </summary>
-        public ObjMeshGroup Group { get; }
+        public Model3DMeshGroup Group { get; }
 
         /// <summary>
         /// 当前 mesh group 关联的材质；可能为 <see langword="null"/>
         /// </summary>
-        public ObjMaterial Material { get; }
+        public Model3DMaterial Material { get; }
 
         /// <summary>
         /// 当前实例所在的渲染层级
@@ -81,8 +80,8 @@ namespace InnoVault.Models3D.Runtime
         /// <summary>
         /// 完整构造一个绘制上下文
         /// </summary>
-        public Model3DDrawContext(GraphicsDevice graphicsDevice, Model3DInstance instance, VaultObjModel model
-            , ObjMeshGroup group, ObjMaterial material, Model3DLayer layer
+        public Model3DDrawContext(GraphicsDevice graphicsDevice, Model3DInstance instance, Vault3DModel model
+            , Model3DMeshGroup group, Model3DMaterial material, Model3DLayer layer
             , Matrix world, Matrix view, Matrix projection
             , Model3DLightingConfig lighting, bool isTransparent, float time) {
             GraphicsDevice = graphicsDevice;
@@ -104,7 +103,7 @@ namespace InnoVault.Models3D.Runtime
         /// </summary>
         /// <param name="group">新的 mesh group</param>
         /// <param name="material">新的材质</param>
-        public Model3DDrawContext WithGroup(ObjMeshGroup group, ObjMaterial material) {
+        public Model3DDrawContext WithGroup(Model3DMeshGroup group, Model3DMaterial material) {
             return new Model3DDrawContext(GraphicsDevice, Instance, Model, group, material, Layer
                 , World, View, Projection, Lighting, IsTransparent, Time);
         }

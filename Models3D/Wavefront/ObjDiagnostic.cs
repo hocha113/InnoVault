@@ -1,5 +1,4 @@
-using System.Collections.Generic;
-using System.Text;
+using InnoVault.Models3D.Runtime;
 
 namespace InnoVault.Models3D.Wavefront
 {
@@ -69,70 +68,7 @@ namespace InnoVault.Models3D.Wavefront
     /// <summary>
     /// OBJ/MTL 解析期间收集的诊断信息集合
     /// </summary>
-    public sealed class ObjDiagnostic
+    public sealed class ObjDiagnostic : Model3DDiagnostic
     {
-        private readonly List<ObjDiagnosticEntry> _entries = new();
-
-        /// <summary>
-        /// 全部已记录的诊断条目（只读）
-        /// </summary>
-        public IReadOnlyList<ObjDiagnosticEntry> Entries => _entries;
-
-        /// <summary>
-        /// 警告条目数量
-        /// </summary>
-        public int WarningCount { get; private set; }
-        /// <summary>
-        /// 错误条目数量
-        /// </summary>
-        public int ErrorCount { get; private set; }
-
-        /// <summary>
-        /// 是否包含至少一条错误
-        /// </summary>
-        public bool HasErrors => ErrorCount > 0;
-
-        /// <summary>
-        /// 添加一条信息级日志
-        /// </summary>
-        public void Info(string source, int line, string message) => Add(ObjDiagnosticSeverity.Info, source, line, message);
-        /// <summary>
-        /// 添加一条警告日志
-        /// </summary>
-        public void Warn(string source, int line, string message) => Add(ObjDiagnosticSeverity.Warning, source, line, message);
-        /// <summary>
-        /// 添加一条错误日志
-        /// </summary>
-        public void Error(string source, int line, string message) => Add(ObjDiagnosticSeverity.Error, source, line, message);
-
-        /// <summary>
-        /// 添加任意级别的诊断条目
-        /// </summary>
-        public void Add(ObjDiagnosticSeverity severity, string source, int line, string message) {
-            _entries.Add(new ObjDiagnosticEntry(severity, source, line, message));
-            switch (severity) {
-                case ObjDiagnosticSeverity.Warning:
-                    WarningCount++;
-                    break;
-                case ObjDiagnosticSeverity.Error:
-                    ErrorCount++;
-                    break;
-            }
-        }
-
-        /// <summary>
-        /// 将所有条目格式化为多行文本，便于一次性写入日志
-        /// </summary>
-        public string Format() {
-            if (_entries.Count == 0) {
-                return string.Empty;
-            }
-
-            StringBuilder sb = new StringBuilder();
-            for (int i = 0; i < _entries.Count; i++) {
-                sb.AppendLine(_entries[i].ToString());
-            }
-            return sb.ToString();
-        }
     }
 }
