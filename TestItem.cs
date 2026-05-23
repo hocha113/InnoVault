@@ -1,4 +1,5 @@
 ﻿using InnoVault.Actors;
+using InnoVault.Models3D.Runtime;
 using InnoVault.Models3D.Wavefront;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -54,6 +55,34 @@ namespace InnoVault
         }
 
         public override void HoldItem(Player player) {
+            if (Main.dedServ || CubeModel == null || !CubeModel.IsValid) {
+                return;
+            }
+            if (player.whoAmI != Main.myPlayer) {
+                return;
+            }
+
+            float t = (float)Main.timeForVisualEffects * 0.02f;
+            Model3DRenderer.Submit(new Model3DInstance(CubeModel) {
+                Position = player.Center + new Vector2(0f, -120f),
+                Rotation = new Vector3(t * 0.7f, t, t * 0.3f),
+                Scale = Vector3.One,
+                Tint = Color.White,
+                Layer = Model3DLayer.AfterPlayers,
+                DepthEnabled = true,
+                CullBackface = false,
+            });
+
+            // 第二个立方体放在玩家身后用于验证不同层级
+            Model3DRenderer.Submit(new Model3DInstance(CubeModel) {
+                Position = player.Center + new Vector2(120f, 0f),
+                Rotation = new Vector3(0f, t * 1.3f, 0f),
+                Scale = new Vector3(0.5f),
+                Tint = Color.LightSkyBlue,
+                Layer = Model3DLayer.BeforePlayers,
+                DepthEnabled = true,
+                CullBackface = false,
+            });
         }
 
         public override bool? UseItem(Player player) {
