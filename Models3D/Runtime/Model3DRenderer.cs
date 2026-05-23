@@ -16,7 +16,7 @@ namespace InnoVault.Models3D.Runtime
     public sealed class Model3DRenderer : RenderHandle
     {
         /// <inheritdoc/>
-        public override float Weight => 5f; // 在 PRT 之后，避免覆盖粒子的画布状态
+        public override float Weight => 5f; //在 PRT 之后，避免覆盖粒子的画布状态
 
         /// <summary>
         /// 当前活跃的渲染器单例（由 <see cref="VaultRegister"/> 设置）
@@ -38,27 +38,27 @@ namespace InnoVault.Models3D.Runtime
         /// </summary>
         public static event Model3DLightingResolver ResolveLighting;
 
-        // 每帧/每实例复用，避免分配；写入前从 source 拷贝，写入后由订阅者按需修改
+        //每帧/每实例复用，避免分配；写入前从 source 拷贝，写入后由订阅者按需修改
         private readonly Model3DLightingConfig _scratchLighting = new Model3DLightingConfig();
 
-        // 每层一个临时提交桶；每帧绘制完即清空
+        //每层一个临时提交桶；每帧绘制完即清空
         private readonly List<Model3DInstance>[] _transientByLayer;
-        // 每层一个常驻实例桶；不会在帧间清空
+        //每层一个常驻实例桶；不会在帧间清空
         private readonly List<Model3DInstance>[] _persistentByLayer;
         private readonly object _persistentLock = new object();
 
         private BasicEffect _effect;
         private bool _effectInitFailed;
 
-        // Models3D 自己的渲染目标，必须带 Depth24 才能真正使用深度测试
+        //Models3D 自己的渲染目标，必须带 Depth24 才能真正使用深度测试
         private RenderTarget2D _model3DRT;
         private bool _rtInitFailed;
 
-        // 复用的临时桶，避免每帧分配
+        //复用的临时桶，避免每帧分配
         private readonly List<Model3DInstance> _opaqueScratch = new List<Model3DInstance>(32);
         private readonly List<Model3DInstance> _transparentScratch = new List<Model3DInstance>(8);
 
-        // 保存绘制前的 GraphicsDevice 状态，绘制后恢复
+        //保存绘制前的 GraphicsDevice 状态，绘制后恢复
         private struct SavedState
         {
             public BlendState Blend;
@@ -88,7 +88,7 @@ namespace InnoVault.Models3D.Runtime
 
         /// <inheritdoc/>
         public override void OnResolutionChanged(Vector2 screenSize) {
-            // 屏幕尺寸变化时丢弃旧 RT，下一帧 EnsureRenderTarget 会重建
+            //屏幕尺寸变化时丢弃旧 RT，下一帧 EnsureRenderTarget 会重建
             DisposeRenderTarget();
             _rtInitFailed = false;
         }
@@ -190,13 +190,13 @@ namespace InnoVault.Models3D.Runtime
             }
         }
 
-        // ========================================================================
-        // 各层钩子
-        // ========================================================================
+        //========================================================================
+        //各层钩子
+        //========================================================================
 
         /// <inheritdoc/>
         public override void DrawBeforeTiles(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
-            // 进入时 SpriteBatch Active；要 End → 3D → Begin 恢复
+            //进入时 SpriteBatch Active；要 End → 3D → Begin 恢复
             if (IsLayerEmpty(Model3DLayer.BeforeTiles)) {
                 return;
             }
@@ -208,7 +208,7 @@ namespace InnoVault.Models3D.Runtime
 
         /// <inheritdoc/>
         public override void DrawAfterTiles(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
-            // 进入/退出都要求 SpriteBatch 非 Active；可以直接画 3D
+            //进入/退出都要求 SpriteBatch 非 Active；可以直接画 3D
             DrawLayerInternal(graphicsDevice, Model3DLayer.AfterTiles);
         }
 
@@ -224,7 +224,7 @@ namespace InnoVault.Models3D.Runtime
 
         /// <inheritdoc/>
         public override void DrawBeforeInfernoRings(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
-            // 进入/退出都为 Active
+            //进入/退出都为 Active
             if (IsLayerEmpty(Model3DLayer.BeforeInfernoRings)) {
                 return;
             }
@@ -236,15 +236,15 @@ namespace InnoVault.Models3D.Runtime
 
         /// <inheritdoc/>
         public override void EndEntityDraw(SpriteBatch spriteBatch, Main main, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
-            // 在所有层绘制结束后，统一清理临时桶（即使某些层没有钩子触发，也保证下一帧从干净状态开始）
+            //在所有层绘制结束后，统一清理临时桶（即使某些层没有钩子触发，也保证下一帧从干净状态开始）
             for (int i = 0; i < _transientByLayer.Length; i++) {
                 _transientByLayer[i].Clear();
             }
         }
 
-        // ========================================================================
-        // 内部
-        // ========================================================================
+        //========================================================================
+        //内部
+        //========================================================================
 
         private bool IsLayerEmpty(Model3DLayer layer) {
             int idx = (int)layer;
@@ -262,7 +262,7 @@ namespace InnoVault.Models3D.Runtime
             }
             int idx = (int)layer;
 
-            // 先取一份持久 + 临时合并的快照，避免持锁绘制
+            //先取一份持久 + 临时合并的快照，避免持锁绘制
             int transientCount = _transientByLayer[idx].Count;
             int persistentCount;
             lock (_persistentLock) {
@@ -290,9 +290,9 @@ namespace InnoVault.Models3D.Runtime
                 return;
             }
 
-            // 不透明：仅按 SortKey 升序，深度测试自己解决遮挡
+            //不透明：仅按 SortKey 升序，深度测试自己解决遮挡
             _opaqueScratch.Sort(static (a, b) => a.SortKey.CompareTo(b.SortKey));
-            // 透明：先按 SortKey 升序，再按 Depth 降序（远的先画，近的覆盖在上）
+            //透明：先按 SortKey 升序，再按 Depth 降序（远的先画，近的覆盖在上）
             _transparentScratch.Sort(static (a, b) => {
                 int keyCmp = a.SortKey.CompareTo(b.SortKey);
                 if (keyCmp != 0) {
@@ -314,13 +314,13 @@ namespace InnoVault.Models3D.Runtime
             try {
                 graphicsDevice.SetRenderTarget(_model3DRT);
                 rtBound = true;
-                // 关键：必须同时清颜色和深度。颜色清成透明，合成时不影响下层；深度清为最远值 1
+                //关键：必须同时清颜色和深度。颜色清成透明，合成时不影响下层；深度清为最远值 1
                 graphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Transparent, 1f, 0);
 
                 Matrix view = Main.GameViewMatrix.TransformationMatrix;
                 Matrix projection = Matrix.CreateOrthographicOffCenter(0f, Main.screenWidth, Main.screenHeight, 0f, -10000f, 10000f);
 
-                // ---- Opaque 桶：写深度 + 写颜色，无 blending ----
+                //---- Opaque 桶：写深度 + 写颜色，无 blending ----
                 if (_opaqueScratch.Count > 0) {
                     graphicsDevice.BlendState = BlendState.Opaque;
                     graphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
@@ -329,9 +329,9 @@ namespace InnoVault.Models3D.Runtime
                     }
                 }
 
-                // ---- Transparent 桶：只读深度，按 back-to-front 顺序 alpha blend ----
+                //---- Transparent 桶：只读深度，按 back-to-front 顺序 alpha blend ----
                 if (_transparentScratch.Count > 0) {
-                    // 使用 NonPremultiplied，让 BasicEffect 输出的直alpha 颜色正确叠加到透明 RT 上
+                    //使用 NonPremultiplied，让 BasicEffect 输出的直alpha 颜色正确叠加到透明 RT 上
                     graphicsDevice.BlendState = BlendState.NonPremultiplied;
                     graphicsDevice.SamplerStates[0] = SamplerState.LinearClamp;
                     for (int i = 0; i < _transparentScratch.Count; i++) {
@@ -355,8 +355,8 @@ namespace InnoVault.Models3D.Runtime
                 _transparentScratch.Clear();
             }
 
-            // ---- 合成阶段：把 _model3DRT 以全屏 quad 形式 alpha blend 回当前 RT ----
-            // 此时 NonPremultiplied 累积到透明背景的结果，RGB 已天然带 alpha 预乘，故合成用 AlphaBlend (premultiplied)
+            //---- 合成阶段：把 _model3DRT 以全屏 quad 形式 alpha blend 回当前 RT ----
+            //此时 NonPremultiplied 累积到透明背景的结果，RGB 已天然带 alpha 预乘，故合成用 AlphaBlend (premultiplied)
             try {
                 SpriteBatch sb = Main.spriteBatch;
                 sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.PointClamp
@@ -369,7 +369,7 @@ namespace InnoVault.Models3D.Runtime
             }
         }
 
-        // 把一个实例按透明/不透明分到对应桶。null / 不可见 / 无效模型直接丢弃
+        //把一个实例按透明/不透明分到对应桶。null / 不可见 / 无效模型直接丢弃
         private void BucketizeInstance(Model3DInstance instance) {
             if (instance == null || !instance.Visible || instance.Model == null) {
                 return;
@@ -385,7 +385,7 @@ namespace InnoVault.Models3D.Runtime
             }
         }
 
-        // 实例是否需要走透明桶：实例本身半透明、显式 ForceTransparent，或任一材质半透明
+        //实例是否需要走透明桶：实例本身半透明、显式 ForceTransparent，或任一材质半透明
         private static bool IsInstanceTransparent(Model3DInstance instance) {
             if (instance.ForceTransparent) {
                 return true;
@@ -413,9 +413,9 @@ namespace InnoVault.Models3D.Runtime
         private void DrawSingle(GraphicsDevice graphicsDevice, Model3DInstance instance, Matrix view, Matrix projection, bool isTransparent) {
             VaultObjModel model = instance.Model;
 
-            // BlendState 由外层桶统一设置；这里只设置每实例可覆盖的 Depth/Rasterizer
+            //BlendState 由外层桶统一设置；这里只设置每实例可覆盖的 Depth/Rasterizer
             if (isTransparent) {
-                // 透明只读深度，避免互相 z-fight 把后面的透明面写丢
+                //透明只读深度，避免互相 z-fight 把后面的透明面写丢
                 graphicsDevice.DepthStencilState = instance.DepthEnabled ? DepthStencilState.DepthRead : DepthStencilState.None;
             }
             else {
@@ -439,7 +439,7 @@ namespace InnoVault.Models3D.Runtime
             _effect.Projection = projection;
 
             if (instance.LightingEnabled) {
-                // 解析光照：实例 Override 优先；都为空则用空配置兜底（避免 NRE）
+                //解析光照：实例 Override 优先；都为空则用空配置兜底（避免 NRE）
                 Model3DLightingConfig source = instance.LightingOverride ?? GlobalLighting;
                 if (source != null) {
                     source.CopyTo(_scratchLighting);
@@ -447,7 +447,7 @@ namespace InnoVault.Models3D.Runtime
                 else {
                     Model3DLightingConfig.CreateDefault().CopyTo(_scratchLighting);
                 }
-                // 给订阅者按需 mutate scratch 的机会（光标光、昼夜变化、tile light 整合等）
+                //给订阅者按需 mutate scratch 的机会（光标光、昼夜变化、tile light 整合等）
                 ResolveLighting?.Invoke(instance, _scratchLighting);
                 _effect.LightingEnabled = true;
                 ApplyLighting(_effect, _scratchLighting);
@@ -502,7 +502,7 @@ namespace InnoVault.Models3D.Runtime
                 try {
                     _effect.Dispose();
                 } catch {
-                    // GPU 卸载阶段忽略异常
+                    //GPU 卸载阶段忽略异常
                 }
             }
             _effect = null;
@@ -517,7 +517,7 @@ namespace InnoVault.Models3D.Runtime
                 try {
                     _model3DRT.Dispose();
                 } catch {
-                    // GPU 卸载阶段忽略异常
+                    //GPU 卸载阶段忽略异常
                 }
             }
             _model3DRT = null;
@@ -539,7 +539,7 @@ namespace InnoVault.Models3D.Runtime
 
             try {
                 _model3DRT?.Dispose();
-                // PreserveContents 让我们清楚地控制每层都从 Clear 开始；用 Depth24 才能真正启用深度测试
+                //PreserveContents 让我们清楚地控制每层都从 Clear 开始；用 Depth24 才能真正启用深度测试
                 _model3DRT = new RenderTarget2D(graphicsDevice, w, h, false, SurfaceFormat.Color
                     , DepthFormat.Depth24, 0, RenderTargetUsage.PreserveContents);
                 return true;
@@ -590,7 +590,7 @@ namespace InnoVault.Models3D.Runtime
             if (saved.Sampler0 != null) gd.SamplerStates[0] = saved.Sampler0;
         }
 
-        // 把 Model3DLightingConfig 写入 BasicEffect。调用方需先把 LightingEnabled 置 true。
+        //把 Model3DLightingConfig 写入 BasicEffect。调用方需先把 LightingEnabled 置 true。
         private static void ApplyLighting(BasicEffect effect, Model3DLightingConfig cfg) {
             effect.AmbientLightColor = cfg.AmbientColor;
             effect.EmissiveColor = cfg.EmissiveColor;

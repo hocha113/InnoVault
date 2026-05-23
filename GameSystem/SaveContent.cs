@@ -281,7 +281,7 @@ namespace InnoVault.GameSystem
                     return;
                 }
                 string baseName = Path.GetFileNameWithoutExtension(baseZipPath);
-                string pattern = "*" + baseName + ".zip"; // 匹配含时间戳及无时间戳
+                string pattern = "*" + baseName + ".zip"; //匹配含时间戳及无时间戳
                 var files = Directory.GetFiles(dir, pattern, SearchOption.TopDirectoryOnly)
                                       .Select(f => new FileInfo(f))
                                       .OrderBy(f => f.LastWriteTimeUtc)

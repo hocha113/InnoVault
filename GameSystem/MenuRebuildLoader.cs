@@ -13,10 +13,10 @@ namespace InnoVault.GameSystem
     /// </summary>
     public class MenuRebuildLoader : IVaultLoader
     {
-#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning disable CS1591 //缺少对公共可见类型或成员的 XML 注释
         public delegate void On_DrawMenu_Dlelgate(Main main, GameTime gameTime);
         public delegate void On_AddMenuButtons_Dlelgate(Main main, int selectedMenu, string[] buttonNames, float[] buttonScales, ref int offY, ref int spacing, ref int buttonIndex, ref int numButtons);
-#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning restore CS1591 //缺少对公共可见类型或成员的 XML 注释
         private static readonly FixedTickTimer menuTickTimer = new();
 
         void IVaultLoader.LoadData() {

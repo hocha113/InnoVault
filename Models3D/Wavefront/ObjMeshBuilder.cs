@@ -35,7 +35,7 @@ namespace InnoVault.Models3D.Wavefront
             options ??= ObjImportOptions.Default;
             diagnostic ??= new ObjDiagnostic();
 
-            // 按材质名分桶面索引
+            //按材质名分桶面索引
             Dictionary<string, List<ObjFace>> facesByMaterial = new();
             for (int i = 0; i < raw.Faces.Count; i++) {
                 ObjFace face = raw.Faces[i];
@@ -76,8 +76,8 @@ namespace InnoVault.Models3D.Wavefront
                 }
             }
 
-            // 顶点去重：(positionIndex, texCoordIndex, normalIndex) -> 已分配 zero-based 输出索引
-            // 由于面数据可能较大，先估算容量
+            //顶点去重：(positionIndex, texCoordIndex, normalIndex) -> 已分配 zero-based 输出索引
+            //由于面数据可能较大，先估算容量
             Dictionary<long, int> dedup = new(faces.Count * 3);
             List<VertexPositionNormalTexture> verts = new(faces.Count * 3);
             List<short> indices = new(faces.Count * 3);
@@ -131,7 +131,7 @@ namespace InnoVault.Models3D.Wavefront
                         if (verts.Count >= MaxVerticesPerGroup) {
                             diagnostic.Error(source, 0
                                 , $"Material '{materialName}' exceeds 65535 unique vertices, mesh splitting; remaining faces dropped");
-                            // 简化处理：超出 16-bit 索引上限时直接结束当前面循环
+                            //简化处理：超出 16-bit 索引上限时直接结束当前面循环
                             faceValid = false;
                             break;
                         }
@@ -141,7 +141,7 @@ namespace InnoVault.Models3D.Wavefront
                     }
                     triIndices[i] = (short)newIndex;
 
-                    // 累计包围盒
+                    //累计包围盒
                     if (!boundsTouched) {
                         min = pos;
                         max = pos;
@@ -155,7 +155,7 @@ namespace InnoVault.Models3D.Wavefront
 
                 if (!faceValid) {
                     if (verts.Count >= MaxVerticesPerGroup) {
-                        // 立即结束此分组的累积，剩下的面不再处理
+                        //立即结束此分组的累积，剩下的面不再处理
                         break;
                     }
                     continue;
@@ -165,7 +165,7 @@ namespace InnoVault.Models3D.Wavefront
                 indices.Add(triIndices[1]);
                 indices.Add(triIndices[2]);
 
-                // 如果该面没有任何显式法线，根据顶点位置计算面法线，并补到对应顶点
+                //如果该面没有任何显式法线，根据顶点位置计算面法线，并补到对应顶点
                 if (options.GenerateMissingNormals) {
                     bool needGenerate = false;
                     for (int i = 0; i < 3; i++) {
@@ -179,7 +179,7 @@ namespace InnoVault.Models3D.Wavefront
                         for (int i = 0; i < 3; i++) {
                             int vIdx = triIndices[i];
                             VertexPositionNormalTexture v = verts[vIdx];
-                            // 仅在原法线为 0 时填充，避免覆盖共享顶点已经写入的有效法线
+                            //仅在原法线为 0 时填充，避免覆盖共享顶点已经写入的有效法线
                             if (v.Normal.LengthSquared() <= 1e-6f) {
                                 v.Normal = faceNormal;
                                 verts[vIdx] = v;
@@ -191,7 +191,7 @@ namespace InnoVault.Models3D.Wavefront
                 splitGroupIndex++;
             }
 
-            // 收尾：把任何仍然为零向量的法线置为 +Z，避免 BasicEffect 启用光照时全黑
+            //收尾：把任何仍然为零向量的法线置为 +Z，避免 BasicEffect 启用光照时全黑
             for (int i = 0; i < verts.Count; i++) {
                 VertexPositionNormalTexture v = verts[i];
                 if (v.Normal.LengthSquared() <= 1e-6f) {
@@ -217,7 +217,7 @@ namespace InnoVault.Models3D.Wavefront
         }
 
         private static long BuildKey(int positionIndex, int texCoordIndex, int normalIndex) {
-            // 三个 21 bit 索引塞进一个 long，足够覆盖 OBJ 常见规模（最大约 200 万）
+            //三个 21 bit 索引塞进一个 long，足够覆盖 OBJ 常见规模（最大约 200 万）
             unchecked {
                 long p = (long)(positionIndex & 0x1FFFFF);
                 long t = (long)(texCoordIndex & 0x1FFFFF) << 21;

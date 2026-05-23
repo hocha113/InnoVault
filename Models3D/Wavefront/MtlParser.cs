@@ -106,8 +106,8 @@ namespace InnoVault.Models3D.Wavefront
                             diagnostic.Warn(source, lineNo, "map_Kd appears before any newmtl, ignored");
                             break;
                         }
-                        // 取最后一个非选项 token 作为路径
-                        // 形如 `map_Kd -clamp on -s 1 1 1 path/to/tex.png`
+                        //取最后一个非选项 token 作为路径
+                        //形如 `map_Kd -clamp on -s 1 1 1 path/to/tex.png`
                         string mapPath = ExtractMapPath(parts, 1);
                         if (string.IsNullOrEmpty(mapPath)) {
                             diagnostic.Warn(source, lineNo, "map_Kd missing texture path");
@@ -117,7 +117,7 @@ namespace InnoVault.Models3D.Wavefront
                         }
                         break;
                     default:
-                        // 忽略其它 MTL 字段
+                        //忽略其它 MTL 字段
                         break;
                 }
             }
@@ -144,8 +144,8 @@ namespace InnoVault.Models3D.Wavefront
         /// <br/>跳过以 <c>-</c> 开头的选项及其参数（粗略处理）
         /// </summary>
         private static string ExtractMapPath(string[] parts, int offset) {
-            // 简化策略：从最后一个 token 倒着找第一个不以 '-' 开头且前一个不是 '-xxx' 选项的 token
-            // 大多数 map_Kd 写法会把路径放在最后；此处直接取末尾 token 已可覆盖常见情况
+            //简化策略：从最后一个 token 倒着找第一个不以 '-' 开头且前一个不是 '-xxx' 选项的 token
+            //大多数 map_Kd 写法会把路径放在最后；此处直接取末尾 token 已可覆盖常见情况
             for (int i = parts.Length - 1; i >= offset; i--) {
                 string token = parts[i];
                 if (token.Length == 0) {
@@ -154,8 +154,8 @@ namespace InnoVault.Models3D.Wavefront
                 if (token[0] == '-') {
                     continue;
                 }
-                // 排除位于一个选项后的纯数值参数: 如 `-s 1 1 1` 中的 `1 1 1`
-                // 这里使用简单启发：如果是数值则继续向前找
+                //排除位于一个选项后的纯数值参数: 如 `-s 1 1 1` 中的 `1 1 1`
+                //这里使用简单启发：如果是数值则继续向前找
                 if (float.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out _)) {
                     continue;
                 }

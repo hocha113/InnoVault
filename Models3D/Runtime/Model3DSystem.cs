@@ -9,7 +9,7 @@ namespace InnoVault.Models3D.Runtime
     internal sealed class Model3DSystem : IVaultLoader
     {
         void IVaultLoader.UnLoadData() {
-            // 客户端持有的 BasicEffect 由渲染器自身管理；服务器无 GPU 资源
+            //客户端持有的 BasicEffect 由渲染器自身管理；服务器无 GPU 资源
             if (Main.dedServ) {
                 return;
             }

@@ -32,7 +32,7 @@ namespace InnoVault.Models3D.Wavefront
         /// <inheritdoc/>
         public override object HandleLoad(MemberInfo member, VaultLoadenAttribute attribute) {
             if (Main.dedServ) {
-                // 服务器无需 GPU 资源
+                //服务器无需 GPU 资源
                 return VaultObjModel.Empty;
             }
 
@@ -92,7 +92,7 @@ namespace InnoVault.Models3D.Wavefront
                 rawData = ObjParser.Parse(reader, diagnostic, objPath, options);
             }
 
-            // 解析所有 MTL 库
+            //解析所有 MTL 库
             Dictionary<string, ObjMaterial> materials = new();
             foreach (string mtlRef in rawData.MaterialLibraries) {
                 string mtlPath = ResolveRelativePath(objDirectory, mtlRef);
@@ -117,7 +117,7 @@ namespace InnoVault.Models3D.Wavefront
                     }
                 }
 
-                // 解析每个材质的贴图
+                //解析每个材质的贴图
                 foreach (ObjMaterial material in parsed.Values) {
                     if (string.IsNullOrEmpty(material.DiffuseTexturePath)) {
                         continue;
@@ -266,7 +266,7 @@ namespace InnoVault.Models3D.Wavefront
                 return;
             }
 
-            // 错误级别的信息走错误日志（带节流），警告/信息走 Debug 日志
+            //错误级别的信息走错误日志（带节流），警告/信息走 Debug 日志
             if (diagnostic.HasErrors) {
                 VaultMod.LoggerError($"[ObjModelLoadenHandle:{mod.Name}/{source}]"
                     , $"OBJ load reported {diagnostic.ErrorCount} error(s), {diagnostic.WarningCount} warning(s):\n{diagnostic.Format()}");

@@ -123,7 +123,7 @@ namespace InnoVault.GameContent
                 return;
             }
 
-            // 同步 DownLeft
+            //同步 DownLeft
             if (DownLeft != Main.mouseLeft) {
                 DownLeft = Main.mouseLeft;
                 ModPacket modPacket = Mod.GetPacket();
@@ -132,7 +132,7 @@ namespace InnoVault.GameContent
                 modPacket.Send();
             }
 
-            // 同步 DownRight
+            //同步 DownRight
             if (DownRight != Main.mouseRight) {
                 DownRight = Main.mouseRight;
                 ModPacket modPacket = Mod.GetPacket();
@@ -141,7 +141,7 @@ namespace InnoVault.GameContent
                 modPacket.Send();
             }
 
-            // 同步 InMousePos
+            //同步 InMousePos
             if (InMousePos != Main.MouseWorld) {
                 InMousePos = Main.MouseWorld;
                 ModPacket modPacket = Mod.GetPacket();

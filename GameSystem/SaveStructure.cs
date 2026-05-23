@@ -285,7 +285,7 @@ namespace InnoVault.GameSystem
                 writer.Write(tile.TileColor);
                 writer.Write(tile.WallColor);
 
-                // 位压缩
+                //位压缩
                 BitsByte flags1 = new BitsByte();
                 flags1[0] = tile.HasTile;
                 flags1[1] = tile.HasActuator;

@@ -463,40 +463,40 @@ namespace InnoVault.Trails
         /// <param name="trailColorFunction">尾迹颜色评估函数，用于计算每个顶点的颜色</param>
         public void CreateMesh(Vector2 trailTipPosition, Vector2 trailTipNormal, int startFromIndex, out VertexPositionColorTexture[] vertices
             , out short[] indices, TrailThicknessCalculator trailWidthFunction, TrailColorEvaluator trailColorFunction) {
-            // 计算与尾迹法线方向垂直的单位向量，用于三角形的左右两边
+            //计算与尾迹法线方向垂直的单位向量，用于三角形的左右两边
             Vector2 normalPerp = trailTipNormal.RotatedBy(MathHelper.PiOver2);
 
-            // 获取尾迹宽度，若未提供宽度函数则默认为1
+            //获取尾迹宽度，若未提供宽度函数则默认为1
             float width = trailWidthFunction?.Invoke(1) ?? 1;
 
-            // 计算三角形的三个顶点位置
-            Vector2 a = trailTipPosition + (normalPerp * width);  // 左边的顶点
-            Vector2 b = trailTipPosition - (normalPerp * width);  // 右边的顶点
-            Vector2 c = trailTipPosition + (trailTipNormal * length);  // 尖端顶点
+            //计算三角形的三个顶点位置
+            Vector2 a = trailTipPosition + (normalPerp * width);  //左边的顶点
+            Vector2 b = trailTipPosition - (normalPerp * width);  //右边的顶点
+            Vector2 c = trailTipPosition + (trailTipNormal * length);  //尖端顶点
 
-            // 纹理坐标，A、B、C 分别对应三角形的三个顶点
+            //纹理坐标，A、B、C 分别对应三角形的三个顶点
             Vector2 texCoordA = Vector2.UnitX;
             Vector2 texCoordB = Vector2.One;
-            Vector2 texCoordC = new(1, 0.5f);  // 通过调整C点的纹理坐标来修复纹理问题
+            Vector2 texCoordC = new(1, 0.5f);  //通过调整C点的纹理坐标来修复纹理问题
 
-            // 获取每个顶点的颜色，若未提供颜色评估函数则默认使用白色
+            //获取每个顶点的颜色，若未提供颜色评估函数则默认使用白色
             Color colorA = trailColorFunction?.Invoke(texCoordA) ?? Color.White;
             Color colorB = trailColorFunction?.Invoke(texCoordB) ?? Color.White;
             Color colorC = trailColorFunction?.Invoke(texCoordC) ?? Color.White;
 
-            // 生成顶点数组，每个顶点包含位置、颜色和纹理坐标
+            //生成顶点数组，每个顶点包含位置、颜色和纹理坐标
             vertices = new VertexPositionColorTexture[]
             {
-            new(a.ToVector3(), colorA, texCoordA),  // 顶点A
-            new(b.ToVector3(), colorB, texCoordB),  // 顶点B
-            new(c.ToVector3(), colorC, texCoordC)   // 顶点C
+            new(a.ToVector3(), colorA, texCoordA),  //顶点A
+            new(b.ToVector3(), colorB, texCoordB),  //顶点B
+            new(c.ToVector3(), colorC, texCoordC)   //顶点C
             };
 
-            // 生成索引数组，定义一个三角形的顶点顺序
+            //生成索引数组，定义一个三角形的顶点顺序
             indices = [
-            (short)startFromIndex,     // 顶点A的索引
-            (short)(startFromIndex + 1), // 顶点B的索引
-            (short)(startFromIndex + 2)  // 顶点C的索引
+            (short)startFromIndex,     //顶点A的索引
+            (short)(startFromIndex + 1), //顶点B的索引
+            (short)(startFromIndex + 2)  //顶点C的索引
             ];
         }
     }
@@ -527,7 +527,7 @@ namespace InnoVault.Trails
         public void CreateMesh(Vector2 trailTipPosition, Vector2 trailTipNormal
             , int startFromIndex, out VertexPositionColorTexture[] vertices
             , out short[] indices, TrailThicknessCalculator trailWidthFunction, TrailColorEvaluator trailColorFunction) {
-            // 该实现不生成任何顶点和索引，因此返回空数组
+            //该实现不生成任何顶点和索引，因此返回空数组
             vertices = [];
             indices = [];
         }
@@ -565,7 +565,7 @@ namespace InnoVault.Trails
             this.device = device;
 
             if (device != null && !Main.dedServ) {
-                // 在主线程上初始化缓冲区
+                //在主线程上初始化缓冲区
                 Main.QueueMainThreadAction(() => {
                     vertexDataBuffer = new DynamicVertexBuffer(device, typeof(VertexPositionColorTexture), maxVertices, BufferUsage.None);
                     indexDataBuffer = new DynamicIndexBuffer(device, IndexElementSize.SixteenBits, maxIndices, BufferUsage.None);
@@ -583,11 +583,11 @@ namespace InnoVault.Trails
                 return;
             }
 
-            // 设置顶点和索引缓冲区
+            //设置顶点和索引缓冲区
             device.SetVertexBuffer(vertexDataBuffer);
             device.Indices = indexDataBuffer;
 
-            // 渲染网格
+            //渲染网格
             foreach (EffectPass pass in effect.CurrentTechnique.Passes) {
                 pass.Apply();
                 device.DrawIndexedPrimitives(PrimitiveType.TriangleList, 0, 0, vertexDataBuffer.VertexCount, 0, indexDataBuffer.IndexCount / 3);
@@ -602,11 +602,11 @@ namespace InnoVault.Trails
             if (vertexDataBuffer == null || vertexDataBuffer.IsDisposed) {
                 return;
             }
-            // 计算顶点数据的偏移量和大小
+            //计算顶点数据的偏移量和大小
             int vertexStride = VertexPositionColorTexture.VertexDeclaration.VertexStride;
             int vertexOffset = 0;
 
-            // 更新顶点缓冲区的数据
+            //更新顶点缓冲区的数据
             vertexDataBuffer.SetData(vertexOffset, vertices, 0, vertices.Length, vertexStride, SetDataOptions.NoOverwrite);
         }
 
@@ -620,7 +620,7 @@ namespace InnoVault.Trails
             }
             int indexOffset = 0;
 
-            // 更新索引缓冲区的数据
+            //更新索引缓冲区的数据
             indexDataBuffer.SetData(indexOffset, indices, 0, indices.Length, SetDataOptions.Discard);
         }
 
@@ -638,9 +638,9 @@ namespace InnoVault.Trails
         /// </summary>
         public void Dispose() {
             ReleaseResources();
-            // 防止垃圾回收器调用析构函数。因为资源已被释放，不再需要调用析构函数
-            // 这是一个优化操作，告诉垃圾回收器在对象被销毁时不需要调用析构函数。
-            // 这通常是在资源已经手动释放的情况下使用，以减少垃圾回收器的不必要开销
+            //防止垃圾回收器调用析构函数。因为资源已被释放，不再需要调用析构函数
+            //这是一个优化操作，告诉垃圾回收器在对象被销毁时不需要调用析构函数。
+            //这通常是在资源已经手动释放的情况下使用，以减少垃圾回收器的不必要开销
             //GC.SuppressFinalize(this);
         }
     }

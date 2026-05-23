@@ -15,7 +15,7 @@ namespace InnoVault.GameSystem
     /// </summary>
     public class ProjRebuildLoader : GlobalProjectile, IVaultLoader
     {
-#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning disable CS1591 //缺少对公共可见类型或成员的 XML 注释
         public delegate void On_Projectile_Void_Delegate(Projectile proj);
         public delegate bool On_PreDraw_Delegate(Projectile projectile, ref Color lightColor);
         public delegate void On_PostDraw_Delegate(Projectile projectile, Color lightColor);
@@ -252,6 +252,6 @@ namespace InnoVault.GameSystem
 
             orig.Invoke(proj, lightColor);
         }
-#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning restore CS1591 //缺少对公共可见类型或成员的 XML 注释
     }
 }

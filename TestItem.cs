@@ -67,7 +67,7 @@ namespace InnoVault
 
             float t = (float)Main.timeForVisualEffects * 0.02f;
 
-            // 主太阳：光标作为主光源
+            //主太阳：光标作为主光源
             Vector2 sunPos1 = player.Center + new Vector2(0f, -220f);
             Model3DRenderer.Submit(new Model3DInstance(SunModel) {
                 Position = sunPos1,
@@ -81,7 +81,7 @@ namespace InnoVault
                 LightingOverride = BuildCursorLighting(sunPos1, Main.MouseWorld),
             });
 
-            // 第二个小球放在玩家右侧，验证多实例下各自独立计算光向
+            //第二个小球放在玩家右侧，验证多实例下各自独立计算光向
             Vector2 sunPos2 = player.Center + new Vector2(220f, 0f);
             Model3DRenderer.Submit(new Model3DInstance(SunModel) {
                 Position = sunPos2,
@@ -95,12 +95,12 @@ namespace InnoVault
                 LightingOverride = BuildCursorLighting(sunPos2, Main.MouseWorld),
             });
 
-            // 另一种写法：订阅 Model3DRenderer.ResolveLighting，对所有实例统一施加规则
-            // 例如：Model3DRenderer.ResolveLighting += (inst, cfg) => { cfg.Light0.Direction = ...; };
+            //另一种写法：订阅 Model3DRenderer.ResolveLighting，对所有实例统一施加规则
+            //例如：Model3DRenderer.ResolveLighting += (inst, cfg) => { cfg.Light0.Direction = ...; };
         }
 
-        // 把光标当作"灯泡"，让主光从光标方向射向模型中心
-        // zBias 给一个负值让光略偏向相机方向，避免完全侧光导致正面太暗
+        //把光标当作"灯泡"，让主光从光标方向射向模型中心
+        //zBias 给一个负值让光略偏向相机方向，避免完全侧光导致正面太暗
         private static Model3DLightingConfig BuildCursorLighting(Vector2 modelWorldPos, Vector2 cursorWorldPos) {
             const float zBias = -100f;
             Vector2 toModel = modelWorldPos - cursorWorldPos;
@@ -112,10 +112,10 @@ namespace InnoVault
             cfg.Light0.Direction = dir;
             cfg.Light0.DiffuseColor = new Vector3(1.4f, 1.2f, 0.95f);
             cfg.Light0.SpecularColor = new Vector3(1.0f, 0.9f, 0.7f);
-            // 关闭补光和背光，强调"光标即唯一光源"
+            //关闭补光和背光，强调"光标即唯一光源"
             cfg.Light1.Enabled = false;
             cfg.Light2.Enabled = false;
-            // 保留少量环境光，避免暗面纯黑
+            //保留少量环境光，避免暗面纯黑
             cfg.AmbientColor = new Vector3(0.12f);
             cfg.SpecularPower = 24f;
             return cfg;
@@ -128,28 +128,28 @@ namespace InnoVault
 
             ////左键：进入石头维度
             //if (player.altFunctionUse != 2) {
-            //    if (!DimensionLoader.AnyActive()) {
-            //        //当前在主世界，进入石头维度
-            //        if (DimensionLoader.Enter<StoneDimension>()) {
-            //            VaultUtils.Text("正在进入石头维度...", Color.Cyan);
-            //        }
-            //        else {
-            //            VaultUtils.Text("无法进入石头维度！", Color.Red);
-            //        }
-            //    }
-            //    else {
-            //        VaultUtils.Text("你已经在维度中了！右键退出", Color.Yellow);
-            //    }
+            //  if (!DimensionLoader.AnyActive()) {
+            //      //当前在主世界，进入石头维度
+            //      if (DimensionLoader.Enter<StoneDimension>()) {
+            //          VaultUtils.Text("正在进入石头维度...", Color.Cyan);
+            //      }
+            //      else {
+            //          VaultUtils.Text("无法进入石头维度！", Color.Red);
+            //      }
+            //  }
+            //  else {
+            //      VaultUtils.Text("你已经在维度中了！右键退出", Color.Yellow);
+            //  }
             //}
             ////右键：退出维度
             //else {
-            //    if (DimensionLoader.AnyActive()) {
-            //        DimensionLoader.Exit();
-            //        VaultUtils.Text("正在退出维度...", Color.Cyan);
-            //    }
-            //    else {
-            //        VaultUtils.Text("你已经在主世界了！", Color.Yellow);
-            //    }
+            //  if (DimensionLoader.AnyActive()) {
+            //      DimensionLoader.Exit();
+            //      VaultUtils.Text("正在退出维度...", Color.Cyan);
+            //  }
+            //  else {
+            //      VaultUtils.Text("你已经在主世界了！", Color.Yellow);
+            //  }
             //}
 
             return true;

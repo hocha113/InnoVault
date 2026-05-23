@@ -18,7 +18,7 @@ namespace InnoVault.GameSystem
     /// </summary>
     public class ItemRebuildLoader : GlobalItem, IVaultLoader
     {
-#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning disable CS1591 //缺少对公共可见类型或成员的 XML 注释
         public static void UniversalForEach(Action<ItemOverride> action) {
             foreach (var inds in UniversalInstances) {
                 action(inds);
@@ -551,7 +551,7 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            // 使用原物品类型查找覆盖器，确保调用的是原物品的 Post 钩子
+            //使用原物品类型查找覆盖器，确保调用的是原物品的 Post 钩子
             if (TryFetchByID(originalType, out Dictionary<Type, ItemOverride> values2)) {
                 foreach (var value in values2.Values) {
                     value.PostGetShimmered(originalType, item, result);
@@ -1412,6 +1412,6 @@ namespace InnoVault.GameSystem
         }
 
         #endregion
-#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning restore CS1591 //缺少对公共可见类型或成员的 XML 注释
     }
 }

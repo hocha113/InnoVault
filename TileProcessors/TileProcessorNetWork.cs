@@ -99,7 +99,7 @@ namespace InnoVault.TileProcessors
         /// <param name="type"></param>
         /// <param name="point"></param>
         public static void PlaceInWorldNetSend(Mod mod, int type, Point16 point) {
-            // 客户端发送同步请求到服务器
+            //客户端发送同步请求到服务器
             ModPacket packet = mod.GetPacket();
             packet.Write((byte)MessageType.Handler_PlaceInWorld);
             packet.Write(type);
@@ -114,7 +114,7 @@ namespace InnoVault.TileProcessors
         /// <param name="reader"></param>
         /// <param name="whoAmI"></param>
         internal static void Handler_PlaceInWorld(Mod mod, BinaryReader reader, int whoAmI) {
-            // 读取放置方块的数据
+            //读取放置方块的数据
             int tileType = reader.ReadInt32();
             Point16 point = reader.ReadPoint16();
             AddInWorld(tileType, point, null);
@@ -399,7 +399,7 @@ namespace InnoVault.TileProcessors
                 //宽高不太可能超过255，所以转化为byte发送节省空间，注意这里除了16所以表示的是物块格子
                 fullPacket.Write((byte)(tp.Width / 16));
                 fullPacket.Write((byte)(tp.Height / 16));
-                // 发送TileProcessor数据
+                //发送TileProcessor数据
                 tp.SendData(fullPacket);
             }
 

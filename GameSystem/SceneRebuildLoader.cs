@@ -14,7 +14,7 @@ namespace InnoVault.GameSystem
     /// </summary>
     public class SceneRebuildLoader : IVaultLoader
     {
-#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning disable CS1591 //缺少对公共可见类型或成员的 XML 注释
         public delegate void On_UpdateAudio_Dlelgate(Main main);
         public delegate bool On_IsSceneEffectActive_Dlelgate(ModSceneEffect modSceneEffect, Player player);
         public static List<IUpdateAudio> UpdateAudios { get; internal set; } = [];
@@ -24,7 +24,7 @@ namespace InnoVault.GameSystem
         internal static VaultHookMethodCache<SceneOverride> HookPostUpdateAudio;
         internal static VaultHookMethodCache<SceneOverride> HookPreIsSceneEffectActive;
         internal static VaultHookMethodCache<SceneOverride> HookPostIsSceneEffectActive;
-#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning restore CS1591 //缺少对公共可见类型或成员的 XML 注释
         /// <summary>
         /// 存储声音接口内报错的时间戳
         /// </summary>

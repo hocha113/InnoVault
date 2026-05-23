@@ -68,9 +68,9 @@ namespace InnoVault.GameContent
         public override void Draw(SpriteBatch spriteBatch) {
             UpdateSengs();
 
-            // 更新旋转角度
+            //更新旋转角度
             time++;
-            rotation += 0.03f + 0.03f * (float)Math.Sin(time / 3f); // 平滑变速旋转
+            rotation += 0.03f + 0.03f * (float)Math.Sin(time / 3f); //平滑变速旋转
 
             DrawBack(spriteBatch);
 
@@ -82,14 +82,14 @@ namespace InnoVault.GameContent
         /// <summary>
         /// 更新渐变值
         /// </summary>
-        protected virtual void UpdateSengs() => sengs = DoActive ? 1f : Math.Max(sengs - 0.1f, 0f); // 防止透明度为负
+        protected virtual void UpdateSengs() => sengs = DoActive ? 1f : Math.Max(sengs - 0.1f, 0f); //防止透明度为负
 
         /// <summary>
         /// 绘制背景遮罩
         /// </summary>
         /// <param name="spriteBatch"></param>
         protected virtual void DrawBack(SpriteBatch spriteBatch) {
-            // 绘制背景
+            //绘制背景
             Rectangle rectangle = new Rectangle(0, 0, Main.screenWidth, Main.screenHeight);
             spriteBatch.Draw(VaultAsset.placeholder2.Value, rectangle, Color.Black * 0.4f * sengs);
         }
@@ -125,12 +125,12 @@ namespace InnoVault.GameContent
 
             Vector2 drawPos = new Vector2(0f, VaultAsset.GearWheel.Value.Height * 1.5f);
 
-            // 绘制第一行文本
+            //绘制第一行文本
             if (text1 != string.Empty) {
                 DrawText(spriteBatch, text1, opacity, drawPos);
             }
 
-            // 绘制第二行文本
+            //绘制第二行文本
             if (text2 != string.Empty) {
                 drawPos = new Vector2(0f, drawPos.Y + FontAssets.MouseText.Value.MeasureString(text2).Y);
                 DrawText(spriteBatch, text2, opacity, drawPos);
@@ -160,9 +160,9 @@ namespace InnoVault.GameContent
         public override bool DoActive => !VaultClientConfig.Instance.HideWorldLoadingScreen && !VaultSave.SavedWorld;
         protected override float Fadeout => 0.04f;
         protected override (string, string) GetDynamicText() {
-            // 动态省略号
+            //动态省略号
             dotCounter++;
-            string dots = new string('.', (dotCounter / 20) % 4); // 0~3 个点
+            string dots = new string('.', (dotCounter / 20) % 4); //0~3 个点
             return (WorldLoadingText.Text5.Value + dots, string.Empty);
         }
         protected override void UpdatePercentage() => percentage = 100f;

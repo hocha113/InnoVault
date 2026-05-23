@@ -82,7 +82,7 @@ namespace InnoVault.Models3D.Runtime
         /// <br/>方便开发者在已有"经典三点光"基础上做局部覆盖
         /// </summary>
         public static Model3DLightingConfig CreateDefault() {
-            // 数值取自 XNA/MonoGame BasicEffect.EnableDefaultLighting() 的实现
+            //数值取自 XNA/MonoGame BasicEffect.EnableDefaultLighting() 的实现
             return new Model3DLightingConfig {
                 AmbientColor = new Vector3(0.05333332f, 0.09882354f, 0.1819608f),
                 Light0 = new Model3DDirectionalLight {

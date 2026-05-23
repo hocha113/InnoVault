@@ -1,6 +1,6 @@
 ﻿sampler2D TextureSampler : register(s0);
-float Progress;  // [0.0 ~ 1.0]
-float Rotation;  // 当前图片的旋转角度（弧度）
+float Progress;  //[0.0 ~ 1.0]
+float Rotation;  //当前图片的旋转角度（弧度）
 
 float4 MainPS(float2 texCoord : TEXCOORD0) : COLOR
 {
@@ -15,9 +15,9 @@ float4 MainPS(float2 texCoord : TEXCOORD0) : COLOR
         offset.x * sinR + offset.y * cosR
     );
 
-    float angle = atan2(unrotatedOffset.y, unrotatedOffset.x); // [-PI, PI]
+    float angle = atan2(unrotatedOffset.y, unrotatedOffset.x); //[-PI, PI]
     if (angle < 0)
-        angle += 6.2831853; // [0, 2π]
+        angle += 6.2831853; //[0, 2π]
 
     float maxAngle = Progress * 6.2831853;
     float isShadow = angle > maxAngle ? 1.0 : 0.0;

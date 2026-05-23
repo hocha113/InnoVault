@@ -18,7 +18,7 @@ namespace InnoVault.GameSystem
     /// </summary>
     public class NPCRebuildLoader : GlobalNPC, IVaultLoader
     {
-#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning disable CS1591 //缺少对公共可见类型或成员的 XML 注释
         #region Data
         public delegate void On_NPCDelegate(NPC npc);
         public delegate bool On_NPCDelegate2(NPC npc);
@@ -1133,6 +1133,6 @@ namespace InnoVault.GameSystem
 
             return orig.Invoke(npc);
         }
-#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning restore CS1591 //缺少对公共可见类型或成员的 XML 注释
     }
 }

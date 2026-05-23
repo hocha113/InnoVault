@@ -90,11 +90,11 @@ namespace InnoVault.Models3D.Wavefront
                     case "o":
                     case "g":
                     case "s":
-                        // 第一版忽略对象/分组/平滑组
+                        //第一版忽略对象/分组/平滑组
                         break;
                     default:
-                        // 未知指令：仅在第一次出现时记录，避免诊断爆炸
-                        // 这里直接跳过，OBJ 中常见的非核心指令很多
+                        //未知指令：仅在第一次出现时记录，避免诊断爆炸
+                        //这里直接跳过，OBJ 中常见的非核心指令很多
                         break;
                 }
             }
@@ -135,7 +135,7 @@ namespace InnoVault.Models3D.Wavefront
                 return;
             }
 
-            // 扇形三角化：(0, i, i+1) for i in [1, count-1)
+            //扇形三角化：(0, i, i+1) for i in [1, count-1)
             for (int i = 1; i < count - 1; i++) {
                 ObjFaceVertex[] tri = new ObjFaceVertex[] { verts[0], verts[i], verts[i + 1] };
                 data.Faces.Add(new ObjFace(tri, currentMaterial));
@@ -174,13 +174,13 @@ namespace InnoVault.Models3D.Wavefront
                 return false;
             }
             if (v == 0) {
-                return false; // OBJ 索引从 1 开始，0 非法
+                return false; //OBJ 索引从 1 开始，0 非法
             }
             if (v > 0) {
                 zeroBased = v - 1;
             }
             else {
-                zeroBased = currentCount + v; // currentCount 之后的负偏移
+                zeroBased = currentCount + v; //currentCount 之后的负偏移
             }
             return zeroBased >= 0;
         }
@@ -202,7 +202,7 @@ namespace InnoVault.Models3D.Wavefront
         private static bool TryParseVector2(string[] parts, int offset, out Vector2 result) {
             result = Vector2.Zero;
             if (parts.Length < offset + 2) {
-                // OBJ 允许 1D 纹理坐标，第二维默认为 0
+                //OBJ 允许 1D 纹理坐标，第二维默认为 0
                 if (parts.Length == offset + 1
                     && float.TryParse(parts[offset], NumberStyles.Float, CultureInfo.InvariantCulture, out float u1)) {
                     result = new Vector2(u1, 0f);

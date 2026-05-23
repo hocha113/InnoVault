@@ -23,7 +23,7 @@ namespace InnoVault.GameSystem
     /// </summary>
     public class PlayerRebuildLoader : ModPlayer, IVaultLoader
     {
-#pragma warning disable CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning disable CS1591 //缺少对公共可见类型或成员的 XML 注释
         public delegate void On_ModifyHitNPCWithItem_Dalegate(Player player, Item item, NPC target, ref NPC.HitModifiers modifiers);
         public delegate void On_ModifyHitNPCWithProj_Dalegate(Player player, Projectile proj, NPC target, ref NPC.HitModifiers modifiers);
         public delegate bool On_CanHitNPC_Dalegate(Player player, NPC target);
@@ -476,7 +476,7 @@ namespace InnoVault.GameSystem
 
                 if (origResult && hasOverride) {//物品全局钩子有限级高于物品指向钩子
                     bool result = true;
-                    // 为保持一致，也做一次快照
+                    //为保持一致，也做一次快照
                     var overrideSnapshot = itemOverrides.Values.ToArray();
                     foreach (var value in overrideSnapshot) {
                         bool newResult = value.On_PreEmitUseVisuals(sItem, player, ref itemRectangle);
@@ -590,6 +590,6 @@ namespace InnoVault.GameSystem
 
             return true;
         }
-#pragma warning restore CS1591 // 缺少对公共可见类型或成员的 XML 注释
+#pragma warning restore CS1591 //缺少对公共可见类型或成员的 XML 注释
     }
 }
