@@ -3,6 +3,7 @@ using InnoVault.Models3D.Runtime;
 using InnoVault.Models3D.Skinning;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using ReLogic.Content;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -73,7 +74,7 @@ namespace InnoVault.Models3D.Gltf
             //计算每个节点的"祖先到自身"的世界矩阵，构造时需要用到
             Matrix[] nodeWorld = BuildNodeWorldMatrices(doc);
 
-            Dictionary<string, Model3DMaterial> materials = BuildMaterials(doc);
+            Dictionary<string, Model3DMaterial> materials = BuildMaterials(doc, mod, baseDir, diagnostic, gltfPath);
 
             //是否走"蒙皮模式"——只要导入开关开启且文档里有 skin 就启用，
             //此时所有 primitive 都不会把 R = AxisFlip * ImportScale 烘焙到顶点，改成 RootTransform 应用
@@ -83,7 +84,7 @@ namespace InnoVault.Models3D.Gltf
             Dictionary<int, List<(int skeletonIndex, int jointIndex)>> nodeToJoint
                 = new Dictionary<int, List<(int, int)>>();
             if (hasSkins) {
-                BuildSkeletons(doc, accessorReader, diagnostic, gltfPath, skeletons, nodeToJoint);
+                BuildSkeletons(doc, accessorReader, diagnostic, gltfPath, nodeWorld, skeletons, nodeToJoint);
             }
 
             List<Model3DMeshGroup> groups = new List<Model3DMeshGroup>();
@@ -156,17 +157,20 @@ namespace InnoVault.Models3D.Gltf
             return buffers;
         }
 
-        private static Dictionary<string, Model3DMaterial> BuildMaterials(GltfDocument doc) {
+        private static Dictionary<string, Model3DMaterial> BuildMaterials(GltfDocument doc, Mod mod, string baseDir
+            , Model3DDiagnostic diagnostic, string source) {
             Dictionary<string, Model3DMaterial> materials = new Dictionary<string, Model3DMaterial>();
             for (int i = 0; i < doc.Materials.Count; i++) {
                 GltfMaterial src = doc.Materials[i];
                 string name = string.IsNullOrEmpty(src.Name) ? $"material_{i}" : src.Name;
                 Model3DMaterial material = new Model3DMaterial(name);
-                float[] factor = src.BaseColorFactor;
+
+                //颜色优先级：标准 baseColorFactor > KHR_materials_pbrSpecularGlossiness.diffuseFactor > 默认白
+                float[] factor = src.BaseColorFactor ?? src.SpecGlossDiffuseFactor;
                 float r = factor != null ? Clamp01(factor[0]) : 1f;
                 float g = factor != null ? Clamp01(factor[1]) : 1f;
                 float b = factor != null ? Clamp01(factor[2]) : 1f;
-                float a = factor != null ? Clamp01(factor[3]) : 1f;
+                float a = factor != null && factor.Length > 3 ? Clamp01(factor[3]) : 1f;
                 material.DiffuseColor = new Color(ToByte(r), ToByte(g), ToByte(b), 255);
                 material.Opacity = a;
                 if (src.DoubleSided) {
@@ -174,9 +178,69 @@ namespace InnoVault.Models3D.Gltf
                         Rasterizer = RasterizerState.CullNone,
                     };
                 }
+
+                //贴图优先级：标准 baseColorTexture > KHR_materials_pbrSpecularGlossiness.diffuseTexture
+                int textureIndex = src.BaseColorTextureIndex >= 0 ? src.BaseColorTextureIndex
+                    : src.SpecGlossDiffuseTextureIndex;
+                if (textureIndex >= 0) {
+                    TryAssignDiffuseTexture(doc, mod, baseDir, diagnostic, source, textureIndex, material);
+                }
+
                 materials[name] = material;
             }
             return materials;
+        }
+
+        //依据 texture/image 索引解析 mod 内资源路径并加载贴图；找不到则只警告，颜色作为兜底
+        private static void TryAssignDiffuseTexture(GltfDocument doc, Mod mod, string baseDir, Model3DDiagnostic diagnostic
+            , string source, int textureIndex, Model3DMaterial material) {
+            if ((uint)textureIndex >= (uint)doc.Textures.Count) {
+                diagnostic.Warn(source, 0, $"Material '{material.Name}' references invalid texture index {textureIndex}");
+                return;
+            }
+            GltfTexture texture = doc.Textures[textureIndex];
+            if ((uint)texture.Source >= (uint)doc.Images.Count) {
+                diagnostic.Warn(source, 0, $"Texture {textureIndex} references invalid image index {texture.Source}");
+                return;
+            }
+            GltfImage image = doc.Images[texture.Source];
+            if (string.IsNullOrEmpty(image.Uri)) {
+                diagnostic.Warn(source, 0
+                    , $"Image {texture.Source} is embedded (mime '{image.MimeType}'); embedded images are not supported");
+                return;
+            }
+            if (image.Uri.StartsWith("data:", StringComparison.OrdinalIgnoreCase)) {
+                diagnostic.Warn(source, 0, $"Image {texture.Source} uses data URI; embedded images are not supported");
+                return;
+            }
+
+            string texturePath = ResolveRelativePath(baseDir, image.Uri);
+            string assetPath = StripExtension(texturePath);
+            try {
+                if (!mod.HasAsset(assetPath)) {
+                    diagnostic.Warn(source, 0
+                        , $"Diffuse texture not found as asset: '{assetPath}' (referenced by '{image.Uri}')");
+                    return;
+                }
+                Asset<Texture2D> asset = mod.Assets.Request<Texture2D>(assetPath, AssetRequestMode.ImmediateLoad);
+                if (asset?.Value == null) {
+                    diagnostic.Warn(source, 0, $"Failed to resolve diffuse texture asset: '{assetPath}'");
+                    return;
+                }
+                material.DiffuseTexture = asset.Value;
+                material.DiffuseTexturePath = assetPath;
+            } catch (Exception ex) {
+                diagnostic.Warn(source, 0, $"Failed to request diffuse texture '{assetPath}': {ex.Message}");
+            }
+        }
+
+        private static string StripExtension(string path) {
+            if (string.IsNullOrEmpty(path)) {
+                return string.Empty;
+            }
+            int dot = path.LastIndexOf('.');
+            int slash = path.LastIndexOf('/');
+            return dot > slash && dot >= 0 ? path.Substring(0, dot) : path;
         }
 
         //预先把每个节点的"无 R/无 ImportScale"世界矩阵计算出来，供非蒙皮 primitive 和动画的可能参考使用
@@ -228,7 +292,7 @@ namespace InnoVault.Models3D.Gltf
         }
 
         private static void BuildSkeletons(GltfDocument doc, AccessorReader reader
-            , Model3DDiagnostic diagnostic, string source
+            , Model3DDiagnostic diagnostic, string source, Matrix[] nodeWorld
             , List<Model3DSkeleton> skeletons
             , Dictionary<int, List<(int skeletonIndex, int jointIndex)>> nodeToJoint) {
 
@@ -256,6 +320,7 @@ namespace InnoVault.Models3D.Gltf
 
                 Model3DJoint[] joints = new Model3DJoint[jointCount];
                 int[] parents = new int[jointCount];
+                Matrix[] rootAncestors = new Matrix[jointCount];
                 for (int j = 0; j < jointCount; j++) {
                     int nodeIndex = skin.Joints[j];
                     GltfNode node = (uint)nodeIndex < (uint)doc.Nodes.Count
@@ -273,6 +338,16 @@ namespace InnoVault.Models3D.Gltf
                         parentIndex = parentJoint;
                     }
                     parents[j] = parentIndex;
+
+                    //记录场景图父节点（注意是 glTF 节点，不是 joint 集合内）的世界矩阵
+                    //——只在 root joint（parents[j] < 0）时被消费，但所有 joint 都填，方便后续扩展
+                    Matrix prefix = Matrix.Identity;
+                    if (nodeParent.TryGetValue(nodeIndex, out int parentNodeIdx)
+                        && nodeWorld != null
+                        && (uint)parentNodeIdx < (uint)nodeWorld.Length) {
+                        prefix = nodeWorld[parentNodeIdx];
+                    }
+                    rootAncestors[j] = prefix;
 
                     if (!nodeToJoint.TryGetValue(nodeIndex, out var list)) {
                         list = new List<(int, int)>(1);
@@ -300,7 +375,7 @@ namespace InnoVault.Models3D.Gltf
                     }
                 }
 
-                skeletons.Add(new Model3DSkeleton(skin.Name, s, joints, parents, ibm));
+                skeletons.Add(new Model3DSkeleton(skin.Name, s, joints, parents, ibm, rootAncestors));
             }
         }
 

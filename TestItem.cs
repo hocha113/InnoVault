@@ -249,7 +249,9 @@ namespace InnoVault
             if (ScrollModel != null && ScrollModel.IsValid && ScrollModel.IsSkinned) {
                 _scrollInstance ??= new Model3DInstance(ScrollModel) {
                     Animation = new AnimationPlayer(ScrollModel) { Loop = true, Speed = 1f },
-                    Scale = new Vector3(28f),
+                    //修复 root joint 静态祖先矩阵后 bind 顶点回到 glTF 自带 0.167 缩放空间，
+                    //需要把展示尺寸放大约 6x 才能保持原先的视觉大小
+                    Scale = new Vector3(170f),
                     Tint = Color.White,
                     LightingEnabled = true,
                     Layer = Model3DLayer.AfterPlayers,
@@ -273,9 +275,9 @@ namespace InnoVault
                 }
                 _scrollAltLatch = altDown;
 
-                Vector2 scrollPos = player.Center + new Vector2(180f, -120f);
+                Vector2 scrollPos = player.Center + new Vector2(180f, 620f);
                 _scrollInstance.Position = scrollPos;
-                _scrollInstance.Rotation = new Vector3(0f, 0.2f, 0f);
+                _scrollInstance.Rotation = new Vector3(1f, 0.6f, 0f);
                 _scrollInstance.LightingOverride = BuildCursorLighting(scrollPos, Main.MouseWorld);
                 Model3DRenderer.Submit(_scrollInstance);
             }

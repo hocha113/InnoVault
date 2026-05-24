@@ -46,6 +46,14 @@ namespace InnoVault.Models3D.Skinning
         /// 用于动画采样后逐 joint 计算 global matrix 时保证父矩阵已经就绪
         /// </summary>
         public int[] EvaluationOrder { get; }
+        /// <summary>
+        /// 每根骨骼对应的"场景图父节点世界矩阵"
+        /// <br/>仅对 root joint（<see cref="ParentIndices"/>[j] &lt; 0）有意义：用作 jointGlobal 计算的起点
+        /// <br/>非 root joint 此值不会被消费；构造时未提供则填充单位阵
+        /// <br/>该矩阵把"skin.joints 集合之外的祖先链"上的静态 TRS 与轴向（如 glTF 的 Y-up↔Z-up）保留进来，
+        /// 保证蒙皮结果与 <see cref="InverseBindMatrices"/> 处于同一 scene-root 空间
+        /// </summary>
+        public Matrix[] RootAncestorMatrices { get; }
 
         /// <summary>
         /// 骨骼数量
@@ -56,20 +64,37 @@ namespace InnoVault.Models3D.Skinning
         /// <summary>
         /// 构造一个骨架
         /// <br/>三个数组长度应保持一致；任意为 <see langword="null"/> 时会被替换为空数组
+        /// <br/><paramref name="rootAncestorMatrices"/> 为可选参数：缺省时会按 joint 数量填充单位阵，
+        /// 保持与旧调用方的向后兼容
         /// </summary>
         /// <param name="name">骨架名</param>
         /// <param name="index">在 <see cref="Runtime.Vault3DModel.Skeletons"/> 中的索引</param>
         /// <param name="joints">骨骼数组</param>
         /// <param name="parentIndices">父骨骼索引</param>
         /// <param name="inverseBindMatrices">逆绑定矩阵</param>
+        /// <param name="rootAncestorMatrices">每根 root joint 的场景图静态祖先矩阵，缺省 = 单位阵</param>
         public Model3DSkeleton(string name, int index
-            , Model3DJoint[] joints, int[] parentIndices, Matrix[] inverseBindMatrices) {
+            , Model3DJoint[] joints, int[] parentIndices, Matrix[] inverseBindMatrices
+            , Matrix[] rootAncestorMatrices = null) {
             Name = name ?? string.Empty;
             Index = index;
             Joints = joints ?? Array.Empty<Model3DJoint>();
             ParentIndices = parentIndices ?? Array.Empty<int>();
             InverseBindMatrices = inverseBindMatrices ?? Array.Empty<Matrix>();
             EvaluationOrder = BuildEvaluationOrder(ParentIndices);
+            RootAncestorMatrices = NormalizeRootAncestors(rootAncestorMatrices, Joints.Length);
+        }
+
+        //当外部未提供（或长度不符）祖先矩阵时，回落到全单位阵：等价于旧行为，保持向后兼容
+        private static Matrix[] NormalizeRootAncestors(Matrix[] provided, int jointCount) {
+            if (provided != null && provided.Length == jointCount) {
+                return provided;
+            }
+            Matrix[] result = new Matrix[jointCount];
+            for (int i = 0; i < jointCount; i++) {
+                result[i] = Matrix.Identity;
+            }
+            return result;
         }
 
         //深度优先：从所有根（parent < 0）开始递归把节点加入序列，保证父总在子之前

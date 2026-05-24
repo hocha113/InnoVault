@@ -15,6 +15,8 @@ namespace InnoVault.Models3D.Gltf
         public List<GltfScene> Scenes { get; } = new();
         public List<GltfSkin> Skins { get; } = new();
         public List<GltfAnimation> Animations { get; } = new();
+        public List<GltfImage> Images { get; } = new();
+        public List<GltfTexture> Textures { get; } = new();
         public int SceneIndex { get; private set; }
 
         public static GltfDocument Parse(string json, Model3DDiagnostic diagnostic, string source) {
@@ -57,11 +59,15 @@ namespace InnoVault.Models3D.Gltf
             foreach (JToken token in root["materials"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 JObject pbr = obj["pbrMetallicRoughness"] as JObject;
+                JObject extensions = obj["extensions"] as JObject;
+                JObject specGloss = extensions?["KHR_materials_pbrSpecularGlossiness"] as JObject;
                 doc.Materials.Add(new GltfMaterial {
                     Name = ReadString(obj["name"]),
                     DoubleSided = ReadBool(obj["doubleSided"], false),
                     BaseColorFactor = ReadFloatArray(pbr?["baseColorFactor"], 4),
                     BaseColorTextureIndex = ReadInt(pbr?["baseColorTexture"]?["index"], -1),
+                    SpecGlossDiffuseFactor = ReadFloatArray(specGloss?["diffuseFactor"], 4),
+                    SpecGlossDiffuseTextureIndex = ReadInt(specGloss?["diffuseTexture"]?["index"], -1),
                 });
             }
 
@@ -129,6 +135,23 @@ namespace InnoVault.Models3D.Gltf
                 doc.Skins.Add(skin);
             }
 
+            foreach (JToken token in root["images"] as JArray ?? new JArray()) {
+                JObject obj = (JObject)token;
+                doc.Images.Add(new GltfImage {
+                    Uri = ReadString(obj["uri"]),
+                    MimeType = ReadString(obj["mimeType"]),
+                    BufferView = ReadInt(obj["bufferView"], -1),
+                });
+            }
+
+            foreach (JToken token in root["textures"] as JArray ?? new JArray()) {
+                JObject obj = (JObject)token;
+                doc.Textures.Add(new GltfTexture {
+                    Source = ReadInt(obj["source"], -1),
+                    Sampler = ReadInt(obj["sampler"], -1),
+                });
+            }
+
             foreach (JToken token in root["animations"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 GltfAnimation anim = new GltfAnimation {
@@ -155,10 +178,33 @@ namespace InnoVault.Models3D.Gltf
             }
 
             if (root["extensionsRequired"] is JArray required && required.Count > 0) {
-                diagnostic?.Warn(source, 0, $"glTF declares required extensions that are not implemented: {string.Join(", ", required)}");
+                //本导入器已支持的扩展白名单：解析逻辑分散在材质/贴图等子段，不再为这些名字报警
+                List<string> unsupported = new List<string>();
+                for (int i = 0; i < required.Count; i++) {
+                    string name = required[i]?.Value<string>() ?? string.Empty;
+                    if (IsSupportedExtension(name)) {
+                        continue;
+                    }
+                    unsupported.Add(name);
+                }
+                if (unsupported.Count > 0) {
+                    diagnostic?.Warn(source, 0
+                        , $"glTF declares required extensions that are not implemented: {string.Join(", ", unsupported)}");
+                }
             }
 
             return doc;
+        }
+
+        //当前导入器已经能消费（或确认无副作用）的 glTF 扩展白名单
+        private static bool IsSupportedExtension(string name) {
+            switch (name) {
+                case "KHR_materials_pbrSpecularGlossiness":   //在 GltfMaterial 中读 diffuseTexture/diffuseFactor
+                case "KHR_materials_emissive_strength":       //emissive 暂不消费但不影响其他通路
+                    return true;
+                default:
+                    return false;
+            }
         }
 
         private static int ReadInt(JToken token, int fallback) {
@@ -216,6 +262,23 @@ namespace InnoVault.Models3D.Gltf
         public bool DoubleSided;
         public float[] BaseColorFactor;
         public int BaseColorTextureIndex;
+        //KHR_materials_pbrSpecularGlossiness 扩展中 diffuse 的 4 维 RGBA 因子，主要用作贴图缺失时的兜底颜色
+        public float[] SpecGlossDiffuseFactor;
+        //KHR_materials_pbrSpecularGlossiness.diffuseTexture.index，未设置为 -1
+        public int SpecGlossDiffuseTextureIndex;
+    }
+
+    internal sealed class GltfImage
+    {
+        public string Uri;
+        public string MimeType;
+        public int BufferView;
+    }
+
+    internal sealed class GltfTexture
+    {
+        public int Source;
+        public int Sampler;
     }
 
     internal sealed class GltfMesh

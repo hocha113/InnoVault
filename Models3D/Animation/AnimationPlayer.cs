@@ -334,11 +334,15 @@ namespace InnoVault.Models3D.Animation
             }
             //按 EvaluationOrder 遍历可以保证父矩阵先被计算
             int[] order = skel.EvaluationOrder;
+            Matrix[] prefixes = skel.RootAncestorMatrices;
             for (int k = 0; k < order.Length; k++) {
                 int j = order[k];
                 int parent = skel.ParentIndices[j];
                 if (parent < 0 || parent >= count) {
-                    global[j] = local[j];
+                    //root joint：起点是场景图中"非 joint 祖先链"的世界矩阵
+                    //——XNA row-vector 约定下，global = local * prefix，保证蒙皮结果与 IBM 同处 scene-root 空间
+                    Matrix prefix = prefixes != null && (uint)j < (uint)prefixes.Length ? prefixes[j] : Matrix.Identity;
+                    global[j] = local[j] * prefix;
                 }
                 else {
                     global[j] = local[j] * global[parent];
