@@ -159,7 +159,7 @@ namespace InnoVault.Debugs
 
         private void HandleDragging(Vector2 mousePos) {
             if (hoveringIndicator && !hoveringCloseAll &&
-                UIHandleLoader.keyLeftPressState == KeyPressState.Pressed && !isDragging &&
+                UIHandleLoader.keyRightPressState == KeyPressState.Pressed && !isDragging &&
                 (UIHandleLoader.CurrentDragOwner == null || UIHandleLoader.CurrentDragOwner == this)) {
                 isDragging = true;
                 UIHandleLoader.CurrentDragOwner = this;
@@ -169,7 +169,7 @@ namespace InnoVault.Debugs
 
             if (isDragging) {
                 DrawPosition = mousePos + dragOffset;
-                if (UIHandleLoader.keyLeftPressState == KeyPressState.Released || UIHandleLoader.keyLeftPressState == KeyPressState.None) {
+                if (UIHandleLoader.keyRightPressState == KeyPressState.Released || UIHandleLoader.keyRightPressState == KeyPressState.None) {
                     EndDragging();
                 }
             }
@@ -192,7 +192,7 @@ namespace InnoVault.Debugs
                 SoundEngine.PlaySound(SoundID.MenuClose);
             }
             else if (hoveringIndicator && !isDragging) {
-                Toggle();
+                DeveloperPanelUI.Instance?.Toggle();
             }
         }
 
