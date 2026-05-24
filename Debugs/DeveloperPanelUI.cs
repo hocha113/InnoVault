@@ -159,7 +159,7 @@ namespace InnoVault.Debugs
 
         private void HandleDragging(Vector2 mousePos) {
             if (hoveringIndicator && !hoveringCloseAll &&
-                UIHandleLoader.keyRightPressState == KeyPressState.Pressed && !isDragging &&
+                UIHandleLoader.keyLeftPressState == KeyPressState.Pressed && !isDragging &&
                 (UIHandleLoader.CurrentDragOwner == null || UIHandleLoader.CurrentDragOwner == this)) {
                 isDragging = true;
                 UIHandleLoader.CurrentDragOwner = this;
@@ -169,7 +169,7 @@ namespace InnoVault.Debugs
 
             if (isDragging) {
                 DrawPosition = mousePos + dragOffset;
-                if (UIHandleLoader.keyRightPressState == KeyPressState.Released || UIHandleLoader.keyRightPressState == KeyPressState.None) {
+                if (UIHandleLoader.keyLeftPressState == KeyPressState.Released || UIHandleLoader.keyLeftPressState == KeyPressState.None) {
                     EndDragging();
                 }
             }
@@ -183,7 +183,7 @@ namespace InnoVault.Debugs
         }
 
         private void HandleClicks() {
-            if (UIHandleLoader.keyLeftPressState != KeyPressState.Pressed) {
+            if (UIHandleLoader.keyRightPressState != KeyPressState.Pressed) {
                 return;
             }
 
