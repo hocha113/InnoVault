@@ -129,7 +129,7 @@ namespace InnoVault.Debugs
         private bool isDragging;
         private Vector2 dragOffset;
 
-        public override bool Active => DebugSettings.AnyDebugEnabled && !DeveloperPanelUI.Instance.IsPanelOpen;
+        public override bool Active => DebugSettings.AnyDebugEnabled && !DeveloperPanelUI.Instance.Active;
 
         public override void OnEnterWorld() {
             DrawPosition = new Vector2(Main.screenWidth - IndicatorWidth - 20, 100);
@@ -159,17 +159,26 @@ namespace InnoVault.Debugs
 
         private void HandleDragging(Vector2 mousePos) {
             if (hoveringIndicator && !hoveringCloseAll &&
-                UIHandleLoader.keyLeftPressState == KeyPressState.Pressed && !isDragging) {
+                UIHandleLoader.keyLeftPressState == KeyPressState.Pressed && !isDragging &&
+                (UIHandleLoader.CurrentDragOwner == null || UIHandleLoader.CurrentDragOwner == this)) {
                 isDragging = true;
+                UIHandleLoader.CurrentDragOwner = this;
                 dragOffset = DrawPosition - mousePos;
                 SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
             }
 
             if (isDragging) {
                 DrawPosition = mousePos + dragOffset;
-                if (UIHandleLoader.keyLeftPressState == KeyPressState.Released) {
-                    isDragging = false;
+                if (UIHandleLoader.keyLeftPressState == KeyPressState.Released || UIHandleLoader.keyLeftPressState == KeyPressState.None) {
+                    EndDragging();
                 }
+            }
+        }
+
+        private void EndDragging() {
+            isDragging = false;
+            if (UIHandleLoader.CurrentDragOwner == this) {
+                UIHandleLoader.CurrentDragOwner = null;
             }
         }
 
@@ -183,7 +192,7 @@ namespace InnoVault.Debugs
                 SoundEngine.PlaySound(SoundID.MenuClose);
             }
             else if (hoveringIndicator && !isDragging) {
-                DeveloperPanelUI.Instance.TogglePanel();
+                Toggle();
             }
         }
 
@@ -237,10 +246,11 @@ namespace InnoVault.Debugs
 
         public static DeveloperPanelUI Instance => UIHandleLoader.GetUIHandleOfType<DeveloperPanelUI>();
 
-        public bool IsPanelOpen;
-        public override bool Active => IsPanelOpen || uiFadeAlpha > 0;
-
-        private float uiFadeAlpha;
+        public bool IsPanelOpen => IsOpen;
+        private float uiFadeAlpha => OpenProgress.Current;
+        public override bool CloseOnEscape => true;
+        public override SoundStyle? OpenSound => SoundID.MenuOpen;
+        public override SoundStyle? CloseSound => SoundID.MenuClose;
 
         private bool isDragging;
         private Vector2 dragOffset;
@@ -323,32 +333,26 @@ namespace InnoVault.Debugs
             currentTabIndex = 0;
         }
 
-        public void TogglePanel() {
-            IsPanelOpen = !IsPanelOpen;
-            if (IsPanelOpen) {
-                DrawPosition = new Vector2(Main.screenWidth / 2, Main.screenHeight / 2);
-                if (tabs.Count == 0) {
-                    InitializeTabs();
-                }
-                foreach (var tab in tabs) {
-                    tab.Initialize();
-                }
+        protected override void OnOpen() {
+            DrawPosition = new Vector2(Main.screenWidth / 2, Main.screenHeight / 2);
+            if (tabs.Count == 0) {
+                InitializeTabs();
+            }
+            foreach (var tab in tabs) {
+                tab.Initialize();
             }
         }
 
-        public override void Update() {
-            if (IsPanelOpen) {
-                uiFadeAlpha = Math.Min(1f, uiFadeAlpha + 0.12f);
-            }
-            else {
-                uiFadeAlpha = Math.Max(0f, uiFadeAlpha - 0.12f);
-            }
+        protected override void OnClose() {
+            EndDragging();
+            hoveringTab = -1;
+            hoveringCheckbox = -1;
+        }
 
+        public override void Update() {
             if (uiFadeAlpha < 0.01f) {
                 return;
             }
-
-            HandleDragging();
 
             DrawPosition.X = MathHelper.Clamp(DrawPosition.X, PanelWidth / 2 + 10, Main.screenWidth - PanelWidth / 2 - 10);
             DrawPosition.Y = MathHelper.Clamp(DrawPosition.Y, PanelHeight / 2 + 10, Main.screenHeight - PanelHeight / 2 - 10);
@@ -363,27 +367,51 @@ namespace InnoVault.Debugs
             if (glowTimer > MathHelper.TwoPi) glowTimer -= MathHelper.TwoPi;
             if (dataFlowTimer > MathHelper.TwoPi) dataFlowTimer -= MathHelper.TwoPi;
 
+            Vector2 mousePos = new(Main.mouseX, Main.mouseY);
+            UpdateLayout();
+            UpdateHoverStates(mousePos);
+            HandleDragging(mousePos);
+            if (isDragging) {
+                DrawPosition.X = MathHelper.Clamp(DrawPosition.X, PanelWidth / 2 + 10, Main.screenWidth - PanelWidth / 2 - 10);
+                DrawPosition.Y = MathHelper.Clamp(DrawPosition.Y, PanelHeight / 2 + 10, Main.screenHeight - PanelHeight / 2 - 10);
+                UpdateLayout();
+                UpdateHoverStates(mousePos);
+            }
+
+            if (hoveringPanel) {
+                player.mouseInterface = true;
+            }
+
+            if (IsOpen) {
+                HandleButtonClicks();
+            }
+        }
+
+        private void UpdateLayout() {
             Vector2 topLeft = DrawPosition - new Vector2(PanelWidth / 2, PanelHeight / 2);
             panelRect = new Rectangle((int)topLeft.X, (int)topLeft.Y, (int)PanelWidth, (int)PanelHeight);
+            UIHitBox = panelRect;
             titleRect = new Rectangle(panelRect.X, panelRect.Y, panelRect.Width, (int)TitleHeight);
             tabBarRect = new Rectangle(panelRect.X, panelRect.Y + (int)TitleHeight, panelRect.Width, (int)TabHeight);
             contentRect = new Rectangle(panelRect.X + 15, tabBarRect.Bottom + 10, panelRect.Width - 30, panelRect.Height - (int)TitleHeight - (int)TabHeight - 60);
             closeButtonRect = new Rectangle(panelRect.Right - 35, panelRect.Y + 10, 25, 25);
             resetButtonRect = new Rectangle(panelRect.X + 15, panelRect.Bottom - 40, 80, 28);
             resetAllButtonRect = new Rectangle(panelRect.X + 105, panelRect.Bottom - 40, 90, 28);
-
             UpdateTabRects();
+        }
 
-            Vector2 mousePos = new(Main.mouseX, Main.mouseY);
-            hoveringPanel = panelRect.Contains(mousePos.ToPoint());
-            hoveringCloseButton = closeButtonRect.Contains(mousePos.ToPoint()) && !isDragging;
-            hoveringResetButton = resetButtonRect.Contains(mousePos.ToPoint()) && !isDragging;
-            hoveringResetAllButton = resetAllButtonRect.Contains(mousePos.ToPoint()) && !isDragging;
+        private void UpdateHoverStates(Vector2 mousePos) {
+            Point mousePoint = mousePos.ToPoint();
+            hoveringPanel = panelRect.Contains(mousePoint);
+            hoverInMainPage = hoveringPanel;
+            hoveringCloseButton = closeButtonRect.Contains(mousePoint) && !isDragging;
+            hoveringResetButton = resetButtonRect.Contains(mousePoint) && !isDragging;
+            hoveringResetAllButton = resetAllButtonRect.Contains(mousePoint) && !isDragging;
 
             hoveringTab = -1;
             if (!isDragging) {
                 for (int i = 0; i < tabRects.Count; i++) {
-                    if (tabRects[i].Contains(mousePos.ToPoint())) {
+                    if (tabRects[i].Contains(mousePoint)) {
                         hoveringTab = i;
                         break;
                     }
@@ -396,18 +424,12 @@ namespace InnoVault.Debugs
                 int checkboxY = contentRect.Y + 5;
                 for (int i = 0; i < currentTab.Checkboxes.Count; i++) {
                     Rectangle checkboxRect = new(contentRect.X, checkboxY + i * 38, contentRect.Width, 34);
-                    if (checkboxRect.Contains(mousePos.ToPoint())) {
+                    if (checkboxRect.Contains(mousePoint)) {
                         hoveringCheckbox = i;
                         break;
                     }
                 }
             }
-
-            if (hoveringPanel) {
-                player.mouseInterface = true;
-            }
-
-            HandleButtonClicks();
         }
 
         private void UpdateTabRects() {
@@ -420,13 +442,13 @@ namespace InnoVault.Debugs
             }
         }
 
-        private void HandleDragging() {
-            Vector2 mousePos = new(Main.mouseX, Main.mouseY);
-
+        private void HandleDragging(Vector2 mousePos) {
             if (hoveringPanel && !hoveringCloseButton && !hoveringResetButton && !hoveringResetAllButton && hoveringTab < 0 && hoveringCheckbox < 0 &&
-                UIHandleLoader.keyLeftPressState == KeyPressState.Pressed && !isDragging) {
+                UIHandleLoader.keyLeftPressState == KeyPressState.Pressed && !isDragging &&
+                (UIHandleLoader.CurrentDragOwner == null || UIHandleLoader.CurrentDragOwner == this)) {
                 if (titleRect.Contains(mousePos.ToPoint())) {
                     isDragging = true;
+                    UIHandleLoader.CurrentDragOwner = this;
                     dragOffset = DrawPosition - mousePos;
                     SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
                 }
@@ -434,10 +456,21 @@ namespace InnoVault.Debugs
 
             if (isDragging) {
                 DrawPosition = mousePos + dragOffset;
-                if (UIHandleLoader.keyLeftPressState == KeyPressState.Released) {
-                    isDragging = false;
-                    SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
+                if (UIHandleLoader.keyLeftPressState == KeyPressState.Released || UIHandleLoader.keyLeftPressState == KeyPressState.None) {
+                    EndDragging(playSound: true);
                 }
+            }
+        }
+
+        private void EndDragging(bool playSound = false) {
+            bool wasDragging = isDragging;
+            isDragging = false;
+            if (UIHandleLoader.CurrentDragOwner == this) {
+                UIHandleLoader.CurrentDragOwner = null;
+            }
+
+            if (playSound && wasDragging) {
+                SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
             }
         }
 
@@ -447,8 +480,7 @@ namespace InnoVault.Debugs
             }
 
             if (hoveringCloseButton) {
-                IsPanelOpen = false;
-                SoundEngine.PlaySound(SoundID.MenuClose);
+                Close();
             }
             else if (hoveringResetAllButton) {
                 DebugSettings.ResetAll();

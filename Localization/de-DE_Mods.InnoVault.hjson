@@ -55,8 +55,8 @@ UI: {
 		ActorShowIDText: ID anzeigen
 		ActorShowVelocityText: Geschwindigkeit anz.
 		ResetText: Reset
-		// StateMachineTabText: StateMachine
-		// StateMachineOverlayText: FSM Overlay
-		// BehaviorTreeOverlayText: BT Overlay
+		StateMachineTabText: Zustandsmaschine
+		StateMachineOverlayText: FSM-Overlay
+		BehaviorTreeOverlayText: Verhaltensbaum-Overlay
 	}
 }
