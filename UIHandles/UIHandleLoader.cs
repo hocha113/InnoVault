@@ -5,6 +5,7 @@ using Mono.Cecil.Cil;
 using MonoMod.Cil;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
 using Terraria;
@@ -125,18 +126,49 @@ namespace InnoVault.UIHandles
         /// - 60FPS 时约为 1<br/>
         /// - 144FPS 时约为 0.42<br/>
         /// - 30FPS 时约为 2<br/>
-        /// 为防止极端帧率（窗口最小化/卡顿）跳变动画，会被钳制到 [0.05, 5] 范围
+        /// 为防止极端帧率（窗口最小化/卡顿）跳变动画，会被钳制到 [0.05, 5] 范围<br/>
+        /// <br/>
+        /// 实现说明：基于 <see cref="Stopwatch"/> 的真实墙钟时间测量，独立于 <see cref="Main.gameTimeCache"/>。<br/>
+        /// 这是因为 <see cref="Main.gameTimeCache"/> 反映的是 Update 流水线的固定 1/60s 步长，<br/>
+        /// 而 UI 动画的实际驱动 (<see cref="UIHandle.BuiltinPreUpdate"/>) 跟随 Draw 流水线触发；<br/>
+        /// 主菜单 (<see cref="LayersModeEnum.Mod_MenuLoad"/>) 等场景下 Draw 频率不一定等于 60Hz，<br/>
+        /// 若仍取 <see cref="Main.gameTimeCache"/> 会导致 <see cref="AnimatedFloat"/> 的指数补偿失效。<br/>
+        /// <br/>
+        /// 缓存窗口：同一帧内多个UI / 多个 Layer 多次读取该属性返回相同值，<br/>
+        /// 避免"实际帧时长"被分摊到多个调用者从而每次只读到极小数值
         /// </summary>
         public static float CurrentFrameDelta {
             get {
-                GameTime gt = Main.gameTimeCache;
-                if (gt == null) {
-                    return 1f;
+                long now = _frameStopwatch.ElapsedTicks;
+                //同帧内多次读取直接返回缓存值，保证多个UI/Layer看到的是同一个帧时长
+                if (now < _cachedFrameExpiryTicks) {
+                    return _cachedFrameDelta;
                 }
-                float dt = (float)gt.ElapsedGameTime.TotalSeconds;
-                return MathHelper.Clamp(dt * 60f, 0.05f, 5f);
+
+                long lastTicks = _lastFrameTicks;
+                _lastFrameTicks = now;
+
+                //首次调用 (lastTicks == 0) 返回安全默认值，避免把"从游戏启动到现在"的时长一次性吃进去
+                if (lastTicks == 0) {
+                    _cachedFrameDelta = 1f;
+                }
+                else {
+                    double seconds = (now - lastTicks) / (double)Stopwatch.Frequency;
+                    _cachedFrameDelta = MathHelper.Clamp((float)(seconds * 60.0), 0.05f, 5f);
+                }
+
+                //缓存窗口设为 1ms，足以覆盖同一 Draw 调用内所有UI/Layer的迭代，
+                //且远小于常见显示器刷新率（60~240Hz 即 16.67~4.17ms）
+                _cachedFrameExpiryTicks = now + Stopwatch.Frequency / 1000;
+                return _cachedFrameDelta;
             }
         }
+
+        //CurrentFrameDelta 的真实墙钟测量状态
+        private static readonly Stopwatch _frameStopwatch = Stopwatch.StartNew();
+        private static long _lastFrameTicks;
+        private static long _cachedFrameExpiryTicks;
+        private static float _cachedFrameDelta = 1f;
 
         /// <summary>
         /// 全局的 UI 处理器列表包含所有 UI 元素的处理器实例
@@ -392,6 +424,10 @@ namespace InnoVault.UIHandles
         /// <inheritdoc/>
         public override void Load() {
             menuUITickTimer.Reset();
+            //复位 CurrentFrameDelta 的墙钟测量状态，避免热重载后第一次读取吃掉一个超大时间差
+            _lastFrameTicks = 0;
+            _cachedFrameExpiryTicks = 0;
+            _cachedFrameDelta = 1f;
             UIModItemType = typeof(Main).Assembly.GetTypes().First(t => t.Name == "UIModItem");
             IL_Main.DrawMenu += IL_MenuLoadDraw_Hook;
             VaultHook.Add(UIModItemType.GetMethod("Draw", BindingFlags.Instance | BindingFlags.Public), On_UIModItem_DrawHook);
