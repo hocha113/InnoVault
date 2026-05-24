@@ -134,41 +134,28 @@ namespace InnoVault.UIHandles
         /// 主菜单 (<see cref="LayersModeEnum.Mod_MenuLoad"/>) 等场景下 Draw 频率不一定等于 60Hz，<br/>
         /// 若仍取 <see cref="Main.gameTimeCache"/> 会导致 <see cref="AnimatedFloat"/> 的指数补偿失效。<br/>
         /// <br/>
-        /// 缓存窗口：同一帧内多个UI / 多个 Layer 多次读取该属性返回相同值，<br/>
-        /// 避免"实际帧时长"被分摊到多个调用者从而每次只读到极小数值
+        /// 框架内部会按 <see cref="LayersModeEnum"/> 独立计算 delta，避免不同 UI Layer 互相消耗帧时长。<br/>
+        /// 该属性仅保留给外部调试 / 兼容读取；自动 UI 更新请使用内部按层计算的帧时长
         /// </summary>
-        public static float CurrentFrameDelta {
-            get {
-                long now = _frameStopwatch.ElapsedTicks;
-                //同帧内多次读取直接返回缓存值，保证多个UI/Layer看到的是同一个帧时长
-                if (now < _cachedFrameExpiryTicks) {
-                    return _cachedFrameDelta;
-                }
+        public static float CurrentFrameDelta => GetFrameDelta(LayersModeEnum.None);
 
-                long lastTicks = _lastFrameTicks;
-                _lastFrameTicks = now;
-
-                //首次调用 (lastTicks == 0) 返回安全默认值，避免把"从游戏启动到现在"的时长一次性吃进去
-                if (lastTicks == 0) {
-                    _cachedFrameDelta = 1f;
-                }
-                else {
-                    double seconds = (now - lastTicks) / (double)Stopwatch.Frequency;
-                    _cachedFrameDelta = MathHelper.Clamp((float)(seconds * 60.0), 0.05f, 5f);
-                }
-
-                //缓存窗口设为 1ms，足以覆盖同一 Draw 调用内所有UI/Layer的迭代，
-                //且远小于常见显示器刷新率（60~240Hz 即 16.67~4.17ms）
-                _cachedFrameExpiryTicks = now + Stopwatch.Frequency / 1000;
-                return _cachedFrameDelta;
-            }
-        }
-
-        //CurrentFrameDelta 的真实墙钟测量状态
+        //UI动画帧时长的真实墙钟测量状态，按 LayerMode 独立记录，避免不同绘制层互相消耗 delta
         private static readonly Stopwatch _frameStopwatch = Stopwatch.StartNew();
-        private static long _lastFrameTicks;
-        private static long _cachedFrameExpiryTicks;
-        private static float _cachedFrameDelta = 1f;
+        private static readonly Dictionary<LayersModeEnum, long> _lastFrameTicksByMode = [];
+
+        private static float GetFrameDelta(LayersModeEnum layersMode) {
+            long now = _frameStopwatch.ElapsedTicks;
+            _lastFrameTicksByMode.TryGetValue(layersMode, out long lastTicks);
+            _lastFrameTicksByMode[layersMode] = now;
+
+            //首次调用返回安全默认值，避免把"从游戏启动到现在"的时长一次性吃进动画
+            if (lastTicks == 0) {
+                return 1f;
+            }
+
+            double seconds = (now - lastTicks) / (double)Stopwatch.Frequency;
+            return MathHelper.Clamp((float)(seconds * 60.0), 0.05f, 5f);
+        }
 
         /// <summary>
         /// 全局的 UI 处理器列表包含所有 UI 元素的处理器实例
@@ -424,10 +411,8 @@ namespace InnoVault.UIHandles
         /// <inheritdoc/>
         public override void Load() {
             menuUITickTimer.Reset();
-            //复位 CurrentFrameDelta 的墙钟测量状态，避免热重载后第一次读取吃掉一个超大时间差
-            _lastFrameTicks = 0;
-            _cachedFrameExpiryTicks = 0;
-            _cachedFrameDelta = 1f;
+            //复位UI动画墙钟测量状态，避免热重载后第一次读取吃掉一个超大时间差
+            _lastFrameTicksByMode.Clear();
             UIModItemType = typeof(Main).Assembly.GetTypes().First(t => t.Name == "UIModItem");
             IL_Main.DrawMenu += IL_MenuLoadDraw_Hook;
             VaultHook.Add(UIModItemType.GetMethod("Draw", BindingFlags.Instance | BindingFlags.Public), On_UIModItem_DrawHook);
@@ -467,6 +452,7 @@ namespace InnoVault.UIHandles
             logicKeyLeftPressState = KeyPressState.None;
             logicKeyRightPressState = KeyPressState.None;
             logicKeyMiddlePressState = KeyPressState.None;
+            _lastFrameTicksByMode.Clear();
 
             LeftHeldEvent = null;
             LeftPressedEvent = null;
@@ -649,6 +635,10 @@ namespace InnoVault.UIHandles
         }
         /// <inheritdoc/>
         public static void UIHanderElementUpdate(UIHandle hander) {
+            UIHanderElementUpdateCore(hander, GetFrameDelta(hander.LayersMode));
+        }
+
+        private static void UIHanderElementUpdateCore(UIHandle hander, float frames) {
             if (hander.ignoreBug > 0) {
                 if (CurrentDragOwner == hander) {
                     hander.ForceEndDrag("error cooldown");
@@ -677,7 +667,6 @@ namespace InnoVault.UIHandles
                 if (reset) {
                     //驱动基类内置的悬停 / 拖拽 / ESC / 动画进度 / GlobalTimer
                     //放在用户 Update 之前，让用户 Update 中可以直接读到当前帧的 hoverInMainPage 与最新的 OpenProgress
-                    float frames = CurrentFrameDelta;
                     hander.BuiltinPreUpdate(frames);
                     hander.Update();
                     //在用户 Update 之后驱动依赖最新 hoverInMainPage 的状态量（HoverProgress 等）
@@ -715,8 +704,9 @@ namespace InnoVault.UIHandles
                 }
 
                 layers.Insert(index, new LegacyGameInterfaceLayer("UIHander: " + layerName, delegate {
+                    float frames = GetFrameDelta(layersMode);
                     for (int i = 0; i < Handers.Count; i++) {
-                        UIHanderElementUpdate(Handers[i]);
+                        UIHanderElementUpdateCore(Handers[i], frames);
                     }
                     return true;
                 }, InterfaceScaleType.UI));
@@ -827,8 +817,9 @@ namespace InnoVault.UIHandles
                 spriteBatch.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, SamplerState.LinearClamp
                     , DepthStencilState.None, RasterizerState.CullCounterClockwise, null, Main.UIScaleMatrix);
                 UpdateKeyState();
+                float frames = GetFrameDelta(LayersModeEnum.Mod_MenuLoad);
                 for (int i = 0; i < UIHandles_Mod_MenuLoad.Count; i++) {
-                    UIHanderElementUpdate(UIHandles_Mod_MenuLoad[i]);
+                    UIHanderElementUpdateCore(UIHandles_Mod_MenuLoad[i], frames);
                 }
                 foreach (var global in UIHandleGlobalHooks) {
                     global.PostUpdataInUIEverything();
@@ -843,8 +834,9 @@ namespace InnoVault.UIHandles
             orig.Invoke(instance, spriteBatch);
             if (Main.gameMenu && UIHandles_Mod_UIModItem != null && UIHandles_Mod_UIModItem.Count > 0) {
                 UpdateKeyState();
+                float frames = GetFrameDelta(LayersModeEnum.Mod_UIModItem);
                 for (int i = 0; i < UIHandles_Mod_UIModItem.Count; i++) {
-                    UIHanderElementUpdate(UIHandles_Mod_UIModItem[i]);
+                    UIHanderElementUpdateCore(UIHandles_Mod_UIModItem[i], frames);
                 }
                 foreach (var global in UIHandleGlobalHooks) {
                     global.PostUpdataInUIEverything();
