@@ -248,7 +248,10 @@ namespace InnoVault
             //右键按下时切换播放方向，并配 0.25s fade-in，能直观看到两个时间轴 blend 出来的过渡
             if (ScrollModel != null && ScrollModel.IsValid && ScrollModel.IsSkinned) {
                 _scrollInstance ??= new Model3DInstance(ScrollModel) {
-                    Animation = new AnimationPlayer(ScrollModel) { Loop = true, Speed = 1f },
+                    //"Take 001" 是闭→开→闭 风格的非循环 clip：用 Loop=false 让 Time 在两端自然停住，
+                    //避免 Loop=true 时在 t≈Duration 处取模 wrap 回 t=0 造成的"展开到最大后瞬移回关闭"闪现
+                    //方向由下面的右键 toggle 反转 Speed 来驱动
+                    Animation = new AnimationPlayer(ScrollModel) { Loop = false, Speed = 1f },
                     //修复 root joint 静态祖先矩阵后 bind 顶点回到 glTF 自带 0.167 缩放空间，
                     //需要把展示尺寸放大约 6x 才能保持原先的视觉大小
                     Scale = new Vector3(170f),

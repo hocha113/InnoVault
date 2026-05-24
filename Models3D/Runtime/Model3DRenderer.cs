@@ -565,8 +565,9 @@ namespace InnoVault.Models3D.Runtime
             float time = (float)Main.timeForVisualEffects;
 
             //驱动动画：渲染线程统一推进时间并采样姿态，调用方一般无需手动调
+            //per-player 追踪上次推进时刻，避免 multi-instance / 同帧多次 Draw 的"互相抢 delta"
             if (model.IsSkinned && instance.Animation != null) {
-                float deltaSeconds = ResolveDeltaSeconds();
+                float deltaSeconds = ResolveDeltaSeconds(instance.Animation);
                 instance.Animation.Update(deltaSeconds);
                 instance.Animation.SamplePose();
             }
@@ -747,17 +748,34 @@ namespace InnoVault.Models3D.Runtime
             return dst;
         }
 
-        //渲染线程的 delta time：优先用 Main.gameTimeCache（受 PauseScreen 影响，能与游戏物理同步），
-        //缺失时退化为 1/60 秒固定步长。值不会被负值或异常大值污染
-        private static float ResolveDeltaSeconds() {
+        //渲染线程的 delta time：用 Main.gameTimeCache.TotalGameTime 的差值（单调递增、稳定可靠）
+        //不用 ElapsedGameTime —— 实测在 Draw 阶段它经常是几微秒级别的脏值，会让动画几乎不前进
+        //per-player 追踪：同一 player 同帧被 Draw 多次时第二次起返回 0；不同 player 各自独立计算
+        //首帧 / 长卡顿 / Main.gameTimeCache 不可用时回退到 1/60 秒固定步长
+        private static float ResolveDeltaSeconds(Animation.AnimationPlayer player) {
+            const float FixedFallback = 1f / 60f;
             GameTime gt = Main.gameTimeCache;
-            if (gt != null) {
-                float dt = (float)gt.ElapsedGameTime.TotalSeconds;
-                if (dt > 0f && dt < 1f) {
-                    return dt;
-                }
+            if (gt == null || player == null) {
+                return FixedFallback;
             }
-            return 1f / 60f;
+            double total = gt.TotalGameTime.TotalSeconds;
+            double last = player.LastDriverTotalSeconds;
+            //首次调用：仅记录时刻，下一帧才开始推进，避免把"加载阶段累积的虚假大 delta"灌进动画
+            if (last < 0.0) {
+                player.LastDriverTotalSeconds = total;
+                return FixedFallback;
+            }
+            double delta = total - last;
+            //同帧（multi-Draw）或游戏暂停（TotalGameTime 不前进）→ 0，避免重复推进
+            if (delta <= 0.0) {
+                return 0f;
+            }
+            player.LastDriverTotalSeconds = total;
+            //长时间停留在加载界面 / 切换世界后单帧巨大跳变 → 兜底，避免一帧跨过整段动画
+            if (delta > 1.0) {
+                return FixedFallback;
+            }
+            return (float)delta;
         }
 
         /// <summary>

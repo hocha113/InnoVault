@@ -47,6 +47,26 @@ namespace InnoVault.Models3D.Animation
         public bool Paused;
 
         /// <summary>
+        /// 临时调试开关：开启后会通过 <see cref="VaultMod"/> 日志输出一次性的骨架/IBM/bindGlobal/skinMatrix 信息，
+        /// 并按帧间隔输出 Time 与 leaf joint 当前 TRS / skinMatrix，用于诊断"动画不动"类问题
+        /// <br/>非诊断场景下应保持 false
+        /// </summary>
+        public bool Diagnostic;
+
+        /// <summary>
+        /// 渲染器跨帧追踪的"上次推进时所用的全局时刻"，单位秒
+        /// <br/>由 <see cref="Runtime.Model3DRenderer.DrawInstance"/> 在调用 <see cref="Update"/> 之前
+        /// 写入，用差值方式得到稳定的 deltaSeconds。负值表示尚未被任何渲染帧驱动过
+        /// <br/>外部一般无需读写；仅在自己手动调度时用作"避免双倍推进"的开关
+        /// </summary>
+        public double LastDriverTotalSeconds = -1.0;
+        //诊断状态：首帧 dump 标记 + SamplePose 计数器
+        private bool _diagHeaderLogged;
+        private int _diagSampleCount;
+        //周期：每 N 次 SamplePose 打印一次"运行时摘要"，60 ≈ 1 秒
+        private const int DiagPeriodSamples = 60;
+
+        /// <summary>
         /// 上一段 Clip，仅在 cross-fade 期间非空
         /// </summary>
         public Model3DAnimationClip Previous { get; private set; }
@@ -267,7 +287,125 @@ namespace InnoVault.Models3D.Animation
                     , _localMatrices[s], _globalMatrices[s]);
                 BuildPalette(skel, _globalMatrices[s], _palettes[s]);
             }
+
+            if (Diagnostic) {
+                if (!_diagHeaderLogged) {
+                    LogDiagnosticHeader();
+                    _diagHeaderLogged = true;
+                }
+                if ((_diagSampleCount % DiagPeriodSamples) == 0) {
+                    LogDiagnosticTick();
+                }
+                _diagSampleCount++;
+            }
         }
+
+        //首帧一次性 dump：每骨架的 prefix / bindLocal / bindGlobal_ours / IBM / IBM*bindGlobal_ours
+        //如果 IBM*bindGlobal_ours 非单位阵，说明 bindGlobal 与 IBM 不在同一空间，蒙皮在 bind pose 就已经发生形变
+        private void LogDiagnosticHeader() {
+            VaultMod vm = VaultMod.Instance;
+            if (vm == null || vm.Logger == null) {
+                return;
+            }
+            int skelCount = Model?.Skeletons?.Count ?? 0;
+            string clipName = Current?.Name ?? "<null>";
+            float clipDur = Current?.Duration ?? 0f;
+            vm.Logger.Info(
+                $"[AnimPlayer DIAG] Header model='{Model?.Name}' skeletons={skelCount} clip='{clipName}' dur={clipDur:F3}s Speed={Speed} Loop={Loop}");
+
+            for (int s = 0; s < skelCount; s++) {
+                Model3DSkeleton skel = Model.Skeletons[s];
+                int jc = skel.JointCount;
+                vm.Logger.Info($"[AnimPlayer DIAG] Skel[{s}] name='{skel.Name}' jointCount={jc}");
+
+                Matrix[] bindLocals = new Matrix[jc];
+                Matrix[] bindGlobals = new Matrix[jc];
+                for (int j = 0; j < jc; j++) {
+                    Model3DJoint joint = skel.Joints[j];
+                    bindLocals[j] = Matrix.CreateScale(joint.BindScale)
+                        * Matrix.CreateFromQuaternion(joint.BindRotation)
+                        * Matrix.CreateTranslation(joint.BindTranslation);
+                }
+                int[] order = skel.EvaluationOrder;
+                Matrix[] prefixes = skel.RootAncestorMatrices;
+                for (int k = 0; k < order.Length; k++) {
+                    int j = order[k];
+                    int p = skel.ParentIndices[j];
+                    if (p < 0 || p >= jc) {
+                        Matrix prefix = prefixes != null && (uint)j < (uint)prefixes.Length ? prefixes[j] : Matrix.Identity;
+                        bindGlobals[j] = bindLocals[j] * prefix;
+                    }
+                    else {
+                        bindGlobals[j] = bindLocals[j] * bindGlobals[p];
+                    }
+                }
+
+                int leaf = jc - 1;
+                int[] inspect = jc switch {
+                    0 => Array.Empty<int>(),
+                    1 => new[] { 0 },
+                    2 => new[] { 0, 1 },
+                    _ => new[] { 0, 1, 2, leaf },
+                };
+                foreach (int j in inspect) {
+                    int p = skel.ParentIndices[j];
+                    Matrix ibm = skel.InverseBindMatrices[j];
+                    Matrix bg = bindGlobals[j];
+                    Matrix skinBind = ibm * bg;
+                    Matrix prefix = (skel.ParentIndices[j] < 0 && prefixes != null && (uint)j < (uint)prefixes.Length)
+                        ? prefixes[j] : Matrix.Identity;
+                    vm.Logger.Info(
+                        $"[AnimPlayer DIAG]  J[{j}] name='{skel.Joints[j].Name}' parent={p} bindT={Fmt(skel.Joints[j].BindTranslation)} bindR={Fmt(skel.Joints[j].BindRotation)} bindS={Fmt(skel.Joints[j].BindScale)}");
+                    if (p < 0) {
+                        vm.Logger.Info($"[AnimPlayer DIAG]    prefix       = {Fmt(prefix)}");
+                    }
+                    vm.Logger.Info($"[AnimPlayer DIAG]    bindLocal    = {Fmt(bindLocals[j])}");
+                    vm.Logger.Info($"[AnimPlayer DIAG]    bindGlobal   = {Fmt(bg)}");
+                    vm.Logger.Info($"[AnimPlayer DIAG]    IBM          = {Fmt(ibm)}");
+                    vm.Logger.Info($"[AnimPlayer DIAG]    IBM*bindGlob = {Fmt(skinBind)}  (期望 = 单位阵)");
+                }
+            }
+        }
+
+        //周期性摘要：Time 是否在推进、leaf joint 的 TRS 是否被采样到、当前 skinMatrix 是否随时间变化
+        private void LogDiagnosticTick() {
+            VaultMod vm = VaultMod.Instance;
+            if (vm == null || vm.Logger == null) {
+                return;
+            }
+            int skelCount = _palettes.Length;
+            string clipName = Current?.Name ?? "<null>";
+            float clipDur = Current?.Duration ?? 0f;
+            vm.Logger.Info(
+                $"[AnimPlayer DIAG] Tick#{_diagSampleCount / DiagPeriodSamples} Time={Time:F3}/{clipDur:F3}s clip='{clipName}' Speed={Speed} Paused={Paused} Fading={IsFading} (FadeElapsed={FadeElapsed:F3}/{FadeDuration:F3})");
+
+            for (int s = 0; s < skelCount; s++) {
+                Model3DSkeleton skel = Model.Skeletons[s];
+                int jc = skel.JointCount;
+                if (jc == 0) {
+                    continue;
+                }
+                int leaf = jc - 1;
+                Vector3 t = _curTranslations[s][leaf];
+                Quaternion r = _curRotations[s][leaf];
+                Vector3 sc = _curScales[s][leaf];
+                Matrix skinMtx = _palettes[s].Matrices[leaf];
+                Matrix global = _globalMatrices[s][leaf];
+                vm.Logger.Info(
+                    $"[AnimPlayer DIAG]  Skel[{s}] leaf J[{leaf}] T={Fmt(t)} R={Fmt(r)} S={Fmt(sc)}");
+                vm.Logger.Info(
+                    $"[AnimPlayer DIAG]    global   = {Fmt(global)}");
+                vm.Logger.Info(
+                    $"[AnimPlayer DIAG]    skinMtx  = {Fmt(skinMtx)}");
+            }
+        }
+
+        //紧凑格式化，避免 4 行一矩阵导致日志过长；单行 16 数字（行优先）
+        private static string Fmt(Matrix m) {
+            return $"[{m.M11:F3} {m.M12:F3} {m.M13:F3} {m.M14:F3} | {m.M21:F3} {m.M22:F3} {m.M23:F3} {m.M24:F3} | {m.M31:F3} {m.M32:F3} {m.M33:F3} {m.M34:F3} | {m.M41:F3} {m.M42:F3} {m.M43:F3} {m.M44:F3}]";
+        }
+        private static string Fmt(Vector3 v) => $"({v.X:F3},{v.Y:F3},{v.Z:F3})";
+        private static string Fmt(Quaternion q) => $"({q.X:F3},{q.Y:F3},{q.Z:F3},{q.W:F3})";
 
         private static void FillBindPose(Model3DSkeleton skel, Vector3[] t, Quaternion[] r, Vector3[] sc) {
             for (int j = 0; j < skel.JointCount; j++) {
