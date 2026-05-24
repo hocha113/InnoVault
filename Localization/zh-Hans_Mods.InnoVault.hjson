@@ -55,5 +55,8 @@ UI: {
 		ActorShowIDText: 显示ID
 		ActorShowVelocityText: 显示速度
 		ResetText: 重置
+		// StateMachineTabText: StateMachine
+		// StateMachineOverlayText: FSM Overlay
+		// BehaviorTreeOverlayText: BT Overlay
 	}
 }

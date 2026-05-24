@@ -55,5 +55,8 @@ UI: {
 		ActorShowIDText: Показать ID
 		ActorShowVelocityText: Показать скорость
 		ResetText: Сброс
+		// StateMachineTabText: StateMachine
+		// StateMachineOverlayText: FSM Overlay
+		// BehaviorTreeOverlayText: BT Overlay
 	}
 }

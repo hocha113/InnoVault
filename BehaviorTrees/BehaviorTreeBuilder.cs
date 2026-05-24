@@ -27,6 +27,8 @@ namespace InnoVault.BehaviorTrees
     ///     .End()
     ///     .Build();
     /// </code>
+    /// 装饰节点（<see cref="Inverter"/>/<see cref="Repeat"/>/<see cref="Cooldown"/>/<see cref="Gate"/>/<see cref="TimeLimit"/>/<see cref="AlwaysSucceed"/>/<see cref="AlwaysFail"/>）<br/>
+    /// 与复合节点一样，<b>必须</b>由配对的<see cref="End"/>闭合，避免出现"再加一个节点"实际上落到外层错位的隐藏问题
     /// </summary>
     /// <typeparam name="TContext">行为树上下文类型</typeparam>
     public sealed class BehaviorTreeBuilder<TContext>
@@ -157,9 +159,15 @@ namespace InnoVault.BehaviorTrees
                     comp.Add(node);
                     break;
                 case BTDecorator<TContext> dec:
+                    if (dec.HasChild) {
+                        //装饰节点只能持有一个子；走到这里说明用户在第一个子之后又往同一作用域加了第二个节点
+                        //这与"忘记 .End()"难以区分，直接报错比静默把第二个节点丢失或挂错位置更安全
+                        throw new InvalidOperationException(
+                            $"BehaviorTreeBuilder: decorator {dec.GetType().Name} already has a child. " +
+                            "Did you forget to call .End() to close the decorator before attaching the next node?");
+                    }
                     dec.SetChild(node);
-                    //装饰节点只能有一个子；遇到第二个意味着用户忘记 End()
-                    _open.Pop();
+                    //装饰节点不自动弹出——与复合节点保持一致，等待显式 .End() 闭合
                     break;
                 default:
                     throw new InvalidOperationException($"Unexpected open node type: {top.GetType().FullName}");

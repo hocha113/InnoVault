@@ -82,6 +82,26 @@ namespace InnoVault.Debugs
         }
     }
 
+    internal class StateMachineDebugTab : DebugTab
+    {
+        public override string TabName => DeveloperPanelUI.StateMachineTabText?.Value ?? "StateMachine";
+        public override string TabIcon => "SM";
+
+        public override void Initialize() {
+            Checkboxes.Clear();
+            Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.StateMachineOverlayText?.Value ?? "FSM Overlay",
+                () => DebugSettings.StateMachineShowOverlay,
+                v => DebugSettings.StateMachineShowOverlay = v));
+            Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.BehaviorTreeOverlayText?.Value ?? "BT Overlay",
+                () => DebugSettings.BehaviorTreeShowOverlay,
+                v => DebugSettings.BehaviorTreeShowOverlay = v));
+        }
+
+        public override void Reset() {
+            DebugSettings.ResetStateMachine();
+        }
+    }
+
     internal class DebugCheckbox
     {
         public string Label;
@@ -256,6 +276,9 @@ namespace InnoVault.Debugs
         protected internal static LocalizedText ActorShowPositionText;
         protected internal static LocalizedText ActorShowIDText;
         protected internal static LocalizedText ActorShowVelocityText;
+        protected internal static LocalizedText StateMachineTabText;
+        protected internal static LocalizedText StateMachineOverlayText;
+        protected internal static LocalizedText BehaviorTreeOverlayText;
         protected internal static LocalizedText ResetText;
         protected internal static LocalizedText ResetAllText;
         protected internal static LocalizedText CloseText;
@@ -275,6 +298,9 @@ namespace InnoVault.Debugs
             ActorShowPositionText = this.GetLocalization(nameof(ActorShowPositionText), () => "Position Display");
             ActorShowIDText = this.GetLocalization(nameof(ActorShowIDText), () => "ID Display");
             ActorShowVelocityText = this.GetLocalization(nameof(ActorShowVelocityText), () => "Velocity Display");
+            StateMachineTabText = this.GetLocalization(nameof(StateMachineTabText), () => "StateMachine");
+            StateMachineOverlayText = this.GetLocalization(nameof(StateMachineOverlayText), () => "FSM Overlay");
+            BehaviorTreeOverlayText = this.GetLocalization(nameof(BehaviorTreeOverlayText), () => "BT Overlay");
             ResetText = this.GetLocalization(nameof(ResetText), () => "Reset");
             ResetAllText = this.GetLocalization(nameof(ResetAllText), () => "Reset All");
             CloseText = this.GetLocalization(nameof(CloseText), () => "Close");
@@ -288,6 +314,7 @@ namespace InnoVault.Debugs
             tabs.Clear();
             tabs.Add(new TileProcessorDebugTab());
             tabs.Add(new ActorDebugTab());
+            tabs.Add(new StateMachineDebugTab());
 
             foreach (var tab in tabs) {
                 tab.Initialize();

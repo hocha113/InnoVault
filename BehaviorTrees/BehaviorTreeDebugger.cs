@@ -8,7 +8,7 @@ namespace InnoVault.BehaviorTrees
     /// 行为树调试探针：把一棵 BT 根节点登记到全局列表中，每帧调用<see cref="MarkTicked"/>记录上次根 tick 的状态<br/>
     /// 业务侧只需在<c>Tick</c>之后调用<see cref="MarkTicked"/>把状态告诉 probe，UI 可以遍历所有 probe 显示其当前 tick 路径
     /// </summary>
-    public sealed class BehaviorTreeProbe<TContext>
+    public sealed class BehaviorTreeProbe<TContext> : IBehaviorTreeProbe
     {
         /// <summary>探针在 UI 中显示的标题</summary>
         public string DisplayName { get; }
@@ -34,7 +34,8 @@ namespace InnoVault.BehaviorTrees
 
         /// <summary>把当前根节点的"递归 LastStatus"格式化成多行文本，方便 UI 直接显示</summary>
         public void AppendOverview(StringBuilder sb) {
-            sb.Append('[').Append(DisplayName).Append("] last=").Append(LastTickStatus).AppendLine();
+            sb.Append('[').Append(DisplayName).Append("] last=").Append(LastTickStatus)
+                .Append(" tickedAt=").Append(LastTickedGameUpdateCount).AppendLine();
             DumpRecursive(Root, 1, sb);
         }
 
@@ -45,12 +46,44 @@ namespace InnoVault.BehaviorTrees
             for (int i = 0; i < indent; i++) {
                 sb.Append("  ");
             }
-            sb.Append(node.GetType().Name).Append('(').Append(node.LastStatus).Append(')').AppendLine();
-            if (node is BTComposite<TContext> comp) {
-                //不向下递归装饰/复合节点的私有字段，避免引入反射；只输出本节点的类型和最后状态
-                _ = comp;
+            string typeName = node.GetType().Name;
+            //去除泛型反引号尾巴（"Sequence`1" → "Sequence"），让输出更友好
+            int backtick = typeName.IndexOf('`');
+            if (backtick >= 0) {
+                typeName = typeName[..backtick];
+            }
+            sb.Append(typeName).Append('(').Append(node.LastStatus).Append(')');
+
+            switch (node) {
+                case BTComposite<TContext> comp:
+                    sb.Append(" children=").Append(comp.Children.Count).AppendLine();
+                    for (int i = 0; i < comp.Children.Count; i++) {
+                        DumpRecursive(comp.Children[i], indent + 1, sb);
+                    }
+                    break;
+                case BTDecorator<TContext> dec:
+                    sb.AppendLine();
+                    if (dec.HasChild) {
+                        DumpRecursive(dec.Child, indent + 1, sb);
+                    }
+                    break;
+                default:
+                    sb.AppendLine();
+                    break;
             }
         }
+    }
+
+    /// <summary>
+    /// 调试探针的非泛型抽象，仅提供"显示名 + 把概览塞进 <see cref="StringBuilder"/>"两个能力<br/>
+    /// 让<see cref="BehaviorTreeDebugger.Active"/>无需泛型即可统一遍历
+    /// </summary>
+    public interface IBehaviorTreeProbe
+    {
+        /// <summary>UI 标题</summary>
+        string DisplayName { get; }
+        /// <summary>把当前 BT 概览（递归 LastStatus 路径）追加到<paramref name="sb"/></summary>
+        void AppendOverview(StringBuilder sb);
     }
 
     /// <summary>
@@ -58,11 +91,10 @@ namespace InnoVault.BehaviorTrees
     /// </summary>
     public static class BehaviorTreeDebugger
     {
-        //存为非泛型 object 列表；UI 渲染时再通过反射或<c>dynamic</c>取出 DisplayName 即可
-        private static readonly List<object> _active = [];
+        private static readonly List<IBehaviorTreeProbe> _active = [];
 
         /// <summary>当前活跃探针的只读列表</summary>
-        public static IReadOnlyList<object> Active => _active;
+        public static IReadOnlyList<IBehaviorTreeProbe> Active => _active;
 
         /// <summary>登记探针（由<see cref="BehaviorTreeProbe{TContext}"/>构造器调用）</summary>
         public static void Attach<TContext>(BehaviorTreeProbe<TContext> probe) {
@@ -73,7 +105,7 @@ namespace InnoVault.BehaviorTrees
         }
 
         /// <summary>解除探针登记</summary>
-        public static void Detach(object probe) {
+        public static void Detach(IBehaviorTreeProbe probe) {
             if (probe != null) {
                 _active.Remove(probe);
             }
@@ -82,6 +114,18 @@ namespace InnoVault.BehaviorTrees
         /// <summary>清空所有探针；仅由框架卸载阶段调用</summary>
         internal static void ClearAll() {
             _active.Clear();
+        }
+
+        /// <summary>把所有活跃 BT 探针的概览拼成多行文本，便于一次性贴到屏幕</summary>
+        public static string FormatActiveOverview() {
+            if (_active.Count == 0) {
+                return string.Empty;
+            }
+            StringBuilder sb = new();
+            foreach (IBehaviorTreeProbe probe in _active) {
+                probe.AppendOverview(sb);
+            }
+            return sb.ToString();
         }
     }
 }

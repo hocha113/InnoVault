@@ -97,12 +97,14 @@ namespace InnoVault.StateMachines
         }
 
         /// <summary>
-        /// 清空当前注册表。仅供<see cref="VaultStateRegistryManager"/>在卸载时调用，业务代码不应直接使用
+        /// 清空当前注册表。仅供<see cref="VaultStateRegistryManager"/>在卸载时调用，业务代码不应直接使用<br/>
+        /// 同时重置<c>_registeredWithManager</c>，确保下次<see cref="Register(int, Type, Func{IVaultState{TContext}})"/>能够<br/>
+        /// 重新登记到 Manager 的清理列表中——这让 Hot Reload 行为在多次卸载/重载循环中保持一致
         /// </summary>
         internal static void Clear() {
             _idToFactory.Clear();
             _typeToId.Clear();
-            //不重置 _registeredWithManager；下一次 Register 时若 Manager 已被卸载，会重新注册一次清理委托
+            _registeredWithManager = false;
         }
 
         private static void EnsureRegisteredWithManager() {

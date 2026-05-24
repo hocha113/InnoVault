@@ -97,11 +97,15 @@ namespace InnoVault.StateMachines
         /// <inheritdoc/>
         public override void AppendOverview(StringBuilder sb) {
             sb.Append('[').Append(DisplayName).Append("] current=").Append(_machine.CurrentState?.StateName ?? "<null>");
+            if (_machine.CurrentState is VaultState<TContext> vs) {
+                sb.Append(" timer=").Append(vs.Timer).Append(" counter=").Append(vs.Counter);
+            }
             if (_machine.PreviousState != null) {
                 sb.Append(" prev=").Append(_machine.PreviousState.StateName);
             }
             sb.Append(" terminated=").Append(_machine.IsTerminated);
             sb.AppendLine();
+
             sb.Append("  blackboard(").Append(_machine.Blackboard.Count).Append("): ");
             int i = 0;
             foreach ((Type type, string name, object value) in _machine.Blackboard.Snapshot()) {
@@ -111,6 +115,18 @@ namespace InnoVault.StateMachines
                 sb.Append(name).Append(':').Append(type.Name).Append('=').Append(value);
             }
             sb.AppendLine();
+
+            //最近若干次转移：环形缓冲是"按时间先后"追加的，逆序输出便于最新在上
+            if (_entries.Count > 0) {
+                sb.Append("  recent (newest first):").AppendLine();
+                foreach (StateChangeEntry entry in EnumerateNewestFirst()) {
+                    sb.Append("    @").Append(entry.GameUpdateCount)
+                        .Append(' ').Append(entry.Reason)
+                        .Append(": ").Append(entry.FromStateName ?? "<null>")
+                        .Append(" -> ").Append(entry.ToStateName ?? "<null>")
+                        .AppendLine();
+                }
+            }
         }
 
         /// <inheritdoc/>

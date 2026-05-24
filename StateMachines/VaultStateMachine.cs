@@ -29,9 +29,10 @@ namespace InnoVault.StateMachines
         /// </summary>
         public IVaultState<TContext> PreviousState { get; private set; }
         /// <summary>
-        /// 状态机内部的强类型参数存储（FSM 转移条件与<c>BehaviorTrees</c>谓词共用）
+        /// 状态机内部的强类型参数存储（FSM 转移条件与<c>BehaviorTrees</c>谓词共用）<br/>
+        /// 构造时可通过参数注入外部<see cref="StateMachines.Blackboard"/>实例，以便与外层<see cref="InnoVault.BehaviorTrees.BTNode{TContext}"/>共享黑板
         /// </summary>
-        public Blackboard Blackboard { get; } = new();
+        public Blackboard Blackboard { get; }
         /// <summary>
         /// 可插拔的网络同步策略（默认<see langword="null"/>表示纯本地，常用实现为<see cref="AiSlotNetSync{TContext}"/>）<br/>
         /// 服务端在<see cref="ChangeState(IVaultState{TContext}, string)"/>时写出当前<see cref="IVaultState{TContext}.StateId"/>，<br/>
@@ -68,8 +69,14 @@ namespace InnoVault.StateMachines
         /// 直到调用<see cref="SetInitialState"/>后才会进入初始状态
         /// </summary>
         /// <param name="context">状态机的上下文实例</param>
-        public VaultStateMachine(TContext context) {
+        /// <param name="blackboard">
+        /// 可选的外部<see cref="Blackboard"/>实例；为<see langword="null"/>时内部新建一份私有黑板<br/>
+        /// 当状态机要作为<see cref="InnoVault.BehaviorTrees.VaultStateMachineAsBtLeaf{TContext}"/>嵌入到行为树中时，<br/>
+        /// 应当传入与外层 BT 同一份黑板，避免"FSM 与 BT 各写各的"语义割裂
+        /// </param>
+        public VaultStateMachine(TContext context, Blackboard blackboard = null) {
             Context = context;
+            Blackboard = blackboard ?? new Blackboard();
         }
 
         /// <summary>
@@ -185,11 +192,11 @@ namespace InnoVault.StateMachines
         }
 
         private bool TryEvaluateTransitions() {
-            //先排序一次（按 Priority 降序，同优先级按注册顺序）——只在转移列表变化时排序成本是 O(n log n)，可在 Builder.Build 时做
-            //此处仍每帧线性扫描；优先级仅在 Any-State 集合内排定
-            VaultStateTransition<TContext> matched = null;
-            int matchedPriority = int.MinValue;
-
+            //依赖<see cref="VaultStateMachineBuilder{TContext}.Build"/>已经把转移列表按"AnyState(优先级降序) → 普通转移(注册顺序)"排好
+            //因此线性扫描"第一个命中即胜"就同时满足：
+            //  1) Any-State 一定先于普通转移评估，普通转移无法覆盖任何已命中的 Any-State
+            //  2) 多条 Any-State 之间按 Priority 决出胜者（同优先级按注册顺序）
+            //  3) 多条普通转移之间按注册顺序决出胜者
             Type currentType = CurrentState.GetType();
             for (int i = 0; i < Transitions.Count; i++) {
                 VaultStateTransition<TContext> t = Transitions[i];
@@ -203,32 +210,19 @@ namespace InnoVault.StateMachines
                 if (t.Condition == null || !t.Condition(Context)) {
                     continue;
                 }
-                //AnyState 之间需要优先级比对；普通转移之间按"第一个命中即终止"的简易规则
-                if (t.FromState == null) {
-                    if (t.Priority > matchedPriority) {
-                        matched = t;
-                        matchedPriority = t.Priority;
-                    }
-                }
-                else {
-                    matched = t;
-                    break;
-                }
-            }
 
-            if (matched == null) {
-                return false;
+                if (t.Once) {
+                    t.Fired = true;
+                }
+                IVaultState<TContext> target = t.TargetFactory?.Invoke();
+                if (target == null) {
+                    //目标工厂未生效（例如返回 null），按"未触发"处理；继续往后扫
+                    continue;
+                }
+                DoChangeState(target, StateChangeReason.Transition, t.Label);
+                return true;
             }
-
-            if (matched.Once) {
-                matched.Fired = true;
-            }
-            IVaultState<TContext> target = matched.TargetFactory?.Invoke();
-            if (target == null) {
-                return false;
-            }
-            DoChangeState(target, StateChangeReason.Transition, matched.Label);
-            return true;
+            return false;
         }
 
         private void DoChangeState(IVaultState<TContext> newState, StateChangeReason reason, string label, bool skipNetWrite = false) {

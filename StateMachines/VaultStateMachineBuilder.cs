@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace InnoVault.StateMachines
 {
@@ -29,18 +30,35 @@ namespace InnoVault.StateMachines
     /// <typeparam name="TContext">状态机上下文类型</typeparam>
     public sealed class VaultStateMachineBuilder<TContext>
     {
-        private readonly VaultStateMachine<TContext> _machine;
+        private readonly TContext _context;
+        private Blackboard _blackboard;
+        private VaultStateMachine<TContext> _machine;
         private IVaultState<TContext> _initialState;
+        private INetStateSync<TContext> _pendingNetSync;
+        private bool? _pendingServerAuthoritative;
+        //缓冲到 Build 时再写入，以便<see cref="WithBlackboard(Blackboard)"/>在<see cref="From{TFrom}"/>之前/之后调用都不会出问题
+        private readonly List<VaultStateTransition<TContext>> _pendingTransitions = [];
+        private readonly List<PhaseTrigger<TContext>> _pendingPhaseTriggers = [];
 
         internal VaultStateMachineBuilder(TContext context) {
-            _machine = new VaultStateMachine<TContext>(context);
+            _context = context;
+        }
+
+        /// <summary>
+        /// 指定一份与外部共享的<see cref="StateMachines.Blackboard"/>实例；常用于把本机作为<see cref="InnoVault.BehaviorTrees.VaultStateMachineAsBtLeaf{TContext}"/>嵌入到行为树时，<br/>
+        /// 与外层 BT 复用同一份黑板<br/>
+        /// 不调用本方法时，<see cref="Build"/>会为状态机内部新建一份独立黑板
+        /// </summary>
+        public VaultStateMachineBuilder<TContext> WithBlackboard(Blackboard blackboard) {
+            _blackboard = blackboard;
+            return this;
         }
 
         /// <summary>
         /// 设置<see cref="VaultStateMachine{TContext}.NetSync"/>
         /// </summary>
         public VaultStateMachineBuilder<TContext> WithNetSync(INetStateSync<TContext> sync) {
-            _machine.NetSync = sync;
+            _pendingNetSync = sync;
             return this;
         }
 
@@ -48,7 +66,7 @@ namespace InnoVault.StateMachines
         /// 显式打开/关闭<see cref="VaultStateMachine{TContext}.ServerAuthoritative"/>。默认<see langword="true"/>
         /// </summary>
         public VaultStateMachineBuilder<TContext> WithServerAuthoritative(bool value) {
-            _machine.ServerAuthoritative = value;
+            _pendingServerAuthoritative = value;
             return this;
         }
 
@@ -72,13 +90,13 @@ namespace InnoVault.StateMachines
         /// 开始声明一条"普通转移"：当机器当前处于<typeparamref name="TFrom"/>时评估
         /// </summary>
         public TransitionBuilder<TContext> From<TFrom>() where TFrom : IVaultState<TContext>
-            => new TransitionBuilder<TContext>(this, _machine, typeof(TFrom));
+            => new TransitionBuilder<TContext>(this, _pendingTransitions, typeof(TFrom));
 
         /// <summary>
         /// 开始声明一条"Any-State 转移"：任意状态下都参与评估，支持<see cref="TransitionBuilder{TContext}.Priority(int)"/>排序
         /// </summary>
         public TransitionBuilder<TContext> AnyState()
-            => new TransitionBuilder<TContext>(this, _machine, null);
+            => new TransitionBuilder<TContext>(this, _pendingTransitions, null);
 
         /// <summary>
         /// 添加一个一次性<see cref="PhaseTrigger{TContext}"/>：当谓词命中时切换到指定目标状态<br/>
@@ -86,7 +104,7 @@ namespace InnoVault.StateMachines
         /// </summary>
         public VaultStateMachineBuilder<TContext> Phase<TTarget>(Func<TContext, bool> when, Action<TContext> onFire = null, string label = null)
             where TTarget : IVaultState<TContext>, new() {
-            _machine.PhaseTriggers.Add(new PhaseTrigger<TContext> {
+            _pendingPhaseTriggers.Add(new PhaseTrigger<TContext> {
                 When = when,
                 Transition = () => new TTarget(),
                 OnFire = onFire,
@@ -96,22 +114,48 @@ namespace InnoVault.StateMachines
         }
 
         /// <summary>
-        /// 完成构建并返回<see cref="VaultStateMachine{TContext}"/>；若已设置初始状态会立刻调用<see cref="VaultStateMachine{TContext}.SetInitialState"/>
+        /// 完成构建并返回<see cref="VaultStateMachine{TContext}"/>；若已设置初始状态会立刻调用<see cref="VaultStateMachine{TContext}.SetInitialState"/><br/>
+        /// 转移列表会被重排为"AnyState(按 Priority 降序，同优先级保留注册顺序) → 普通转移(保留注册顺序)"<br/>
+        /// 运行时<see cref="VaultStateMachine{TContext}"/>依赖该顺序保证 Any-State 不会被普通转移覆盖
         /// </summary>
         public VaultStateMachine<TContext> Build() {
-            //按 AnyState 转移的 Priority 降序排序一次；普通转移保持原序，本机评估时不依赖此排序
-            _machine.Transitions.Sort((a, b) => {
-                if (a.FromState == null && b.FromState == null) {
-                    return b.Priority.CompareTo(a.Priority);
+            _machine = new VaultStateMachine<TContext>(_context, _blackboard);
+            if (_pendingNetSync != null) {
+                _machine.NetSync = _pendingNetSync;
+            }
+            if (_pendingServerAuthoritative.HasValue) {
+                _machine.ServerAuthoritative = _pendingServerAuthoritative.Value;
+            }
+
+            //List<T>.Sort 不是稳定排序——这里手工拆成两段，AnyState 段做稳定的优先级排序，普通段保留原序后拼回
+            //保证：1) AnyState 一定排在普通转移前；2) 同优先级 AnyState 保持注册顺序；3) 普通转移完全保持注册顺序
+            List<VaultStateTransition<TContext>> all = _machine.Transitions;
+            List<KeyValuePair<int, VaultStateTransition<TContext>>> anyStateIndexed = [];
+            List<VaultStateTransition<TContext>> normals = [];
+            for (int i = 0; i < _pendingTransitions.Count; i++) {
+                VaultStateTransition<TContext> t = _pendingTransitions[i];
+                if (t.FromState == null) {
+                    anyStateIndexed.Add(new KeyValuePair<int, VaultStateTransition<TContext>>(i, t));
                 }
-                if (a.FromState == null) {
-                    return -1;
+                else {
+                    normals.Add(t);
                 }
-                if (b.FromState == null) {
-                    return 1;
-                }
-                return 0;
+            }
+            anyStateIndexed.Sort((a, b) => {
+                int byPriority = b.Value.Priority.CompareTo(a.Value.Priority);
+                return byPriority != 0 ? byPriority : a.Key.CompareTo(b.Key);
             });
+            for (int i = 0; i < anyStateIndexed.Count; i++) {
+                all.Add(anyStateIndexed[i].Value);
+            }
+            for (int i = 0; i < normals.Count; i++) {
+                all.Add(normals[i]);
+            }
+
+            for (int i = 0; i < _pendingPhaseTriggers.Count; i++) {
+                _machine.PhaseTriggers.Add(_pendingPhaseTriggers[i]);
+            }
+
             if (_initialState != null) {
                 _machine.SetInitialState(_initialState);
             }
@@ -126,7 +170,7 @@ namespace InnoVault.StateMachines
     public sealed class TransitionBuilder<TContext>
     {
         private readonly VaultStateMachineBuilder<TContext> _owner;
-        private readonly VaultStateMachine<TContext> _machine;
+        private readonly List<VaultStateTransition<TContext>> _sink;
         private readonly Type _fromType;
         private Func<IVaultState<TContext>> _targetFactory;
         private Func<TContext, bool> _condition;
@@ -134,9 +178,9 @@ namespace InnoVault.StateMachines
         private bool _once;
         private string _label;
 
-        internal TransitionBuilder(VaultStateMachineBuilder<TContext> owner, VaultStateMachine<TContext> machine, Type fromType) {
+        internal TransitionBuilder(VaultStateMachineBuilder<TContext> owner, List<VaultStateTransition<TContext>> sink, Type fromType) {
             _owner = owner;
-            _machine = machine;
+            _sink = sink;
             _fromType = fromType;
         }
 
@@ -197,7 +241,7 @@ namespace InnoVault.StateMachines
                     $"Transition for {_fromType?.FullName ?? "AnyState"} is missing target or condition; skipped.");
                 return _owner;
             }
-            _machine.Transitions.Add(new VaultStateTransition<TContext> {
+            _sink.Add(new VaultStateTransition<TContext> {
                 FromState = _fromType,
                 TargetFactory = _targetFactory,
                 Condition = _condition,

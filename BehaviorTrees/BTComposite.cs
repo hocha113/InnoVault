@@ -13,6 +13,9 @@ namespace InnoVault.BehaviorTrees
         /// <summary>子节点列表（按声明顺序）</summary>
         protected readonly List<BTNode<TContext>> _children = [];
 
+        /// <summary>子节点的只读视图，供调试器/上层观察使用</summary>
+        public IReadOnlyList<BTNode<TContext>> Children => _children;
+
         /// <summary>添加一个子节点。返回自身以支持链式</summary>
         public BTComposite<TContext> Add(BTNode<TContext> child) {
             if (child != null) {
