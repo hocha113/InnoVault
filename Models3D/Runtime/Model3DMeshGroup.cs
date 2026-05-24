@@ -1,3 +1,5 @@
+using InnoVault.Models3D.Skinning;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
 namespace InnoVault.Models3D.Runtime
@@ -21,6 +23,7 @@ namespace InnoVault.Models3D.Runtime
         /// <summary>
         /// 顶点数据
         /// <br/>当前固定使用 <see cref="VertexPositionNormalTexture"/> 以兼容 BasicEffect
+        /// <br/>对于蒙皮分组：此数组是"无动画时直接绘制的兜底姿态"，与 <see cref="BindVertices"/> 等价
         /// </summary>
         public VertexPositionNormalTexture[] Vertices { get; }
         /// <summary>
@@ -33,6 +36,36 @@ namespace InnoVault.Models3D.Runtime
         /// <br/>由索引数量推导，不额外存储
         /// </summary>
         public int TriangleCount => Indices == null ? 0 : Indices.Length / 3;
+
+        /// <summary>
+        /// 蒙皮源顶点（bind pose）
+        /// <br/>非蒙皮分组为 <see langword="null"/>；蒙皮分组与 <see cref="Vertices"/> 同长，
+        /// CPU 蒙皮以此数组为源，写入 <see cref="Model3DInstance"/> 的 scratch 缓冲
+        /// </summary>
+        public VertexPositionNormalTexture[] BindVertices { get; internal set; }
+        /// <summary>
+        /// 顶点骨骼索引（每顶点 4 个）
+        /// <br/>非蒙皮分组为 <see langword="null"/>；索引指向 <see cref="Vault3DModel.Skeletons"/>[<see cref="SkinIndex"/>].Joints
+        /// </summary>
+        public Joint4[] JointIndices { get; internal set; }
+        /// <summary>
+        /// 顶点骨骼权重（每顶点 4 个）
+        /// <br/>非蒙皮分组为 <see langword="null"/>；加载阶段会做权重归一化
+        /// </summary>
+        public Vector4[] JointWeights { get; internal set; }
+        /// <summary>
+        /// 关联的骨架索引
+        /// <br/><c>-1</c> 表示非蒙皮分组；非负值时指向 <see cref="Vault3DModel.Skeletons"/>
+        /// </summary>
+        public int SkinIndex { get; internal set; } = -1;
+        /// <summary>
+        /// 是否为蒙皮分组
+        /// <br/>需要同时具备权重、索引、骨架引用
+        /// </summary>
+        public bool IsSkinned => SkinIndex >= 0
+            && JointIndices != null && JointIndices.Length > 0
+            && JointWeights != null && JointWeights.Length > 0
+            && BindVertices != null && BindVertices.Length > 0;
 
         /// <summary>
         /// 构造一个网格分组

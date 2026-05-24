@@ -1,4 +1,6 @@
+using InnoVault.Models3D.Animation;
 using InnoVault.Models3D.Runtime;
+using InnoVault.Models3D.Skinning;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -10,19 +12,23 @@ using Terraria.ModLoader;
 namespace InnoVault.Models3D.Gltf
 {
     /// <summary>
-    /// 本地最小 glTF 2.0 静态网格导入器
-    /// <br/>支持外部 bin、静态三角网格、基础材质和节点变换
+    /// 本地最小 glTF 2.0 模型导入器
+    /// <br/>支持外部 bin、三角网格、基础材质和节点变换；蒙皮（JOINTS/WEIGHTS）与
+    /// 动画（translation/rotation/scale 通道）会被解析为 <see cref="Model3DSkeleton"/>
+    /// 与 <see cref="Model3DAnimationClip"/>，运行时由 <see cref="AnimationPlayer"/> 驱动
     /// </summary>
     public static class GltfModelLoader
     {
-        private const int ComponentByte = 5121;
+        private const int ComponentByte = 5120;
+        private const int ComponentUnsignedByte = 5121;
+        private const int ComponentShort = 5122;
         private const int ComponentUnsignedShort = 5123;
         private const int ComponentUnsignedInt = 5125;
         private const int ComponentFloat = 5126;
         private const int ModeTriangles = 4;
 
         /// <summary>
-        /// 加载 glTF 静态模型
+        /// 加载 glTF 模型
         /// <br/>失败时返回 <see cref="Vault3DModel.Empty"/> 并写入日志
         /// </summary>
         /// <param name="mod">目标模组</param>
@@ -64,20 +70,44 @@ namespace InnoVault.Models3D.Gltf
             byte[][] buffers = LoadBuffers(mod, doc, baseDir, diagnostic, gltfPath);
             AccessorReader accessorReader = new AccessorReader(doc, buffers, diagnostic, gltfPath);
 
+            //计算每个节点的"祖先到自身"的世界矩阵，构造时需要用到
+            Matrix[] nodeWorld = BuildNodeWorldMatrices(doc);
+
             Dictionary<string, Model3DMaterial> materials = BuildMaterials(doc);
+
+            //是否走"蒙皮模式"——只要导入开关开启且文档里有 skin 就启用，
+            //此时所有 primitive 都不会把 R = AxisFlip * ImportScale 烘焙到顶点，改成 RootTransform 应用
+            bool hasSkins = options.ImportSkins && doc.Skins.Count > 0;
+
+            List<Model3DSkeleton> skeletons = new List<Model3DSkeleton>();
+            Dictionary<int, List<(int skeletonIndex, int jointIndex)>> nodeToJoint
+                = new Dictionary<int, List<(int, int)>>();
+            if (hasSkins) {
+                BuildSkeletons(doc, accessorReader, diagnostic, gltfPath, skeletons, nodeToJoint);
+            }
+
             List<Model3DMeshGroup> groups = new List<Model3DMeshGroup>();
             Vector3 min = new Vector3(float.PositiveInfinity);
             Vector3 max = new Vector3(float.NegativeInfinity);
             bool boundsTouched = false;
 
+            Matrix rootTransform = hasSkins ? BuildRootTransform(options) : Matrix.Identity;
+
             TraverseScene(doc, accessorReader, materials, options, diagnostic, gltfPath
-                , groups, Matrix.Identity, ref min, ref max, ref boundsTouched);
+                , groups, Matrix.Identity, ref min, ref max, ref boundsTouched, hasSkins, rootTransform);
+
+            List<Model3DAnimationClip> clips = new List<Model3DAnimationClip>();
+            if (hasSkins && options.ImportAnimations) {
+                BuildAnimationClips(doc, accessorReader, diagnostic, gltfPath, nodeToJoint, clips);
+            }
 
             BoundingBox bounds = boundsTouched ? new BoundingBox(min, max) : new BoundingBox(Vector3.Zero, Vector3.Zero);
             Vector3 pivot = options.CenterPivot && boundsTouched ? (min + max) * 0.5f : Vector3.Zero;
-            Vault3DModel model = new Vault3DModel(GetDisplayName(gltfPath), gltfPath, groups, materials, diagnostic) {
+            Vault3DModel model = new Vault3DModel(GetDisplayName(gltfPath), gltfPath, groups, materials, diagnostic
+                , skeletons, clips) {
                 Bounds = bounds,
                 Pivot = pivot,
+                RootTransform = rootTransform,
             };
             int vertexCount = 0;
             int triangleCount = 0;
@@ -149,10 +179,261 @@ namespace InnoVault.Models3D.Gltf
             return materials;
         }
 
+        //预先把每个节点的"无 R/无 ImportScale"世界矩阵计算出来，供非蒙皮 primitive 和动画的可能参考使用
+        private static Matrix[] BuildNodeWorldMatrices(GltfDocument doc) {
+            int n = doc.Nodes.Count;
+            Matrix[] worlds = new Matrix[n];
+            bool[] computed = new bool[n];
+            HashSet<int> children = new HashSet<int>();
+            for (int i = 0; i < n; i++) {
+                foreach (int c in doc.Nodes[i].Children) {
+                    children.Add(c);
+                }
+            }
+            //从根节点开始 DFS；非节点根直接以 local 作为 world
+            for (int i = 0; i < n; i++) {
+                if (children.Contains(i)) {
+                    continue;
+                }
+                Compute(doc, worlds, computed, i, Matrix.Identity);
+            }
+            //残留未计算的节点（被循环引用排除掉的）兜底为本地矩阵
+            for (int i = 0; i < n; i++) {
+                if (!computed[i]) {
+                    worlds[i] = BuildNodeMatrix(doc.Nodes[i]);
+                    computed[i] = true;
+                }
+            }
+            return worlds;
+
+            static void Compute(GltfDocument doc, Matrix[] worlds, bool[] computed, int node, Matrix parent) {
+                if ((uint)node >= (uint)worlds.Length || computed[node]) {
+                    return;
+                }
+                Matrix local = BuildNodeMatrix(doc.Nodes[node]);
+                Matrix world = local * parent;
+                worlds[node] = world;
+                computed[node] = true;
+                foreach (int child in doc.Nodes[node].Children) {
+                    Compute(doc, worlds, computed, child, world);
+                }
+            }
+        }
+
+        private static Matrix BuildRootTransform(GltfImportOptions options) {
+            Matrix flip = options.FlipYForTerraria
+                ? new Matrix(1f, 0f, 0f, 0f, 0f, -1f, 0f, 0f, 0f, 0f, 1f, 0f, 0f, 0f, 0f, 1f)
+                : Matrix.Identity;
+            return flip * Matrix.CreateScale(options.ImportScale);
+        }
+
+        private static void BuildSkeletons(GltfDocument doc, AccessorReader reader
+            , Model3DDiagnostic diagnostic, string source
+            , List<Model3DSkeleton> skeletons
+            , Dictionary<int, List<(int skeletonIndex, int jointIndex)>> nodeToJoint) {
+
+            //先建立 node -> parent map（仅在 skin.joints 集合内有意义）
+            Dictionary<int, int> nodeParent = new Dictionary<int, int>();
+            for (int n = 0; n < doc.Nodes.Count; n++) {
+                foreach (int child in doc.Nodes[n].Children) {
+                    nodeParent[child] = n;
+                }
+            }
+
+            for (int s = 0; s < doc.Skins.Count; s++) {
+                GltfSkin skin = doc.Skins[s];
+                int jointCount = skin.Joints.Count;
+                if (jointCount == 0) {
+                    diagnostic.Warn(source, 0, $"Skin {s} has no joints, skipped");
+                    skeletons.Add(new Model3DSkeleton(skin.Name, s, Array.Empty<Model3DJoint>(), Array.Empty<int>(), Array.Empty<Matrix>()));
+                    continue;
+                }
+                //节点 -> 在 skin.joints 中的位置
+                Dictionary<int, int> jointSet = new Dictionary<int, int>(jointCount);
+                for (int j = 0; j < jointCount; j++) {
+                    jointSet[skin.Joints[j]] = j;
+                }
+
+                Model3DJoint[] joints = new Model3DJoint[jointCount];
+                int[] parents = new int[jointCount];
+                for (int j = 0; j < jointCount; j++) {
+                    int nodeIndex = skin.Joints[j];
+                    GltfNode node = (uint)nodeIndex < (uint)doc.Nodes.Count
+                        ? doc.Nodes[nodeIndex] : new GltfNode();
+                    DecomposeNodeTRS(node, out Vector3 t, out Quaternion r, out Vector3 sc);
+                    joints[j] = new Model3DJoint {
+                        Name = node.Name ?? string.Empty,
+                        BindTranslation = t,
+                        BindRotation = r,
+                        BindScale = sc,
+                    };
+                    int parentIndex = -1;
+                    if (nodeParent.TryGetValue(nodeIndex, out int parentNode)
+                        && jointSet.TryGetValue(parentNode, out int parentJoint)) {
+                        parentIndex = parentJoint;
+                    }
+                    parents[j] = parentIndex;
+
+                    if (!nodeToJoint.TryGetValue(nodeIndex, out var list)) {
+                        list = new List<(int, int)>(1);
+                        nodeToJoint[nodeIndex] = list;
+                    }
+                    list.Add((s, j));
+                }
+
+                Matrix[] ibm = new Matrix[jointCount];
+                if (skin.InverseBindMatrices >= 0) {
+                    Matrix[] read = reader.ReadMat4(skin.InverseBindMatrices);
+                    if (read == null || read.Length < jointCount) {
+                        diagnostic.Warn(source, 0, $"Skin {s} inverseBindMatrices length mismatch, using identity");
+                        for (int j = 0; j < jointCount; j++) {
+                            ibm[j] = Matrix.Identity;
+                        }
+                    }
+                    else {
+                        Array.Copy(read, ibm, jointCount);
+                    }
+                }
+                else {
+                    for (int j = 0; j < jointCount; j++) {
+                        ibm[j] = Matrix.Identity;
+                    }
+                }
+
+                skeletons.Add(new Model3DSkeleton(skin.Name, s, joints, parents, ibm));
+            }
+        }
+
+        private static void BuildAnimationClips(GltfDocument doc, AccessorReader reader
+            , Model3DDiagnostic diagnostic, string source
+            , Dictionary<int, List<(int skeletonIndex, int jointIndex)>> nodeToJoint
+            , List<Model3DAnimationClip> clips) {
+
+            for (int a = 0; a < doc.Animations.Count; a++) {
+                GltfAnimation anim = doc.Animations[a];
+                string clipName = string.IsNullOrEmpty(anim.Name) ? $"clip_{a}" : anim.Name;
+
+                //先把所有 sampler 转换好
+                Model3DAnimationSampler[] samplers = new Model3DAnimationSampler[anim.Samplers.Count];
+                for (int sm = 0; sm < anim.Samplers.Count; sm++) {
+                    GltfAnimationSampler src = anim.Samplers[sm];
+                    samplers[sm] = BuildAnimationSampler(reader, diagnostic, source, src, clipName, sm);
+                }
+
+                List<Model3DAnimationChannel> channelList = new List<Model3DAnimationChannel>(anim.Channels.Count);
+                float duration = 0f;
+                bool warnedCubic = false;
+                bool warnedWeights = false;
+
+                for (int c = 0; c < anim.Channels.Count; c++) {
+                    GltfAnimationChannel src = anim.Channels[c];
+                    if (src.Sampler < 0 || src.Sampler >= samplers.Length) {
+                        continue;
+                    }
+                    Model3DAnimationSampler sampler = samplers[src.Sampler];
+                    if (sampler == null) {
+                        continue;
+                    }
+                    if (sampler.Interpolation == Model3DInterpolation.CubicSpline && !warnedCubic) {
+                        diagnostic.Warn(source, 0, $"Animation '{clipName}' uses CubicSpline interpolation; fallback to LINEAR");
+                        warnedCubic = true;
+                    }
+                    if (!TryParseAnimationPath(src.TargetPath, out Model3DAnimationPath path)) {
+                        diagnostic.Warn(source, 0, $"Animation '{clipName}' channel {c} has unknown path '{src.TargetPath}', skipped");
+                        continue;
+                    }
+                    if (path == Model3DAnimationPath.Weights) {
+                        if (!warnedWeights) {
+                            diagnostic.Warn(source, 0, $"Animation '{clipName}' targets morph weights; not supported, channels skipped");
+                            warnedWeights = true;
+                        }
+                        continue;
+                    }
+                    if (src.TargetNode < 0 || !nodeToJoint.TryGetValue(src.TargetNode, out var bindings) || bindings == null) {
+                        //目标节点不属于任何 skin，无法驱动蒙皮
+                        continue;
+                    }
+                    //节点若属于多个 skin（不常见），为每个 binding 复制一份 channel
+                    for (int b = 0; b < bindings.Count; b++) {
+                        (int skeletonIndex, int jointIndex) = bindings[b];
+                        channelList.Add(new Model3DAnimationChannel(skeletonIndex, jointIndex, path, sampler));
+                    }
+                    if (sampler.EndTime > duration) {
+                        duration = sampler.EndTime;
+                    }
+                }
+
+                clips.Add(new Model3DAnimationClip(clipName, duration, channelList.ToArray()));
+            }
+        }
+
+        private static Model3DAnimationSampler BuildAnimationSampler(AccessorReader reader
+            , Model3DDiagnostic diagnostic, string source, GltfAnimationSampler src, string clipName, int samplerIndex) {
+
+            if (src.Input < 0 || src.Output < 0) {
+                diagnostic.Warn(source, 0, $"Animation '{clipName}' sampler {samplerIndex} missing input/output, ignored");
+                return null;
+            }
+            float[] times = reader.ReadScalarFloat(src.Input);
+            if (times == null || times.Length == 0) {
+                diagnostic.Warn(source, 0, $"Animation '{clipName}' sampler {samplerIndex} input accessor empty, ignored");
+                return null;
+            }
+            int stride = reader.GetAccessorStrideAsFloats(src.Output);
+            if (stride <= 0) {
+                diagnostic.Warn(source, 0, $"Animation '{clipName}' sampler {samplerIndex} output accessor has unknown stride, ignored");
+                return null;
+            }
+            float[] values = reader.ReadOutputFloats(src.Output);
+            if (values == null || values.Length == 0) {
+                diagnostic.Warn(source, 0, $"Animation '{clipName}' sampler {samplerIndex} output accessor empty, ignored");
+                return null;
+            }
+            Model3DInterpolation interpolation = ParseInterpolation(src.Interpolation);
+            return new Model3DAnimationSampler(times, values, stride, interpolation);
+        }
+
+        private static bool TryParseAnimationPath(string path, out Model3DAnimationPath result) {
+            switch (path) {
+                case "translation": result = Model3DAnimationPath.Translation; return true;
+                case "rotation": result = Model3DAnimationPath.Rotation; return true;
+                case "scale": result = Model3DAnimationPath.Scale; return true;
+                case "weights": result = Model3DAnimationPath.Weights; return true;
+                default: result = Model3DAnimationPath.Translation; return false;
+            }
+        }
+
+        private static Model3DInterpolation ParseInterpolation(string raw) {
+            switch (raw) {
+                case "STEP": return Model3DInterpolation.Step;
+                case "CUBICSPLINE": return Model3DInterpolation.CubicSpline;
+                default: return Model3DInterpolation.Linear;
+            }
+        }
+
+        private static void DecomposeNodeTRS(GltfNode node, out Vector3 translation, out Quaternion rotation, out Vector3 scale) {
+            if (node.Matrix != null) {
+                //节点用 matrix 指定时仍然 decompose 一次，作为 bind pose
+                Matrix m = MatrixFromArray(node.Matrix);
+                if (!m.Decompose(out scale, out rotation, out translation)) {
+                    translation = Vector3.Zero;
+                    rotation = Quaternion.Identity;
+                    scale = Vector3.One;
+                }
+                return;
+            }
+            translation = node.Translation != null ? new Vector3(node.Translation[0], node.Translation[1], node.Translation[2]) : Vector3.Zero;
+            rotation = node.Rotation != null
+                ? new Quaternion(node.Rotation[0], node.Rotation[1], node.Rotation[2], node.Rotation[3])
+                : Quaternion.Identity;
+            scale = node.Scale != null ? new Vector3(node.Scale[0], node.Scale[1], node.Scale[2]) : Vector3.One;
+        }
+
         private static void TraverseScene(GltfDocument doc, AccessorReader reader, Dictionary<string, Model3DMaterial> materials
             , GltfImportOptions options, Model3DDiagnostic diagnostic, string source
             , List<Model3DMeshGroup> groups, Matrix root
-            , ref Vector3 min, ref Vector3 max, ref bool boundsTouched) {
+            , ref Vector3 min, ref Vector3 max, ref bool boundsTouched
+            , bool hasSkins, Matrix rootTransform) {
 
             if (doc.Scenes.Count == 0) {
                 diagnostic.Warn(source, 0, "glTF has no scenes; importing all root-level nodes");
@@ -165,7 +446,7 @@ namespace InnoVault.Models3D.Gltf
                 for (int i = 0; i < doc.Nodes.Count; i++) {
                     if (!childNodes.Contains(i)) {
                         TraverseNode(doc, reader, materials, options, diagnostic, source, i, root, groups
-                            , ref min, ref max, ref boundsTouched);
+                            , ref min, ref max, ref boundsTouched, hasSkins, rootTransform);
                     }
                 }
                 return;
@@ -175,14 +456,15 @@ namespace InnoVault.Models3D.Gltf
             GltfScene scene = doc.Scenes[sceneIndex];
             for (int i = 0; i < scene.Nodes.Count; i++) {
                 TraverseNode(doc, reader, materials, options, diagnostic, source, scene.Nodes[i], root, groups
-                    , ref min, ref max, ref boundsTouched);
+                    , ref min, ref max, ref boundsTouched, hasSkins, rootTransform);
             }
         }
 
         private static void TraverseNode(GltfDocument doc, AccessorReader reader, Dictionary<string, Model3DMaterial> materials
             , GltfImportOptions options, Model3DDiagnostic diagnostic, string source
             , int nodeIndex, Matrix parentWorld, List<Model3DMeshGroup> groups
-            , ref Vector3 min, ref Vector3 max, ref bool boundsTouched) {
+            , ref Vector3 min, ref Vector3 max, ref bool boundsTouched
+            , bool hasSkins, Matrix rootTransform) {
 
             if (nodeIndex < 0 || nodeIndex >= doc.Nodes.Count) {
                 diagnostic.Warn(source, 0, $"Scene references invalid node index {nodeIndex}");
@@ -198,20 +480,24 @@ namespace InnoVault.Models3D.Gltf
                     diagnostic.Warn(source, 0, $"Node '{node.Name}' references invalid mesh index {node.Mesh}");
                 }
                 else {
-                    BuildMesh(doc, reader, materials, options, diagnostic, source, doc.Meshes[node.Mesh], world, groups
-                        , ref min, ref max, ref boundsTouched);
+                    int skinIndex = hasSkins && node.Skin >= 0 && node.Skin < doc.Skins.Count ? node.Skin : -1;
+                    //glTF 规则：蒙皮 mesh 容器节点的变换在蒙皮时被忽略，故 skinned primitive 不使用 world 矩阵
+                    Matrix effectiveWorld = skinIndex >= 0 ? Matrix.Identity : world;
+                    BuildMesh(doc, reader, materials, options, diagnostic, source, doc.Meshes[node.Mesh], effectiveWorld, groups
+                        , ref min, ref max, ref boundsTouched, hasSkins, rootTransform, skinIndex);
                 }
             }
 
             for (int i = 0; i < node.Children.Count; i++) {
                 TraverseNode(doc, reader, materials, options, diagnostic, source, node.Children[i], world, groups
-                    , ref min, ref max, ref boundsTouched);
+                    , ref min, ref max, ref boundsTouched, hasSkins, rootTransform);
             }
         }
 
         private static void BuildMesh(GltfDocument doc, AccessorReader reader, Dictionary<string, Model3DMaterial> materials
             , GltfImportOptions options, Model3DDiagnostic diagnostic, string source, GltfMesh mesh, Matrix world
-            , List<Model3DMeshGroup> groups, ref Vector3 min, ref Vector3 max, ref bool boundsTouched) {
+            , List<Model3DMeshGroup> groups, ref Vector3 min, ref Vector3 max, ref bool boundsTouched
+            , bool hasSkins, Matrix rootTransform, int skinIndex) {
 
             for (int p = 0; p < mesh.Primitives.Count; p++) {
                 GltfPrimitive primitive = mesh.Primitives[p];
@@ -248,6 +534,28 @@ namespace InnoVault.Models3D.Gltf
                     }
                 }
 
+                Joint4[] jointIndices = null;
+                Vector4[] jointWeights = null;
+                if (skinIndex >= 0) {
+                    if (primitive.Attributes.TryGetValue("JOINTS_0", out int jointsAccessor)
+                        && primitive.Attributes.TryGetValue("WEIGHTS_0", out int weightsAccessor)) {
+                        jointIndices = reader.ReadJoint4(jointsAccessor);
+                        jointWeights = reader.ReadVec4Float(weightsAccessor);
+                        if (jointIndices == null || jointWeights == null
+                            || jointIndices.Length != positions.Length || jointWeights.Length != positions.Length) {
+                            diagnostic.Warn(source, 0, $"Mesh '{mesh.Name}' primitive {p} JOINTS/WEIGHTS length mismatch, skinning disabled for this primitive");
+                            jointIndices = null;
+                            jointWeights = null;
+                        }
+                        else {
+                            NormalizeWeights(jointWeights);
+                        }
+                    }
+                    else {
+                        diagnostic.Warn(source, 0, $"Mesh '{mesh.Name}' primitive {p} references skin {skinIndex} but lacks JOINTS_0/WEIGHTS_0, skinning disabled");
+                    }
+                }
+
                 int[] indices = primitive.Indices >= 0 ? reader.ReadIndices(primitive.Indices) : BuildSequentialIndices(positions.Length);
                 if (indices == null || indices.Length == 0) {
                     diagnostic.Warn(source, 0, $"Mesh '{mesh.Name}' primitive {p} has no drawable indices, skipped");
@@ -255,10 +563,18 @@ namespace InnoVault.Models3D.Gltf
                 }
 
                 VertexPositionNormalTexture[] vertices = new VertexPositionNormalTexture[positions.Length];
+                bool isSkinned = jointIndices != null && jointWeights != null;
+                bool bakeRoot = !hasSkins;   //只有完全非蒙皮模型才把 R 烘焙进顶点
+
                 for (int i = 0; i < positions.Length; i++) {
                     Vector3 pos = Vector3.Transform(positions[i], world);
-                    pos = options.ApplyImportScale(options.ApplyAxis(pos));
-                    Vector3 normal = normals != null ? options.ApplyAxisNormal(Vector3.TransformNormal(normals[i], world)) : Vector3.Zero;
+                    if (bakeRoot) {
+                        pos = options.ApplyImportScale(options.ApplyAxis(pos));
+                    }
+                    Vector3 normal = normals != null
+                        ? (bakeRoot ? options.ApplyAxisNormal(Vector3.TransformNormal(normals[i], world))
+                                    : Vector3.TransformNormal(normals[i], world))
+                        : Vector3.Zero;
                     if (normal.LengthSquared() > 1e-6f) {
                         normal.Normalize();
                     }
@@ -268,14 +584,16 @@ namespace InnoVault.Models3D.Gltf
                     }
                     vertices[i] = new VertexPositionNormalTexture(pos, normal, uv);
 
+                    //包围盒按"最终可见空间"算：bakeRoot 时 pos 已经在最终空间；否则需要把 RootTransform 应用一次再统计
+                    Vector3 visPos = bakeRoot ? pos : Vector3.Transform(pos, rootTransform);
                     if (!boundsTouched) {
-                        min = pos;
-                        max = pos;
+                        min = visPos;
+                        max = visPos;
                         boundsTouched = true;
                     }
                     else {
-                        min = Vector3.Min(min, pos);
-                        max = Vector3.Max(max, pos);
+                        min = Vector3.Min(min, visPos);
+                        max = Vector3.Max(max, visPos);
                     }
                 }
 
@@ -290,7 +608,30 @@ namespace InnoVault.Models3D.Gltf
                 Model3DMeshGroup group = new Model3DMeshGroup(materialName, vertices, indices) {
                     Material = material,
                 };
+                if (isSkinned) {
+                    //bind 顶点与可绘制顶点同源（蒙皮模型下 Vertices 也充当"无动画兜底姿态"）
+                    VertexPositionNormalTexture[] bind = new VertexPositionNormalTexture[vertices.Length];
+                    Array.Copy(vertices, bind, vertices.Length);
+                    group.BindVertices = bind;
+                    group.JointIndices = jointIndices;
+                    group.JointWeights = jointWeights;
+                    group.SkinIndex = skinIndex;
+                }
                 groups.Add(group);
+            }
+        }
+
+        //把每个顶点 4 权重归一化为和为 1；权重和小于 epsilon 时回落到 (1,0,0,0)
+        private static void NormalizeWeights(Vector4[] weights) {
+            for (int i = 0; i < weights.Length; i++) {
+                Vector4 w = weights[i];
+                float sum = w.X + w.Y + w.Z + w.W;
+                if (sum > 1e-5f) {
+                    weights[i] = new Vector4(w.X / sum, w.Y / sum, w.Z / sum, w.W / sum);
+                }
+                else {
+                    weights[i] = new Vector4(1f, 0f, 0f, 0f);
+                }
             }
         }
 
@@ -370,14 +711,7 @@ namespace InnoVault.Models3D.Gltf
 
         private static Matrix BuildNodeMatrix(GltfNode node) {
             if (node.Matrix != null) {
-                float[] m = node.Matrix;
-                // glTF stores matrices column-major. XNA's row-vector transform expects the same
-                // contiguous values in M11..M44 for equivalent Vector3.Transform behavior.
-                return new Matrix(
-                    m[0], m[1], m[2], m[3],
-                    m[4], m[5], m[6], m[7],
-                    m[8], m[9], m[10], m[11],
-                    m[12], m[13], m[14], m[15]);
+                return MatrixFromArray(node.Matrix);
             }
 
             Vector3 scale = node.Scale != null ? new Vector3(node.Scale[0], node.Scale[1], node.Scale[2]) : Vector3.One;
@@ -386,6 +720,16 @@ namespace InnoVault.Models3D.Gltf
                 : Quaternion.Identity;
             Vector3 translation = node.Translation != null ? new Vector3(node.Translation[0], node.Translation[1], node.Translation[2]) : Vector3.Zero;
             return Matrix.CreateScale(scale) * Matrix.CreateFromQuaternion(rotation) * Matrix.CreateTranslation(translation);
+        }
+
+        private static Matrix MatrixFromArray(float[] m) {
+            //glTF stores matrices column-major. XNA's row-vector transform expects the same
+            //contiguous values in M11..M44 for equivalent Vector3.Transform behavior.
+            return new Matrix(
+                m[0], m[1], m[2], m[3],
+                m[4], m[5], m[6], m[7],
+                m[8], m[9], m[10], m[11],
+                m[12], m[13], m[14], m[15]);
         }
 
         private sealed class AccessorReader
@@ -433,6 +777,132 @@ namespace InnoVault.Models3D.Gltf
                 return result;
             }
 
+            public Vector4[] ReadVec4Float(int accessorIndex) {
+                if (!TryGetAccessor(accessorIndex, ComponentFloat, "VEC4", out GltfAccessor accessor, out GltfBufferView view, out byte[] buffer)) {
+                    return null;
+                }
+                Vector4[] result = new Vector4[accessor.Count];
+                int stride = GetStride(accessor, view);
+                int start = view.ByteOffset + accessor.ByteOffset;
+                for (int i = 0; i < accessor.Count; i++) {
+                    int offset = start + i * stride;
+                    result[i] = new Vector4(
+                        ReadSingle(buffer, offset),
+                        ReadSingle(buffer, offset + 4),
+                        ReadSingle(buffer, offset + 8),
+                        ReadSingle(buffer, offset + 12));
+                }
+                return result;
+            }
+
+            public Joint4[] ReadJoint4(int accessorIndex) {
+                if (accessorIndex < 0 || accessorIndex >= _doc.Accessors.Count) {
+                    _diagnostic.Warn(_source, 0, $"Invalid joints accessor {accessorIndex}");
+                    return null;
+                }
+                GltfAccessor accessor = _doc.Accessors[accessorIndex];
+                if (accessor.Type != "VEC4") {
+                    _diagnostic.Warn(_source, 0, $"Joints accessor {accessorIndex} type '{accessor.Type}', expected VEC4");
+                    return null;
+                }
+                if (accessor.ComponentType != ComponentUnsignedByte && accessor.ComponentType != ComponentUnsignedShort) {
+                    _diagnostic.Warn(_source, 0, $"Joints accessor {accessorIndex} componentType {accessor.ComponentType}, expected UNSIGNED_BYTE or UNSIGNED_SHORT");
+                    return null;
+                }
+                if (!TryGetAccessor(accessorIndex, accessor.ComponentType, "VEC4", out accessor, out GltfBufferView view, out byte[] buffer)) {
+                    return null;
+                }
+                Joint4[] result = new Joint4[accessor.Count];
+                int stride = GetStride(accessor, view);
+                int start = view.ByteOffset + accessor.ByteOffset;
+                for (int i = 0; i < accessor.Count; i++) {
+                    int offset = start + i * stride;
+                    if (accessor.ComponentType == ComponentUnsignedByte) {
+                        result[i] = new Joint4(buffer[offset], buffer[offset + 1], buffer[offset + 2], buffer[offset + 3]);
+                    }
+                    else {
+                        result[i] = new Joint4(
+                            BitConverter.ToUInt16(buffer, offset),
+                            BitConverter.ToUInt16(buffer, offset + 2),
+                            BitConverter.ToUInt16(buffer, offset + 4),
+                            BitConverter.ToUInt16(buffer, offset + 6));
+                    }
+                }
+                return result;
+            }
+
+            public Matrix[] ReadMat4(int accessorIndex) {
+                if (!TryGetAccessor(accessorIndex, ComponentFloat, "MAT4", out GltfAccessor accessor, out GltfBufferView view, out byte[] buffer)) {
+                    return null;
+                }
+                Matrix[] result = new Matrix[accessor.Count];
+                int stride = GetStride(accessor, view);
+                int start = view.ByteOffset + accessor.ByteOffset;
+                for (int i = 0; i < accessor.Count; i++) {
+                    int offset = start + i * stride;
+                    result[i] = new Matrix(
+                        ReadSingle(buffer, offset + 0), ReadSingle(buffer, offset + 4), ReadSingle(buffer, offset + 8), ReadSingle(buffer, offset + 12),
+                        ReadSingle(buffer, offset + 16), ReadSingle(buffer, offset + 20), ReadSingle(buffer, offset + 24), ReadSingle(buffer, offset + 28),
+                        ReadSingle(buffer, offset + 32), ReadSingle(buffer, offset + 36), ReadSingle(buffer, offset + 40), ReadSingle(buffer, offset + 44),
+                        ReadSingle(buffer, offset + 48), ReadSingle(buffer, offset + 52), ReadSingle(buffer, offset + 56), ReadSingle(buffer, offset + 60));
+                }
+                return result;
+            }
+
+            public float[] ReadScalarFloat(int accessorIndex) {
+                if (!TryGetAccessor(accessorIndex, ComponentFloat, "SCALAR", out GltfAccessor accessor, out GltfBufferView view, out byte[] buffer)) {
+                    return null;
+                }
+                float[] result = new float[accessor.Count];
+                int stride = GetStride(accessor, view);
+                int start = view.ByteOffset + accessor.ByteOffset;
+                for (int i = 0; i < accessor.Count; i++) {
+                    int offset = start + i * stride;
+                    result[i] = ReadSingle(buffer, offset);
+                }
+                return result;
+            }
+
+            //把 output accessor 当作连续的 float 数组读出来，无视具体 type（采样器内部用 stride 切分）
+            public float[] ReadOutputFloats(int accessorIndex) {
+                if (accessorIndex < 0 || accessorIndex >= _doc.Accessors.Count) {
+                    _diagnostic.Warn(_source, 0, $"Invalid animation output accessor {accessorIndex}");
+                    return null;
+                }
+                GltfAccessor accessor = _doc.Accessors[accessorIndex];
+                if (accessor.ComponentType != ComponentFloat) {
+                    _diagnostic.Warn(_source, 0, $"Animation output accessor {accessorIndex} component type {accessor.ComponentType}, expected FLOAT");
+                    return null;
+                }
+                int componentCount = ComponentCount(accessor.Type);
+                if (componentCount <= 0) {
+                    _diagnostic.Warn(_source, 0, $"Animation output accessor {accessorIndex} unsupported type '{accessor.Type}'");
+                    return null;
+                }
+                if (!TryGetAccessor(accessorIndex, ComponentFloat, accessor.Type, out accessor, out GltfBufferView view, out byte[] buffer)) {
+                    return null;
+                }
+                int totalFloats = accessor.Count * componentCount;
+                float[] result = new float[totalFloats];
+                int stride = GetStride(accessor, view);
+                int start = view.ByteOffset + accessor.ByteOffset;
+                for (int i = 0; i < accessor.Count; i++) {
+                    int offset = start + i * stride;
+                    for (int c = 0; c < componentCount; c++) {
+                        result[i * componentCount + c] = ReadSingle(buffer, offset + c * 4);
+                    }
+                }
+                return result;
+            }
+
+            public int GetAccessorStrideAsFloats(int accessorIndex) {
+                if (accessorIndex < 0 || accessorIndex >= _doc.Accessors.Count) {
+                    return 0;
+                }
+                GltfAccessor accessor = _doc.Accessors[accessorIndex];
+                return ComponentCount(accessor.Type);
+            }
+
             public int[] ReadIndices(int accessorIndex) {
                 if (accessorIndex < 0 || accessorIndex >= _doc.Accessors.Count) {
                     _diagnostic.Warn(_source, 0, $"Invalid indices accessor {accessorIndex}");
@@ -453,7 +923,7 @@ namespace InnoVault.Models3D.Gltf
                 for (int i = 0; i < accessor.Count; i++) {
                     int offset = start + i * stride;
                     switch (accessor.ComponentType) {
-                        case ComponentByte:
+                        case ComponentUnsignedByte:
                             result[i] = buffer[offset];
                             break;
                         case ComponentUnsignedShort:
@@ -523,6 +993,8 @@ namespace InnoVault.Models3D.Gltf
             private static int ComponentSize(int componentType) {
                 return componentType switch {
                     ComponentByte => 1,
+                    ComponentUnsignedByte => 1,
+                    ComponentShort => 2,
                     ComponentUnsignedShort => 2,
                     ComponentUnsignedInt => 4,
                     ComponentFloat => 4,
@@ -536,6 +1008,9 @@ namespace InnoVault.Models3D.Gltf
                     "VEC2" => 2,
                     "VEC3" => 3,
                     "VEC4" => 4,
+                    "MAT2" => 4,
+                    "MAT3" => 9,
+                    "MAT4" => 16,
                     _ => 0,
                 };
             }

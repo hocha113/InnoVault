@@ -44,6 +44,16 @@ namespace InnoVault.Models3D.Gltf
         /// <br/>默认开启，避免模型顶点远离原点时实例旋转变成绕远处公转
         /// </summary>
         public bool CenterPivot { get; set; } = true;
+        /// <summary>
+        /// 是否解析 glTF <c>skins[]</c> 并启用蒙皮通路
+        /// <br/>关闭后 JOINTS/WEIGHTS 顶点属性会被忽略，所有 primitive 退回静态绘制
+        /// </summary>
+        public bool ImportSkins { get; set; } = true;
+        /// <summary>
+        /// 是否解析 glTF <c>animations[]</c>
+        /// <br/>关闭后 <see cref="InnoVault.Models3D.Runtime.Vault3DModel.Clips"/> 始终为空
+        /// </summary>
+        public bool ImportAnimations { get; set; } = true;
 
         /// <summary>
         /// 应用导入缩放

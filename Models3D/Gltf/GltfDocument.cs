@@ -13,6 +13,8 @@ namespace InnoVault.Models3D.Gltf
         public List<GltfMesh> Meshes { get; } = new();
         public List<GltfNode> Nodes { get; } = new();
         public List<GltfScene> Scenes { get; } = new();
+        public List<GltfSkin> Skins { get; } = new();
+        public List<GltfAnimation> Animations { get; } = new();
         public int SceneIndex { get; private set; }
 
         public static GltfDocument Parse(string json, Model3DDiagnostic diagnostic, string source) {
@@ -29,6 +31,7 @@ namespace InnoVault.Models3D.Gltf
                     ComponentType = ReadInt(obj["componentType"], 0),
                     Count = ReadInt(obj["count"], 0),
                     Type = ReadString(obj["type"]),
+                    Normalized = ReadBool(obj["normalized"], false),
                     Sparse = obj["sparse"] != null,
                 });
             }
@@ -90,6 +93,7 @@ namespace InnoVault.Models3D.Gltf
                 GltfNode node = new GltfNode {
                     Name = ReadString(obj["name"]),
                     Mesh = ReadInt(obj["mesh"], -1),
+                    Skin = ReadInt(obj["skin"], -1),
                     Matrix = ReadFloatArray(obj["matrix"], 16),
                     Translation = ReadFloatArray(obj["translation"], 3),
                     Rotation = ReadFloatArray(obj["rotation"], 4),
@@ -110,6 +114,44 @@ namespace InnoVault.Models3D.Gltf
                     scene.Nodes.Add(ReadInt(node, -1));
                 }
                 doc.Scenes.Add(scene);
+            }
+
+            foreach (JToken token in root["skins"] as JArray ?? new JArray()) {
+                JObject obj = (JObject)token;
+                GltfSkin skin = new GltfSkin {
+                    Name = ReadString(obj["name"]),
+                    InverseBindMatrices = ReadInt(obj["inverseBindMatrices"], -1),
+                    Skeleton = ReadInt(obj["skeleton"], -1),
+                };
+                foreach (JToken joint in obj["joints"] as JArray ?? new JArray()) {
+                    skin.Joints.Add(ReadInt(joint, -1));
+                }
+                doc.Skins.Add(skin);
+            }
+
+            foreach (JToken token in root["animations"] as JArray ?? new JArray()) {
+                JObject obj = (JObject)token;
+                GltfAnimation anim = new GltfAnimation {
+                    Name = ReadString(obj["name"]),
+                };
+                foreach (JToken samplerToken in obj["samplers"] as JArray ?? new JArray()) {
+                    JObject samplerObj = (JObject)samplerToken;
+                    anim.Samplers.Add(new GltfAnimationSampler {
+                        Input = ReadInt(samplerObj["input"], -1),
+                        Output = ReadInt(samplerObj["output"], -1),
+                        Interpolation = ReadString(samplerObj["interpolation"]),
+                    });
+                }
+                foreach (JToken channelToken in obj["channels"] as JArray ?? new JArray()) {
+                    JObject channelObj = (JObject)channelToken;
+                    JObject targetObj = channelObj["target"] as JObject;
+                    anim.Channels.Add(new GltfAnimationChannel {
+                        Sampler = ReadInt(channelObj["sampler"], -1),
+                        TargetNode = ReadInt(targetObj?["node"], -1),
+                        TargetPath = ReadString(targetObj?["path"]),
+                    });
+                }
+                doc.Animations.Add(anim);
             }
 
             if (root["extensionsRequired"] is JArray required && required.Count > 0) {
@@ -150,6 +192,7 @@ namespace InnoVault.Models3D.Gltf
         public int ComponentType;
         public int Count;
         public string Type;
+        public bool Normalized;
         public bool Sparse;
     }
 
@@ -193,6 +236,7 @@ namespace InnoVault.Models3D.Gltf
     {
         public string Name;
         public int Mesh;
+        public int Skin;
         public float[] Matrix;
         public float[] Translation;
         public float[] Rotation;
@@ -204,5 +248,34 @@ namespace InnoVault.Models3D.Gltf
     {
         public string Name;
         public List<int> Nodes { get; } = new();
+    }
+
+    internal sealed class GltfSkin
+    {
+        public string Name;
+        public int InverseBindMatrices;
+        public int Skeleton;
+        public List<int> Joints { get; } = new();
+    }
+
+    internal sealed class GltfAnimation
+    {
+        public string Name;
+        public List<GltfAnimationSampler> Samplers { get; } = new();
+        public List<GltfAnimationChannel> Channels { get; } = new();
+    }
+
+    internal sealed class GltfAnimationSampler
+    {
+        public int Input;
+        public int Output;
+        public string Interpolation;
+    }
+
+    internal sealed class GltfAnimationChannel
+    {
+        public int Sampler;
+        public int TargetNode;
+        public string TargetPath;
     }
 }

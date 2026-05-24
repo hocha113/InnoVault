@@ -1,3 +1,5 @@
+using InnoVault.Models3D.Animation;
+using InnoVault.Models3D.Skinning;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
@@ -181,6 +183,21 @@ namespace InnoVault.Models3D.Runtime
         /// 每个 mesh group 绘制后的回调
         /// </summary>
         public Model3DDrawCallback PostDrawGroup { get; set; }
+
+        /// <summary>
+        /// 实例级动画播放头
+        /// <br/>绑定到带骨架的 <see cref="Vault3DModel"/> 时才会生效；不为 <see langword="null"/> 时
+        /// 渲染器会在每帧绘制前自动调用 <see cref="AnimationPlayer.Update(float)"/> + <see cref="AnimationPlayer.SamplePose"/>，
+        /// 并把蒙皮结果写入实例自身的 scratch 缓冲
+        /// <br/>多个实例共享同一模型时各自需要一个独立 Player（保存自己的播放时间）
+        /// </summary>
+        public AnimationPlayer Animation { get; set; }
+
+        /// <summary>
+        /// 蒙皮 scratch 缓冲
+        /// <br/>渲染器使用；外部一般无需访问
+        /// </summary>
+        internal InstanceSkinScratch SkinScratch { get; } = new InstanceSkinScratch();
 
         /// <summary>
         /// 构造一个未绑定模型的空实例

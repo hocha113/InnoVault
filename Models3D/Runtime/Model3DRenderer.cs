@@ -1,3 +1,5 @@
+using InnoVault.Models3D.Animation;
+using InnoVault.Models3D.Skinning;
 using InnoVault.RenderHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -562,6 +564,13 @@ namespace InnoVault.Models3D.Runtime
             Model3DLightingConfig lighting = ResolveLightingForInstance(instance);
             float time = (float)Main.timeForVisualEffects;
 
+            //驱动动画：渲染线程统一推进时间并采样姿态，调用方一般无需手动调
+            if (model.IsSkinned && instance.Animation != null) {
+                float deltaSeconds = ResolveDeltaSeconds();
+                instance.Animation.Update(deltaSeconds);
+                instance.Animation.SamplePose();
+            }
+
             Model3DDrawContext instanceCtx = new Model3DDrawContext(graphicsDevice, instance, model, null, null
                 , layer, world, view, projection, lighting, isTransparent, time);
 
@@ -624,7 +633,8 @@ namespace InnoVault.Models3D.Runtime
                 material?.PreDrawGroup?.Invoke(in groupCtx);
                 PreDrawGroup?.Invoke(in groupCtx);
 
-                DrawMeshPrimitives(graphicsDevice, group.Vertices, group.Indices, effect);
+                VertexPositionNormalTexture[] vertSource = ResolveVertexSource(instance, group);
+                DrawMeshPrimitives(graphicsDevice, vertSource, group.Indices, effect);
 
                 material?.PostDrawGroup?.Invoke(in groupCtx);
                 instance.PostDrawGroup?.Invoke(in groupCtx);
@@ -698,13 +708,56 @@ namespace InnoVault.Models3D.Runtime
                 instance.Position.X - Main.screenPosition.X,
                 instance.Position.Y - Main.screenPosition.Y,
                 instance.Depth);
-            Vector3 pivot = instance.Model?.Pivot ?? Vector3.Zero;
-            return Matrix.CreateTranslation(-pivot)
+            Vault3DModel model = instance.Model;
+            Vector3 pivot = model?.Pivot ?? Vector3.Zero;
+            //RootTransform 在最内层左乘进 World：先把模型从源空间（如 glTF 蒙皮空间）抬到"轴/缩放都已应用"的中间空间，
+            //再做 pivot 平移、实例缩放/旋转、最后屏幕偏移。非蒙皮模型 RootTransform 是 Identity，行为完全等价旧路径
+            Matrix rootTransform = model?.RootTransform ?? Matrix.Identity;
+            return rootTransform
+                * Matrix.CreateTranslation(-pivot)
                 * Matrix.CreateScale(instance.Scale)
                 * Matrix.CreateRotationX(instance.Rotation.X)
                 * Matrix.CreateRotationY(instance.Rotation.Y)
                 * Matrix.CreateRotationZ(instance.Rotation.Z)
                 * Matrix.CreateTranslation(worldOffset);
+        }
+
+        //蒙皮 group 走实例 scratch（CPU 蒙皮已在 SamplePose 期间填好调色板），其余 group 直接用 group.Vertices
+        private static VertexPositionNormalTexture[] ResolveVertexSource(Model3DInstance instance, Model3DMeshGroup group) {
+            if (group == null) {
+                return null;
+            }
+            if (!group.IsSkinned) {
+                return group.Vertices;
+            }
+            AnimationPlayer player = instance.Animation;
+            if (player == null) {
+                //实例没有播放头：退回 bind pose（视觉上等同绑定姿态）
+                return group.BindVertices;
+            }
+            SkinningPalette palette = player.GetPalette(group.SkinIndex);
+            if (palette == null) {
+                return group.BindVertices;
+            }
+            VertexPositionNormalTexture[] dst = instance.SkinScratch.GetOrCreateGroupBuffer(group);
+            if (dst == null) {
+                return group.BindVertices;
+            }
+            SkinningPalette.ApplyToVertices(group, palette, dst);
+            return dst;
+        }
+
+        //渲染线程的 delta time：优先用 Main.gameTimeCache（受 PauseScreen 影响，能与游戏物理同步），
+        //缺失时退化为 1/60 秒固定步长。值不会被负值或异常大值污染
+        private static float ResolveDeltaSeconds() {
+            GameTime gt = Main.gameTimeCache;
+            if (gt != null) {
+                float dt = (float)gt.ElapsedGameTime.TotalSeconds;
+                if (dt > 0f && dt < 1f) {
+                    return dt;
+                }
+            }
+            return 1f / 60f;
         }
 
         /// <summary>

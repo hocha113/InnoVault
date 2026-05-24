@@ -1,4 +1,5 @@
 ﻿using InnoVault.Actors;
+using InnoVault.Models3D.Animation;
 using InnoVault.Models3D.Runtime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -25,6 +26,18 @@ namespace InnoVault
         /// </summary>
         [VaultLoaden("Assets/Models3D/SunFace/scene")]
         public static Vault3DModel SunFaceModel { get; set; }
+
+        /// <summary>
+        /// 带骨骼动画的 glTF 模型；用于演示蒙皮 + AnimationPlayer cross-fade
+        /// </summary>
+        [VaultLoaden("Assets/Models3D/Scroll/scene")]
+        public static Vault3DModel ScrollModel { get; set; }
+
+        //每个客户端持有一个实例，避免每帧重建播放头让动画时间重置
+        private static Model3DInstance _scrollInstance;
+        //演示反向 cross-fade：HoldItem 中通过 altFunctionUse 触发，按一下反转一次播放方向
+        private static bool _scrollReverse;
+        private static bool _scrollAltLatch;
 
         //========== 示例 2：OnLayerRendered 后处理订阅（一次性挂上） ==========
         //OnLayerRendered 是全局静态事件，在每层 3D 模型画完后、合成回屏之前触发
@@ -227,6 +240,44 @@ namespace InnoVault
                     DepthEnabled = true,
                     CullBackface = false,
                 });
+            }
+
+            //===== 示例：glTF 骨骼动画 =====
+            //Scroll 模型自带一段 "Take 001" 平移动画，蒙皮由 AnimationPlayer + CPU skinning 通路完成
+            //在 HoldItem 末尾用同一个实例每帧 Submit，由渲染器自动驱动时间，演示 cross-fade：
+            //右键按下时切换播放方向，并配 0.25s fade-in，能直观看到两个时间轴 blend 出来的过渡
+            if (ScrollModel != null && ScrollModel.IsValid && ScrollModel.IsSkinned) {
+                _scrollInstance ??= new Model3DInstance(ScrollModel) {
+                    Animation = new AnimationPlayer(ScrollModel) { Loop = true, Speed = 1f },
+                    Scale = new Vector3(28f),
+                    Tint = Color.White,
+                    LightingEnabled = true,
+                    Layer = Model3DLayer.AfterPlayers,
+                    DepthEnabled = true,
+                    CullBackface = false,
+                };
+
+                //首次确保有 Clip 在播
+                if (_scrollInstance.Animation.Current == null) {
+                    _scrollInstance.Animation.Play("Take 001", fadeIn: 0f);
+                }
+
+                //右键边沿触发：按下瞬间切换播放方向，带 0.25s cross-fade
+                bool altDown = player.controlUseTile;   //右键
+                if (altDown && !_scrollAltLatch) {
+                    _scrollReverse = !_scrollReverse;
+                    AnimationPlayer ap = _scrollInstance.Animation;
+                    //重新播放同一 Clip + fade，相当于把当前姿态作为"上一段"保留，新方向作为"当前段"
+                    ap.Play("Take 001", fadeIn: 0.25f, restart: false);
+                    ap.Speed = _scrollReverse ? -1f : 1f;
+                }
+                _scrollAltLatch = altDown;
+
+                Vector2 scrollPos = player.Center + new Vector2(180f, -120f);
+                _scrollInstance.Position = scrollPos;
+                _scrollInstance.Rotation = new Vector3(0f, 0.2f, 0f);
+                _scrollInstance.LightingOverride = BuildCursorLighting(scrollPos, Main.MouseWorld);
+                Model3DRenderer.Submit(_scrollInstance);
             }
         }
 
