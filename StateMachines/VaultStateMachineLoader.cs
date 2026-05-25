@@ -23,15 +23,11 @@ namespace InnoVault.StateMachines
                     continue;
                 }
 
-                VaultStateAttribute attr;
-                try {
-                    attr = VaultUtils.GetAttributeSafely<VaultStateAttribute>(type);
-                } catch (Exception ex) {
+                VaultStateAttribute attr = VaultUtils.GetAttributeSafely<VaultStateAttribute>(type, (phase, ex) => {
                     VaultMod.LoggerError(
                         $"VaultStateMachineLoader:attr:{type.FullName}",
-                        $"Failed to read VaultStateAttribute on {type.FullName}: {ex.Message}");
-                    continue;
-                }
+                        $"Failed to read VaultStateAttribute on {type.FullName} during {phase}: {ex.Message}");
+                });
                 if (attr == null) {
                     continue;
                 }
