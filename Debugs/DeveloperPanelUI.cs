@@ -125,7 +125,6 @@ namespace InnoVault.Debugs
         private bool hoveringIndicator;
         private bool hoveringCloseAll;
 
-        //???
         private bool isDragging;
         private Vector2 dragOffset;
 
@@ -136,6 +135,8 @@ namespace InnoVault.Debugs
         }
 
         public override void Update() {
+            ReconcileDragOwner();
+
             pulseTimer += 0.05f;
             if (pulseTimer > MathHelper.TwoPi) pulseTimer -= MathHelper.TwoPi;
 
@@ -172,6 +173,12 @@ namespace InnoVault.Debugs
                 if (UIHandleLoader.keyLeftPressState == KeyPressState.Released || UIHandleLoader.keyLeftPressState == KeyPressState.None) {
                     EndDragging();
                 }
+            }
+        }
+
+        private void ReconcileDragOwner() {
+            if (isDragging && UIHandleLoader.CurrentDragOwner != this) {
+                EndDragging();
             }
         }
 
@@ -350,6 +357,8 @@ namespace InnoVault.Debugs
         }
 
         public override void Update() {
+            ReconcileDragOwner();
+
             if (uiFadeAlpha < 0.01f) {
                 return;
             }
@@ -459,6 +468,12 @@ namespace InnoVault.Debugs
                 if (UIHandleLoader.keyLeftPressState == KeyPressState.Released || UIHandleLoader.keyLeftPressState == KeyPressState.None) {
                     EndDragging(playSound: true);
                 }
+            }
+        }
+
+        private void ReconcileDragOwner() {
+            if (isDragging && UIHandleLoader.CurrentDragOwner != this) {
+                EndDragging();
             }
         }
 
