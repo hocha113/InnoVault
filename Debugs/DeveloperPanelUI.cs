@@ -125,18 +125,24 @@ namespace InnoVault.Debugs
         private bool hoveringIndicator;
         private bool hoveringCloseAll;
 
-        private bool isDragging;
-        private Vector2 dragOffset;
-
         public override bool Active => DebugSettings.AnyDebugEnabled && !DeveloperPanelUI.Instance.Active;
+        public override bool AutoUpdateHitBox => true;
+        public override bool BlockMouseWhenHovered => true;
+        public override bool CanDrag => true;
+        public override MouseButtonType DragMouseButton => MouseButtonType.Left;
+        public override Rectangle? DragHandleRect
+            => new((int)DrawPosition.X, (int)DrawPosition.Y, (int)(IndicatorWidth - 34), (int)IndicatorHeight);
+
+        internal DebugMiniIndicator() {
+            Size = new Vector2(IndicatorWidth, IndicatorHeight);
+        }
 
         public override void OnEnterWorld() {
+            Size = new Vector2(IndicatorWidth, IndicatorHeight);
             DrawPosition = new Vector2(Main.screenWidth - IndicatorWidth - 20, 100);
         }
 
         public override void Update() {
-            ReconcileDragOwner();
-
             pulseTimer += 0.05f;
             if (pulseTimer > MathHelper.TwoPi) pulseTimer -= MathHelper.TwoPi;
 
@@ -148,45 +154,12 @@ namespace InnoVault.Debugs
 
             Vector2 mousePos = new(Main.mouseX, Main.mouseY);
             hoveringIndicator = indicatorRect.Contains(mousePos.ToPoint());
-            hoveringCloseAll = closeAllRect.Contains(mousePos.ToPoint()) && !isDragging;
-
-            if (hoveringIndicator) {
-                player.mouseInterface = true;
-            }
-
-            HandleDragging(mousePos);
+            hoveringCloseAll = closeAllRect.Contains(mousePos.ToPoint()) && !IsDragging;
             HandleClicks();
         }
 
-        private void HandleDragging(Vector2 mousePos) {
-            if (hoveringIndicator && !hoveringCloseAll &&
-                UIHandleLoader.keyLeftPressState == KeyPressState.Pressed && !isDragging &&
-                (UIHandleLoader.CurrentDragOwner == null || UIHandleLoader.CurrentDragOwner == this)) {
-                isDragging = true;
-                UIHandleLoader.CurrentDragOwner = this;
-                dragOffset = DrawPosition - mousePos;
-                SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
-            }
-
-            if (isDragging) {
-                DrawPosition = mousePos + dragOffset;
-                if (UIHandleLoader.keyLeftPressState == KeyPressState.Released || UIHandleLoader.keyLeftPressState == KeyPressState.None) {
-                    EndDragging();
-                }
-            }
-        }
-
-        private void ReconcileDragOwner() {
-            if (isDragging && UIHandleLoader.CurrentDragOwner != this) {
-                EndDragging();
-            }
-        }
-
-        private void EndDragging() {
-            isDragging = false;
-            if (UIHandleLoader.CurrentDragOwner == this) {
-                UIHandleLoader.CurrentDragOwner = null;
-            }
+        protected override void OnDragStart() {
+            SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
         }
 
         private void HandleClicks() {
@@ -198,7 +171,7 @@ namespace InnoVault.Debugs
                 DebugSettings.ResetAll();
                 SoundEngine.PlaySound(SoundID.MenuClose);
             }
-            else if (hoveringIndicator && !isDragging) {
+            else if (hoveringIndicator && !IsDragging) {
                 DeveloperPanelUI.Instance?.Toggle();
             }
         }
@@ -258,9 +231,10 @@ namespace InnoVault.Debugs
         public override bool CloseOnEscape => true;
         public override SoundStyle? OpenSound => SoundID.MenuOpen;
         public override SoundStyle? CloseSound => SoundID.MenuClose;
-
-        private bool isDragging;
-        private Vector2 dragOffset;
+        public override bool CanDrag => true;
+        public override MouseButtonType DragMouseButton => MouseButtonType.Left;
+        public override Rectangle? DragHandleRect
+            => new(titleRect.X, titleRect.Y, Math.Max(0, titleRect.Width - 45), titleRect.Height);
 
         private Rectangle panelRect;
         private Rectangle titleRect;
@@ -351,14 +325,11 @@ namespace InnoVault.Debugs
         }
 
         protected override void OnClose() {
-            EndDragging();
             hoveringTab = -1;
             hoveringCheckbox = -1;
         }
 
         public override void Update() {
-            ReconcileDragOwner();
-
             if (uiFadeAlpha < 0.01f) {
                 return;
             }
@@ -379,13 +350,6 @@ namespace InnoVault.Debugs
             Vector2 mousePos = new(Main.mouseX, Main.mouseY);
             UpdateLayout();
             UpdateHoverStates(mousePos);
-            HandleDragging(mousePos);
-            if (isDragging) {
-                DrawPosition.X = MathHelper.Clamp(DrawPosition.X, PanelWidth / 2 + 10, Main.screenWidth - PanelWidth / 2 - 10);
-                DrawPosition.Y = MathHelper.Clamp(DrawPosition.Y, PanelHeight / 2 + 10, Main.screenHeight - PanelHeight / 2 - 10);
-                UpdateLayout();
-                UpdateHoverStates(mousePos);
-            }
 
             if (hoveringPanel) {
                 player.mouseInterface = true;
@@ -413,12 +377,12 @@ namespace InnoVault.Debugs
             Point mousePoint = mousePos.ToPoint();
             hoveringPanel = panelRect.Contains(mousePoint);
             hoverInMainPage = hoveringPanel;
-            hoveringCloseButton = closeButtonRect.Contains(mousePoint) && !isDragging;
-            hoveringResetButton = resetButtonRect.Contains(mousePoint) && !isDragging;
-            hoveringResetAllButton = resetAllButtonRect.Contains(mousePoint) && !isDragging;
+            hoveringCloseButton = closeButtonRect.Contains(mousePoint) && !IsDragging;
+            hoveringResetButton = resetButtonRect.Contains(mousePoint) && !IsDragging;
+            hoveringResetAllButton = resetAllButtonRect.Contains(mousePoint) && !IsDragging;
 
             hoveringTab = -1;
-            if (!isDragging) {
+            if (!IsDragging) {
                 for (int i = 0; i < tabRects.Count; i++) {
                     if (tabRects[i].Contains(mousePoint)) {
                         hoveringTab = i;
@@ -428,7 +392,7 @@ namespace InnoVault.Debugs
             }
 
             hoveringCheckbox = -1;
-            if (!isDragging && currentTabIndex >= 0 && currentTabIndex < tabs.Count) {
+            if (!IsDragging && currentTabIndex >= 0 && currentTabIndex < tabs.Count) {
                 var currentTab = tabs[currentTabIndex];
                 int checkboxY = contentRect.Y + 5;
                 for (int i = 0; i < currentTab.Checkboxes.Count; i++) {
@@ -451,42 +415,12 @@ namespace InnoVault.Debugs
             }
         }
 
-        private void HandleDragging(Vector2 mousePos) {
-            if (hoveringPanel && !hoveringCloseButton && !hoveringResetButton && !hoveringResetAllButton && hoveringTab < 0 && hoveringCheckbox < 0 &&
-                UIHandleLoader.keyLeftPressState == KeyPressState.Pressed && !isDragging &&
-                (UIHandleLoader.CurrentDragOwner == null || UIHandleLoader.CurrentDragOwner == this)) {
-                if (titleRect.Contains(mousePos.ToPoint())) {
-                    isDragging = true;
-                    UIHandleLoader.CurrentDragOwner = this;
-                    dragOffset = DrawPosition - mousePos;
-                    SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
-                }
-            }
-
-            if (isDragging) {
-                DrawPosition = mousePos + dragOffset;
-                if (UIHandleLoader.keyLeftPressState == KeyPressState.Released || UIHandleLoader.keyLeftPressState == KeyPressState.None) {
-                    EndDragging(playSound: true);
-                }
-            }
+        protected override void OnDragStart() {
+            SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
         }
 
-        private void ReconcileDragOwner() {
-            if (isDragging && UIHandleLoader.CurrentDragOwner != this) {
-                EndDragging();
-            }
-        }
-
-        private void EndDragging(bool playSound = false) {
-            bool wasDragging = isDragging;
-            isDragging = false;
-            if (UIHandleLoader.CurrentDragOwner == this) {
-                UIHandleLoader.CurrentDragOwner = null;
-            }
-
-            if (playSound && wasDragging) {
-                SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
-            }
+        protected override void OnDragEnd() {
+            SoundEngine.PlaySound(SoundID.MenuTick with { Volume = 0.3f });
         }
 
         private void HandleButtonClicks() {
