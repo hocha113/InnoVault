@@ -159,6 +159,11 @@ namespace InnoVault.StateMachines
             if (_initialState != null) {
                 _machine.SetInitialState(_initialState);
             }
+
+            //清空 pending 列表，避免重复调用 Build() 时把同一批转移/触发器塞进多个机器
+            _pendingTransitions.Clear();
+            _pendingPhaseTriggers.Clear();
+            _initialState = null;
             return _machine;
         }
     }

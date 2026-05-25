@@ -50,11 +50,17 @@ namespace InnoVault.BehaviorTrees
                     return BTStatus.Running;
                 }
                 if (status == BTStatus.Failure) {
+                    //终止时 reset 失败的子节点，避免它的内部状态（计时器/索引）被下一次进入时复用
+                    _children[_index].Reset();
                     _index = 0;
                     LastStatus = BTStatus.Failure;
                     return BTStatus.Failure;
                 }
                 _index++;
+            }
+            //完整跑完一遍：reset 所有子节点，确保下一轮从干净状态开始
+            for (int i = 0; i < _children.Count; i++) {
+                _children[i].Reset();
             }
             _index = 0;
             LastStatus = BTStatus.Success;
@@ -85,11 +91,17 @@ namespace InnoVault.BehaviorTrees
                     return BTStatus.Running;
                 }
                 if (status == BTStatus.Success) {
+                    //成功结束：reset 成功的子节点，避免其内部状态被下一轮 Selector 重新选择时复用
+                    _children[_index].Reset();
                     _index = 0;
                     LastStatus = BTStatus.Success;
                     return BTStatus.Success;
                 }
                 _index++;
+            }
+            //全部失败：reset 所有子节点，保证下一轮干净
+            for (int i = 0; i < _children.Count; i++) {
+                _children[i].Reset();
             }
             _index = 0;
             LastStatus = BTStatus.Failure;
@@ -108,17 +120,25 @@ namespace InnoVault.BehaviorTrees
     /// </summary>
     public enum ParallelPolicy
     {
-        /// <summary>任一子节点返回<see cref="BTStatus.Success"/>则整体 Success；全部 Failure 则整体 Failure</summary>
+        /// <summary>任一子节点返回<see cref="BTStatus.Success"/>立即整体 Success；全部 Failure 才整体 Failure</summary>
         AnySuccess,
         /// <summary>所有子节点都 Success 才整体 Success；任一 Failure 立即 Failure</summary>
         AllSuccess,
-        /// <summary>任一子节点返回<see cref="BTStatus.Failure"/>则整体 Failure；其余视作 Running 直到全部 Success</summary>
+        /// <summary>
+        /// 至少一个 Success 即可：等到本帧所有子节点都已 settle (非 Running)，<br/>
+        /// 只要其中至少有一个 Success 就整体 Success（允许部分子节点 Failure）；<br/>
+        /// 当本帧所有子节点都 Failure 时整体 Failure。<br/>
+        /// 与<see cref="AnySuccess"/>的区别：本策略<b>不会</b>在第一个成功就立即返回，会等其它子节点结束<br/>
+        /// 与<see cref="AllSuccess"/>的区别：允许部分子节点失败，只要至少一个成功
+        /// </summary>
         RequireOne,
     }
 
     /// <summary>
     /// 并行节点：每帧 tick <b>所有</b>子节点，根据<see cref="Policy"/>决定整体返回值<br/>
-    /// 注意"并行"指逻辑上的并列评估，<b>不是</b>多线程
+    /// 注意"并行"指逻辑上的并列评估，<b>不是</b>多线程<br/>
+    /// 节点返回 Success/Failure 时，仍处于 Running 的兄弟节点会被自动<see cref="BTNode{TContext}.Reset"/>，<br/>
+    /// 以避免下一次进入 Parallel 时挂着上一次的脏计时 / 内部进度
     /// </summary>
     public sealed class Parallel<TContext> : BTComposite<TContext>
     {
@@ -132,15 +152,23 @@ namespace InnoVault.BehaviorTrees
 
         /// <inheritdoc/>
         public override BTStatus Tick(TContext ctx, Blackboard blackboard) {
+            int childCount = _children.Count;
             int successCount = 0;
             int failureCount = 0;
-            for (int i = 0; i < _children.Count; i++) {
+            int runningCount = 0;
+            //记录每个子节点本帧的状态，便于结束时只 reset 仍 Running 的子节点
+            //典型 BT 并行节点的子数远小于 16，固定栈缓冲避免 GC 压力，超出再退化到堆
+            Span<BTStatus> stackBuf = stackalloc BTStatus[16];
+            Span<BTStatus> perChild = childCount <= 16
+                ? stackBuf[..childCount]
+                : new BTStatus[childCount];
+            for (int i = 0; i < childCount; i++) {
                 BTStatus status = _children[i].Tick(ctx, blackboard);
-                if (status == BTStatus.Success) {
-                    successCount++;
-                }
-                else if (status == BTStatus.Failure) {
-                    failureCount++;
+                perChild[i] = status;
+                switch (status) {
+                    case BTStatus.Success: successCount++; break;
+                    case BTStatus.Failure: failureCount++; break;
+                    default: runningCount++; break;
                 }
             }
 
@@ -169,20 +197,31 @@ namespace InnoVault.BehaviorTrees
                     }
                     break;
                 case ParallelPolicy.RequireOne:
-                    if (failureCount > 0) {
-                        result = BTStatus.Failure;
+                    //等所有子节点 settle 后再裁决：失败和成功都允许，只要至少一个成功
+                    if (runningCount > 0) {
+                        result = BTStatus.Running;
                     }
-                    else if (successCount > 0 && (successCount + failureCount) == _children.Count) {
+                    else if (successCount > 0) {
                         result = BTStatus.Success;
                     }
                     else {
-                        result = BTStatus.Running;
+                        result = BTStatus.Failure;
                     }
                     break;
                 default:
                     result = BTStatus.Failure;
                     break;
             }
+
+            //终止时把仍在 Running 的子节点 reset 掉，避免它们的内部进度/计时悬挂到下次进入
+            if (result != BTStatus.Running) {
+                for (int i = 0; i < _children.Count; i++) {
+                    if (perChild[i] == BTStatus.Running) {
+                        _children[i].Reset();
+                    }
+                }
+            }
+
             LastStatus = result;
             return result;
         }
@@ -203,6 +242,15 @@ namespace InnoVault.BehaviorTrees
         public RandomSelector(Random rng = null) {
             _rng = rng ?? new Random();
         }
+
+        /// <summary>
+        /// 不允许直接调用<see cref="BTComposite{TContext}.Add"/>——本节点必须通过<see cref="AddWeighted"/>同时提供权重，<br/>
+        /// 否则<c>_children</c>与<c>_weights</c>会失去同步，造成索引越界或权重总和错误<br/>
+        /// 该方法被特意保留为静态绑定的"运行时拦截"：无论是<c>new RandomSelector().Add(...)</c>还是反射，都会抛异常
+        /// </summary>
+        public new BTComposite<TContext> Add(BTNode<TContext> child)
+            => throw new InvalidOperationException(
+                "RandomSelector.Add(child) is not supported; use AddWeighted(child, weight) to keep weights synchronized.");
 
         /// <summary>按权重添加子节点</summary>
         public RandomSelector<TContext> AddWeighted(BTNode<TContext> child, float weight) {

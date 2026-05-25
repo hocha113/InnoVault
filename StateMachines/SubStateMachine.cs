@@ -60,6 +60,11 @@ namespace InnoVault.StateMachines
         /// <inheritdoc/>
         public override void OnExit(VaultStateMachine<TContext> machine, TContext ctx) {
             base.OnExit(machine, ctx);
+            //先让内层当前状态走完 OnExit，再标记终止，避免内层状态持有的计时器 / 事件订阅 / 副作用泄漏
+            if (Inner != null) {
+                Inner.CurrentState?.OnExit(Inner, ctx);
+                Inner.MarkTerminated();
+            }
             //帮助 GC 释放内层状态机；下次进入时由 OnEnter 重新构造
             Inner = null;
         }

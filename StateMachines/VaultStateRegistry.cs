@@ -32,6 +32,19 @@ namespace InnoVault.StateMachines
                 VaultMod.LoggerError(
                     $"VaultStateRegistry<{typeof(TContext).Name}>:{id}",
                     $"VaultState id {id} already registered for context {typeof(TContext).FullName}; later registration overwrites the previous one.");
+                //清理映射到旧 id 的所有 type，避免 GetIdFor(oldType) 与 Create(id) 指向不同类型
+                List<Type> staleTypes = null;
+                foreach (KeyValuePair<Type, int> kvp in _typeToId) {
+                    if (kvp.Value == id && kvp.Key != stateType) {
+                        staleTypes ??= [];
+                        staleTypes.Add(kvp.Key);
+                    }
+                }
+                if (staleTypes != null) {
+                    for (int i = 0; i < staleTypes.Count; i++) {
+                        _typeToId.Remove(staleTypes[i]);
+                    }
+                }
             }
             _idToFactory[id] = factory;
             if (stateType != null) {

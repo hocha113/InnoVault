@@ -160,12 +160,16 @@ namespace InnoVault.BehaviorTrees
 
     /// <summary>
     /// 条件门：先评估<see cref="Condition"/>谓词，<see langword="true"/>时才 tick 子节点；<br/>
-    /// 谓词为<see langword="false"/>时直接返回 Failure（不会调用子节点）
+    /// 谓词为<see langword="false"/>时直接返回 Failure（不会调用子节点）。<br/>
+    /// 当谓词从<see langword="true"/>翻转为<see langword="false"/>时，子节点（可能正在 Running）会被<see cref="BTNode{TContext}.Reset"/>，<br/>
+    /// 避免下一次门打开时子节点继续上一次的脏进度
     /// </summary>
     public sealed class ConditionGate<TContext> : BTDecorator<TContext>
     {
         /// <summary>门控谓词</summary>
         public Func<TContext, bool> Condition { get; }
+        //追踪子节点是否处于"已进入但未结束"的状态——只有这种情况下关门才需要 reset
+        private bool _childInFlight;
 
         /// <summary>构造一个条件门</summary>
         public ConditionGate(Func<TContext, bool> condition) {
@@ -174,13 +178,29 @@ namespace InnoVault.BehaviorTrees
 
         /// <inheritdoc/>
         public override BTStatus Tick(TContext ctx, Blackboard blackboard) {
-            if (_child == null || !Condition(ctx)) {
+            if (_child == null) {
+                _childInFlight = false;
+                LastStatus = BTStatus.Failure;
+                return BTStatus.Failure;
+            }
+            if (!Condition(ctx)) {
+                if (_childInFlight) {
+                    _child.Reset();
+                    _childInFlight = false;
+                }
                 LastStatus = BTStatus.Failure;
                 return BTStatus.Failure;
             }
             BTStatus status = _child.Tick(ctx, blackboard);
+            _childInFlight = status == BTStatus.Running;
             LastStatus = status;
             return status;
+        }
+
+        /// <inheritdoc/>
+        public override void Reset() {
+            base.Reset();
+            _childInFlight = false;
         }
     }
 

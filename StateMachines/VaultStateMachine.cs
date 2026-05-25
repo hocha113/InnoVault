@@ -82,18 +82,51 @@ namespace InnoVault.StateMachines
         /// <summary>
         /// 设置状态机的初始状态并立即调用其<see cref="IVaultState{TContext}.OnEnter"/>，<br/>
         /// 同时通过<see cref="NetSync"/>写出初始 StateId（服务端/单机端）<br/>
-        /// 仅应在状态机构建后调用一次；后续切换请使用<see cref="ChangeState(IVaultState{TContext}, string)"/>
+        /// 仅应在状态机构建后调用一次；若<see cref="CurrentState"/>已存在会被视为误用并打出警告后忽略——<br/>
+        /// 需要重置状态机时请改用<see cref="Restart(IVaultState{TContext})"/>
         /// </summary>
         public void SetInitialState(IVaultState<TContext> state) {
             if (state == null) {
                 return;
             }
+            if (CurrentState != null) {
+                VaultMod.LoggerError(
+                    $"VaultStateMachine<{typeof(TContext).Name}>:set_initial_twice",
+                    $"SetInitialState was called while CurrentState ({CurrentState.GetType().FullName}) " +
+                    $"is still set. The second call is ignored to avoid skipping OnExit. Call Restart(...) instead.");
+                return;
+            }
             CurrentState = state;
             state.OnEnter(this, Context);
             if (CanWriteAuthoritative()) {
-                NetSync?.WriteState(this, state.StateId);
+                TryWriteAuthoritativeState(state);
             }
             OnStateChanged?.Invoke(null, state, StateChangeReason.Initial);
+        }
+
+        /// <summary>
+        /// 重启状态机：依次执行当前状态的<see cref="IVaultState{TContext}.OnExit"/>、清空<see cref="IsTerminated"/>，<br/>
+        /// 然后进入<paramref name="newInitial"/>所代表的新初始状态<br/>
+        /// 适合从<see cref="MarkTerminated"/>后或外层桥接节点（<c>BehaviorTreeAsState</c> / <c>VaultStateMachineAsBtLeaf</c>）重置子状态机时使用
+        /// </summary>
+        /// <param name="newInitial">新的初始状态实例；为<see langword="null"/>时仅清理而不重新进入</param>
+        public void Restart(IVaultState<TContext> newInitial) {
+            IVaultState<TContext> oldState = CurrentState;
+            oldState?.OnExit(this, Context);
+            PreviousState = oldState;
+            CurrentState = null;
+            IsTerminated = false;
+            if (newInitial != null) {
+                SetInitialState(newInitial);
+            }
+        }
+
+        /// <summary>
+        /// 仅清除<see cref="IsTerminated"/>标记，不动当前状态。<br/>
+        /// 用于"外层桥接节点 Reset"等需要让<see cref="Update"/>恢复工作但又不希望重入<see cref="IVaultState{TContext}.OnEnter"/>的场景
+        /// </summary>
+        public void ResetTerminated() {
+            IsTerminated = false;
         }
 
         /// <summary>
@@ -211,13 +244,14 @@ namespace InnoVault.StateMachines
                     continue;
                 }
 
-                if (t.Once) {
-                    t.Fired = true;
-                }
                 IVaultState<TContext> target = t.TargetFactory?.Invoke();
                 if (target == null) {
                     //目标工厂未生效（例如返回 null），按"未触发"处理；继续往后扫
+                    //注意：此时不应当把 Once 标记为已触发，否则一次失败的目标构造会永久吃掉该转移
                     continue;
+                }
+                if (t.Once) {
+                    t.Fired = true;
                 }
                 DoChangeState(target, StateChangeReason.Transition, t.Label);
                 return true;
@@ -236,12 +270,32 @@ namespace InnoVault.StateMachines
             CurrentState = newState;
             newState.OnEnter(this, Context);
 
-            if (!skipNetWrite && CanWriteAuthoritative() && NetSync != null) {
-                NetSync.WriteState(this, newState.StateId);
+            if (!skipNetWrite && CanWriteAuthoritative()) {
+                TryWriteAuthoritativeState(newState);
             }
 
             OnStateChanged?.Invoke(oldState, newState, reason);
             _ = label; //预留给将来更细的调试事件签名
+        }
+
+        /// <summary>
+        /// 写出当前权威端的状态 ID。<br/>
+        /// 当<see cref="NetSync"/>已配置但<see cref="IVaultState{TContext}.StateId"/>为负（未注册到<see cref="VaultStateRegistry{TContext}"/>）时，<br/>
+        /// 会跳过写入并打出一次警告——避免把<c>-1</c>写进<c>ai[slot]</c>导致客户端忽略状态、出现静默不同步
+        /// </summary>
+        private void TryWriteAuthoritativeState(IVaultState<TContext> state) {
+            if (NetSync == null) {
+                return;
+            }
+            int id = state.StateId;
+            if (id < 0) {
+                VaultMod.LoggerError(
+                    $"VaultStateMachine<{typeof(TContext).Name}>:bad_state_id:{state.GetType().FullName}",
+                    $"State {state.GetType().FullName} has StateId={id}; NetSync write is skipped. " +
+                    "Tag the state with [VaultState(id, contextType)] or override StateId for synced states.");
+                return;
+            }
+            NetSync.WriteState(this, id);
         }
     }
 }

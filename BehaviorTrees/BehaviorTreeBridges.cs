@@ -6,12 +6,17 @@ namespace InnoVault.BehaviorTrees
     /// <summary>
     /// "把一棵行为树包装成<see cref="IVaultState{TContext}"/>" 的桥接节点<br/>
     /// 进入该状态时<see cref="BTNode{TContext}.Reset"/>子树，每帧<see cref="OnUpdate"/>用宿主<see cref="VaultStateMachine{TContext}.Blackboard"/>去 tick<br/>
-    /// 当子树返回非<see cref="BTStatus.Running"/>时，框架根据"成功 → <see cref="OnSuccessTransition"/>" / "失败 → <see cref="OnFailureTransition"/>"决定外层切换
+    /// 当子树返回非<see cref="BTStatus.Running"/>时，框架根据"成功 → <see cref="OnSuccessTransition"/>" / "失败 → <see cref="OnFailureTransition"/>"决定外层切换<br/><br/>
+    /// 当对应方向的转移工厂为<see langword="null"/>（或返回<see langword="null"/>）时，<br/>
+    /// 本状态会在<b>下一帧</b>主动调用<see cref="BTNode{TContext}.Reset"/>整棵 BT，让"循环执行 BT"成为可预测的默认行为，<br/>
+    /// 而不是默默从上一次的脏状态继续 tick
     /// </summary>
     public sealed class BehaviorTreeAsState<TContext> : VaultState<TContext>
     {
         private readonly BTNode<TContext> _root;
         private BTStatus _lastTick = BTStatus.Running;
+        //标记上一帧 BT 已经 settle 但没有发生外层切换，本帧必须 reset 后再 tick
+        private bool _needsRestartNextTick;
 
         /// <summary>BT 返回<see cref="BTStatus.Success"/>时的"下一状态"工厂，可为<see langword="null"/>表示保持当前状态</summary>
         public Func<IVaultState<TContext>> OnSuccessTransition { get; init; }
@@ -28,23 +33,34 @@ namespace InnoVault.BehaviorTrees
             base.OnEnter(machine, ctx);
             _root.Reset();
             _lastTick = BTStatus.Running;
+            _needsRestartNextTick = false;
         }
 
         /// <inheritdoc/>
         public override IVaultState<TContext> OnUpdate(VaultStateMachine<TContext> machine, TContext ctx) {
             base.OnUpdate(machine, ctx);
+            if (_needsRestartNextTick) {
+                _root.Reset();
+                _needsRestartNextTick = false;
+            }
             _lastTick = _root.Tick(ctx, machine.Blackboard);
-            return _lastTick switch {
+            IVaultState<TContext> next = _lastTick switch {
                 BTStatus.Success => OnSuccessTransition?.Invoke(),
                 BTStatus.Failure => OnFailureTransition?.Invoke(),
                 _ => null,
             };
+            //BT 已 settle 但没有切换出去：下一帧前需要 reset，否则等同于"上次的 _index = 0 状态" + "可能脏的子节点"继续跑
+            if (_lastTick != BTStatus.Running && next == null) {
+                _needsRestartNextTick = true;
+            }
+            return next;
         }
 
         /// <inheritdoc/>
         public override void OnExit(VaultStateMachine<TContext> machine, TContext ctx) {
             base.OnExit(machine, ctx);
             _root.Reset();
+            _needsRestartNextTick = false;
         }
     }
 
@@ -99,7 +115,9 @@ namespace InnoVault.BehaviorTrees
         /// <inheritdoc/>
         public override void Reset() {
             base.Reset();
-            //不重置子状态机的内部进度——子机自己管理 CurrentState 的转移
+            //外层 BT Reset 后，要让本叶能再次返回 Running——否则上次的 IsTerminated 会让叶节点永远返回 Success/Failure
+            //内层状态机自身的 CurrentState / Blackboard 仍保留，由业务自行决定是否需要更彻底的 Restart(...)
+            _machine.ResetTerminated();
         }
     }
 }

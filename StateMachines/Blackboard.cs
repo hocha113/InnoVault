@@ -24,10 +24,18 @@ namespace InnoVault.StateMachines
         public event Action<string> OnChanged;
 
         /// <summary>
-        /// 写入或更新一个键值。若值类型与已有值不同会被覆盖
+        /// 写入或更新一个键值。若值类型与已有值不同会被覆盖<br/>
+        /// 只有当新旧值不等（按<see cref="EqualityComparer{T}.Default"/>）时才会触发<see cref="OnChanged"/>，<br/>
+        /// 避免频繁的"写入相同值"导致 UI / 转移条件出现无意义的重评估
         /// </summary>
         public void Set<T>(BlackboardKey<T> key, T value) {
-            _entries[(typeof(T), key.Name)] = value;
+            (Type, string) lookup = (typeof(T), key.Name);
+            if (_entries.TryGetValue(lookup, out object boxed) && boxed is T existing
+                && EqualityComparer<T>.Default.Equals(existing, value)) {
+                _entries[lookup] = value;
+                return;
+            }
+            _entries[lookup] = value;
             OnChanged?.Invoke(key.Name);
         }
 
