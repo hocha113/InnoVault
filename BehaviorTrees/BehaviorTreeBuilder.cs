@@ -54,8 +54,16 @@ namespace InnoVault.BehaviorTrees
             => PushComposite(new RandomSelector<TContext>(rng));
 
         /// <summary>在<see cref="RandomSelector{TContext}"/>下声明一个带权重的子节点。<br/>
-        /// 用法：<c>.RandomSelector().Weighted(2f).Action(...).Weighted(1f).Action(...)</c></summary>
+        /// 用法：<c>.RandomSelector().Weighted(2f).Action(...).Weighted(1f).Action(...)</c><br/>
+        /// 若当前栈顶不是<see cref="RandomSelector{TContext}"/>会立即抛出<see cref="InvalidOperationException"/>，<br/>
+        /// 否则<c>_pendingWeight</c>会被静默携带到下一次进入 RandomSelector 的子节点，导致权重错位且不报错
+        /// </summary>
         public BehaviorTreeBuilder<TContext> Weighted(float weight) {
+            if (_open.Count == 0 || _open.Peek() is not RandomSelector<TContext>) {
+                throw new InvalidOperationException(
+                    "BehaviorTreeBuilder.Weighted is only valid directly inside a RandomSelector scope. " +
+                    "Either open a RandomSelector first via .RandomSelector(), or remove the .Weighted(...) call.");
+            }
             _pendingWeight = weight;
             return this;
         }

@@ -102,6 +102,11 @@ namespace InnoVault.StateMachines
         /// 添加一个一次性<see cref="PhaseTrigger{TContext}"/>：当谓词命中时切换到指定目标状态<br/>
         /// 等价于 AnyState 转移 + <c>.Once()</c>，但语义上更清晰
         /// </summary>
+        /// <remarks>
+        /// 仅支持<b>无参</b>构造的目标状态。如果目标状态需要带闭包参数（例如把当前血量、随机种子等捕获进状态），<br/>
+        /// 请改用<see cref="PhaseController{TContext}.OnHpBelow"/>或<see cref="PhaseController{TContext}.OnCondition"/>，两者都接受<c>Func&lt;IVaultState&lt;TContext&gt;&gt;</c>形式的目标工厂
+        /// </remarks>
+        /// <seealso cref="PhaseController{TContext}"/>
         public VaultStateMachineBuilder<TContext> Phase<TTarget>(Func<TContext, bool> when, Action<TContext> onFire = null, string label = null)
             where TTarget : IVaultState<TContext>, new() {
             _pendingPhaseTriggers.Add(new PhaseTrigger<TContext> {
