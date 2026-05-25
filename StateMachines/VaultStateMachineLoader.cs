@@ -25,7 +25,7 @@ namespace InnoVault.StateMachines
 
                 VaultStateAttribute attr;
                 try {
-                    attr = type.GetCustomAttribute<VaultStateAttribute>();
+                    attr = VaultUtils.GetAttributeSafely<VaultStateAttribute>(type);
                 } catch (Exception ex) {
                     VaultMod.LoggerError(
                         $"VaultStateMachineLoader:attr:{type.FullName}",
