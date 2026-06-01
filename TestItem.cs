@@ -1,4 +1,5 @@
 ﻿using InnoVault.Actors;
+using InnoVault.Cinematics;
 using InnoVault.Models3D.Animation;
 using InnoVault.Models3D.Runtime;
 using Microsoft.Xna.Framework;
@@ -312,6 +313,13 @@ namespace InnoVault
             if (player.whoAmI != Main.myPlayer) {
                 return true;
             }
+
+#if DEBUG
+            if (player.altFunctionUse == 2) {
+                CutsceneDirector.Play<DebugCutsceneClip>(player);
+                return true;
+            }
+#endif
 
             ////左键：进入石头维度
             //if (player.altFunctionUse != 2) {
