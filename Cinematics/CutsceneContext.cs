@@ -8,11 +8,14 @@ namespace InnoVault.Cinematics
     /// </summary>
     public sealed class CutsceneContext
     {
-        internal CutsceneContext(CutsceneClip clip, Player player, CutsceneCameraRuntime camera, object tag) {
+        private readonly CutsceneCameraRuntime camera;
+        private readonly object subject;
+
+        internal CutsceneContext(CutsceneClip clip, Player player, CutsceneCameraRuntime camera, object subject) {
             Clip = clip;
             Player = player;
-            Camera = camera;
-            Tag = tag;
+            this.camera = camera;
+            this.subject = subject;
         }
 
         /// <summary>当前正在播放的演出定义</summary>
@@ -20,12 +23,6 @@ namespace InnoVault.Cinematics
 
         /// <summary>演出绑定的本地玩家</summary>
         public Player Player { get; internal set; }
-
-        /// <summary>全局摄像机运行时</summary>
-        public CutsceneCameraRuntime Camera { get; }
-
-        /// <summary>调用方传入的自定义上下文对象，例如 Actor、NPC 或剧情数据</summary>
-        public object Tag { get; internal set; }
 
         /// <summary>当前播放帧，从 0 开始</summary>
         public int Tick { get; internal set; }
@@ -40,16 +37,51 @@ namespace InnoVault.Cinematics
         public Vector2 PlayerCenter => Player != null && Player.active ? Player.Center : Vector2.Zero;
 
         /// <summary>
-        /// 尝试将 <see cref="Tag"/> 转换成指定类型
+        /// 尝试将演出主体转换成指定类型
         /// </summary>
-        public bool TryGetTag<T>(out T value) {
-            if (Tag is T typedValue) {
+        public bool TryGetSubject<T>(out T value) {
+            if (subject is T typedValue) {
                 value = typedValue;
                 return true;
             }
 
             value = default;
             return false;
+        }
+
+        /// <summary>
+        /// 设置本帧摄像机焦点
+        /// </summary>
+        public void SetCameraFocus(Vector2 focusTarget, float lerpSpeed = 0.03f) {
+            camera.SetFocus(focusTarget, lerpSpeed);
+        }
+
+        /// <summary>
+        /// 设置本帧摄像机目标缩放
+        /// </summary>
+        public void SetCameraZoom(float zoom, float lerpSpeed = 0.02f) {
+            camera.SetZoom(zoom, lerpSpeed);
+        }
+
+        /// <summary>
+        /// 请求本帧锁定指定输入
+        /// </summary>
+        public void RequestInputLock(CutsceneInputLockFlags flags = CutsceneInputLockFlags.All) {
+            camera.RequestInputLock(flags);
+        }
+
+        /// <summary>
+        /// 触发屏幕震动
+        /// </summary>
+        public void Shake(Vector2 direction, float intensity, float decay = 0.9f, int duration = 20) {
+            camera.Shake(direction, intensity, decay, duration);
+        }
+
+        /// <summary>
+        /// 停止当前演出
+        /// </summary>
+        public void Stop() {
+            CutsceneDirector.Stop();
         }
     }
 }

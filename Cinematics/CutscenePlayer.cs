@@ -9,7 +9,7 @@ namespace InnoVault.Cinematics
                 return;
             }
 
-            CutsceneDirector.Camera.ApplyScreenPosition();
+            CutsceneDirector.ApplyCameraScreenPosition();
         }
 
         public override void SetControls() {
@@ -17,7 +17,7 @@ namespace InnoVault.Cinematics
                 return;
             }
 
-            CutsceneDirector.Camera.ApplyInputLock(Player);
+            CutsceneDirector.ApplyCameraInputLock(Player);
         }
     }
 }

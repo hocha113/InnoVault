@@ -7,7 +7,7 @@ namespace InnoVault.Cinematics
     /// <summary>
     /// 演出摄像机运行时，集中处理屏幕位置、缩放、震动和输入锁定
     /// </summary>
-    public sealed class CutsceneCameraRuntime
+    internal sealed class CutsceneCameraRuntime
     {
         private const float RestoreZoomLerpSpeed = 0.02f;
         private const float ZoomSnapEpsilon = 0.001f;
@@ -44,14 +44,14 @@ namespace InnoVault.Cinematics
         /// <summary>
         /// 每帧时间轴更新前调用，用于清理上一帧的瞬时请求
         /// </summary>
-        public void PrepareFrame() {
+        internal void PrepareFrame() {
             requestedInputLock = CutsceneInputLockFlags.None;
         }
 
         /// <summary>
         /// 开始接管摄像机
         /// </summary>
-        public void Begin(Vector2 initialFocus) {
+        internal void Begin(Vector2 initialFocus) {
             Active = true;
             FocusTarget = initialFocus;
             currentZoom = Math.Max(0.1f, Main.GameZoomTarget);
@@ -62,7 +62,7 @@ namespace InnoVault.Cinematics
         /// <summary>
         /// 停止接管屏幕位置，并让缩放平滑恢复到默认值
         /// </summary>
-        public void End() {
+        internal void End() {
             Active = false;
             TargetZoom = 1f;
             requestedInputLock = CutsceneInputLockFlags.None;
@@ -71,7 +71,7 @@ namespace InnoVault.Cinematics
         /// <summary>
         /// 立即重置运行时状态
         /// </summary>
-        public void Reset() {
+        internal void Reset() {
             Active = false;
             initialized = false;
             currentZoom = 1f;
@@ -88,7 +88,7 @@ namespace InnoVault.Cinematics
         /// <summary>
         /// 设置本帧摄像机焦点
         /// </summary>
-        public void SetFocus(Vector2 focusTarget, float lerpSpeed = 0.03f) {
+        internal void SetFocus(Vector2 focusTarget, float lerpSpeed = 0.03f) {
             FocusTarget = focusTarget;
             positionLerpSpeed = MathHelper.Clamp(lerpSpeed, 0f, 1f);
         }
@@ -96,7 +96,7 @@ namespace InnoVault.Cinematics
         /// <summary>
         /// 设置本帧摄像机目标缩放
         /// </summary>
-        public void SetZoom(float zoom, float lerpSpeed = 0.02f) {
+        internal void SetZoom(float zoom, float lerpSpeed = 0.02f) {
             TargetZoom = Math.Max(0.1f, zoom);
             zoomLerpSpeed = MathHelper.Clamp(lerpSpeed, 0f, 1f);
         }
@@ -104,7 +104,7 @@ namespace InnoVault.Cinematics
         /// <summary>
         /// 请求本帧锁定指定输入
         /// </summary>
-        public void RequestInputLock(CutsceneInputLockFlags flags) {
+        internal void RequestInputLock(CutsceneInputLockFlags flags) {
             requestedInputLock |= flags;
         }
 
@@ -115,7 +115,7 @@ namespace InnoVault.Cinematics
         /// <param name="intensity">初始偏移像素强度</param>
         /// <param name="decay">每帧衰减系数</param>
         /// <param name="duration">持续帧数</param>
-        public void Shake(Vector2 direction, float intensity, float decay = 0.9f, int duration = 20) {
+        internal void Shake(Vector2 direction, float intensity, float decay = 0.9f, int duration = 20) {
             if (intensity <= 0f || duration <= 0) {
                 return;
             }
@@ -138,7 +138,7 @@ namespace InnoVault.Cinematics
         /// <summary>
         /// 在 <see cref="Terraria.ModLoader.ModPlayer.ModifyScreenPosition"/> 中调用，应用摄像机位置和缩放
         /// </summary>
-        public void ApplyScreenPosition() {
+        internal void ApplyScreenPosition() {
             if (VaultUtils.isServer) {
                 return;
             }
@@ -170,7 +170,7 @@ namespace InnoVault.Cinematics
         /// <summary>
         /// 在 <see cref="Terraria.ModLoader.ModPlayer.SetControls"/> 中调用，应用输入锁定
         /// </summary>
-        public void ApplyInputLock(Player player) {
+        internal void ApplyInputLock(Player player) {
             if (!Active || requestedInputLock == CutsceneInputLockFlags.None || player == null || !player.active) {
                 return;
             }

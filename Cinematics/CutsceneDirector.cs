@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Xna.Framework;
 using Terraria;
 
 namespace InnoVault.Cinematics
@@ -9,7 +10,11 @@ namespace InnoVault.Cinematics
     public static class CutsceneDirector
     {
         /// <summary>全局演出摄像机运行时</summary>
-        public static CutsceneCameraRuntime Camera { get; } = new();
+        private static CutsceneCameraRuntime Camera { get; } = new();
+
+        internal static void ApplyCameraScreenPosition() => Camera.ApplyScreenPosition();
+
+        internal static void ApplyCameraInputLock(Player player) => Camera.ApplyInputLock(player);
 
         /// <summary>当前正在播放的演出</summary>
         public static CutsceneClip CurrentClip { get; private set; }
@@ -26,23 +31,31 @@ namespace InnoVault.Cinematics
         /// <summary>
         /// 按类型播放一个已注册的演出
         /// </summary>
-        public static bool Play<T>(Player player = null, bool restartSameClip = true, object tag = null) where T : CutsceneClip {
+        public static bool Play<T>(Player player = null, bool restartSameClip = true) where T : CutsceneClip {
             if (!CutsceneClip.TypeToInstance.TryGetValue(typeof(T), out CutsceneClip clip)) {
                 return false;
             }
-            return Play(clip, player, restartSameClip, tag);
+            return PlayCore(clip, player, restartSameClip, null);
         }
 
         /// <summary>
-        /// 播放指定演出
+        /// 按类型播放一个绑定演出主体的演出
         /// </summary>
-        public static bool Play(CutsceneClip clip, Player player = null, bool restartSameClip = true, object tag = null) {
+        public static bool Play<TClip, TSubject>(TSubject subject, Player player = null, bool restartSameClip = true)
+            where TClip : CutsceneClip<TSubject> {
+            if (!CutsceneClip.TypeToInstance.TryGetValue(typeof(TClip), out CutsceneClip clip)) {
+                return false;
+            }
+            return PlayCore(clip, player, restartSameClip, subject);
+        }
+
+        private static bool PlayCore(CutsceneClip clip, Player player, bool restartSameClip, object subject) {
             if (VaultUtils.isServer || clip == null) {
                 return false;
             }
 
             player ??= Main.LocalPlayer;
-            if (player == null || !player.active || !clip.CanPlay(player, tag)) {
+            if (player == null || !player.active || !clip.CanPlayWithSubject(player, subject)) {
                 return false;
             }
 
@@ -60,7 +73,7 @@ namespace InnoVault.Cinematics
 
             CurrentClip = clip;
             CurrentTick = 0;
-            CurrentContext = new CutsceneContext(clip, player, Camera, tag) {
+            CurrentContext = new CutsceneContext(clip, player, Camera, subject) {
                 Duration = clip.Duration,
                 Tick = 0
             };
@@ -79,6 +92,17 @@ namespace InnoVault.Cinematics
         /// 跳过当前演出，并平滑恢复镜头
         /// </summary>
         public static void Skip() => Stop(immediate: false);
+
+        /// <summary>
+        /// 对当前演出触发一次屏幕震动
+        /// </summary>
+        public static void Shake(Vector2 direction, float intensity, float decay = 0.9f, int duration = 20) {
+            if (CurrentClip == null) {
+                return;
+            }
+
+            Camera.Shake(direction, intensity, decay, duration);
+        }
 
         /// <summary>
         /// 每帧推进当前演出
@@ -112,7 +136,7 @@ namespace InnoVault.Cinematics
             }
 
             CurrentTick++;
-            if (CurrentTick > CurrentClip.Duration) {
+            if (CurrentTick >= CurrentClip.Duration) {
                 Stop(immediate: false);
             }
         }

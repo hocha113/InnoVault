@@ -26,7 +26,7 @@ namespace InnoVault.Cinematics
         public int Duration { get; }
 
         /// <summary>轨道结束帧</summary>
-        public int EndTick => StartTick + Duration;
+        public int EndTick => StartTick + Math.Max(Duration, 1);
 
         /// <summary>
         /// 判断该轨道在指定时间是否处于激活状态
@@ -35,7 +35,7 @@ namespace InnoVault.Cinematics
             if (Duration == 0) {
                 return tick == StartTick;
             }
-            return tick >= StartTick && tick <= EndTick;
+            return tick >= StartTick && tick < EndTick;
         }
 
         internal virtual void OnTimelineStart(CutsceneContext context) { }
@@ -47,7 +47,7 @@ namespace InnoVault.Cinematics
                 return;
             }
 
-            float progress = Duration <= 0 ? 1f : MathHelper.Clamp((context.Tick - StartTick) / (float)Duration, 0f, 1f);
+            float progress = Duration <= 1 ? 1f : MathHelper.Clamp((context.Tick - StartTick) / (float)(Duration - 1), 0f, 1f);
             Update(context, progress);
         }
 
@@ -70,6 +70,8 @@ namespace InnoVault.Cinematics
         private readonly bool interpolate;
         private readonly float lerpSpeed;
         private readonly CutsceneEase ease;
+        private Vector2 capturedFrom;
+        private bool captured;
 
         private CameraFocusTrack(
             int startTick,
@@ -131,17 +133,25 @@ namespace InnoVault.Cinematics
             => Follow(startTick, duration, context => (firstProvider(context) + secondProvider(context)) * 0.5f, offset, lerpSpeed);
 
         /// <inheritdoc/>
+        internal override void OnTimelineStart(CutsceneContext context) => captured = false;
+
+        /// <inheritdoc/>
         protected override void Update(CutsceneContext context, float progress) {
             Vector2 target;
             if (interpolate) {
+                if (!captured) {
+                    capturedFrom = fromProvider(context);
+                    captured = true;
+                }
+
                 float eased = CutsceneEaseHelper.Evaluate(ease, progress);
-                target = Vector2.Lerp(fromProvider(context), toProvider(context), eased);
+                target = Vector2.Lerp(capturedFrom, toProvider(context), eased);
             }
             else {
                 target = toProvider(context);
             }
 
-            context.Camera.SetFocus(target + offset, lerpSpeed);
+            context.SetCameraFocus(target + offset, lerpSpeed);
         }
     }
 
@@ -169,7 +179,7 @@ namespace InnoVault.Cinematics
         /// <inheritdoc/>
         protected override void Update(CutsceneContext context, float progress) {
             float eased = CutsceneEaseHelper.Evaluate(ease, progress);
-            context.Camera.SetZoom(MathHelper.Lerp(fromZoom, toZoom, eased), lerpSpeed);
+            context.SetCameraZoom(MathHelper.Lerp(fromZoom, toZoom, eased), lerpSpeed);
         }
     }
 
@@ -203,7 +213,7 @@ namespace InnoVault.Cinematics
             }
 
             fired = true;
-            context.Camera.Shake(direction, intensity, decay, shakeDuration);
+            context.Shake(direction, intensity, decay, shakeDuration);
         }
 
         /// <inheritdoc/>
@@ -227,7 +237,7 @@ namespace InnoVault.Cinematics
 
         /// <inheritdoc/>
         protected override void Update(CutsceneContext context, float progress) {
-            context.Camera.RequestInputLock(flags);
+            context.RequestInputLock(flags);
         }
     }
 

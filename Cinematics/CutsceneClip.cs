@@ -31,12 +31,7 @@ namespace InnoVault.Cinematics
         /// <param name="player">请求播放演出的玩家</param>
         public virtual bool CanPlay(Player player) => player != null && player.active;
 
-        /// <summary>
-        /// 带自定义上下文的播放前检查
-        /// </summary>
-        /// <param name="player">请求播放演出的玩家</param>
-        /// <param name="tag">调用方传入的自定义上下文对象</param>
-        public virtual bool CanPlay(Player player, object tag) => CanPlay(player);
+        internal virtual bool CanPlayWithSubject(Player player, object subject) => subject == null && CanPlay(player);
 
         /// <inheritdoc/>
         public override void VaultSetup() {
@@ -57,6 +52,21 @@ namespace InnoVault.Cinematics
 
             timeline = new CutsceneTimeline();
             BuildTimeline(timeline);
+        }
+    }
+
+    /// <summary>
+    /// 绑定一个强类型演出主体的演出片段
+    /// </summary>
+    public abstract class CutsceneClip<TSubject> : CutsceneClip
+    {
+        /// <summary>
+        /// 带演出主体的播放前检查
+        /// </summary>
+        public virtual bool CanPlay(Player player, TSubject subject) => CanPlay(player);
+
+        internal sealed override bool CanPlayWithSubject(Player player, object subject) {
+            return subject is TSubject typedSubject && CanPlay(player, typedSubject);
         }
     }
 }
