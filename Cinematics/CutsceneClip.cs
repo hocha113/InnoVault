@@ -34,9 +34,16 @@ namespace InnoVault.Cinematics
         internal virtual bool CanPlayWithSubject(Player player, object subject) => subject == null && CanPlay(player);
 
         /// <inheritdoc/>
+        protected override void VaultRegister() {
+            Instances.Add(this);
+            TypeToInstance[GetType()] = this;
+        }
+
+        /// <inheritdoc/>
         public override void VaultSetup() {
             timeline = new CutsceneTimeline();
             BuildTimeline(timeline);
+            SetStaticDefaults();
         }
 
         /// <summary>
