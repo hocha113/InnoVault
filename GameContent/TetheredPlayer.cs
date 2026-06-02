@@ -1,5 +1,6 @@
-﻿using Microsoft.Xna.Framework;
-using System.IO;
+﻿using InnoVault.VaultNetWork;
+using Microsoft.Xna.Framework;
+using System;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -8,6 +9,7 @@ namespace InnoVault.GameContent
     /// <summary>
     /// 继承自<see cref="ModPlayer"/>类，用于适配网络客户端输入
     /// </summary>
+    [Obsolete("TetheredPlayer 是旧的玩家输入同步实现，请改用 InnoVault.VaultNetWork.PlayerNetwork。")]
     public abstract class TetheredPlayer : ModPlayer, ITetheredPlayer
     {
         /// <inheritdoc/>
@@ -28,70 +30,8 @@ namespace InnoVault.GameContent
         public float ToMouseA { get; set; }
 
         /// <inheritdoc/>
-        internal static void HandlePacket(MessageType type, BinaryReader reader, int whoAmI) {
-            if (type == MessageType.TetheredPlayer) {
-                bool left = reader.ReadBoolean();
-                bool right = reader.ReadBoolean();
-                Vector2 mousePos = reader.ReadVector2();
-                if (VaultUtils.isClient) {
-                    TetheredPlayer player = Main.player[whoAmI].GetModPlayer<TetheredPlayer>();
-                    player.DownLeft = left;
-                    player.DownRight = right;
-                    player.InMousePos = mousePos;
-                }
-                else {
-                    ModPacket modPacket = VaultMod.Instance.GetPacket();
-                    modPacket.Write((byte)MessageType.TetheredPlayer);
-                    modPacket.Write(left);
-                    modPacket.Write(right);
-                    modPacket.WriteVector2(mousePos);
-                    modPacket.Send(-1, whoAmI);
-                }
-            }
-            else if (type == MessageType.TetheredPlayer_DownLeft) {
-                bool left = reader.ReadBoolean();
-                if (VaultUtils.isClient) {
-                    Player player = Main.player[whoAmI];
-                    player.GetModPlayer<TetheredPlayer>().DownLeft = left;
-                }
-                else {
-                    ModPacket modPacket = VaultMod.Instance.GetPacket();
-                    modPacket.Write((byte)MessageType.TetheredPlayer_DownLeft);
-                    modPacket.Write(left);
-                    modPacket.Send(-1, whoAmI);
-                }
-            }
-            else if (type == MessageType.TetheredPlayer_DownRight) {
-                bool right = reader.ReadBoolean();
-                if (VaultUtils.isClient) {
-                    Player player = Main.player[whoAmI];
-                    player.GetModPlayer<TetheredPlayer>().DownRight = right;
-                }
-                else {
-                    ModPacket modPacket = VaultMod.Instance.GetPacket();
-                    modPacket.Write((byte)MessageType.TetheredPlayer_DownRight);
-                    modPacket.Write(right);
-                    modPacket.Send(-1, whoAmI);
-                }
-            }
-            else if (type == MessageType.TetheredPlayer_InMousePos) {
-                Vector2 mousePos = reader.ReadVector2();
-                if (VaultUtils.isClient) {
-                    Player player = Main.player[whoAmI];
-                    player.GetModPlayer<TetheredPlayer>().InMousePos = mousePos;
-                }
-                else {
-                    ModPacket modPacket = VaultMod.Instance.GetPacket();
-                    modPacket.Write((byte)MessageType.TetheredPlayer_InMousePos);
-                    modPacket.WriteVector2(mousePos);
-                    modPacket.Send(-1, whoAmI);
-                }
-            }
-        }
-
-        /// <inheritdoc/>
         public sealed override void OnEnterWorld() {
-            if (VaultUtils.isSinglePlayer || Main.myPlayer != Owner.whoAmI) {
+            if (Main.dedServ || Main.myPlayer != Owner.whoAmI) {
                 return;
             }
 
@@ -101,12 +41,6 @@ namespace InnoVault.GameContent
             ToMouse = Owner.Center.To(InMousePos);
             UnitToMouseV = ToMouse.UnitVector();
             ToMouseA = ToMouse.ToRotation();
-            ModPacket modPacket = Mod.GetPacket();
-            modPacket.Write((byte)MessageType.TetheredPlayer);
-            modPacket.Write(DownLeft);
-            modPacket.Write(DownRight);
-            modPacket.WriteVector2(InMousePos);
-            modPacket.Send();
         }
 
         /// <inheritdoc/>
@@ -119,35 +53,29 @@ namespace InnoVault.GameContent
         }
 
         private void UpdateNet() {
-            if (VaultUtils.isSinglePlayer || Main.myPlayer != Owner.whoAmI) {
+            if (Main.dedServ) {
                 return;
             }
 
-            //同步 DownLeft
-            if (DownLeft != Main.mouseLeft) {
+            if (Main.myPlayer == Owner.whoAmI) {
                 DownLeft = Main.mouseLeft;
-                ModPacket modPacket = Mod.GetPacket();
-                modPacket.Write((byte)MessageType.TetheredPlayer_DownLeft);
-                modPacket.Write(DownLeft);
-                modPacket.Send();
-            }
-
-            //同步 DownRight
-            if (DownRight != Main.mouseRight) {
                 DownRight = Main.mouseRight;
-                ModPacket modPacket = Mod.GetPacket();
-                modPacket.Write((byte)MessageType.TetheredPlayer_DownRight);
-                modPacket.Write(DownRight);
-                modPacket.Send();
+                InMousePos = Main.MouseWorld;
+                return;
             }
 
-            //同步 InMousePos
-            if (InMousePos != Main.MouseWorld) {
-                InMousePos = Main.MouseWorld;
-                ModPacket modPacket = Mod.GetPacket();
-                modPacket.Write((byte)MessageType.TetheredPlayer_InMousePos);
-                modPacket.WriteVector2(InMousePos);
-                modPacket.Send();
+            if (PlayerNetwork.TryGetSnapshot(Owner, out PlayerNetworkSnapshot snapshot, maxAgeTicks: -1)) {
+                if (snapshot.Has(PlayerNetworkDataFlags.MouseButtons)) {
+                    DownLeft = snapshot.MouseLeft;
+                    DownRight = snapshot.MouseRight;
+                }
+
+                if (snapshot.Has(PlayerNetworkDataFlags.MouseWorld)) {
+                    InMousePos = snapshot.MouseWorld;
+                }
+                else if (snapshot.Has(PlayerNetworkDataFlags.MouseDirection)) {
+                    InMousePos = Owner.Center + snapshot.MouseDirection * 500f;
+                }
             }
         }
 

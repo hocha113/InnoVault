@@ -1,8 +1,7 @@
-﻿using InnoVault.Actors;
-using InnoVault.GameContent;
+using InnoVault.Actors;
 using InnoVault.GameSystem;
 using InnoVault.TileProcessors;
-using System;
+using InnoVault.VaultNetWork;
 using System.IO;
 using Terraria.ModLoader;
 
@@ -11,7 +10,7 @@ namespace InnoVault
     /// <summary>
     /// InnoVault网络消息类型枚举
     /// </summary>
-    public enum MessageType : byte
+    internal enum MessageType : byte
     {
         /// <summary>NPC重写的其他AI</summary>
         NPCOverrideOtherAI,
@@ -25,29 +24,6 @@ namespace InnoVault
         RequestNPCOverrideValidation,
         /// <summary>同步NPC重写验证</summary>
         SyncNPCOverrideValidation,
-        /// <summary>绑定玩家</summary>
-        TetheredPlayer,
-        /// <summary>绑定玩家：左下</summary>
-        TetheredPlayer_DownLeft,
-        /// <summary>绑定玩家：右下</summary>
-        TetheredPlayer_DownRight,
-        /// <summary>绑定玩家：鼠标位置</summary>
-        TetheredPlayer_InMousePos,
-        /// <summary>[已弃用] 添加静态免疫</summary>
-        [Obsolete("StaticImmunity系统已弃用")]
-        AddStaticImmunity,
-        /// <summary>[已弃用] 通过弹幕添加静态免疫</summary>
-        [Obsolete("StaticImmunity系统已弃用")]
-        AddStaticImmunityByProj,
-        /// <summary>[已弃用] 通过物品添加静态免疫</summary>
-        [Obsolete("StaticImmunity系统已弃用")]
-        AddStaticImmunityByItem,
-        /// <summary>[已弃用] 设置静态免疫</summary>
-        [Obsolete("StaticImmunity系统已弃用")]
-        SetStaticImmunity,
-        /// <summary>[已弃用] 使用静态免疫</summary>
-        [Obsolete("StaticImmunity系统已弃用")]
-        UseStaticImmunity,
         /// <summary>处理：在世界中放置</summary>
         Handler_PlaceInWorld,
         /// <summary>处理：TP实体数据</summary>
@@ -72,16 +48,24 @@ namespace InnoVault
         KillActor,
         /// <summary>请求活跃的Actor</summary>
         RequestActiveActors,
+        /// <summary>请求指定玩家的基础网络数据快照</summary>
+        PlayerNet_RequestSnapshot,
+        /// <summary>服务端要求目标客户端采样并响应基础网络数据</summary>
+        PlayerNet_QuerySnapshot,
+        /// <summary>玩家基础网络数据快照</summary>
+        PlayerNet_Snapshot,
+        /// <summary>释放指定玩家基础网络数据兴趣</summary>
+        PlayerNet_ReleaseInterest,
     }
 
-    internal class VaultNetwork : IVaultLoader
+    internal class VaultNetMessage : IVaultLoader
     {
         internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
             MessageType type = (MessageType)reader.ReadByte();
             NPCOverride.HandlePacket(type, reader, whoAmI);
-            TetheredPlayer.HandlePacket(type, reader, whoAmI);
             TileProcessorNetWork.HandlePacket(type, mod, reader, whoAmI);
             ActorNetWork.Handle(type, mod, reader, whoAmI);
+            PlayerNetworkCore.HandlePacket(type, reader, whoAmI);
         }
     }
 }

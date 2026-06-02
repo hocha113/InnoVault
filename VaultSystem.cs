@@ -1,4 +1,5 @@
 ﻿using InnoVault.GameSystem;
+using InnoVault.VaultNetWork;
 using System;
 using System.Collections.Generic;
 using Terraria;
@@ -37,6 +38,10 @@ namespace InnoVault
                     value.AddRecipe();
                 }
             }
+        }
+
+        public override void PostUpdateEverything() {
+            PlayerNetworkCore.UpdateServerInterests();
         }
     }
 }
