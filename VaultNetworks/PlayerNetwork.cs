@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using Terraria;
 
-namespace InnoVault.VaultNetWork
+namespace InnoVault.VaultNetworks
 {
     /// <summary>
     /// 提供玩家基础网络数据的按需请求与缓存读取 API

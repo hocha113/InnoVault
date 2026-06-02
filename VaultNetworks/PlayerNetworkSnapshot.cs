@@ -2,7 +2,7 @@ using Microsoft.Xna.Framework;
 using System;
 using Terraria;
 
-namespace InnoVault.VaultNetWork
+namespace InnoVault.VaultNetworks
 {
     /// <summary>
     /// 描述玩家基础网络数据快照中包含的字段

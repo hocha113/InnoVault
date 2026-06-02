@@ -3,7 +3,7 @@ using System.IO;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace InnoVault.VaultNetWork
+namespace InnoVault.VaultNetworks
 {
     internal static class PlayerNetworkPacketIO
     {

@@ -1,10 +1,3 @@
-using InnoVault.Actors;
-using InnoVault.GameSystem;
-using InnoVault.TileProcessors;
-using InnoVault.VaultNetWork;
-using System.IO;
-using Terraria.ModLoader;
-
 namespace InnoVault
 {
     /// <summary>
@@ -56,16 +49,5 @@ namespace InnoVault
         PlayerNet_Snapshot,
         /// <summary>释放指定玩家基础网络数据兴趣</summary>
         PlayerNet_ReleaseInterest,
-    }
-
-    internal class VaultNetMessage : IVaultLoader
-    {
-        internal static void HandlePacket(Mod mod, BinaryReader reader, int whoAmI) {
-            MessageType type = (MessageType)reader.ReadByte();
-            NPCOverride.HandlePacket(type, reader, whoAmI);
-            TileProcessorNetWork.HandlePacket(type, mod, reader, whoAmI);
-            ActorNetWork.Handle(type, mod, reader, whoAmI);
-            PlayerNetworkCore.HandlePacket(type, reader, whoAmI);
-        }
     }
 }

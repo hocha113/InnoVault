@@ -1,4 +1,7 @@
-﻿using InnoVault.GameSystem;
+﻿using InnoVault.Actors;
+using InnoVault.GameSystem;
+using InnoVault.TileProcessors;
+using InnoVault.VaultNetworks;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -87,6 +90,6 @@ namespace InnoVault
         }
 
         /// <inheritdoc/>
-        public override void HandlePacket(BinaryReader reader, int whoAmI) => VaultNetMessage.HandlePacket(this, reader, whoAmI);
+        public override void HandlePacket(BinaryReader reader, int whoAmI) => VaultNetwork.HandlePacket(reader, this, whoAmI);
     }
 }
