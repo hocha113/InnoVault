@@ -9,7 +9,7 @@ namespace InnoVault.GameContent
     /// <summary>
     /// 继承自<see cref="ModPlayer"/>类，用于适配网络客户端输入
     /// </summary>
-    [Obsolete("TetheredPlayer 是旧的玩家输入同步实现，请改用 InnoVault.VaultNetWork.PlayerNetwork。")]
+    [Obsolete("TetheredPlayer 是旧的玩家输入同步实现，请改用 InnoVault.VaultNetWork.PlayerNetwork")]
     public abstract class TetheredPlayer : ModPlayer, ITetheredPlayer
     {
         /// <inheritdoc/>

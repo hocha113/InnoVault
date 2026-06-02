@@ -4,13 +4,13 @@ using Terraria;
 namespace InnoVault.VaultNetWork
 {
     /// <summary>
-    /// 提供玩家基础网络数据的按需请求与缓存读取 API。
+    /// 提供玩家基础网络数据的按需请求与缓存读取 API
     /// </summary>
     public static class PlayerNetwork
     {
-        /// <summary>默认缓存有效时间，单位为游戏帧。</summary>
+        /// <summary>默认缓存有效时间，单位为游戏帧</summary>
         public const int DefaultCacheTtl = 30;
-        /// <summary>默认连续兴趣续订时间，单位为游戏帧。</summary>
+        /// <summary>默认连续兴趣续订时间，单位为游戏帧</summary>
         public const int DefaultInterestTtl = 30;
 
         internal const int MinSnapshotIntervalTicks = 4;
@@ -20,13 +20,13 @@ namespace InnoVault.VaultNetWork
         internal const float MouseWorldDistanceThresholdSq = 16f;
 
         /// <summary>
-        /// 尝试读取玩家基础网络数据快照。该方法只读取缓存，不会产生网络包。
+        /// 尝试读取玩家基础网络数据快照，该方法只读取缓存，不会产生网络包
         /// </summary>
         public static bool TryGetSnapshot(Player player, out PlayerNetworkSnapshot snapshot, int maxAgeTicks = DefaultCacheTtl)
             => TryGetSnapshot(player, PlayerNetworkDataFlags.None, out snapshot, maxAgeTicks);
 
         /// <summary>
-        /// 尝试读取玩家指向鼠标的单位方向。该方法只读取缓存，不会产生网络包。
+        /// 尝试读取玩家指向鼠标的单位方向，该方法只读取缓存，不会产生网络包
         /// </summary>
         public static bool TryGetMouseDirection(Player player, out Vector2 direction, int maxAgeTicks = DefaultCacheTtl) {
             direction = Vector2.Zero;
@@ -53,7 +53,7 @@ namespace InnoVault.VaultNetWork
         }
 
         /// <summary>
-        /// 尝试用玩家中心与鼠标方向重建近似鼠标世界坐标。该方法只读取缓存，不会产生网络包。
+        /// 尝试用玩家中心与鼠标方向重建近似鼠标世界坐标，该方法只读取缓存，不会产生网络包
         /// </summary>
         public static bool TryGetApproxMouseWorld(Player player, out Vector2 mouseWorld
             , float distance = 500f, int maxAgeTicks = DefaultCacheTtl) {
@@ -67,7 +67,7 @@ namespace InnoVault.VaultNetWork
         }
 
         /// <summary>
-        /// 请求指定玩家的一次性基础网络数据。命中未过期缓存时不会发包。
+        /// 请求指定玩家的一次性基础网络数据，命中未过期缓存时不会发包
         /// </summary>
         public static bool RequestSnapshot(Player player
             , PlayerNetworkDataFlags flags = PlayerNetworkDataFlags.BasicInput) {
@@ -84,7 +84,7 @@ namespace InnoVault.VaultNetWork
         }
 
         /// <summary>
-        /// 续订对指定玩家基础网络数据的短期兴趣，用于连续追踪场景。
+        /// 续订对指定玩家基础网络数据的短期兴趣，用于连续追踪场景
         /// </summary>
         public static bool KeepAlive(Player player, PlayerNetworkDataFlags flags
             , int durationTicks = DefaultInterestTtl) {
@@ -98,7 +98,7 @@ namespace InnoVault.VaultNetWork
         }
 
         /// <summary>
-        /// 释放对指定玩家基础网络数据的兴趣。
+        /// 释放对指定玩家基础网络数据的兴趣
         /// </summary>
         public static bool Release(Player player, PlayerNetworkDataFlags flags = PlayerNetworkDataFlags.All) {
             if (!CanRequestRemotePlayer(player)) {
