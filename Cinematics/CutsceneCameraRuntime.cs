@@ -9,11 +9,14 @@ namespace InnoVault.Cinematics
     /// </summary>
     internal sealed class CutsceneCameraRuntime
     {
+        private const float RestorePositionLerpSpeed = 0.12f;
+        private const float PositionSnapDistanceSquared = 1f;
         private const float RestoreZoomLerpSpeed = 0.02f;
         private const float ZoomSnapEpsilon = 0.001f;
 
         private Vector2 smoothedScreenPosition;
         private bool initialized;
+        private bool restoringPosition;
         private bool restoringZoom;
         private float currentZoom = 1f;
         private float restoreZoom = 1f;
@@ -62,6 +65,7 @@ namespace InnoVault.Cinematics
             }
 
             Active = true;
+            restoringPosition = false;
             restoringZoom = false;
             FocusTarget = initialFocus;
             currentZoom = gameZoom;
@@ -74,6 +78,7 @@ namespace InnoVault.Cinematics
         /// </summary>
         internal void End() {
             Active = false;
+            restoringPosition = initialized;
             restoringZoom = true;
             TargetZoom = restoreZoom;
             requestedInputLock = CutsceneInputLockFlags.None;
@@ -89,6 +94,7 @@ namespace InnoVault.Cinematics
 
             Active = false;
             initialized = false;
+            restoringPosition = false;
             restoringZoom = false;
             currentZoom = !VaultUtils.isServer ? Math.Max(0.1f, Main.GameZoomTarget) : restoreZoom;
             TargetZoom = currentZoom;
@@ -156,22 +162,27 @@ namespace InnoVault.Cinematics
                 return;
             }
 
-            if (!Active && !restoringZoom) {
+            if (!Active && !restoringPosition && !restoringZoom) {
                 initialized = false;
                 return;
             }
 
-            float zoomTarget = Active ? TargetZoom : restoreZoom;
-            float speed = Active ? zoomLerpSpeed : RestoreZoomLerpSpeed;
-            currentZoom = MathHelper.Lerp(currentZoom, zoomTarget, MathHelper.Clamp(speed, 0f, 1f));
-            if (Math.Abs(currentZoom - zoomTarget) <= ZoomSnapEpsilon) {
-                currentZoom = zoomTarget;
+            if (Active || restoringZoom) {
+                float zoomTarget = Active ? TargetZoom : restoreZoom;
+                float speed = Active ? zoomLerpSpeed : RestoreZoomLerpSpeed;
+                currentZoom = MathHelper.Lerp(currentZoom, zoomTarget, MathHelper.Clamp(speed, 0f, 1f));
+                if (Math.Abs(currentZoom - zoomTarget) <= ZoomSnapEpsilon) {
+                    currentZoom = zoomTarget;
+                }
+                Main.GameZoomTarget = currentZoom;
+
+                if (!Active) {
+                    restoringZoom = currentZoom != zoomTarget;
+                }
             }
-            Main.GameZoomTarget = currentZoom;
 
             if (!Active) {
-                initialized = false;
-                restoringZoom = currentZoom != zoomTarget;
+                RestoreScreenPosition();
                 return;
             }
 
@@ -184,6 +195,23 @@ namespace InnoVault.Cinematics
             Vector2 desiredScreenPosition = FocusTarget - screenSize * 0.5f;
             smoothedScreenPosition = Vector2.Lerp(smoothedScreenPosition, desiredScreenPosition, positionLerpSpeed);
             Main.screenPosition = smoothedScreenPosition + ConsumeShakeOffset();
+        }
+
+        private void RestoreScreenPosition() {
+            if (!restoringPosition) {
+                initialized = false;
+                return;
+            }
+
+            Vector2 vanillaScreenPosition = Main.screenPosition;
+            smoothedScreenPosition = Vector2.Lerp(smoothedScreenPosition, vanillaScreenPosition, RestorePositionLerpSpeed);
+            if (Vector2.DistanceSquared(smoothedScreenPosition, vanillaScreenPosition) <= PositionSnapDistanceSquared) {
+                smoothedScreenPosition = vanillaScreenPosition;
+                restoringPosition = false;
+                initialized = false;
+            }
+
+            Main.screenPosition = smoothedScreenPosition;
         }
 
         /// <summary>

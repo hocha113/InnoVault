@@ -25,8 +25,16 @@ namespace InnoVault.Cinematics
                     105,
                     context => context.PlayerCenter + new Vector2(context.Player.direction * 220f, -140f),
                     lerpSpeed: 0.05f))
+                .Add(CameraFocusTrack.Lerp(
+                    150,
+                    30,
+                    context => context.PlayerCenter + new Vector2(context.Player.direction * 220f, -140f),
+                    context => context.PlayerCenter,
+                    lerpSpeed: 0.12f,
+                    ease: CutsceneEase.CubicOut))
                 .Add(new CameraZoomTrack(0, 60, 1f, 1.45f, 0.04f, CutsceneEase.CubicOut))
                 .Add(new CameraZoomTrack(100, 50, 1.45f, 1.15f, 0.035f, CutsceneEase.QuadInOut))
+                .Add(new CameraZoomTrack(150, 30, 1.15f, 1f, 0.08f, CutsceneEase.CubicOut))
                 .Add(new CameraShakeTrack(70, Vector2.Zero, 16f, 0.88f, 22))
                 .AddEvent(0, _ => VaultUtils.Text("Cutscene demo start", Color.Cyan))
                 .AddEvent(150, _ => VaultUtils.Text("Cutscene demo restore", Color.LightGreen));
