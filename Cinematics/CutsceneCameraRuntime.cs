@@ -14,7 +14,9 @@ namespace InnoVault.Cinematics
 
         private Vector2 smoothedScreenPosition;
         private bool initialized;
+        private bool restoringZoom;
         private float currentZoom = 1f;
+        private float restoreZoom = 1f;
         private float zoomLerpSpeed = 0.02f;
         private float positionLerpSpeed = 0.03f;
 
@@ -52,19 +54,28 @@ namespace InnoVault.Cinematics
         /// 开始接管摄像机
         /// </summary>
         internal void Begin(Vector2 initialFocus) {
+            bool wasControllingZoom = Active || restoringZoom;
+            float gameZoom = Math.Max(0.1f, Main.GameZoomTarget);
+
+            if (!wasControllingZoom) {
+                restoreZoom = gameZoom;
+            }
+
             Active = true;
+            restoringZoom = false;
             FocusTarget = initialFocus;
-            currentZoom = Math.Max(0.1f, Main.GameZoomTarget);
+            currentZoom = gameZoom;
             TargetZoom = currentZoom;
             initialized = false;
         }
 
         /// <summary>
-        /// 停止接管屏幕位置，并让缩放平滑恢复到默认值
+        /// 停止接管屏幕位置，并让缩放平滑恢复到演出开始前的值
         /// </summary>
         internal void End() {
             Active = false;
-            TargetZoom = 1f;
+            restoringZoom = true;
+            TargetZoom = restoreZoom;
             requestedInputLock = CutsceneInputLockFlags.None;
         }
 
@@ -72,17 +83,19 @@ namespace InnoVault.Cinematics
         /// 立即重置运行时状态
         /// </summary>
         internal void Reset() {
+            if (!VaultUtils.isServer && (Active || restoringZoom)) {
+                Main.GameZoomTarget = restoreZoom;
+            }
+
             Active = false;
             initialized = false;
-            currentZoom = 1f;
-            TargetZoom = 1f;
+            restoringZoom = false;
+            currentZoom = !VaultUtils.isServer ? Math.Max(0.1f, Main.GameZoomTarget) : restoreZoom;
+            TargetZoom = currentZoom;
             shakeTimer = 0;
             shakeDuration = 0;
             shakeIntensity = 0f;
             requestedInputLock = CutsceneInputLockFlags.None;
-            if (!VaultUtils.isServer) {
-                Main.GameZoomTarget = 1f;
-            }
         }
 
         /// <summary>
@@ -143,7 +156,12 @@ namespace InnoVault.Cinematics
                 return;
             }
 
-            float zoomTarget = Active ? TargetZoom : 1f;
+            if (!Active && !restoringZoom) {
+                initialized = false;
+                return;
+            }
+
+            float zoomTarget = Active ? TargetZoom : restoreZoom;
             float speed = Active ? zoomLerpSpeed : RestoreZoomLerpSpeed;
             currentZoom = MathHelper.Lerp(currentZoom, zoomTarget, MathHelper.Clamp(speed, 0f, 1f));
             if (Math.Abs(currentZoom - zoomTarget) <= ZoomSnapEpsilon) {
@@ -153,6 +171,7 @@ namespace InnoVault.Cinematics
 
             if (!Active) {
                 initialized = false;
+                restoringZoom = currentZoom != zoomTarget;
                 return;
             }
 
