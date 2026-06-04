@@ -1,4 +1,5 @@
 using InnoVault.Cinematics;
+using InnoVault.VaultNetworks;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
@@ -74,10 +75,24 @@ namespace InnoVault.GameSystem
             => Active(item, player) && ShouldAnimate(item, player);
 
         /// <summary>
-        /// 获取动画使用的瞄准世界坐标，默认返回 <see cref="Main.MouseWorld"/><br/>
-        /// 多人环境下可重写此方法返回经过网络同步的鼠标坐标，使其它玩家也能看到正确的持握朝向
+        /// 获取动画使用的瞄准世界坐标<br/>
+        /// 本地玩家直接返回实时 <see cref="Main.MouseWorld"/>；多人环境下的远程玩家会通过
+        /// <see cref="PlayerNetwork"/> 续订并读取其同步的鼠标方向，重建出近似瞄准点，
+        /// 使其它客户端也能看到正确的持握 / 瞄准朝向，各动画无需自行实现鼠标同步<br/>
+        /// 如需精确的远程鼠标世界坐标或自定义瞄准来源，可重写此方法
         /// </summary>
-        public virtual Vector2 GetAimWorldPosition(Player player) => Main.MouseWorld;
+        public virtual Vector2 GetAimWorldPosition(Player player) {
+            if (player.whoAmI == Main.myPlayer) {
+                return Main.MouseWorld;
+            }
+            //远程玩家：续订一次短期兴趣（内部按冷却节流，不会每帧发包），读取其同步鼠标方向重建的近似坐标
+            PlayerNetwork.KeepAlive(player, PlayerNetworkDataFlags.BasicAim);
+            if (PlayerNetwork.TryGetApproxMouseWorld(player, out Vector2 mouseWorld)) {
+                return mouseWorld;
+            }
+            //首个同步快照到达前的回退
+            return Main.MouseWorld;
+        }
 
         /// <summary>
         /// 修改物品使用过程中的位置与旋转（对应 <see cref="Terraria.ModLoader.GlobalItem.UseStyle"/>），由风格子类实现
@@ -155,6 +170,12 @@ namespace InnoVault.GameSystem
         public virtual float RecoilPhase => 1f / 3f;
 
         /// <summary>
+        /// 当前是否启用开火后坐力，默认 <see langword="true"/>（即只要 <see cref="RecoilStrength"/> 大于 0 就回退）<br/>
+        /// 可重写以按运行时状态临时关闭后坐力，例如持续照射 / 引导类使用分支下保持枪口稳定
+        /// </summary>
+        public virtual bool RecoilActive(Item item, Player player) => true;
+
+        /// <summary>
         /// 起手摆动的最大角度幅度（弧度），为 0 时手臂直接指向鼠标、不做摆动，默认 0
         /// </summary>
         public virtual float SwingStrength => 0f;
@@ -179,7 +200,7 @@ namespace InnoVault.GameSystem
             float rotation = player.compositeFrontArm.rotation + MathHelper.PiOver2 * player.gravDir;
             Vector2 position = player.GetPlayerStabilityCenter() + rotation.ToRotationVector2() * HoldDistance;
 
-            if (RecoilStrength > 0f && RecoilPhase > 0f) {
+            if (RecoilStrength > 0f && RecoilPhase > 0f && RecoilActive(item, player)) {
                 float progress = ItemUseAnimUtils.GetUseProgress(player);
                 if (progress < RecoilPhase) {
                     float kick = (RecoilPhase - progress) / RecoilPhase * RecoilStrength;
