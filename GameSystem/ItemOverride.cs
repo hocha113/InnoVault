@@ -1060,6 +1060,18 @@ namespace InnoVault.GameSystem
 
         }
         /// <summary>
+        /// 使用物品时会调用的函数，用于修改物品动画，这个钩子的优先级大于 TML 的默认钩子
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="player"></param>
+        /// <returns>返回默认值<see langword="null"/>会继续执行 TML 的默认行为，
+        /// 返回<see langword="true"/>将只会执行原物品的<see cref="ModItem.UseItemFrame(Player)"/>
+        /// 而阻断<see cref="GlobalItem.UseItemFrame(Item, Player)"/>的运行，
+        /// 返回<see langword="false"/>将会直接阻断后续所有修改的运行</returns>
+        public virtual bool? On_UseItemFrame(Item item, Player player) {
+            return null;
+        }
+        /// <summary>
         /// 用于修改近战物品的使用碰撞箱体
         /// </summary>
         /// <param name="item"></param>
@@ -1077,6 +1089,19 @@ namespace InnoVault.GameSystem
         /// <param name="heldItemFrame"></param>
         public virtual void UseStyle(Item item, Player player, Rectangle heldItemFrame) {
 
+        }
+        /// <summary>
+        /// 修改物品使用过程中的位置和中心偏移，这个钩子的优先级大于 TML 的默认钩子
+        /// </summary>
+        /// <param name="item"></param>
+        /// <param name="player"></param>
+        /// <param name="heldItemFrame"></param>
+        /// <returns>返回默认值<see langword="null"/>会继续执行 TML 的默认行为，
+        /// 返回<see langword="true"/>将只会执行原物品的<see cref="ModItem.UseStyle(Player, Rectangle)"/>
+        /// 而阻断<see cref="GlobalItem.UseStyle(Item, Player, Rectangle)"/>的运行，
+        /// 返回<see langword="false"/>将会直接阻断后续所有修改的运行</returns>
+        public virtual bool? On_UseStyle(Item item, Player player, Rectangle heldItemFrame) {
+            return null;
         }
         /// <summary>
         /// 修改翅膀的各种移动数据

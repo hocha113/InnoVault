@@ -66,6 +66,8 @@ namespace InnoVault.GameSystem
         public delegate void On_PostDrawInInventory_Delegate(Item item, SpriteBatch spriteBatch, Vector2 position, Rectangle frame, Color drawColor, Color itemColor, Vector2 origin, float scale);
         public delegate bool? On_UseItem_Delegate(Item item, Player player);
         public delegate void On_UseAnimation_Delegate(Item item, Player player);
+        public delegate void On_UseStyle_Delegate(Item item, Player player, Rectangle heldItemFrame);
+        public delegate void On_UseItemFrame_Delegate(Item item, Player player);
         public delegate void On_ModifyWeaponCrit_Delegate(Item item, Player player, ref float crit);
         public delegate void On_ModifyItemLoot_Delegate(Item item, ItemLoot itemLoot);
         public delegate bool On_CanConsumeAmmo_Delegate(Item weapon, Item ammo, Player player);
@@ -100,6 +102,8 @@ namespace InnoVault.GameSystem
         public static MethodBase onPostDrawInInventoryMethod;
         public static MethodBase onUseItemMethod;
         public static MethodBase onUseAnimationMethod;
+        public static MethodBase onUseStyleMethod;
+        public static MethodBase onUseItemFrameMethod;
         public static MethodBase onModifyWeaponCritMethod;
         public static MethodBase onModifyItemLootMethod;
         public static MethodBase onCanConsumeAmmoMethod;
@@ -148,6 +152,8 @@ namespace InnoVault.GameSystem
             onPostDrawInInventoryMethod = itemLoaderType.GetMethod("PostDrawInInventory", BindingFlags.Public | BindingFlags.Static);
             onUseItemMethod = itemLoaderType.GetMethod("UseItem", BindingFlags.Public | BindingFlags.Static);
             onUseAnimationMethod = itemLoaderType.GetMethod("UseAnimation", BindingFlags.Public | BindingFlags.Static);
+            onUseStyleMethod = itemLoaderType.GetMethod("UseStyle", BindingFlags.Public | BindingFlags.Static);
+            onUseItemFrameMethod = itemLoaderType.GetMethod("UseItemFrame", BindingFlags.Public | BindingFlags.Static);
             onModifyWeaponCritMethod = itemLoaderType.GetMethod("ModifyWeaponCrit", BindingFlags.Public | BindingFlags.Static);
             onModifyItemLootMethod = itemLoaderType.GetMethod("ModifyItemLoot", BindingFlags.Public | BindingFlags.Static);
             onCanConsumeAmmoMethod = itemLoaderType.GetMethod("CanConsumeAmmo", BindingFlags.Public | BindingFlags.Static);
@@ -196,6 +202,12 @@ namespace InnoVault.GameSystem
             }
             if (onUseAnimationMethod != null) {
                 VaultHook.Add(onUseAnimationMethod, OnUseAnimationHook);
+            }
+            if (onUseStyleMethod != null) {
+                VaultHook.Add(onUseStyleMethod, OnUseStyleHook);
+            }
+            if (onUseItemFrameMethod != null) {
+                VaultHook.Add(onUseItemFrameMethod, OnUseItemFrameHook);
             }
             if (onModifyWeaponCritMethod != null) {
                 VaultHook.Add(onModifyWeaponCritMethod, OnModifyWeaponCritHook);
@@ -276,6 +288,8 @@ namespace InnoVault.GameSystem
             onPreDrawInInventoryMethod = null;
             onUseItemMethod = null;
             onUseAnimationMethod = null;
+            onUseStyleMethod = null;
+            onUseItemFrameMethod = null;
             onModifyWeaponCritMethod = null;
             onModifyItemLootMethod = null;
             onCanConsumeAmmoMethod = null;
@@ -292,6 +306,11 @@ namespace InnoVault.GameSystem
             onShimmeringMethod = null;
             onGetShimmeredMethod = null;
             On_Player.UpdateArmorSets -= UpdateArmorSetHook;
+
+            ItemUseAnimation.Instances?.Clear();
+            ItemUseAnimation.TypeToInstance?.Clear();
+            ItemUseAnimation.ByID?.Clear();
+            ItemUseAnimation.ExplicitByID?.Clear();
         }
 
         public static List<TooltipLine> On_ModifyTooltips_Hook(On_ModifyTooltips_Delegate orig, Item item, ref int numTooltips, string[] names, ref string[] text
@@ -775,6 +794,84 @@ namespace InnoVault.GameSystem
                         return;
                     }
                 }
+            }
+
+            orig.Invoke(item, player);
+        }
+        /// <summary>
+        /// 这个钩子用于挂载一个提前于 TML 方法的 <see cref="ItemLoader.UseStyle(Item, Player, Rectangle)"/>，以此来进行一些高级的修改
+        /// </summary>
+        public static void OnUseStyleHook(On_UseStyle_Delegate orig, Item item, Player player, Rectangle heldItemFrame) {
+            bool? universalResult = UniversalForEach(inds => inds.On_UseStyle(item, player, heldItemFrame));
+            if (universalResult.HasValue) {
+                if (universalResult.Value) {
+                    item.ModItem?.UseStyle(player, heldItemFrame);
+                }
+                return;
+            }
+
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
+                bool? result = null;
+                foreach (var overrideInstance in itemOverrides.Values) {
+                    bool? newResult = overrideInstance.On_UseStyle(item, player, heldItemFrame);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                }
+
+                if (result.HasValue) {
+                    if (result.Value) {
+                        item.ModItem?.UseStyle(player, heldItemFrame);
+                        return;
+                    }
+                    else {
+                        return;
+                    }
+                }
+            }
+
+            if (ItemUseAnimation.TryGetByID(item.type, out ItemUseAnimation animation) && animation.CanRun(item, player)) {
+                animation.ApplyUseStyle(item, player, heldItemFrame);
+                return;
+            }
+
+            orig.Invoke(item, player, heldItemFrame);
+        }
+        /// <summary>
+        /// 这个钩子用于挂载一个提前于 TML 方法的 <see cref="ItemLoader.UseItemFrame(Item, Player)"/>，以此来进行一些高级的修改
+        /// </summary>
+        public static void OnUseItemFrameHook(On_UseItemFrame_Delegate orig, Item item, Player player) {
+            bool? universalResult = UniversalForEach(inds => inds.On_UseItemFrame(item, player));
+            if (universalResult.HasValue) {
+                if (universalResult.Value) {
+                    item.ModItem?.UseItemFrame(player);
+                }
+                return;
+            }
+
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
+                bool? result = null;
+                foreach (var overrideInstance in itemOverrides.Values) {
+                    bool? newResult = overrideInstance.On_UseItemFrame(item, player);
+                    if (newResult.HasValue) {
+                        result = newResult.Value;
+                    }
+                }
+
+                if (result.HasValue) {
+                    if (result.Value) {
+                        item.ModItem?.UseItemFrame(player);
+                        return;
+                    }
+                    else {
+                        return;
+                    }
+                }
+            }
+
+            if (ItemUseAnimation.TryGetByID(item.type, out ItemUseAnimation animation) && animation.CanRun(item, player)) {
+                animation.ApplyUseItemFrame(item, player);
+                return;
             }
 
             orig.Invoke(item, player);
