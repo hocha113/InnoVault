@@ -1,7 +1,0 @@
-# Minimal sample material for InnoVault Models3D MVP
-# Diffuse texture is reused from the existing InnoVault asset Light.png via a relative path
-
-newmtl CubeMaterial
-Kd 1.0 1.0 1.0
-d 1.0
-map_Kd ../Unknow.png
