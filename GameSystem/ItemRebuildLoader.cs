@@ -309,7 +309,6 @@ namespace InnoVault.GameSystem
             onGetShimmeredMethod = null;
             On_Player.UpdateArmorSets -= UpdateArmorSetHook;
 
-            // ItemUseAnimation 静态注册表（原 ItemUseAnimationLoader 职责）
             ItemUseAnimation.Instances?.Clear();
             ItemUseAnimation.TypeToInstance?.Clear();
             ItemUseAnimation.ByID?.Clear();
