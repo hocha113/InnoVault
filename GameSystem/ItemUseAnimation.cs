@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.ID;
+using Terraria.ModLoader;
 
 namespace InnoVault.GameSystem
 {
@@ -12,9 +13,20 @@ namespace InnoVault.GameSystem
     /// 物品使用动画的工厂基类，以单实例形式存在<br/>
     /// 继承此类（通常是其内置风格子类 <see cref="AimedHoldAnimation"/> 或 <see cref="MeleeSwingAnimation"/>）
     /// 并设置 <see cref="TargetID"/> 与相关属性，即可在该物品被使用时自动接管其使用动画，
-    /// 无需在物品类或 <see cref="ItemOverride"/> 中手写 UseStyle / UseItemFrame<br/>
+    /// 无需在物品类或 <see cref="ItemOverride"/> 中手写 <see cref="ItemOverride.UseStyle"/> /
+    /// <see cref="ItemOverride.UseItemFrame"/><br/>
     /// 子类会被 tModLoader 自动加载并注册（自动注册路径）；也可以通过 <see cref="Register(int, ItemUseAnimation)"/>
-    /// 在运行时显式绑定一个实例到某个物品类型（显式注册路径，优先级更高）
+    /// 在运行时显式绑定一个实例到某个物品类型（显式注册路径，优先级更高）<br/>
+    /// <br/>
+    /// 派发由 <see cref="ItemRebuildLoader"/> 在 <see cref="ItemLoader.UseStyle(Item, Player, Rectangle)"/> /
+    /// <see cref="ItemLoader.UseItemFrame(Item, Player)"/> 的 IL 层完成，调用顺序为：<br/>
+    /// 1. 通用 / 目标 <see cref="ItemOverride.On_UseStyle"/> 或 <see cref="ItemOverride.On_UseItemFrame"/>（可完全阻断或仅保留 ModItem）<br/>
+    /// 2. 本框架（<see cref="CanRun"/> 为 <see langword="true"/> 时执行 <see cref="ApplyUseStyle"/> /
+    /// <see cref="ApplyUseItemFrame"/> 并跳过后续 TML 链，含 ModItem 与其它 GlobalItem）<br/>
+    /// 3. TML 默认链（ModItem + GlobalItem，其中 GlobalItem 路径会再调用 <see cref="ItemOverride.UseStyle"/> /
+    /// <see cref="ItemOverride.UseItemFrame"/>）<br/>
+    /// 同一物品若已注册动画，<see cref="ItemOverride.UseStyle"/> 在动画生效时不会执行；需要共存时请重写
+    /// <see cref="Active"/> 或 <see cref="ShouldAnimate"/> 做门控，或改用 <see cref="ItemOverride.On_UseStyle"/> 做更细粒度控制
     /// </summary>
     public abstract class ItemUseAnimation : VaultType<ItemUseAnimation>
     {
@@ -56,8 +68,9 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 是否启用该动画，返回 <see langword="false"/> 时本帧完全跳过、放行原版与其它逻辑，默认返回 <see langword="true"/><br/>
-        /// 这是动画的总开关，可在此根据任意条件决定是否启用——若需要在某些第三方模组接管了使用动画时主动让位，
+        /// 是否启用该动画，返回 <see langword="false"/> 时本帧完全跳过、放行后续 TML 链（含 ModItem、GlobalItem 与
+        /// <see cref="ItemOverride.UseStyle"/>），默认返回 <see langword="true"/><br/>
+        /// 这是动画的总开关，可在此根据任意条件决定是否启用——若需要在第三方模组或其它逻辑已接管使用动画时主动让位，
         /// 应在子类中重写本方法自行判断；框架本身不内置任何针对特定模组的兼容处理
         /// </summary>
         public virtual bool Active(Item item, Player player) => true;
@@ -95,12 +108,16 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 修改物品使用过程中的位置与旋转（对应 <see cref="Terraria.ModLoader.GlobalItem.UseStyle"/>），由风格子类实现
+        /// 修改物品使用过程中的位置与旋转，由风格子类实现<br/>
+        /// 由 <see cref="ItemRebuildLoader.OnUseStyleHook"/> 在 IL 层调用；动画生效时不会进入 TML 的
+        /// <see cref="Terraria.ModLoader.GlobalItem.UseStyle"/> 链
         /// </summary>
         public virtual void ApplyUseStyle(Item item, Player player, Rectangle heldItemFrame) { }
 
         /// <summary>
-        /// 修改物品使用过程中的手臂 / 身体姿态（对应 <see cref="Terraria.ModLoader.GlobalItem.UseItemFrame"/>），由风格子类实现
+        /// 修改物品使用过程中的手臂 / 身体姿态，由风格子类实现<br/>
+        /// 由 <see cref="ItemRebuildLoader.OnUseItemFrameHook"/> 在 IL 层调用；动画生效时不会进入 TML 的
+        /// <see cref="Terraria.ModLoader.GlobalItem.UseItemFrame"/> 链
         /// </summary>
         public virtual void ApplyUseItemFrame(Item item, Player player) { }
 
@@ -132,9 +149,10 @@ namespace InnoVault.GameSystem
             }
         }
 
+        #region Shared utilities
         /// <summary>
         /// 获取基于 <see cref="Player.itemTime"/> 的使用进度，范围 0（刚开始）到 1（结束）<br/>
-        /// 瞄准持握风格的后坐力 / 摆动偏移使用该进度
+        /// 瞄准持握风格的后坐力 / 起手摆动使用该进度（与使用冷却同步，而非挥砍动画帧）
         /// </summary>
         public static float GetUseProgress(Player player) {
             if (player.itemTimeMax <= 0) {
@@ -215,6 +233,7 @@ namespace InnoVault.GameSystem
         /// 近战挥砍风格用它把线性进度重映射为更有手感的挥砍曲线
         /// </summary>
         public static float EvaluateEase(CutsceneEase ease, float progress) => CutsceneEaseHelper.Evaluate(ease, progress);
+        #endregion
     }
 
     /// <summary>
@@ -249,7 +268,7 @@ namespace InnoVault.GameSystem
         public virtual float RecoilStrength => 0f;
 
         /// <summary>
-        /// 后坐力发生在使用动画的前段占比（0 到 1），仅在 <see cref="ItemUseAnimUtils.GetUseProgress"/> 小于该值时回退，默认 1/3
+        /// 后坐力发生在使用动画的前段占比（0 到 1），仅在 <see cref="ItemUseAnimation.GetUseProgress"/> 小于该值时回退，默认 1/3
         /// </summary>
         public virtual float RecoilPhase => 1f / 3f;
 
@@ -265,7 +284,7 @@ namespace InnoVault.GameSystem
         public virtual float SwingStrength => 0f;
 
         /// <summary>
-        /// 起手摆动发生在使用动画的前段占比（0 到 1），仅在进度小于该值时叠加摆动，默认 0.4
+        /// 起手摆动发生在使用动画的前段占比（0 到 1），仅在 <see cref="ItemUseAnimation.GetUseProgress"/> 小于该值时叠加摆动，默认 0.4
         /// </summary>
         public virtual float SwingPhase => 0.4f;
 
@@ -324,7 +343,7 @@ namespace InnoVault.GameSystem
         /// <param name="item">正在使用的物品</param>
         /// <param name="player">使用物品的玩家</param>
         /// <param name="frontArmRotation">已叠加起手摆动后的前手旋转，便于副手相对前手做偏移</param>
-        /// <param name="progress">当前使用进度（0 到 1），由 <see cref="ItemUseAnimUtils.GetUseProgress"/> 给出</param>
+        /// <param name="progress">当前使用进度（0 到 1），由 <see cref="ItemUseAnimation.GetUseProgress"/> 给出</param>
         protected virtual void ApplyBackArm(Item item, Player player, float frontArmRotation, float progress) { }
     }
 
@@ -334,7 +353,8 @@ namespace InnoVault.GameSystem
     /// 身体帧在 <see cref="ApplyUseItemFrame"/> 中设置（该时机晚于原版的帧计算，从而能稳定覆盖）；
     /// 武器旋转与位置在 <see cref="ApplyUseStyle"/> 中设置<br/>
     /// 说明：原版对 <see cref="Terraria.ID.ItemUseStyleID.Swing"/> 自身也会计算旋转，
-    /// 因此挥砍弧线的最终观感可能需要在游戏内微调；如需对挥砍路径做完全接管，可在子类或后续追加 IL 钩子
+    /// 因此挥砍弧线的最终观感可能需要在游戏内微调；如需对挥砍路径做完全接管，可在子类中重写
+    /// <see cref="ApplyUseStyle"/>，或通过 <see cref="ItemOverride.On_UseStyle"/> 阻断 TML 链后自行处理
     /// </summary>
     public abstract class MeleeSwingAnimation : ItemUseAnimation
     {
@@ -364,7 +384,10 @@ namespace InnoVault.GameSystem
         /// </summary>
         public virtual bool AnimateLegs => false;
 
-        //按玩家槽位记录挥砍交替状态与上一帧的动画计时，用于检测新挥砍的开始
+        /// <summary>
+        /// 按玩家槽位记录挥砍左右交替状态与上一帧的 <see cref="Player.itemAnimation"/>，用于检测新一轮挥砍的开始<br/>
+        /// 生命周期与当前世界会话绑定，Mod 重载时由 <see cref="ItemRebuildLoader"/> 清空动画注册表，此处状态会自然归零
+        /// </summary>
         private static readonly bool[] flipState = new bool[Main.maxPlayers + 1];
         private static readonly int[] lastItemAnimation = new int[Main.maxPlayers + 1];
 
@@ -374,7 +397,7 @@ namespace InnoVault.GameSystem
         public virtual float GetSwingBaseAngle(Player player) => player.To(GetAimWorldPosition(player)).ToRotation();
 
         /// <summary>
-        /// 根据进度计算当前挥砍旋转：在 [基准角 - 弧/2, 基准角 + 弧/2] 之间按缓动插值，并按朝向 / 交替翻转
+        /// 根据进度计算当前挥砍旋转：在 [基准角 - 弧/2, 基准角 + 弧/2] 之间按 <see cref="ItemUseAnimation.EvaluateEase"/> 插值，并按朝向 / 交替翻转
         /// </summary>
         public virtual float GetSwingRotation(Item item, Player player, float progress) {
             float eased = EvaluateEase(SwingEase, progress);

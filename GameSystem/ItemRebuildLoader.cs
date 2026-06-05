@@ -14,7 +14,9 @@ using static InnoVault.GameSystem.ItemOverride;
 namespace InnoVault.GameSystem
 {
     /// <summary>
-    /// 关于物品重制节点的钩子均挂载于此处
+    /// 物品重制节点与使用动画的钩子挂载点<br/>
+    /// 作为 <see cref="GlobalItem"/> 转发 <see cref="ItemOverride"/> 的常规钩子；
+    /// 作为 <see cref="IVaultLoader"/> 注册 IL 钩子（含 <see cref="ItemUseAnimation"/> 的派发）并在卸载时清理静态表
     /// </summary>
     public class ItemRebuildLoader : GlobalItem, IVaultLoader
     {
@@ -307,6 +309,7 @@ namespace InnoVault.GameSystem
             onGetShimmeredMethod = null;
             On_Player.UpdateArmorSets -= UpdateArmorSetHook;
 
+            // ItemUseAnimation 静态注册表（原 ItemUseAnimationLoader 职责）
             ItemUseAnimation.Instances?.Clear();
             ItemUseAnimation.TypeToInstance?.Clear();
             ItemUseAnimation.ByID?.Clear();
@@ -799,7 +802,9 @@ namespace InnoVault.GameSystem
             orig.Invoke(item, player);
         }
         /// <summary>
-        /// 这个钩子用于挂载一个提前于 TML 方法的 <see cref="ItemLoader.UseStyle(Item, Player, Rectangle)"/>，以此来进行一些高级的修改
+        /// 挂载于 <see cref="ItemLoader.UseStyle(Item, Player, Rectangle)"/> 的 IL 钩子，调用顺序：<br/>
+        /// 通用 / 目标 <see cref="ItemOverride.On_UseStyle"/> → <see cref="ItemUseAnimation"/>（<see cref="ItemUseAnimation.CanRun"/> 时接管并 return）
+        /// → TML 默认链（ModItem + GlobalItem，含 <see cref="ItemOverride.UseStyle"/>）
         /// </summary>
         public static void OnUseStyleHook(On_UseStyle_Delegate orig, Item item, Player player, Rectangle heldItemFrame) {
             bool? universalResult = UniversalForEach(inds => inds.On_UseStyle(item, player, heldItemFrame));
@@ -838,7 +843,9 @@ namespace InnoVault.GameSystem
             orig.Invoke(item, player, heldItemFrame);
         }
         /// <summary>
-        /// 这个钩子用于挂载一个提前于 TML 方法的 <see cref="ItemLoader.UseItemFrame(Item, Player)"/>，以此来进行一些高级的修改
+        /// 挂载于 <see cref="ItemLoader.UseItemFrame(Item, Player)"/> 的 IL 钩子，调用顺序：<br/>
+        /// 通用 / 目标 <see cref="ItemOverride.On_UseItemFrame"/> → <see cref="ItemUseAnimation"/>（<see cref="ItemUseAnimation.CanRun"/> 时接管并 return）
+        /// → TML 默认链（ModItem + GlobalItem，含 <see cref="ItemOverride.UseItemFrame"/>）
         /// </summary>
         public static void OnUseItemFrameHook(On_UseItemFrame_Delegate orig, Item item, Player player) {
             bool? universalResult = UniversalForEach(inds => inds.On_UseItemFrame(item, player));

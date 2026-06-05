@@ -1051,23 +1051,25 @@ namespace InnoVault.GameSystem
             return null;
         }
         /// <summary>
-        /// 使用物品时会调用的函数，用于修改物品动画
+        /// 使用物品时会调用的函数，用于修改物品动画（手臂 / 身体帧）<br/>
+        /// 经 TML 的 <see cref="GlobalItem.UseItemFrame"/> 链调用；若对应物品已注册
+        /// <see cref="ItemUseAnimation"/> 且 <see cref="ItemUseAnimation.CanRun"/> 为 <see langword="true"/>，则本方法不会执行
         /// </summary>
         /// <param name="item"></param>
         /// <param name="player"></param>
-        /// <returns>返回默认值<see langword="null"/>会继续执行该物品的原默认方法</returns>
         public virtual void UseItemFrame(Item item, Player player) {
 
         }
         /// <summary>
-        /// 使用物品时会调用的函数，用于修改物品动画，这个钩子的优先级大于 TML 的默认钩子
+        /// 使用物品时会调用的函数，用于修改物品动画，优先级高于 TML 默认链与 <see cref="ItemUseAnimation"/><br/>
+        /// 由 <see cref="ItemRebuildLoader.OnUseItemFrameHook"/> 在 IL 层最先调用
         /// </summary>
         /// <param name="item"></param>
         /// <param name="player"></param>
-        /// <returns>返回默认值<see langword="null"/>会继续执行 TML 的默认行为，
-        /// 返回<see langword="true"/>将只会执行原物品的<see cref="ModItem.UseItemFrame(Player)"/>
-        /// 而阻断<see cref="GlobalItem.UseItemFrame(Item, Player)"/>的运行，
-        /// 返回<see langword="false"/>将会直接阻断后续所有修改的运行</returns>
+        /// <returns>返回默认值 <see langword="null"/> 会继续尝试 <see cref="ItemUseAnimation"/>，再执行 TML 默认行为；
+        /// 返回 <see langword="true"/> 将只会执行原物品的 <see cref="ModItem.UseItemFrame(Player)"/>，
+        /// 阻断 <see cref="ItemUseAnimation"/> 与 <see cref="GlobalItem.UseItemFrame"/> 的运行；
+        /// 返回 <see langword="false"/> 将会直接阻断后续所有修改的运行</returns>
         public virtual bool? On_UseItemFrame(Item item, Player player) {
             return null;
         }
@@ -1082,7 +1084,9 @@ namespace InnoVault.GameSystem
 
         }
         /// <summary>
-        /// 修改物品使用过程中的位置和中心偏移
+        /// 修改物品使用过程中的位置和中心偏移（武器旋转 / 持握位置）<br/>
+        /// 经 TML 的 <see cref="GlobalItem.UseStyle"/> 链调用；若对应物品已注册
+        /// <see cref="ItemUseAnimation"/> 且 <see cref="ItemUseAnimation.CanRun"/> 为 <see langword="true"/>，则本方法不会执行
         /// </summary>
         /// <param name="item"></param>
         /// <param name="player"></param>
@@ -1091,15 +1095,16 @@ namespace InnoVault.GameSystem
 
         }
         /// <summary>
-        /// 修改物品使用过程中的位置和中心偏移，这个钩子的优先级大于 TML 的默认钩子
+        /// 修改物品使用过程中的位置和中心偏移，优先级高于 TML 默认链与 <see cref="ItemUseAnimation"/><br/>
+        /// 由 <see cref="ItemRebuildLoader.OnUseStyleHook"/> 在 IL 层最先调用
         /// </summary>
         /// <param name="item"></param>
         /// <param name="player"></param>
         /// <param name="heldItemFrame"></param>
-        /// <returns>返回默认值<see langword="null"/>会继续执行 TML 的默认行为，
-        /// 返回<see langword="true"/>将只会执行原物品的<see cref="ModItem.UseStyle(Player, Rectangle)"/>
-        /// 而阻断<see cref="GlobalItem.UseStyle(Item, Player, Rectangle)"/>的运行，
-        /// 返回<see langword="false"/>将会直接阻断后续所有修改的运行</returns>
+        /// <returns>返回默认值 <see langword="null"/> 会继续尝试 <see cref="ItemUseAnimation"/>，再执行 TML 默认行为；
+        /// 返回 <see langword="true"/> 将只会执行原物品的 <see cref="ModItem.UseStyle(Player, Rectangle)"/>，
+        /// 阻断 <see cref="ItemUseAnimation"/> 与 <see cref="GlobalItem.UseStyle"/> 的运行；
+        /// 返回 <see langword="false"/> 将会直接阻断后续所有修改的运行</returns>
         public virtual bool? On_UseStyle(Item item, Player player, Rectangle heldItemFrame) {
             return null;
         }
