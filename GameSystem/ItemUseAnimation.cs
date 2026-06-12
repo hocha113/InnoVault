@@ -122,6 +122,32 @@ namespace InnoVault.GameSystem
         public virtual void ApplyUseItemFrame(Item item, Player player) { }
 
         /// <summary>
+        /// 是否在玩家绘制阶段重申一次 <see cref="ApplyUseStyle"/>，默认 <see langword="true"/><br/>
+        /// <see cref="ApplyUseStyle"/> 本身由 <see cref="Terraria.Player.ItemCheck"/> 在逻辑 tick 中派发，
+        /// 而 <see cref="Terraria.Player.itemRotation"/> / <see cref="Terraria.Player.itemLocation"/> 真正被消费是在绘制阶段——
+        /// 运动插值类模组（如 HighFPSSupport）会在每个渲染帧用相邻两个 tick 的混合值改写这两个字段，
+        /// 与绘制阶段按实时鼠标重算的手臂 / 朝向（<see cref="ApplyUseItemFrame"/>）来源不同步，导致持握姿态闪烁<br/>
+        /// 开启后，框架会在 <see cref="ApplyUseItemFrame"/> 派发（即 <see cref="Terraria.Player.PlayerFrame"/>，每渲染帧）
+        /// 之后重新执行 <see cref="ApplyUseStyle"/>，使旋转、位置、朝向、手臂全部来自同一渲染帧的同一数据源，
+        /// 同时高帧率下持握指向可逐渲染帧跟随鼠标<br/>
+        /// 若希望保留第三方插值对姿态的平滑处理（例如进度驱动而非指向驱动的动画），可重写并返回 <see langword="false"/>
+        /// </summary>
+        public virtual bool ReapplyStyleOnDraw => true;
+
+        /// <summary>
+        /// 在绘制阶段重申持握姿态，由 <see cref="ItemRebuildLoader.OnUseItemFrameHook"/> 在
+        /// <see cref="ApplyUseItemFrame"/> 之后调用，详见 <see cref="ReapplyStyleOnDraw"/>
+        /// </summary>
+        internal static void ReapplyStyleForDrawFrame(Item item, Player player, ItemUseAnimation animation) {
+            if (!animation.ReapplyStyleOnDraw || Main.dedServ || Main.gamePaused || player.itemAnimation <= 0) {
+                return;
+            }
+            //与原版 ItemCheck 取持握帧的口径一致（内部含 LoadItem）
+            Rectangle heldItemFrame = Item.GetDrawHitbox(item.type, player);
+            animation.ApplyUseStyle(item, player, heldItemFrame);
+        }
+
+        /// <summary>
         /// 尝试根据物品类型获取已注册的动画实例，显式注册（<see cref="ExplicitByID"/>）优先于自动注册（<see cref="ByID"/>）
         /// </summary>
         public static bool TryGetByID(int itemType, out ItemUseAnimation animation) {
@@ -188,9 +214,11 @@ namespace InnoVault.GameSystem
         public static void ApplyAnchoredHold(Player player, float rotation, Vector2 anchorWorldPos, Vector2 spriteSize, Vector2 gripOffset, bool enableWalkFrameNudge = true) {
             int facing = player.direction;
 
-            //面朝左时精灵被水平镜像，旋转整体 +π 才能让枪口仍指向原方向；该角度同时决定精灵的绘制朝向
+            //面朝左时精灵被水平镜像，旋转整体 +π 才能让枪口仍指向原方向；该角度同时决定精灵的绘制朝向。
+            //写入字段前规范到 [-π, π]：原版 PlayerFrame 按 itemRotation * direction 的阈值挑选躯干帧，
+            //第三方插值模组也会对该字段做角度混合，二者都要求规范角而非带 2π 偏移的原始值
             float drawRotation = facing < 0 ? rotation + MathHelper.Pi : rotation;
-            player.itemRotation = drawRotation;
+            player.itemRotation = MathHelper.WrapAngle(drawRotation);
 
             //沿枪管长轴把锚点从精灵中心推向手部：推移量 = 半个精灵长 + 固定握距。
             //此处取原始 rotation 的轴向即可——面朝左引入的 +π 翻转与方向符号在数学上正好相互抵消

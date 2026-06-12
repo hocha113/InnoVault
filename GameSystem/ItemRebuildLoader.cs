@@ -877,6 +877,10 @@ namespace InnoVault.GameSystem
 
             if (ItemUseAnimation.TryGetByID(item.type, out ItemUseAnimation animation) && animation.CanRun(item, player)) {
                 animation.ApplyUseItemFrame(item, player);
+                //UseItemFrame 由 PlayerFrame 在绘制阶段逐渲染帧派发，此处重申一次持握姿态，
+                //覆盖运动插值类模组（如 HighFPSSupport）在本帧对 itemRotation / itemLocation 的改写，
+                //使最终绘制消费的旋转、位置与上面刚设置的手臂、朝向来自同一帧的同一数据源
+                ItemUseAnimation.ReapplyStyleForDrawFrame(item, player, animation);
                 return;
             }
 
