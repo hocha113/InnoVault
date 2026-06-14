@@ -599,7 +599,8 @@ namespace InnoVault.GameSystem
             {
                 onNPCAI_Method = GetMethodInfo("NPCAI");
                 if (onNPCAI_Method != null) {
-                    VaultHook.Add(onNPCAI_Method, OnNPCAIHook);
+                    //提升到最外层，避免其他模组（如 MEAC）后挂的无配置钩子包裹在外层并跳过 orig，导致 NPCOverride 的 AI 派发被整体绕过
+                    VaultHook.Add(onNPCAI_Method, OnNPCAIHook, VaultHook.DefaultHookPriority);
                 }
                 else {
                     DompLog("onNPCAI_Method");
