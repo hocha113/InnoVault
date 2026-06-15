@@ -1,6 +1,3 @@
-using Microsoft.Xna.Framework;
-using Terraria;
-
 namespace InnoVault.Cinematics
 {
 #if DEBUG
