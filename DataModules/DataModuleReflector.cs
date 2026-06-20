@@ -16,9 +16,10 @@ namespace InnoVault.DataModules
     /// </summary>
     internal static class DataModuleReflector
     {
-        private sealed class Accessor(string name, Type type, Type elementType, bool isList, Func<object, object> get, Action<object, object> set)
+        private sealed class Accessor(string name, string[] aliases, Type type, Type elementType, bool isList, Func<object, object> get, Action<object, object> set)
         {
             public string Name { get; } = name;
+            public string[] Aliases { get; } = aliases;
             public Type Type { get; } = type;
             public Type ElementType { get; } = elementType;
             public bool IsList { get; } = isList;
@@ -53,13 +54,22 @@ namespace InnoVault.DataModules
             return false;
         }
 
-        private static bool TryBuildAccessor(string name, Type memberType, Func<object, object> get, Action<object, object> set, out Accessor accessor) {
+        private static bool TryBuildAccessor(MemberInfo member, Type memberType, Func<object, object> get, Action<object, object> set, out Accessor accessor) {
+            if (member.GetCustomAttribute<DataModuleIgnoreAttribute>() != null) {
+                accessor = null;
+                return false;
+            }
+
+            DataModuleNameAttribute nameAttr = member.GetCustomAttribute<DataModuleNameAttribute>();
+            string name = string.IsNullOrEmpty(nameAttr?.Name) ? member.Name : nameAttr.Name;
+            string[] aliases = nameAttr?.Aliases ?? [];
+
             if (IsScalarSupported(memberType)) {
-                accessor = new Accessor(name, memberType, null, false, get, set);
+                accessor = new Accessor(name, aliases, memberType, null, false, get, set);
                 return true;
             }
             if (TryGetIListElementType(memberType, out Type elementType) && IsScalarSupported(elementType)) {
-                accessor = new Accessor(name, memberType, elementType, true, get, set);
+                accessor = new Accessor(name, aliases, memberType, elementType, true, get, set);
                 return true;
             }
             accessor = null;
@@ -75,13 +85,13 @@ namespace InnoVault.DataModules
             for (Type current = type; current != null && current != typeof(DataModule); current = current.BaseType) {
                 foreach (PropertyInfo prop in current.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)) {
                     if (prop.CanRead && prop.CanWrite && prop.GetIndexParameters().Length == 0
-                        && TryBuildAccessor(prop.Name, prop.PropertyType, prop.GetValue, prop.SetValue, out Accessor accessor)) {
+                        && TryBuildAccessor(prop, prop.PropertyType, prop.GetValue, prop.SetValue, out Accessor accessor)) {
                         list.Add(accessor);
                     }
                 }
                 foreach (FieldInfo field in current.GetFields(BindingFlags.Public | BindingFlags.Instance | BindingFlags.DeclaredOnly)) {
                     if (!field.IsInitOnly && !field.IsLiteral
-                        && TryBuildAccessor(field.Name, field.FieldType, field.GetValue, field.SetValue, out Accessor accessor)) {
+                        && TryBuildAccessor(field, field.FieldType, field.GetValue, field.SetValue, out Accessor accessor)) {
                         list.Add(accessor);
                     }
                 }
@@ -118,12 +128,12 @@ namespace InnoVault.DataModules
 
         public static void Load(DataModule module, TagCompound tag) {
             foreach (Accessor accessor in GetAccessors(module.GetType())) {
-                if (!tag.ContainsKey(accessor.Name)) {
+                if (!TryGetLoadName(accessor, tag, out string loadName)) {
                     continue;
                 }
                 object value = accessor.IsList
-                    ? ReadList(accessor, module, tag)
-                    : ReadValue(accessor.Type, accessor.Name, tag);
+                    ? ReadList(accessor, module, tag, loadName)
+                    : ReadValue(accessor.Type, loadName, tag);
                 if (value != null) {
                     accessor.Set(module, value);
                 }
@@ -199,31 +209,46 @@ namespace InnoVault.DataModules
             return list;
         }
 
-        private static object ReadList(Accessor accessor, DataModule module, TagCompound tag) {
+        private static bool TryGetLoadName(Accessor accessor, TagCompound tag, out string name) {
+            if (tag.ContainsKey(accessor.Name)) {
+                name = accessor.Name;
+                return true;
+            }
+            foreach (string alias in accessor.Aliases) {
+                if (!string.IsNullOrEmpty(alias) && tag.ContainsKey(alias)) {
+                    name = alias;
+                    return true;
+                }
+            }
+            name = null;
+            return false;
+        }
+
+        private static object ReadList(Accessor accessor, DataModule module, TagCompound tag, string name) {
             IList target = accessor.Get(module) as IList ?? CreateList(accessor.ElementType, accessor.Type);
             target.Clear();
 
             if (accessor.ElementType == typeof(Item)) {
-                foreach (TagCompound itemTag in tag.GetList<TagCompound>(accessor.Name)) {
+                foreach (TagCompound itemTag in tag.GetList<TagCompound>(name)) {
                     target.Add(ItemIO.Load(itemTag));
                 }
                 return target;
             }
             if (accessor.ElementType == typeof(TagCompound)) {
-                foreach (TagCompound subTag in tag.GetList<TagCompound>(accessor.Name)) {
+                foreach (TagCompound subTag in tag.GetList<TagCompound>(name)) {
                     target.Add(CloneTag(subTag));
                 }
                 return target;
             }
             if (accessor.ElementType.IsEnum) {
-                foreach (int value in tag.GetList<int>(accessor.Name)) {
+                foreach (int value in tag.GetList<int>(name)) {
                     target.Add(Enum.ToObject(accessor.ElementType, value));
                 }
                 return target;
             }
 
             MethodInfo getListMethod = typeof(TagCompound).GetMethod(nameof(TagCompound.GetList))?.MakeGenericMethod(accessor.ElementType);
-            object source = getListMethod?.Invoke(tag, [accessor.Name]);
+            object source = getListMethod?.Invoke(tag, [name]);
             if (source is IEnumerable values) {
                 foreach (object value in values) {
                     target.Add(value);
