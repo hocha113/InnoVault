@@ -14,6 +14,11 @@ namespace InnoVault.Narrative.Runtime
     /// </summary>
     public sealed class NarrativeSession
     {
+        private const int PopupIntentNone = 0;
+        private const int PopupIntentClaim = 1;
+        private const int PopupIntentDismiss = 2;
+        private const int PopupIntentTimeout = 3;
+
         /// <summary>来源场景</summary>
         public NarrativeScenario Scenario { get; }
         /// <summary>场景 Key</summary>
@@ -60,7 +65,7 @@ namespace InnoVault.Narrative.Runtime
         private bool _advanceRequested;
         private bool _skipRequested;
         private int _selectedChoiceIndex = -1;
-        private int _popupIntent; //0 无 1 领取 2 关闭
+        private int _popupIntent;
         private bool _toggleAuto;
         private bool _toggleFast;
         /// <summary>选项悬停下标（视图写入，仅供皮肤高亮，不影响逻辑）</summary>
@@ -104,9 +109,9 @@ namespace InnoVault.Narrative.Runtime
         /// <summary>切换快进</summary>
         public void ToggleFast() => _toggleFast = true;
         /// <summary>领取 / 确认当前弹窗</summary>
-        public void ClaimPopup() => _popupIntent = 1;
+        public void ClaimPopup() => _popupIntent = PopupIntentClaim;
         /// <summary>关闭 / 取消当前弹窗</summary>
-        public void DismissPopup() => _popupIntent = 2;
+        public void DismissPopup() => _popupIntent = PopupIntentDismiss;
 
         #endregion
 
@@ -352,6 +357,17 @@ namespace InnoVault.Narrative.Runtime
         }
 
         private void OpenChoices(ChoiceNode choice) {
+            if (choice.Options == null || choice.Options.Count == 0) {
+                VaultMod.Instance.Logger.Warn($"Narrative scenario '{Key}' choice has no options; continuing.");
+                GoToTarget(NarrativeTarget.Continue);
+                return;
+            }
+            if (choice.Timed == null && !choice.Options.Any(IsChoiceOptionEnabled)) {
+                VaultMod.Instance.Logger.Warn($"Narrative scenario '{Key}' choice has no enabled options and no timeout; continuing.");
+                GoToTarget(NarrativeTarget.Continue);
+                return;
+            }
+
             PendingChoice = choice;
             Phase = NarrativeSessionPhase.AwaitingChoice;
             _selectedChoiceIndex = -1;
@@ -373,6 +389,11 @@ namespace InnoVault.Narrative.Runtime
                 Phase = NarrativeSessionPhase.Playing;
                 return;
             }
+            if (choice.Options == null || choice.Options.Count == 0) {
+                PendingChoice = null;
+                GoToTarget(NarrativeTarget.Continue);
+                return;
+            }
 
             if (choice.Timed != null) {
                 _choiceTimedRemaining -= frames;
@@ -388,7 +409,7 @@ namespace InnoVault.Narrative.Runtime
                 _selectedChoiceIndex = -1;
                 if (index < choice.Options.Count) {
                     ChoiceOption option = choice.Options[index];
-                    if (option.IsEnabled) {
+                    if (IsChoiceOptionEnabled(option)) {
                         ResolveChoice(option);
                     }
                 }
@@ -398,10 +419,10 @@ namespace InnoVault.Narrative.Runtime
         private void ResolveTimeout(ChoiceNode choice) {
             ChoiceOption option = null;
             if (choice.DefaultChoice.HasValue) {
-                option = choice.Options.FirstOrDefault(o => o.Id.Equals(choice.DefaultChoice.Value) && o.IsEnabled);
+                option = choice.Options.FirstOrDefault(o => o.Id.Equals(choice.DefaultChoice.Value) && IsChoiceOptionEnabled(o));
             }
             if (option == null) {
-                List<ChoiceOption> enabled = choice.Options.Where(o => o.IsEnabled).ToList();
+                List<ChoiceOption> enabled = choice.Options.Where(IsChoiceOptionEnabled).ToList();
                 if (enabled.Count > 0) {
                     option = enabled[Main.rand.Next(enabled.Count)];
                 }
@@ -426,31 +447,38 @@ namespace InnoVault.Narrative.Runtime
             GoToTarget(option.Target ?? NarrativeTarget.Continue);
         }
 
+        private bool IsChoiceOptionEnabled(ChoiceOption option)
+            => option != null && option.IsEnabled;
+
         private void TickActivePopup(float frames) {
             //非必领弹窗的自动保持
-            if (_popupIntent == 0 && !ActivePopup.RequireClaim && ActivePopup.AutoHoldSeconds >= 0f) {
+            if (_popupIntent == PopupIntentNone && !ActivePopup.RequireClaim && ActivePopup.AutoHoldSeconds >= 0f) {
                 _popupTimer += frames;
                 if (_popupTimer >= ActivePopup.AutoHoldSeconds * 60f) {
-                    _popupIntent = 1;
+                    _popupIntent = PopupIntentTimeout;
                 }
             }
 
-            if (_popupIntent == 0) {
+            if (_popupIntent == PopupIntentNone) {
                 return;
             }
 
             int intent = _popupIntent;
-            _popupIntent = 0;
+            _popupIntent = PopupIntentNone;
             PopupPayload payload = ActivePopup;
             bool wasBlocking = _popupBlocking;
 
-            if (intent == 1) {
+            if (intent == PopupIntentClaim) {
                 SafeInvoke(() => payload.OnClaimed(LocalPlayer), "Popup.OnClaimed");
                 LastPopupResult = PopupResolution.Claimed;
             }
-            else {
+            else if (intent == PopupIntentDismiss) {
                 SafeInvoke(() => payload.OnDismissed(LocalPlayer), "Popup.OnDismissed");
                 LastPopupResult = PopupResolution.Dismissed;
+            }
+            else {
+                SafeInvoke(() => payload.OnTimedOut(LocalPlayer), "Popup.OnTimedOut");
+                LastPopupResult = PopupResolution.Timeout;
             }
 
             ActivePopup = null;

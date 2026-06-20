@@ -103,7 +103,19 @@ namespace InnoVault.Narrative.Core
         public NarrativeTarget Target { get; set; } = NarrativeTarget.Continue;
 
         /// <summary>当前是否可用</summary>
-        public bool IsEnabled => Enabled == null || Enabled();
+        public bool IsEnabled {
+            get {
+                if (Enabled == null) {
+                    return true;
+                }
+                try {
+                    return Enabled();
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"Narrative choice option '{Id}' Enabled threw: {ex}");
+                    return false;
+                }
+            }
+        }
     }
 
     /// <summary>

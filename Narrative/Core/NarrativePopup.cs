@@ -43,6 +43,8 @@ namespace InnoVault.Narrative.Core
         public virtual void OnClaimed(Player player) { }
         /// <summary>被关闭 / 取消时调用</summary>
         public virtual void OnDismissed(Player player) { }
+        /// <summary>因自动保持时间结束而关闭时调用，默认等同于取消</summary>
+        public virtual void OnTimedOut(Player player) => OnDismissed(player);
 
         /// <summary>链式设置标题</summary>
         public PopupPayload Titled(string title) {

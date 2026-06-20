@@ -73,7 +73,12 @@ namespace InnoVault.Narrative.Presentation
             if (hover) {
                 player.mouseInterface = true;
                 if (keyLeftPressState == KeyPressState.Pressed) {
-                    session.ClaimPopup();
+                    if (_requireClaim) {
+                        session.ClaimPopup();
+                    }
+                    else {
+                        session.DismissPopup();
+                    }
                 }
             }
         }

@@ -14,10 +14,33 @@ namespace InnoVault.Narrative.Runtime
     /// </summary>
     public static class NarrativeRunner
     {
-        private readonly struct PendingScenario(string key, Action onCompleted)
+        private sealed class PendingScenario
         {
-            public string Key { get; } = key;
-            public Action OnCompleted { get; } = onCompleted;
+            private readonly List<Action> _completionCallbacks = [];
+
+            public string Key { get; }
+
+            public PendingScenario(string key, Action onCompleted) {
+                Key = key;
+                AddCompletionCallback(onCompleted);
+            }
+
+            public void AddCompletionCallback(Action onCompleted) {
+                if (onCompleted != null) {
+                    _completionCallbacks.Add(onCompleted);
+                }
+            }
+
+            public Action CreateCompletionCallback() {
+                if (_completionCallbacks.Count == 0) {
+                    return null;
+                }
+                return () => {
+                    for (int i = 0; i < _completionCallbacks.Count; i++) {
+                        SafeInvoke(_completionCallbacks[i], $"scenario '{Key}' merged completion callback #{i}");
+                    }
+                };
+            }
         }
 
         private static readonly Queue<PendingScenario> _pending = new();
@@ -30,17 +53,21 @@ namespace InnoVault.Narrative.Runtime
 
         /// <summary>指定场景是否正在运行或排队</summary>
         public static bool IsScenarioActiveOrPending(string key)
-            => Active != null && Active.Key == key || PendingContains(key);
+            => (Active != null && Active.Key == key) || PendingContains(key);
 
-        private static bool PendingContains(string key)
+        private static bool PendingContains(string key) => TryGetPending(key, out _);
+
+        private static bool TryGetPending(string key, out PendingScenario match)
         {
             foreach (PendingScenario pending in _pending)
             {
                 if (pending.Key == key)
                 {
+                    match = pending;
                     return true;
                 }
             }
+            match = null;
             return false;
         }
 
@@ -50,37 +77,54 @@ namespace InnoVault.Narrative.Runtime
         /// <summary>启动一个场景并附加完成回调</summary>
         public static bool Begin(NarrativeScenario scenario, Action onCompleted) {
             if (scenario == null) {
+                VaultMod.Instance.Logger.Warn("Narrative Begin ignored: scenario is null.");
                 return false;
             }
             if (Active != null) {
-                if (!PendingContains(scenario.Key)) {
+                if (!TryGetPending(scenario.Key, out PendingScenario pending)) {
                     _pending.Enqueue(new PendingScenario(scenario.Key, onCompleted));
+                }
+                else {
+                    if (onCompleted != null) {
+                        pending.AddCompletionCallback(onCompleted);
+                        VaultMod.Instance.Logger.Warn($"Narrative scenario '{scenario.Key}' is already pending; merged completion callback.");
+                    }
+                    else {
+                        VaultMod.Instance.Logger.Warn($"Narrative scenario '{scenario.Key}' is already pending; duplicate begin request ignored.");
+                    }
                 }
                 return true;
             }
-            StartScenario(scenario, onCompleted);
-            return true;
+            return StartScenario(scenario, onCompleted);
         }
 
         /// <summary>按 Key 启动一个场景</summary>
         public static bool Begin(string key) {
             NarrativeScenario scenario = NarrativeScenario.Find(key);
-            return scenario != null && Begin(scenario);
+            if (scenario == null) {
+                VaultMod.Instance.Logger.Warn($"Narrative Begin ignored: scenario key '{key}' was not found.");
+                return false;
+            }
+            return Begin(scenario);
         }
 
         /// <summary>按场景类型启动一个场景，避免手写字符串 Key</summary>
         public static bool Begin<T>() where T : NarrativeScenario {
             T scenario = NarrativeScenario.Find<T>();
-            return scenario != null && Begin(scenario);
+            if (scenario == null) {
+                VaultMod.Instance.Logger.Warn($"Narrative Begin ignored: scenario type '{typeof(T).FullName}' was not registered.");
+                return false;
+            }
+            return Begin(scenario);
         }
 
-        private static void StartScenario(NarrativeScenario scenario, Action onCompleted) {
+        private static bool StartScenario(NarrativeScenario scenario, Action onCompleted) {
             NarrativeGraph graph;
             try {
                 graph = scenario.BuildGraph();
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"Narrative scenario '{scenario.Key}' Build threw: {ex}");
-                return;
+                return false;
             }
 
             NarrativeSession session = new(scenario, graph, scenario.DefaultStyle) { OnCompleted = onCompleted };
@@ -88,6 +132,7 @@ namespace InnoVault.Narrative.Runtime
             NarrativeServices.Progress?.SetProgress(scenario.Key, ScenarioProgress.Started);
             SafeInvoke(scenario.InvokeStarted, $"scenario '{scenario.Key}' OnStarted");
             session.Start();
+            return true;
         }
 
         private static void SafeInvoke(Action action, string context) {
@@ -126,7 +171,12 @@ namespace InnoVault.Narrative.Runtime
                 PendingScenario entry = _pending.Dequeue();
                 NarrativeScenario next = NarrativeScenario.Find(entry.Key);
                 if (next != null) {
-                    StartScenario(next, entry.OnCompleted);
+                    if (!StartScenario(next, entry.CreateCompletionCallback())) {
+                        VaultMod.Instance.Logger.Warn($"Narrative pending scenario '{entry.Key}' failed to start and was dropped.");
+                    }
+                }
+                else {
+                    VaultMod.Instance.Logger.Warn($"Narrative pending scenario '{entry.Key}' was not found and was dropped.");
                 }
             }
 
@@ -145,7 +195,9 @@ namespace InnoVault.Narrative.Runtime
             SafeInvoke(session.OnCompleted, $"scenario '{session.Key}' completion callback");
 
             if (!string.IsNullOrEmpty(session.RequestedScenario)) {
-                Begin(session.RequestedScenario);
+                if (!Begin(session.RequestedScenario)) {
+                    VaultMod.Instance.Logger.Warn($"Narrative scenario '{session.Key}' requested missing scenario '{session.RequestedScenario}'.");
+                }
             }
         }
 

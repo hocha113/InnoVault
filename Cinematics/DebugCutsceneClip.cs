@@ -1,3 +1,5 @@
+using Microsoft.Xna.Framework;
+
 namespace InnoVault.Cinematics
 {
 #if DEBUG

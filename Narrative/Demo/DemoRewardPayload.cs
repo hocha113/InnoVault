@@ -1,4 +1,5 @@
 using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Services;
 using Terraria;
 
 namespace InnoVault.Narrative.Demo

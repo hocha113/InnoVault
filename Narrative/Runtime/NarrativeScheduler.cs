@@ -14,7 +14,10 @@ namespace InnoVault.Narrative.Runtime
     /// </summary>
     public static class NarrativeScheduler
     {
+        private const int FailedStartRetryDelayTicks = 300;
+
         private static readonly List<Func<bool>> _blockers = [];
+        private static readonly Dictionary<string, int> _failedStartCooldowns = new(StringComparer.Ordinal);
 
         /// <summary>注册一个全局阻塞条件（返回 <see langword="true"/> 时本帧不触发任何场景）</summary>
         public static void RegisterBlocker(Func<bool> blocker) {
@@ -29,7 +32,7 @@ namespace InnoVault.Narrative.Runtime
                 return true;
             }
             for (int i = 0; i < _blockers.Count; i++) {
-                if (_blockers[i]()) {
+                if (SafeEvaluate(_blockers[i], true, $"blocker #{i}")) {
                     return true;
                 }
             }
@@ -45,15 +48,19 @@ namespace InnoVault.Narrative.Runtime
             INarrativeProgressStore store = NarrativeServices.Progress;
             NarrativeScenario best = null;
             int bestPriority = int.MinValue;
+            TickFailedStartCooldowns();
 
             foreach (NarrativeScenario scenario in NarrativeScenario.All) {
                 NarrativePolicy policy = scenario.Policy;
                 if (policy == null) {
                     continue;
                 }
+                if (_failedStartCooldowns.ContainsKey(scenario.Key)) {
+                    continue;
+                }
 
                 bool completed = policy.IsCompleted != null
-                    ? policy.IsCompleted(store)
+                    ? SafeEvaluate(() => policy.IsCompleted(store), true, $"scenario '{scenario.Key}' IsCompleted")
                     : store != null && store.GetProgress(scenario.Key) == ScenarioProgress.Completed;
                 if (completed && !policy.Repeatable) {
                     continue;
@@ -61,10 +68,10 @@ namespace InnoVault.Narrative.Runtime
                 if (NarrativeRunner.IsScenarioActiveOrPending(scenario.Key)) {
                     continue;
                 }
-                if (policy.Blocked != null && policy.Blocked()) {
+                if (policy.Blocked != null && SafeEvaluate(policy.Blocked, true, $"scenario '{scenario.Key}' Blocked")) {
                     continue;
                 }
-                if (policy.CanTrigger != null && !policy.CanTrigger(store, Main.LocalPlayer)) {
+                if (policy.CanTrigger != null && !SafeEvaluate(() => policy.CanTrigger(store, Main.LocalPlayer), false, $"scenario '{scenario.Key}' CanTrigger")) {
                     continue;
                 }
                 if (policy.Priority > bestPriority) {
@@ -79,12 +86,62 @@ namespace InnoVault.Narrative.Runtime
 
             NarrativePolicy chosen = best.Policy;
             //两阶段：先标记触发，真正完成由 NarrativeRunner 写入并回调 OnCompleted
+            ScenarioProgress previous = store?.GetProgress(best.Key) ?? ScenarioProgress.None;
             store?.SetProgress(best.Key, ScenarioProgress.Triggered);
-            chosen.OnTriggered?.Invoke(store);
-            NarrativeRunner.Begin(best, () => chosen.OnCompleted?.Invoke(store));
+            if (!NarrativeRunner.Begin(best, () => SafeInvoke(() => chosen.OnCompleted?.Invoke(store), $"scenario '{best.Key}' policy OnCompleted"))) {
+                store?.SetProgress(best.Key, previous);
+                _failedStartCooldowns[best.Key] = FailedStartRetryDelayTicks;
+                VaultMod.Instance.Logger.Warn($"Narrative scenario '{best.Key}' start failed; scheduler will retry after {FailedStartRetryDelayTicks} ticks.");
+                return;
+            }
+            SafeInvoke(() => chosen.OnTriggered?.Invoke(store), $"scenario '{best.Key}' policy OnTriggered");
         }
 
         /// <summary>清空注册的阻塞器（卸载时调用）</summary>
-        public static void Reset() => _blockers.Clear();
+        public static void Reset() {
+            _blockers.Clear();
+            _failedStartCooldowns.Clear();
+        }
+
+        private static void TickFailedStartCooldowns() {
+            if (_failedStartCooldowns.Count == 0) {
+                return;
+            }
+
+            List<string> keys = new(_failedStartCooldowns.Keys);
+            for (int i = 0; i < keys.Count; i++) {
+                string key = keys[i];
+                int remaining = _failedStartCooldowns[key] - 1;
+                if (remaining <= 0) {
+                    _failedStartCooldowns.Remove(key);
+                }
+                else {
+                    _failedStartCooldowns[key] = remaining;
+                }
+            }
+        }
+
+        private static bool SafeEvaluate(Func<bool> predicate, bool fallback, string context) {
+            if (predicate == null) {
+                return fallback;
+            }
+            try {
+                return predicate();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Narrative scheduler {context} threw: {ex}");
+                return fallback;
+            }
+        }
+
+        private static void SafeInvoke(Action action, string context) {
+            if (action == null) {
+                return;
+            }
+            try {
+                action();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Narrative scheduler {context} threw: {ex}");
+            }
+        }
     }
 }

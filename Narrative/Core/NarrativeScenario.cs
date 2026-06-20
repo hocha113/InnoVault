@@ -31,13 +31,19 @@ namespace InnoVault.Narrative.Core
         /// <summary>默认样式 id，对话框 / 选择框 / 弹窗据此取皮肤</summary>
         public virtual StyleId DefaultStyle => StyleId.Default;
 
-        /// <summary>声明式触发策略，由 <see cref="ConfigurePolicy"/> 生成；<see langword="null"/> 表示不参与自动调度</summary>
+        /// <summary>
+        /// 声明式触发策略，由 <see cref="ConfigurePolicy"/> 在加载期生成一次；<see langword="null"/> 表示不参与自动调度。<br/>
+        /// 策略对象可以长期存在，但其中的谓词必须在被调用时读取实时游戏状态，不能在 <see cref="ConfigurePolicy"/> 内提前采样一次
+        /// </summary>
         public NarrativePolicy Policy { get; private set; }
 
         /// <summary>构建剧情内容</summary>
         protected abstract void Build(NarrativeComposer composer);
 
-        /// <summary>配置触发策略，返回 <see langword="null"/> 表示仅手动启动</summary>
+        /// <summary>
+        /// 配置触发策略，返回 <see langword="null"/> 表示仅手动启动。<br/>
+        /// 该方法只在加载 / setup 阶段执行一次；需要随世界、玩家、NPC 等变化的条件应写入返回的委托中实时判断
+        /// </summary>
         protected virtual NarrativePolicy ConfigurePolicy() => null;
 
         /// <summary>场景开始播放时回调</summary>

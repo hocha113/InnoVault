@@ -5,7 +5,8 @@ using Terraria;
 namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
-    /// 声明式触发策略，由 <see cref="NarrativeScheduler"/> 评估。<br/>
+    /// 声明式触发策略，由 <see cref="NarrativeScheduler"/> 评估。策略实例通常只创建一次，<br/>
+    /// 因此不要在创建策略时缓存世界 / 玩家 / NPC 的瞬时结果；应在各个委托被调度器调用时实时读取。<br/>
     /// 关键：完成标记走两阶段——触发时只写 <see cref="ScenarioProgress.Triggered"/>，<br/>
     /// 真正播放完毕后才由框架写 <see cref="ScenarioProgress.Completed"/> 并回调 <see cref="OnCompleted"/>
     /// </summary>
