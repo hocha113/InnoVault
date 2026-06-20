@@ -31,6 +31,12 @@ namespace InnoVault.DataModules
         /// <summary>模块数据版本，递增以支持迁移</summary>
         public virtual int Version => 1;
 
+        /// <inheritdoc/>
+        protected override void VaultRegister() {
+            Instances.Add(this);
+            TypeToInstance[GetType()] = this;
+        }
+
         /// <summary>写出本模块字段</summary>
         public virtual void SaveData(TagCompound tag) => DataModuleReflector.Save(this, tag);
 

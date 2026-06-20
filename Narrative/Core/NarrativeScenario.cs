@@ -45,7 +45,16 @@ namespace InnoVault.Narrative
         protected virtual void OnCompleted() { }
 
         /// <inheritdoc/>
-        protected override void VaultRegister() => _byKey[Key] = this;
+        protected override void VaultRegister() {
+            Instances.Add(this);
+            TypeToInstance[GetType()] = this;
+
+            if (_byKey.TryGetValue(Key, out NarrativeScenario existing) && existing.GetType() != GetType()) {
+                VaultMod.Instance.Logger.Error($"NarrativeScenario Key conflict: '{Key}' between {existing.GetType().FullName} and {GetType().FullName}");
+                return;
+            }
+            _byKey[Key] = this;
+        }
 
         /// <inheritdoc/>
         public override void VaultSetup() {
