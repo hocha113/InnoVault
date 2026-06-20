@@ -8,10 +8,7 @@ namespace InnoVault.Narrative
     /// </summary>
     internal sealed class NarrativeDemoScenario : NarrativeScenario
     {
-        /// <inheritdoc/>
-        public override string Key => "NarrativeDemo";
-
-        private static readonly CharacterId Guide = "Guide";
+        private static readonly CharacterId Guide = CharacterId.ForMod("InnoVault", "Guide");
 
         /// <inheritdoc/>
         protected override void Build(NarrativeComposer n) {

@@ -18,10 +18,10 @@ namespace InnoVault.Narrative
                 return;
             }
 
-            PortraitRegistry.Register("Guide").Name("Guide");
+            PortraitRegistry.Register(CharacterId.ForMod("InnoVault", "Guide")).Name("Guide");
             NarrativeServices.RewardGrant ??= new DemoRewardGrantService();
 
-            if (!NarrativeRunner.Begin("NarrativeDemo")) {
+            if (!NarrativeRunner.Begin<NarrativeDemoScenario>()) {
                 caller.Reply("Narrative demo scenario was not found.");
             }
         }

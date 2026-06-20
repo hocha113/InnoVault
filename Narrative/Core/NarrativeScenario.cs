@@ -13,8 +13,18 @@ namespace InnoVault.Narrative
     {
         private static readonly Dictionary<string, NarrativeScenario> _byKey = new(StringComparer.Ordinal);
 
-        /// <summary>场景唯一 Key，默认取类名</summary>
-        public virtual string Key => Name;
+        /// <summary>
+        /// 场景唯一 Key，默认使用 <c>ModName/TypeName</c>。<br/>
+        /// Narrative 是跨模组公共框架，场景 Key 会进入全局注册表、pending 队列和进度存储，不能只用类名
+        /// </summary>
+        public virtual string Key {
+            get {
+                Type type = GetType();
+                return TypeToMod.TryGetValue(type, out var mod)
+                    ? GetFullName(mod.Name, type.Name)
+                    : type.FullName;
+            }
+        }
 
         /// <summary>默认样式 id，对话框 / 选择框 / 弹窗据此取皮肤</summary>
         public virtual StyleId DefaultStyle => StyleId.Default;
@@ -55,9 +65,13 @@ namespace InnoVault.Narrative
         /// <summary>启动本场景（忙时会自动入队）</summary>
         public bool Begin() => NarrativeRunner.Begin(this);
 
-        /// <summary>按 Key 查找已注册场景</summary>
+        /// <summary>按 Key 查找已注册场景（推荐传入完整 <c>ModName/TypeName</c>）</summary>
         public static NarrativeScenario Find(string key)
             => key != null && _byKey.TryGetValue(key, out var scenario) ? scenario : null;
+
+        /// <summary>按场景类型查找已注册场景，避免手写字符串 Key</summary>
+        public static T Find<T>() where T : NarrativeScenario
+            => TypeToInstance.TryGetValue(typeof(T), out var scenario) ? (T)scenario : null;
 
         /// <summary>所有已注册场景</summary>
         public static IReadOnlyCollection<NarrativeScenario> All => _byKey.Values;

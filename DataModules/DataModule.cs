@@ -14,8 +14,19 @@ namespace InnoVault.DataModules
     /// </summary>
     public abstract class DataModule : VaultType<DataModule>
     {
-        /// <summary>序列化键，默认取类名；同一 <see cref="DataModuleStore"/> 内必须唯一</summary>
-        public virtual string SaveKey => GetType().Name;
+        /// <summary>
+        /// 序列化键，默认使用 <c>ModName/TypeName</c>。<br/>
+        /// DataModule 面向所有消费模组，不能只用短类名，否则不同模组中的同名模块会在同一个
+        /// <see cref="DataModuleStore"/> 或持久化 Tag 中发生冲突
+        /// </summary>
+        public virtual string SaveKey {
+            get {
+                Type type = GetType();
+                return TypeToMod.TryGetValue(type, out var mod)
+                    ? GetFullName(mod.Name, type.Name)
+                    : type.FullName;
+            }
+        }
 
         /// <summary>模块数据版本，递增以支持迁移</summary>
         public virtual int Version => 1;

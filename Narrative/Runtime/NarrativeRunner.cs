@@ -46,6 +46,12 @@ namespace InnoVault.Narrative
             return scenario != null && Begin(scenario);
         }
 
+        /// <summary>按场景类型启动一个场景，避免手写字符串 Key</summary>
+        public static bool Begin<T>() where T : NarrativeScenario {
+            T scenario = NarrativeScenario.Find<T>();
+            return scenario != null && Begin(scenario);
+        }
+
         private static void StartScenario(NarrativeScenario scenario, Action onCompleted) {
             NarrativeGraph graph = scenario.BuildGraph();
             NarrativeSession session = new(scenario, graph, scenario.DefaultStyle) { OnCompleted = onCompleted };

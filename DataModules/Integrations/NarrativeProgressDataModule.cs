@@ -17,9 +17,6 @@ namespace InnoVault.DataModules
     /// </summary>
     public sealed class NarrativeProgressDataModule : DataModule, INarrativeProgressStore
     {
-        /// <inheritdoc/>
-        public override string SaveKey => "NarrativeProgress";
-
         private readonly Dictionary<string, ScenarioProgress> _progress = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _choices = new(StringComparer.Ordinal);
         private readonly Dictionary<string, bool> _flags = new(StringComparer.Ordinal);

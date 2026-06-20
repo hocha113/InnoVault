@@ -15,6 +15,8 @@ namespace InnoVault.Narrative
         public static implicit operator CharacterId(string value) => new(value ?? string.Empty);
         /// <summary>隐式转换为字符串</summary>
         public static implicit operator string(CharacterId id) => id.Value ?? string.Empty;
+        /// <summary>构造带模组前缀的角色 id（推荐消费者使用）</summary>
+        public static CharacterId ForMod(string modName, string name) => new($"{modName}/{name}");
         /// <inheritdoc/>
         public override string ToString() => Value ?? string.Empty;
     }
@@ -43,15 +45,17 @@ namespace InnoVault.Narrative
     public readonly record struct StyleId(string Value)
     {
         /// <summary>框架内置的朴素默认样式</summary>
-        public static readonly StyleId Default = new("Default");
+        public static readonly StyleId Default = new("InnoVault/Default");
         /// <summary>是否为空标识</summary>
         public bool IsEmpty => string.IsNullOrEmpty(Value);
         /// <summary>从字符串隐式构造</summary>
-        public static implicit operator StyleId(string value) => new(string.IsNullOrEmpty(value) ? "Default" : value);
+        public static implicit operator StyleId(string value) => new(string.IsNullOrEmpty(value) ? Default.Value : value);
         /// <summary>隐式转换为字符串</summary>
-        public static implicit operator string(StyleId id) => id.Value ?? "Default";
+        public static implicit operator string(StyleId id) => id.Value ?? Default.Value;
+        /// <summary>构造带模组前缀的样式 id（推荐消费者使用）</summary>
+        public static StyleId ForMod(string modName, string name) => new($"{modName}/{name}");
         /// <inheritdoc/>
-        public override string ToString() => Value ?? "Default";
+        public override string ToString() => Value ?? Default.Value;
     }
 
     /// <summary>

@@ -13,6 +13,7 @@ namespace InnoVault.Narrative
 
         /// <summary>注册（或获取已存在的）角色档案，返回档案以便链式配置</summary>
         public static SpeakerProfile Register(CharacterId id) {
+            WarnIfUnprefixed(id);
             if (!_profiles.TryGetValue(id, out var profile)) {
                 profile = new SpeakerProfile(id);
                 _profiles[id] = profile;
@@ -20,9 +21,17 @@ namespace InnoVault.Narrative
             return profile;
         }
 
+        /// <summary>注册（或获取已存在的）带模组前缀角色档案（推荐消费者使用）</summary>
+        public static SpeakerProfile Register(string modName, string name)
+            => Register(CharacterId.ForMod(modName, name));
+
         /// <summary>注册一个已构建好的角色档案（同 id 覆盖）</summary>
         public static SpeakerProfile Register(SpeakerProfile profile) {
             if (profile != null) {
+                WarnIfUnprefixed(profile.Id);
+                if (_profiles.ContainsKey(profile.Id)) {
+                    VaultMod.Instance.Logger.Warn($"Narrative speaker profile '{profile.Id}' is being replaced. Use ModName/CharacterName ids to avoid cross-mod conflicts.");
+                }
                 _profiles[profile.Id] = profile;
             }
             return profile;
@@ -47,5 +56,11 @@ namespace InnoVault.Narrative
 
         /// <summary>清空注册表（卸载时调用）</summary>
         internal static void Clear() => _profiles.Clear();
+
+        private static void WarnIfUnprefixed(CharacterId id) {
+            if (!id.IsEmpty && !id.Value.Contains('/')) {
+                VaultMod.Instance.Logger.Warn($"Narrative CharacterId '{id}' has no mod prefix. Prefer CharacterId.ForMod(modName, name) to avoid cross-mod conflicts.");
+            }
+        }
     }
 }
