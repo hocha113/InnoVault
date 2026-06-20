@@ -25,26 +25,21 @@ namespace InnoVault.Narrative
         /// <summary>
         /// 追加一个节点。若节点带有 <see cref="NarrativeNode.Label"/>，会登记到标签索引（重复标签后者覆盖前者）
         /// </summary>
-        public NarrativeGraph Add(NarrativeNode node)
-        {
-            if (node == null)
-            {
+        public NarrativeGraph Add(NarrativeNode node) {
+            if (node == null) {
                 return this;
             }
             int index = _nodes.Count;
             _nodes.Add(node);
-            if (!string.IsNullOrEmpty(node.Label))
-            {
+            if (!string.IsNullOrEmpty(node.Label)) {
                 _labelToIndex[node.Label] = index;
             }
             return this;
         }
 
         /// <summary>尝试解析标签到节点下标</summary>
-        public bool TryGetLabelIndex(string label, out int index)
-        {
-            if (string.IsNullOrEmpty(label))
-            {
+        public bool TryGetLabelIndex(string label, out int index) {
+            if (string.IsNullOrEmpty(label)) {
                 index = -1;
                 return false;
             }
@@ -52,8 +47,7 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>清空图（场景每次启动会重建）</summary>
-        public void Clear()
-        {
+        public void Clear() {
             _nodes.Clear();
             _labelToIndex.Clear();
         }

@@ -1,5 +1,4 @@
 using System;
-using InnoVault;
 using Terraria.ModLoader.IO;
 
 namespace InnoVault.DataModules

@@ -14,8 +14,7 @@ namespace InnoVault.Narrative
         private static readonly CharacterId Guide = "Guide";
 
         /// <inheritdoc/>
-        protected override void Build(NarrativeComposer n)
-        {
+        protected override void Build(NarrativeComposer n) {
             n.Say(Guide, "Welcome to the InnoVault Narrative demo.")
              .Say(Guide, "happy", "This line is tagged with a different expression id.")
              .Choice(Guide, "Would you like a gift?", c => c

@@ -30,17 +30,14 @@ namespace InnoVault.Narrative
         /// <param name="payload">负载（如 Boss 的 NPC 类型）</param>
         /// <param name="currentTick">当前 tick</param>
         /// <param name="lifeTicks">存活 tick 数，小于等于 0 表示永不过期</param>
-        public void Enqueue(string type, int payload, int currentTick, int lifeTicks = 0)
-        {
+        public void Enqueue(string type, int payload, int currentTick, int lifeTicks = 0) {
             int expire = lifeTicks > 0 ? currentTick + lifeTicks : 0;
             _events.Add(new NarrativeEvent(type, payload, currentTick, expire));
         }
 
         /// <summary>查看队首事件而不移除</summary>
-        public bool TryPeek(out NarrativeEvent evt)
-        {
-            if (_events.Count > 0)
-            {
+        public bool TryPeek(out NarrativeEvent evt) {
+            if (_events.Count > 0) {
                 evt = _events[0];
                 return true;
             }
@@ -49,10 +46,8 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>取出并移除队首事件</summary>
-        public bool TryDequeue(out NarrativeEvent evt)
-        {
-            if (_events.Count > 0)
-            {
+        public bool TryDequeue(out NarrativeEvent evt) {
+            if (_events.Count > 0) {
                 evt = _events[0];
                 _events.RemoveAt(0);
                 return true;
@@ -74,27 +69,22 @@ namespace InnoVault.Narrative
         public void Clear() => _events.Clear();
 
         /// <summary>序列化</summary>
-        public void Save(TagCompound tag)
-        {
+        public void Save(TagCompound tag) {
             tag["events"] = _events.Select(e => $"{e.Type}|{e.Payload}|{e.EnqueuedTick}|{e.ExpireTick}").ToList();
         }
 
         /// <summary>反序列化</summary>
-        public void Load(TagCompound tag)
-        {
+        public void Load(TagCompound tag) {
             _events.Clear();
-            if (!tag.TryGet("events", out List<string> raw))
-            {
+            if (!tag.TryGet("events", out List<string> raw)) {
                 return;
             }
-            foreach (string entry in raw)
-            {
+            foreach (string entry in raw) {
                 string[] parts = entry.Split('|');
                 if (parts.Length == 4
                     && int.TryParse(parts[1], out int payload)
                     && int.TryParse(parts[2], out int enq)
-                    && int.TryParse(parts[3], out int exp))
-                {
+                    && int.TryParse(parts[3], out int exp)) {
                     _events.Add(new NarrativeEvent(parts[0], payload, enq, exp));
                 }
             }

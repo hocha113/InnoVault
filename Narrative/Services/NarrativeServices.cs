@@ -17,25 +17,20 @@ namespace InnoVault.Narrative
         public static INarrativeSyncService Sync { get; set; }
 
         /// <summary>用一个聚合宿主服务一次性注入进度存储与奖励发放</summary>
-        public static void UseHost(INarrativeHostService host)
-        {
-            if (host == null)
-            {
+        public static void UseHost(INarrativeHostService host) {
+            if (host == null) {
                 return;
             }
-            if (host.ProgressStore != null)
-            {
+            if (host.ProgressStore != null) {
                 Progress = host.ProgressStore;
             }
-            if (host.RewardGrant != null)
-            {
+            if (host.RewardGrant != null) {
                 RewardGrant = host.RewardGrant;
             }
         }
 
         /// <summary>恢复为默认实现（卸载 / 测试时使用）</summary>
-        internal static void ResetToDefaults()
-        {
+        internal static void ResetToDefaults() {
             Progress = new MemoryNarrativeProgressStore();
             RewardGrant = null;
             Sync = null;

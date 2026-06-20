@@ -38,14 +38,12 @@ namespace InnoVault.Narrative
         protected override void VaultRegister() => _byKey[Key] = this;
 
         /// <inheritdoc/>
-        public override void VaultSetup()
-        {
+        public override void VaultSetup() {
             SetStaticDefaults();
             Policy = ConfigurePolicy();
         }
 
-        internal NarrativeGraph BuildGraph()
-        {
+        internal NarrativeGraph BuildGraph() {
             NarrativeGraph graph = new();
             Build(new NarrativeComposer(graph));
             return graph;

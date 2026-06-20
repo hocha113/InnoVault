@@ -17,8 +17,7 @@ namespace InnoVault.Narrative
             => sb.Draw(Pixel, rect, PixelSrc, color);
 
         /// <summary>绘制一个矩形描边</summary>
-        public static void DrawBorder(SpriteBatch sb, Rectangle rect, Color color, int thickness = 2)
-        {
+        public static void DrawBorder(SpriteBatch sb, Rectangle rect, Color color, int thickness = 2) {
             sb.Draw(Pixel, new Rectangle(rect.X, rect.Y, rect.Width, thickness), PixelSrc, color);
             sb.Draw(Pixel, new Rectangle(rect.X, rect.Bottom - thickness, rect.Width, thickness), PixelSrc, color);
             sb.Draw(Pixel, new Rectangle(rect.X, rect.Y, thickness, rect.Height), PixelSrc, color);
@@ -26,8 +25,7 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>绘制带阴影、填充与描边的标准面板</summary>
-        public static void DrawPanel(SpriteBatch sb, Rectangle rect, Color fill, Color edge, float alpha)
-        {
+        public static void DrawPanel(SpriteBatch sb, Rectangle rect, Color fill, Color edge, float alpha) {
             Rectangle shadow = rect;
             shadow.Offset(4, 5);
             FillRect(sb, shadow, Color.Black * (alpha * 0.4f));

@@ -30,8 +30,7 @@ namespace InnoVault.Narrative
             => NarrativeSkinDraw.DrawPanel(spriteBatch, panel, new Color(16, 22, 34), new Color(70, 130, 200), alpha);
 
         /// <summary>绘制立绘外框</summary>
-        public virtual void DrawPortraitFrame(SpriteBatch spriteBatch, Rectangle frame, float alpha)
-        {
+        public virtual void DrawPortraitFrame(SpriteBatch spriteBatch, Rectangle frame, float alpha) {
             NarrativeSkinDraw.FillRect(spriteBatch, frame, new Color(8, 12, 20) * (alpha * 0.85f));
             NarrativeSkinDraw.DrawBorder(spriteBatch, frame, new Color(70, 130, 200) * alpha);
         }

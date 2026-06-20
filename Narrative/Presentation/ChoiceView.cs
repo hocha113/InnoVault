@@ -1,9 +1,8 @@
-using System;
-using System.Collections.Generic;
 using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Graphics;
+using System.Collections.Generic;
 using Terraria;
 using Terraria.GameContent;
 
@@ -44,38 +43,31 @@ namespace InnoVault.Narrative
         private bool _hasCache;
 
         /// <inheritdoc/>
-        public override void VaultSetup()
-        {
+        public override void VaultSetup() {
             base.VaultSetup();
             NarrativeViews.Register(this);
         }
 
         /// <inheritdoc/>
-        public void Sync(NarrativeSession active)
-        {
-            if (active != null && active.IsAwaitingChoice)
-            {
+        public void Sync(NarrativeSession active) {
+            if (active != null && active.IsAwaitingChoice) {
                 Open();
             }
-            else
-            {
+            else {
                 Close();
             }
         }
 
         /// <inheritdoc/>
-        public override void Update()
-        {
+        public override void Update() {
             NarrativeSession session = NarrativeRunner.Active;
-            if (session == null || !session.IsAwaitingChoice)
-            {
+            if (session == null || !session.IsAwaitingChoice) {
                 return;
             }
 
             _skin = StyleRegistry.GetChoice(session.Style);
             IReadOnlyList<ChoiceOption> options = session.ChoiceOptions;
-            if (options == null || options.Count == 0)
-            {
+            if (options == null || options.Count == 0) {
                 return;
             }
 
@@ -84,18 +76,15 @@ namespace InnoVault.Narrative
 
             _options.Clear();
             float maxTextWidth = font.MeasureString(NarrativeUIText.ChoiceTitle).X * 0.85f;
-            foreach (ChoiceOption option in options)
-            {
+            foreach (ChoiceOption option in options) {
                 bool enabled = option.IsEnabled;
                 string text = option.Text ?? string.Empty;
-                if (!enabled && !string.IsNullOrEmpty(option.DisabledHint))
-                {
+                if (!enabled && !string.IsNullOrEmpty(option.DisabledHint)) {
                     text += $" ({option.DisabledHint})";
                 }
                 _options.Add(new OptionView(text, enabled, option.DisabledHint));
                 float width = font.MeasureString(text).X * textScale;
-                if (width > maxTextWidth)
-                {
+                if (width > maxTextWidth) {
                     maxTextWidth = width;
                 }
             }
@@ -111,8 +100,7 @@ namespace InnoVault.Narrative
 
             _optionRects.Clear();
             float optionY = _panelRect.Y + Padding + TitleHeight;
-            for (int i = 0; i < _options.Count; i++)
-            {
+            for (int i = 0; i < _options.Count; i++) {
                 _optionRects.Add(new Rectangle(_panelRect.X + (int)Padding, (int)optionY, (int)(panelWidth - Padding * 2f), (int)OptionHeight));
                 optionY += OptionHeight + OptionSpacing;
             }
@@ -124,23 +112,18 @@ namespace InnoVault.Narrative
             HandleInput(session);
         }
 
-        private void HandleInput(NarrativeSession session)
-        {
+        private void HandleInput(NarrativeSession session) {
             Point mouse = new(Main.mouseX, Main.mouseY);
-            if (_panelRect.Contains(mouse))
-            {
+            if (_panelRect.Contains(mouse)) {
                 player.mouseInterface = true;
             }
 
             _hoverIndex = -1;
             bool pressed = keyLeftPressState == KeyPressState.Pressed;
-            for (int i = 0; i < _optionRects.Count; i++)
-            {
-                if (_optionRects[i].Contains(mouse))
-                {
+            for (int i = 0; i < _optionRects.Count; i++) {
+                if (_optionRects[i].Contains(mouse)) {
                     _hoverIndex = i;
-                    if (pressed && _options[i].Enabled)
-                    {
+                    if (pressed && _options[i].Enabled) {
                         session.SelectChoice(i);
                     }
                     break;
@@ -150,15 +133,12 @@ namespace InnoVault.Narrative
         }
 
         /// <inheritdoc/>
-        public override void Draw(SpriteBatch spriteBatch)
-        {
-            if (!_hasCache)
-            {
+        public override void Draw(SpriteBatch spriteBatch) {
+            if (!_hasCache) {
                 return;
             }
             float alpha = OpenProgress;
-            if (alpha <= 0.01f)
-            {
+            if (alpha <= 0.01f) {
                 return;
             }
 
@@ -168,8 +148,7 @@ namespace InnoVault.Narrative
                 new Vector2(_panelRect.X + Padding, _panelRect.Y + Padding - 2f), _skin.HighlightColor * alpha, 0.85f);
 
             float textScale = _skin.TextScale;
-            for (int i = 0; i < _options.Count && i < _optionRects.Count; i++)
-            {
+            for (int i = 0; i < _options.Count && i < _optionRects.Count; i++) {
                 OptionView option = _options[i];
                 Rectangle rect = _optionRects[i];
                 float hover = i == _hoverIndex && option.Enabled ? 1f : 0f;
@@ -180,8 +159,7 @@ namespace InnoVault.Narrative
                 Utils.DrawBorderString(spriteBatch, option.Text, textPos, textColor * alpha, textScale);
             }
 
-            if (_timedActive)
-            {
+            if (_timedActive) {
                 int barWidth = (int)(_panelRect.Width * _timedProgress);
                 Rectangle bar = new(_panelRect.X, _panelRect.Y - 4, barWidth, 3);
                 Color color = Color.Lerp(new Color(255, 90, 80), _skin.HighlightColor, _timedProgress);

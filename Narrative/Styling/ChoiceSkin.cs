@@ -23,14 +23,12 @@ namespace InnoVault.Narrative
             => NarrativeSkinDraw.DrawPanel(spriteBatch, panel, new Color(14, 20, 32), new Color(70, 130, 200), alpha);
 
         /// <summary>绘制单个选项的背景</summary>
-        public virtual void DrawOption(SpriteBatch spriteBatch, Rectangle rect, bool enabled, float hover, float alpha)
-        {
+        public virtual void DrawOption(SpriteBatch spriteBatch, Rectangle rect, bool enabled, float hover, float alpha) {
             Color bg = enabled
                 ? Color.Lerp(new Color(24, 36, 54), new Color(46, 78, 116), hover) * (alpha * 0.6f)
                 : new Color(18, 18, 24) * (alpha * 0.4f);
             NarrativeSkinDraw.FillRect(spriteBatch, rect, bg);
-            if (enabled && hover > 0.01f)
-            {
+            if (enabled && hover > 0.01f) {
                 NarrativeSkinDraw.DrawBorder(spriteBatch, rect, HighlightColor * (alpha * hover * 0.7f), 1);
             }
         }

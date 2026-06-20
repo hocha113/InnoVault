@@ -17,11 +17,9 @@ namespace InnoVault.Narrative
         public static Vector2 ScreenCenter => new(Main.screenWidth / 2f, Main.screenHeight * 0.5f);
 
         /// <summary>对话框上方的锚点；无对话框时回退到屏幕中心偏上</summary>
-        public static Vector2 AboveDialogue(float gap = 72f)
-        {
+        public static Vector2 AboveDialogue(float gap = 72f) {
             Rectangle rect = DialoguePanelRect;
-            if (rect == Rectangle.Empty)
-            {
+            if (rect == Rectangle.Empty) {
                 return new Vector2(Main.screenWidth / 2f, Main.screenHeight * 0.42f);
             }
             return new Vector2(rect.Center.X, rect.Y - gap);

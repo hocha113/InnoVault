@@ -44,22 +44,19 @@ namespace InnoVault.Narrative
         public virtual void OnDismissed(Player player) { }
 
         /// <summary>链式设置标题</summary>
-        public PopupPayload Titled(string title)
-        {
+        public PopupPayload Titled(string title) {
             Title = title;
             return this;
         }
 
         /// <summary>链式设置是否必须点击领取</summary>
-        public PopupPayload Claimable(bool require = true)
-        {
+        public PopupPayload Claimable(bool require = true) {
             RequireClaim = require;
             return this;
         }
 
         /// <summary>链式设置自动保持秒数（小于 0 表示一直等待玩家操作）</summary>
-        public PopupPayload Hold(float seconds)
-        {
+        public PopupPayload Hold(float seconds) {
             AutoHoldSeconds = seconds;
             return this;
         }

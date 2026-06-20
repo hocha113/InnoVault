@@ -1,6 +1,6 @@
+using InnoVault.GameSystem;
 using System;
 using System.Collections.Generic;
-using InnoVault.GameSystem;
 
 namespace InnoVault.DataModules
 {
@@ -16,39 +16,32 @@ namespace InnoVault.DataModules
         private static readonly List<Type> _types = [];
 
         /// <summary>所有已发现的模块类型</summary>
-        public static IReadOnlyList<Type> Types
-        {
-            get
-            {
+        public static IReadOnlyList<Type> Types {
+            get {
                 EnsureBuilt();
                 return _types;
             }
         }
 
         /// <summary>若尚未构建则立即构建（懒触发兜底）</summary>
-        public static void EnsureBuilt()
-        {
-            if (!_built)
-            {
+        public static void EnsureBuilt() {
+            if (!_built) {
                 Build();
             }
         }
 
         /// <summary>基于 VaultType 注册结果构建类型映射（由加载器在 PostSetupContent 调用）</summary>
-        public static void Build()
-        {
+        public static void Build() {
             _built = true;
             _keyToType.Clear();
             _types.Clear();
 
-            foreach (DataModule template in VaultTypeRegistry<DataModule>.RegisteredVaults)
-            {
+            foreach (DataModule template in VaultTypeRegistry<DataModule>.RegisteredVaults) {
                 Type type = template.GetType();
                 _types.Add(type);
 
                 string key = template.SaveKey;
-                if (_keyToType.TryGetValue(key, out Type other) && other != type)
-                {
+                if (_keyToType.TryGetValue(key, out Type other) && other != type) {
                     VaultMod.Instance.Logger.Error($"DataModule SaveKey conflict: '{key}' used by both {other.FullName} and {type.FullName}");
                     continue;
                 }
@@ -57,17 +50,12 @@ namespace InnoVault.DataModules
         }
 
         /// <summary>按 SaveKey 创建一个新的模块实例，未知 Key 返回 <see langword="null"/></summary>
-        public static DataModule TryCreate(string key)
-        {
+        public static DataModule TryCreate(string key) {
             EnsureBuilt();
-            if (key != null && _keyToType.TryGetValue(key, out Type type))
-            {
-                try
-                {
+            if (key != null && _keyToType.TryGetValue(key, out Type type)) {
+                try {
                     return (DataModule)Activator.CreateInstance(type);
-                }
-                catch (Exception ex)
-                {
+                } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error($"DataModule create failed for key '{key}': {ex.Message}");
                 }
             }
@@ -75,8 +63,7 @@ namespace InnoVault.DataModules
         }
 
         /// <summary>清空注册表（卸载时调用）</summary>
-        public static void Clear()
-        {
+        public static void Clear() {
             _built = false;
             _keyToType.Clear();
             _types.Clear();

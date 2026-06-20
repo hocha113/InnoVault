@@ -13,10 +13,8 @@ namespace InnoVault.Narrative
     public sealed class NarrativeSystem : ModSystem
     {
         /// <inheritdoc/>
-        public override void UpdateUI(GameTime gameTime)
-        {
-            if (Main.dedServ)
-            {
+        public override void UpdateUI(GameTime gameTime) {
+            if (Main.dedServ) {
                 return;
             }
 
@@ -34,8 +32,7 @@ namespace InnoVault.Narrative
         public override void OnWorldUnload() => NarrativeRunner.Reset();
 
         /// <inheritdoc/>
-        public override void Unload()
-        {
+        public override void Unload() {
             NarrativeRunner.Reset();
             NarrativeScheduler.Reset();
             NarrativeViews.Clear();
