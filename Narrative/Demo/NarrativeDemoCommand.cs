@@ -1,7 +1,6 @@
 using InnoVault.Narrative.Core;
 using InnoVault.Narrative.Portraits;
 using InnoVault.Narrative.Runtime;
-using InnoVault.Narrative.Services;
 using Terraria;
 using Terraria.ModLoader;
 
@@ -9,7 +8,7 @@ namespace InnoVault.Narrative.Demo
 {
     /// <summary>
     /// 启动内置 Narrative 演示场景的调试命令：<c>/narrativedemo</c>。<br/>
-    /// 它会注册一个临时角色档案、在无消费者注入时挂上演示用奖励服务，然后启动演示场景
+    /// 它只注册一个临时角色档案并启动演示场景；演示奖励自包含发放，不会改动全局奖励服务
     /// </summary>
     internal sealed class NarrativeDemoCommand : ModCommand
     {
@@ -23,7 +22,6 @@ namespace InnoVault.Narrative.Demo
             }
 
             PortraitRegistry.Register(CharacterId.ForMod("InnoVault", "Guide")).Name("Guide");
-            NarrativeServices.RewardGrant ??= new DemoRewardGrantService();
 
             if (!NarrativeRunner.Begin<NarrativeDemoScenario>()) {
                 caller.Reply("Narrative demo scenario was not found.");

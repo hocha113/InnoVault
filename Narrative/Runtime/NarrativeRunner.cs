@@ -14,7 +14,13 @@ namespace InnoVault.Narrative.Runtime
     /// </summary>
     public static class NarrativeRunner
     {
-        private static readonly Queue<string> _pending = new();
+        private readonly struct PendingScenario(string key, Action onCompleted)
+        {
+            public string Key { get; } = key;
+            public Action OnCompleted { get; } = onCompleted;
+        }
+
+        private static readonly Queue<PendingScenario> _pending = new();
 
         /// <summary>当前活动会话，<see langword="null"/> 表示空闲</summary>
         public static NarrativeSession Active { get; private set; }
@@ -24,7 +30,19 @@ namespace InnoVault.Narrative.Runtime
 
         /// <summary>指定场景是否正在运行或排队</summary>
         public static bool IsScenarioActiveOrPending(string key)
-            => Active != null && Active.Key == key || _pending.Contains(key);
+            => Active != null && Active.Key == key || PendingContains(key);
+
+        private static bool PendingContains(string key)
+        {
+            foreach (PendingScenario pending in _pending)
+            {
+                if (pending.Key == key)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
 
         /// <summary>启动一个场景；若当前忙则入队，等空闲后自动启动</summary>
         public static bool Begin(NarrativeScenario scenario) => Begin(scenario, null);
@@ -35,8 +53,8 @@ namespace InnoVault.Narrative.Runtime
                 return false;
             }
             if (Active != null) {
-                if (!_pending.Contains(scenario.Key)) {
-                    _pending.Enqueue(scenario.Key);
+                if (!PendingContains(scenario.Key)) {
+                    _pending.Enqueue(new PendingScenario(scenario.Key, onCompleted));
                 }
                 return true;
             }
@@ -57,12 +75,30 @@ namespace InnoVault.Narrative.Runtime
         }
 
         private static void StartScenario(NarrativeScenario scenario, Action onCompleted) {
-            NarrativeGraph graph = scenario.BuildGraph();
+            NarrativeGraph graph;
+            try {
+                graph = scenario.BuildGraph();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Narrative scenario '{scenario.Key}' Build threw: {ex}");
+                return;
+            }
+
             NarrativeSession session = new(scenario, graph, scenario.DefaultStyle) { OnCompleted = onCompleted };
             Active = session;
             NarrativeServices.Progress?.SetProgress(scenario.Key, ScenarioProgress.Started);
-            scenario.InvokeStarted();
+            SafeInvoke(scenario.InvokeStarted, $"scenario '{scenario.Key}' OnStarted");
             session.Start();
+        }
+
+        private static void SafeInvoke(Action action, string context) {
+            if (action == null) {
+                return;
+            }
+            try {
+                action();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Narrative {context} threw: {ex}");
+            }
         }
 
         /// <summary>每帧推进（客户端、游戏内）</summary>
@@ -72,7 +108,12 @@ namespace InnoVault.Narrative.Runtime
             }
 
             if (Active != null) {
-                Active.Tick(frames);
+                try {
+                    Active.Tick(frames);
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"Narrative session '{Active.Key}' Tick threw: {ex}");
+                    Active.Abort();
+                }
                 if (Active.Phase == NarrativeSessionPhase.Completed) {
                     FinalizeCompleted();
                 }
@@ -82,10 +123,10 @@ namespace InnoVault.Narrative.Runtime
             }
 
             if (Active == null && _pending.Count > 0) {
-                string key = _pending.Dequeue();
-                NarrativeScenario next = NarrativeScenario.Find(key);
+                PendingScenario entry = _pending.Dequeue();
+                NarrativeScenario next = NarrativeScenario.Find(entry.Key);
                 if (next != null) {
-                    StartScenario(next, null);
+                    StartScenario(next, entry.OnCompleted);
                 }
             }
 
@@ -98,8 +139,10 @@ namespace InnoVault.Narrative.Runtime
 
             NarrativeServices.Progress?.SetProgress(session.Key, ScenarioProgress.Completed);
             NarrativeServices.Sync?.SyncProgress(session.Key, ScenarioProgress.Completed);
-            session.Scenario?.InvokeCompleted();
-            session.OnCompleted?.Invoke();
+            if (session.Scenario != null) {
+                SafeInvoke(session.Scenario.InvokeCompleted, $"scenario '{session.Key}' OnCompleted");
+            }
+            SafeInvoke(session.OnCompleted, $"scenario '{session.Key}' completion callback");
 
             if (!string.IsNullOrEmpty(session.RequestedScenario)) {
                 Begin(session.RequestedScenario);
@@ -109,7 +152,7 @@ namespace InnoVault.Narrative.Runtime
         private static void FinalizeAborted() {
             NarrativeSession session = Active;
             Active = null;
-            session.OnAborted?.Invoke();
+            SafeInvoke(session.OnAborted, $"scenario '{session.Key}' abort callback");
         }
 
         /// <summary>中止当前会话并清空队列（世界切换 / 卸载时使用）</summary>

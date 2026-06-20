@@ -27,6 +27,11 @@ namespace InnoVault.DataModules
             if (_byType.TryGetValue(typeof(T), out DataModule module)) {
                 return (T)module;
             }
+            //未注册的模块（CanLoad() 返回 false 或未被自动加载）仍可临时创建，但它不会在读档时被自动补齐，
+            //因此这里给出警告，避免静默绕过 VaultType 的注册 / CanLoad 约束
+            if (!DataModule.TypeToInstance.ContainsKey(typeof(T))) {
+                VaultMod.Instance.Logger.Warn($"DataModule '{typeof(T).FullName}' is used in a store but is not registered (CanLoad() returned false or it was not autoloaded); it will not be restored from save.");
+            }
             T created = new();
             Add(created);
             return created;

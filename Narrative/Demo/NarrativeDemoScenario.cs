@@ -21,7 +21,7 @@ namespace InnoVault.Narrative.Demo
                  .Option("no", "No thanks", NarrativeTarget.Goto("bye")))
 
              .Label("gift").Say(Guide, "Here you go, take this.")
-             .Reward(ItemID.Wood, 10, "Demo Reward")
+             .Popup(new DemoRewardPayload { ItemType = ItemID.Wood, Stack = 10, Title = "Demo Reward" })
              .Popup(Popups.Message("Tip", "Popups can also be plain messages.").Claimable(false).Hold(2f), blocking: false)
              .Say(Guide, "Hope you like it.")
              .Goto("end")

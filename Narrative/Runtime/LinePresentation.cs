@@ -35,8 +35,8 @@ namespace InnoVault.Narrative.Runtime
         /// <summary>是否绘制限时指示</summary>
         public bool ShowTimedIndicator { get; private set; } = true;
 
-        /// <summary>是否已打完字</summary>
-        public bool Finished => LayoutReady && TotalChars > 0 && VisibleChars >= TotalChars;
+        /// <summary>是否已打完字（空文本在布局就绪后即视为完成，避免空 prompt 选项卡死）</summary>
+        public bool Finished => LayoutReady && VisibleChars >= TotalChars;
         /// <summary>打字进度 0~1</summary>
         public float TypeProgress => TotalChars <= 0 ? 0f : MathHelper.Clamp(VisibleChars / TotalChars, 0f, 1f);
         /// <summary>限时剩余比例 0~1（1 为刚开始）</summary>

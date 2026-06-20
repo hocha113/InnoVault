@@ -54,6 +54,7 @@ namespace InnoVault.Narrative.Runtime
         private float _popupTimer;
         private bool _popupBlocking;
         private int _settleGuard;
+        private bool _completionPending;
 
         //—— UI 输入意图（由视图设置，运行时消费）——
         private bool _advanceRequested;
@@ -147,6 +148,14 @@ namespace InnoVault.Narrative.Runtime
                 return;
             }
 
+            //场景已到达结尾但仍在等待非阻塞弹窗领取 / 关闭：等其解析后再真正完成
+            if (_completionPending) {
+                if (ActivePopup == null) {
+                    CompleteNow();
+                }
+                return;
+            }
+
             switch (Phase) {
                 case NarrativeSessionPhase.Playing:
                     TickPlaying(frames);
@@ -160,7 +169,7 @@ namespace InnoVault.Narrative.Runtime
         private NarrativeNode CurrentNode => Graph?.Get(_currentIndex);
 
         private void Transition(int nextIndex) {
-            CurrentNode?.OnExit?.Invoke();
+            SafeInvoke(CurrentNode?.OnExit, "OnExit");
             _currentIndex = nextIndex;
             EnterCurrent();
         }
@@ -178,7 +187,7 @@ namespace InnoVault.Narrative.Runtime
                 return;
             }
 
-            node.OnEnter?.Invoke();
+            SafeInvoke(node.OnEnter, "OnEnter");
 
             switch (node) {
                 case SayNode say:
@@ -210,11 +219,11 @@ namespace InnoVault.Narrative.Runtime
                     }
                     break;
                 case CommandNode command:
-                    command.Command?.Invoke();
+                    SafeInvoke(command.Command, "Command");
                     Transition(_currentIndex + 1);
                     break;
                 case BranchNode branch:
-                    bool result = branch.Predicate == null || branch.Predicate();
+                    bool result = SafeEvaluate(branch.Predicate, true, "Branch.Predicate");
                     GoToTarget(result ? branch.IfTrue : branch.IfFalse);
                     break;
             }
@@ -240,17 +249,17 @@ namespace InnoVault.Narrative.Runtime
                     }
                     else {
                         VaultMod.Instance.Logger.Warn($"Narrative scenario '{Key}' goto unknown label '{target.Label}', completing.");
-                        CurrentNode?.OnExit?.Invoke();
+                        SafeInvoke(CurrentNode?.OnExit, "OnExit");
                         Complete();
                     }
                     break;
                 case NarrativeTarget.TargetKind.GotoScenario:
-                    CurrentNode?.OnExit?.Invoke();
+                    SafeInvoke(CurrentNode?.OnExit, "OnExit");
                     RequestedScenario = target.ScenarioKey;
                     Complete();
                     break;
                 case NarrativeTarget.TargetKind.End:
-                    CurrentNode?.OnExit?.Invoke();
+                    SafeInvoke(CurrentNode?.OnExit, "OnExit");
                     Complete();
                     break;
             }
@@ -317,7 +326,7 @@ namespace InnoVault.Narrative.Runtime
                     return;
                 }
                 if (line.TimedRemainingTicks <= 0f) {
-                    (CurrentNode as SayNode)?.Timed?.OnExpired?.Invoke();
+                    SafeInvoke((CurrentNode as SayNode)?.Timed?.OnExpired, "Timed.OnExpired");
                     Transition(_currentIndex + 1);
                 }
                 return;
@@ -368,7 +377,7 @@ namespace InnoVault.Narrative.Runtime
             if (choice.Timed != null) {
                 _choiceTimedRemaining -= frames;
                 if (_choiceTimedRemaining <= 0f) {
-                    choice.Timed.OnExpired?.Invoke();
+                    SafeInvoke(choice.Timed.OnExpired, "Choice.Timed.OnExpired");
                     ResolveTimeout(choice);
                     return;
                 }
@@ -413,7 +422,7 @@ namespace InnoVault.Narrative.Runtime
             }
             PendingChoice = null;
             NarrativeServices.Progress?.SetChoice(Key, option.Id.Value);
-            option.OnSelect?.Invoke();
+            SafeInvoke(option.OnSelect, "Choice.OnSelect");
             GoToTarget(option.Target ?? NarrativeTarget.Continue);
         }
 
@@ -436,11 +445,11 @@ namespace InnoVault.Narrative.Runtime
             bool wasBlocking = _popupBlocking;
 
             if (intent == 1) {
-                payload.OnClaimed(LocalPlayer);
+                SafeInvoke(() => payload.OnClaimed(LocalPlayer), "Popup.OnClaimed");
                 LastPopupResult = PopupResolution.Claimed;
             }
             else {
-                payload.OnDismissed(LocalPlayer);
+                SafeInvoke(() => payload.OnDismissed(LocalPlayer), "Popup.OnDismissed");
                 LastPopupResult = PopupResolution.Dismissed;
             }
 
@@ -452,6 +461,19 @@ namespace InnoVault.Narrative.Runtime
         }
 
         private void Complete() {
+            //若仍有未解析的非阻塞弹窗在展示，则推迟真正完成，等其领取 / 关闭后再结束。
+            //（阻塞弹窗不会走到这里：它把流程挂在 AwaitingPopup，解析后才继续推进）
+            if (ActivePopup != null) {
+                _completionPending = true;
+                PendingChoice = null;
+                DialogueVisible = false;
+                return;
+            }
+            CompleteNow();
+        }
+
+        private void CompleteNow() {
+            _completionPending = false;
             Phase = NarrativeSessionPhase.Completed;
             PendingChoice = null;
             DialogueVisible = false;
@@ -462,10 +484,34 @@ namespace InnoVault.Narrative.Runtime
             if (Phase == NarrativeSessionPhase.Completed) {
                 return;
             }
+            _completionPending = false;
             Phase = NarrativeSessionPhase.Aborted;
             PendingChoice = null;
             ActivePopup = null;
             DialogueVisible = false;
+        }
+
+        private void SafeInvoke(Action action, string context) {
+            if (action == null) {
+                return;
+            }
+            try {
+                action();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Narrative scenario '{Key}' {context} threw: {ex}");
+            }
+        }
+
+        private bool SafeEvaluate(Func<bool> predicate, bool fallback, string context) {
+            if (predicate == null) {
+                return fallback;
+            }
+            try {
+                return predicate();
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Narrative scenario '{Key}' {context} threw: {ex}");
+                return fallback;
+            }
         }
     }
 }

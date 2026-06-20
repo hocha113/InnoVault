@@ -6,6 +6,7 @@ using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Graphics;
+using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.GameContent;
@@ -14,7 +15,8 @@ namespace InnoVault.Narrative.Presentation
 {
     /// <summary>
     /// 默认选择框视图。展示选项、处理悬停与点击，并把选择结果以意图形式回传给会话；<br/>
-    /// 选择后的流程收尾（关闭、跳转、防重复）全部由 <see cref="NarrativeSession"/> 处理
+    /// 选择后的流程收尾（关闭、跳转、防重复）全部由 <see cref="NarrativeSession"/> 处理。<br/>
+    /// 选项超过 <see cref="MaxVisibleOptions"/> 时自动启用滚轮滚动，面板高度不会无限增长
     /// </summary>
     public sealed class ChoiceView : UIHandle<ChoiceView>, INarrativeView
     {
@@ -24,6 +26,7 @@ namespace InnoVault.Narrative.Presentation
         private const float TitleHeight = 24f;
         private const float MinWidth = 200f;
         private const float MaxWidth = 440f;
+        private const int MaxVisibleOptions = 8;
 
         /// <inheritdoc/>
         public override LayersModeEnum LayersMode => LayersModeEnum.Vanilla_Mouse_Text;
@@ -45,6 +48,12 @@ namespace InnoVault.Narrative.Presentation
         private bool _timedActive;
         private float _timedProgress;
         private bool _hasCache;
+
+        //滚动状态
+        private object _lastOptionsRef;
+        private int _scrollOffset;
+        private int _visibleCount;
+        private bool _hasScroll;
 
         /// <inheritdoc/>
         public override void VaultSetup() {
@@ -75,6 +84,12 @@ namespace InnoVault.Narrative.Presentation
                 return;
             }
 
+            //新的一组选项：重置滚动位置
+            if (!ReferenceEquals(options, _lastOptionsRef)) {
+                _lastOptionsRef = options;
+                _scrollOffset = 0;
+            }
+
             DynamicSpriteFont font = FontAssets.MouseText.Value;
             float textScale = _skin.TextScale;
 
@@ -93,8 +108,12 @@ namespace InnoVault.Narrative.Presentation
                 }
             }
 
+            _visibleCount = Math.Min(_options.Count, MaxVisibleOptions);
+            _hasScroll = _options.Count > _visibleCount;
+            _scrollOffset = Math.Clamp(_scrollOffset, 0, _options.Count - _visibleCount);
+
             float panelWidth = MathHelper.Clamp(maxTextWidth + Padding * 4f, MinWidth, MaxWidth);
-            float panelHeight = Padding * 2f + TitleHeight + _options.Count * OptionHeight + (_options.Count - 1) * OptionSpacing;
+            float panelHeight = Padding * 2f + TitleHeight + _visibleCount * OptionHeight + (_visibleCount - 1) * OptionSpacing;
 
             Vector2 anchor = PanelAnchorResolver.AboveDialogue();
             float eased = VaultUtils.EaseOutCubic(OpenProgress);
@@ -104,7 +123,7 @@ namespace InnoVault.Narrative.Presentation
 
             _optionRects.Clear();
             float optionY = _panelRect.Y + Padding + TitleHeight;
-            for (int i = 0; i < _options.Count; i++) {
+            for (int i = 0; i < _visibleCount; i++) {
                 _optionRects.Add(new Rectangle(_panelRect.X + (int)Padding, (int)optionY, (int)(panelWidth - Padding * 2f), (int)OptionHeight));
                 optionY += OptionHeight + OptionSpacing;
             }
@@ -118,17 +137,27 @@ namespace InnoVault.Narrative.Presentation
 
         private void HandleInput(NarrativeSession session) {
             Point mouse = new(Main.mouseX, Main.mouseY);
-            if (_panelRect.Contains(mouse)) {
+            bool overPanel = _panelRect.Contains(mouse);
+            if (overPanel) {
                 player.mouseInterface = true;
+            }
+
+            //滚轮滚动（仅在选项超出可见窗口时）
+            if (_hasScroll && overPanel) {
+                int scroll = MouseScrollDelta;
+                if (scroll != 0) {
+                    _scrollOffset = Math.Clamp(_scrollOffset - Math.Sign(scroll), 0, _options.Count - _visibleCount);
+                }
             }
 
             _hoverIndex = -1;
             bool pressed = keyLeftPressState == KeyPressState.Pressed;
             for (int i = 0; i < _optionRects.Count; i++) {
                 if (_optionRects[i].Contains(mouse)) {
-                    _hoverIndex = i;
-                    if (pressed && _options[i].Enabled) {
-                        session.SelectChoice(i);
+                    int optionIndex = _scrollOffset + i;
+                    _hoverIndex = optionIndex;
+                    if (pressed && optionIndex < _options.Count && _options[optionIndex].Enabled) {
+                        session.SelectChoice(optionIndex);
                     }
                     break;
                 }
@@ -152,10 +181,14 @@ namespace InnoVault.Narrative.Presentation
                 new Vector2(_panelRect.X + Padding, _panelRect.Y + Padding - 2f), _skin.HighlightColor * alpha, 0.85f);
 
             float textScale = _skin.TextScale;
-            for (int i = 0; i < _options.Count && i < _optionRects.Count; i++) {
-                OptionView option = _options[i];
+            for (int i = 0; i < _optionRects.Count; i++) {
+                int optionIndex = _scrollOffset + i;
+                if (optionIndex >= _options.Count) {
+                    break;
+                }
+                OptionView option = _options[optionIndex];
                 Rectangle rect = _optionRects[i];
-                float hover = i == _hoverIndex && option.Enabled ? 1f : 0f;
+                float hover = optionIndex == _hoverIndex && option.Enabled ? 1f : 0f;
                 _skin.DrawOption(spriteBatch, rect, option.Enabled, hover, alpha);
 
                 Color textColor = option.Enabled ? _skin.TextColor : _skin.DisabledTextColor;
@@ -163,11 +196,27 @@ namespace InnoVault.Narrative.Presentation
                 Utils.DrawBorderString(spriteBatch, option.Text, textPos, textColor * alpha, textScale);
             }
 
+            if (_hasScroll) {
+                DrawScrollHints(spriteBatch, alpha);
+            }
+
             if (_timedActive) {
                 int barWidth = (int)(_panelRect.Width * _timedProgress);
                 Rectangle bar = new(_panelRect.X, _panelRect.Y - 4, barWidth, 3);
                 Color color = Color.Lerp(new Color(255, 90, 80), _skin.HighlightColor, _timedProgress);
                 NarrativeSkinDraw.FillRect(spriteBatch, bar, color * alpha);
+            }
+        }
+
+        private void DrawScrollHints(SpriteBatch spriteBatch, float alpha) {
+            int maxOffset = _options.Count - _visibleCount;
+            if (_scrollOffset > 0) {
+                Utils.DrawBorderString(spriteBatch, "^",
+                    new Vector2(_panelRect.Right - 16f, _panelRect.Y + Padding + 2f), _skin.HighlightColor * alpha, 0.8f);
+            }
+            if (_scrollOffset < maxOffset) {
+                Utils.DrawBorderString(spriteBatch, "v",
+                    new Vector2(_panelRect.Right - 16f, _panelRect.Bottom - 20f), _skin.HighlightColor * alpha, 0.8f);
             }
         }
     }
