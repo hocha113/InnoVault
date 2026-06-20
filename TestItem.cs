@@ -48,7 +48,7 @@ namespace InnoVault
         }
 
         public override void HoldItem(Player player) {
-            
+
         }
 
         public override bool? UseItem(Player player) {

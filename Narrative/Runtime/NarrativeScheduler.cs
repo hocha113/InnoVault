@@ -14,25 +14,19 @@ namespace InnoVault.Narrative
         private static readonly List<Func<bool>> _blockers = [];
 
         /// <summary>注册一个全局阻塞条件（返回 <see langword="true"/> 时本帧不触发任何场景）</summary>
-        public static void RegisterBlocker(Func<bool> blocker)
-        {
-            if (blocker != null)
-            {
+        public static void RegisterBlocker(Func<bool> blocker) {
+            if (blocker != null) {
                 _blockers.Add(blocker);
             }
         }
 
         /// <summary>当前是否被阻塞</summary>
-        public static bool IsBlocked()
-        {
-            if (NarrativeRunner.IsBusy)
-            {
+        public static bool IsBlocked() {
+            if (NarrativeRunner.IsBusy) {
                 return true;
             }
-            for (int i = 0; i < _blockers.Count; i++)
-            {
-                if (_blockers[i]())
-                {
+            for (int i = 0; i < _blockers.Count; i++) {
+                if (_blockers[i]()) {
                     return true;
                 }
             }
@@ -40,10 +34,8 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>每帧评估并触发（客户端、游戏内）</summary>
-        public static void Tick()
-        {
-            if (Main.dedServ || IsBlocked())
-            {
+        public static void Tick() {
+            if (Main.dedServ || IsBlocked()) {
                 return;
             }
 
@@ -51,42 +43,34 @@ namespace InnoVault.Narrative
             NarrativeScenario best = null;
             int bestPriority = int.MinValue;
 
-            foreach (NarrativeScenario scenario in NarrativeScenario.All)
-            {
+            foreach (NarrativeScenario scenario in NarrativeScenario.All) {
                 NarrativePolicy policy = scenario.Policy;
-                if (policy == null)
-                {
+                if (policy == null) {
                     continue;
                 }
 
                 bool completed = policy.IsCompleted != null
                     ? policy.IsCompleted(store)
                     : store != null && store.GetProgress(scenario.Key) == ScenarioProgress.Completed;
-                if (completed && !policy.Repeatable)
-                {
+                if (completed && !policy.Repeatable) {
                     continue;
                 }
-                if (NarrativeRunner.IsScenarioActiveOrPending(scenario.Key))
-                {
+                if (NarrativeRunner.IsScenarioActiveOrPending(scenario.Key)) {
                     continue;
                 }
-                if (policy.Blocked != null && policy.Blocked())
-                {
+                if (policy.Blocked != null && policy.Blocked()) {
                     continue;
                 }
-                if (policy.CanTrigger != null && !policy.CanTrigger(store, Main.LocalPlayer))
-                {
+                if (policy.CanTrigger != null && !policy.CanTrigger(store, Main.LocalPlayer)) {
                     continue;
                 }
-                if (policy.Priority > bestPriority)
-                {
+                if (policy.Priority > bestPriority) {
                     bestPriority = policy.Priority;
                     best = scenario;
                 }
             }
 
-            if (best == null)
-            {
+            if (best == null) {
                 return;
             }
 

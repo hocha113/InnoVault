@@ -26,16 +26,12 @@ namespace InnoVault.Narrative
         public static bool Begin(NarrativeScenario scenario) => Begin(scenario, null);
 
         /// <summary>启动一个场景并附加完成回调</summary>
-        public static bool Begin(NarrativeScenario scenario, Action onCompleted)
-        {
-            if (scenario == null)
-            {
+        public static bool Begin(NarrativeScenario scenario, Action onCompleted) {
+            if (scenario == null) {
                 return false;
             }
-            if (Active != null)
-            {
-                if (!_pending.Contains(scenario.Key))
-                {
+            if (Active != null) {
+                if (!_pending.Contains(scenario.Key)) {
                     _pending.Enqueue(scenario.Key);
                 }
                 return true;
@@ -45,14 +41,12 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>按 Key 启动一个场景</summary>
-        public static bool Begin(string key)
-        {
+        public static bool Begin(string key) {
             NarrativeScenario scenario = NarrativeScenario.Find(key);
             return scenario != null && Begin(scenario);
         }
 
-        private static void StartScenario(NarrativeScenario scenario, Action onCompleted)
-        {
+        private static void StartScenario(NarrativeScenario scenario, Action onCompleted) {
             NarrativeGraph graph = scenario.BuildGraph();
             NarrativeSession session = new(scenario, graph, scenario.DefaultStyle) { OnCompleted = onCompleted };
             Active = session;
@@ -62,32 +56,25 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>每帧推进（客户端、游戏内）</summary>
-        public static void Update(float frames)
-        {
-            if (Main.dedServ)
-            {
+        public static void Update(float frames) {
+            if (Main.dedServ) {
                 return;
             }
 
-            if (Active != null)
-            {
+            if (Active != null) {
                 Active.Tick(frames);
-                if (Active.Phase == NarrativeSessionPhase.Completed)
-                {
+                if (Active.Phase == NarrativeSessionPhase.Completed) {
                     FinalizeCompleted();
                 }
-                else if (Active.Phase == NarrativeSessionPhase.Aborted)
-                {
+                else if (Active.Phase == NarrativeSessionPhase.Aborted) {
                     FinalizeAborted();
                 }
             }
 
-            if (Active == null && _pending.Count > 0)
-            {
+            if (Active == null && _pending.Count > 0) {
                 string key = _pending.Dequeue();
                 NarrativeScenario next = NarrativeScenario.Find(key);
-                if (next != null)
-                {
+                if (next != null) {
                     StartScenario(next, null);
                 }
             }
@@ -95,8 +82,7 @@ namespace InnoVault.Narrative
             NarrativeViews.Sync(Active);
         }
 
-        private static void FinalizeCompleted()
-        {
+        private static void FinalizeCompleted() {
             NarrativeSession session = Active;
             Active = null;
 
@@ -105,22 +91,19 @@ namespace InnoVault.Narrative
             session.Scenario?.InvokeCompleted();
             session.OnCompleted?.Invoke();
 
-            if (!string.IsNullOrEmpty(session.RequestedScenario))
-            {
+            if (!string.IsNullOrEmpty(session.RequestedScenario)) {
                 Begin(session.RequestedScenario);
             }
         }
 
-        private static void FinalizeAborted()
-        {
+        private static void FinalizeAborted() {
             NarrativeSession session = Active;
             Active = null;
             session.OnAborted?.Invoke();
         }
 
         /// <summary>中止当前会话并清空队列（世界切换 / 卸载时使用）</summary>
-        public static void Reset()
-        {
+        public static void Reset() {
             Active?.Abort();
             Active = null;
             _pending.Clear();

@@ -12,25 +12,18 @@ namespace InnoVault.Narrative
         private static readonly List<INarrativeView> _views = [];
 
         /// <summary>注册一个视图</summary>
-        public static void Register(INarrativeView view)
-        {
-            if (view != null && !_views.Contains(view))
-            {
+        public static void Register(INarrativeView view) {
+            if (view != null && !_views.Contains(view)) {
                 _views.Add(view);
             }
         }
 
         /// <summary>把当前会话同步给所有视图，单个视图异常不影响其它视图</summary>
-        public static void Sync(NarrativeSession active)
-        {
-            for (int i = 0; i < _views.Count; i++)
-            {
-                try
-                {
+        public static void Sync(NarrativeSession active) {
+            for (int i = 0; i < _views.Count; i++) {
+                try {
                     _views[i].Sync(active);
-                }
-                catch (Exception ex)
-                {
+                } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error($"Narrative view {_views[i]} Sync threw: {ex}");
                 }
             }

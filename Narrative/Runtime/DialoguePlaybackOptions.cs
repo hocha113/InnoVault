@@ -24,8 +24,7 @@ namespace InnoVault.Narrative
         public float FastAutoAdvanceDelay { get; set; } = 12f;
 
         /// <summary>计算某段落自动播放的等待 tick</summary>
-        public float GetAutoDelay(int totalChars)
-        {
+        public float GetAutoDelay(int totalChars) {
             float delay = AutoBaseDelay + totalChars * AutoPerCharDelay;
             return delay < AutoMaxDelay ? delay : AutoMaxDelay;
         }

@@ -1,6 +1,6 @@
+using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
-using Microsoft.Xna.Framework.Graphics;
 
 namespace InnoVault.Narrative
 {
@@ -24,61 +24,51 @@ namespace InnoVault.Narrative
         private readonly Dictionary<ExpressionId, Func<Texture2D>> _expressions = [];
 
         /// <summary>创建一个角色档案</summary>
-        public SpeakerProfile(CharacterId id)
-        {
+        public SpeakerProfile(CharacterId id) {
             Id = id;
         }
 
         /// <summary>设置显示名（固定字符串）</summary>
-        public SpeakerProfile Name(string displayName)
-        {
+        public SpeakerProfile Name(string displayName) {
             DisplayName = () => displayName;
             return this;
         }
 
         /// <summary>设置显示名（解析器，便于接入本地化）</summary>
-        public SpeakerProfile Name(Func<string> displayName)
-        {
+        public SpeakerProfile Name(Func<string> displayName) {
             DisplayName = displayName;
             return this;
         }
 
         /// <summary>设置默认表情立绘</summary>
-        public SpeakerProfile Portrait(Func<Texture2D> portrait)
-        {
+        public SpeakerProfile Portrait(Func<Texture2D> portrait) {
             DefaultPortrait = portrait;
             return this;
         }
 
         /// <summary>登记一个具名表情立绘</summary>
-        public SpeakerProfile Expression(ExpressionId expression, Func<Texture2D> portrait)
-        {
-            if (portrait != null)
-            {
+        public SpeakerProfile Expression(ExpressionId expression, Func<Texture2D> portrait) {
+            if (portrait != null) {
                 _expressions[expression] = portrait;
             }
             return this;
         }
 
         /// <summary>设置是否剪影</summary>
-        public SpeakerProfile AsSilhouette(bool silhouette = true)
-        {
+        public SpeakerProfile AsSilhouette(bool silhouette = true) {
             Silhouette = silhouette;
             return this;
         }
 
         /// <summary>解析显示名，缺省回退到角色 id</summary>
-        public string ResolveName()
-        {
+        public string ResolveName() {
             string name = DisplayName?.Invoke();
             return string.IsNullOrEmpty(name) ? Id.Value : name;
         }
 
         /// <summary>解析指定表情的立绘，缺省回退到默认表情立绘，仍无则返回 <see langword="null"/></summary>
-        public Texture2D ResolvePortrait(ExpressionId expression)
-        {
-            if (!expression.IsDefault && _expressions.TryGetValue(expression, out var resolver))
-            {
+        public Texture2D ResolvePortrait(ExpressionId expression) {
+            if (!expression.IsDefault && _expressions.TryGetValue(expression, out var resolver)) {
                 return resolver?.Invoke();
             }
             return DefaultPortrait?.Invoke();

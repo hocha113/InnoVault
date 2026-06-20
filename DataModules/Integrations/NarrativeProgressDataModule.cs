@@ -1,46 +1,25 @@
+using InnoVault.Narrative;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria.ModLoader.IO;
 
-namespace InnoVault.Narrative
+namespace InnoVault.DataModules
 {
     /// <summary>
-    /// 叙事进度存储的窄接口。只暴露与"剧情语义"相关的读写（场景进度、选择分支、标记、计数器、字符串），<br/>
-    /// 通用的模块化保存属于独立的数据系统职责，不应塞进叙事框架。<br/>
-    /// 消费者可以用自己的 <c>ModPlayer</c> / <c>SaveContent</c> / 未来的 DataModules 实现本接口，<br/>
-    /// 框架仅依赖该契约，并自带 <see cref="MemoryNarrativeProgressStore"/> 作为默认实现
+    /// 一个示范性的桥接模块：它既是可被 <see cref="DataModuleStore"/> 持久化的 <see cref="DataModule"/>，<br/>
+    /// 又实现了叙事框架的 <see cref="INarrativeProgressStore"/>。<br/>
+    /// 这样消费者就能把"叙事进度"纳入统一的模块化存档，而无需 Narrative 自身依赖 DataModules——<br/>
+    /// 依赖方向是 DataModules → Narrative（消费契约），符合分层边界。<br/>
+    /// <br/>
+    /// 用法：在自己的 <c>ModPlayer</c> 持有一个 <see cref="DataModuleStore"/>，于存档钩子调用其 Save/Load，<br/>
+    /// 并设置 <c>NarrativeServices.Progress = store.Get&lt;NarrativeProgressDataModule&gt;();</c>
     /// </summary>
-    public interface INarrativeProgressStore
+    public sealed class NarrativeProgressDataModule : DataModule, INarrativeProgressStore
     {
-        /// <summary>读取场景整体进度</summary>
-        ScenarioProgress GetProgress(string scenarioKey);
-        /// <summary>写入场景整体进度</summary>
-        void SetProgress(string scenarioKey, ScenarioProgress progress);
-        /// <summary>读取某场景上一次选择的选项 id</summary>
-        bool TryGetChoice(string scenarioKey, out string choiceId);
-        /// <summary>记录某场景的选择分支</summary>
-        void SetChoice(string scenarioKey, string choiceId);
-        /// <summary>读取布尔标记</summary>
-        bool GetFlag(NarrativeProgressKey key);
-        /// <summary>写入布尔标记</summary>
-        void SetFlag(NarrativeProgressKey key, bool value);
-        /// <summary>读取计数器</summary>
-        int GetCounter(NarrativeProgressKey key);
-        /// <summary>写入计数器</summary>
-        void SetCounter(NarrativeProgressKey key, int value);
-        /// <summary>读取字符串字段（可用于存放枚举名等）</summary>
-        string GetString(NarrativeProgressKey key);
-        /// <summary>写入字符串字段</summary>
-        void SetString(NarrativeProgressKey key, string value);
-    }
+        /// <inheritdoc/>
+        public override string SaveKey => "NarrativeProgress";
 
-    /// <summary>
-    /// 默认的内存 + 简单 <see cref="TagCompound"/> 实现。<br/>
-    /// 适合单机本地剧情进度；消费者若需要与玩家存档 / 世界存档绑定，可在自己的存档钩子里调用 <see cref="Save"/> / <see cref="Load"/>
-    /// </summary>
-    public sealed class MemoryNarrativeProgressStore : INarrativeProgressStore
-    {
         private readonly Dictionary<string, ScenarioProgress> _progress = new(StringComparer.Ordinal);
         private readonly Dictionary<string, string> _choices = new(StringComparer.Ordinal);
         private readonly Dictionary<string, bool> _flags = new(StringComparer.Ordinal);
@@ -87,8 +66,8 @@ namespace InnoVault.Narrative
         /// <inheritdoc/>
         public void SetString(NarrativeProgressKey key, string value) => _strings[key.Flat] = value ?? string.Empty;
 
-        /// <summary>清空全部进度（世界切换 / 重新开始时使用）</summary>
-        public void Clear() {
+        /// <inheritdoc/>
+        public override void Reset() {
             _progress.Clear();
             _choices.Clear();
             _flags.Clear();
@@ -96,8 +75,8 @@ namespace InnoVault.Narrative
             _strings.Clear();
         }
 
-        /// <summary>序列化到 <see cref="TagCompound"/></summary>
-        public void Save(TagCompound tag) {
+        /// <inheritdoc/>
+        public override void SaveData(TagCompound tag) {
             tag["progress"] = _progress.Select(kv => $"{kv.Key}={(int)kv.Value}").ToList();
             tag["choices"] = _choices.Select(kv => $"{kv.Key}={kv.Value}").ToList();
             tag["flags"] = _flags.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
@@ -105,9 +84,9 @@ namespace InnoVault.Narrative
             tag["strings"] = _strings.Select(kv => $"{kv.Key}={kv.Value}").ToList();
         }
 
-        /// <summary>从 <see cref="TagCompound"/> 反序列化</summary>
-        public void Load(TagCompound tag) {
-            Clear();
+        /// <inheritdoc/>
+        public override void LoadData(TagCompound tag, int loadedVersion) {
+            Reset();
             if (tag.TryGet("progress", out List<string> progress)) {
                 foreach (string entry in progress) {
                     int eq = entry.LastIndexOf('=');
@@ -116,14 +95,7 @@ namespace InnoVault.Narrative
                     }
                 }
             }
-            if (tag.TryGet("choices", out List<string> choices)) {
-                foreach (string entry in choices) {
-                    int eq = entry.IndexOf('=');
-                    if (eq >= 0) {
-                        _choices[entry[..eq]] = entry[(eq + 1)..];
-                    }
-                }
-            }
+            LoadStringMap(tag, "choices", _choices);
             if (tag.TryGet("flags", out List<string> flags)) {
                 foreach (string flag in flags) {
                     _flags[flag] = true;
@@ -137,11 +109,15 @@ namespace InnoVault.Narrative
                     }
                 }
             }
-            if (tag.TryGet("strings", out List<string> strings)) {
-                foreach (string entry in strings) {
+            LoadStringMap(tag, "strings", _strings);
+        }
+
+        private static void LoadStringMap(TagCompound tag, string key, Dictionary<string, string> target) {
+            if (tag.TryGet(key, out List<string> entries)) {
+                foreach (string entry in entries) {
                     int eq = entry.IndexOf('=');
                     if (eq >= 0) {
-                        _strings[entry[..eq]] = entry[(eq + 1)..];
+                        target[entry[..eq]] = entry[(eq + 1)..];
                     }
                 }
             }

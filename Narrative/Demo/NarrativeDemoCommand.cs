@@ -13,18 +13,15 @@ namespace InnoVault.Narrative
         public override string Command => "narrativedemo";
         public override string Description => "Start the InnoVault Narrative demo scenario";
 
-        public override void Action(CommandCaller caller, string input, string[] args)
-        {
-            if (Main.dedServ)
-            {
+        public override void Action(CommandCaller caller, string input, string[] args) {
+            if (Main.dedServ) {
                 return;
             }
 
             PortraitRegistry.Register("Guide").Name("Guide");
             NarrativeServices.RewardGrant ??= new DemoRewardGrantService();
 
-            if (!NarrativeRunner.Begin("NarrativeDemo"))
-            {
+            if (!NarrativeRunner.Begin("NarrativeDemo")) {
                 caller.Reply("Narrative demo scenario was not found.");
             }
         }
