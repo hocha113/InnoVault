@@ -51,10 +51,11 @@ namespace InnoVault.DataModules
             if (module == null) {
                 return;
             }
-            _byType[module.GetType()] = module;
             if (_byKey.TryGetValue(module.SaveKey, out DataModule existing) && existing.GetType() != module.GetType()) {
                 VaultMod.Instance.Logger.Error($"DataModuleStore SaveKey conflict: '{module.SaveKey}' between {existing.GetType().FullName} and {module.GetType().FullName}");
+                return;
             }
+            _byType[module.GetType()] = module;
             _byKey[module.SaveKey] = module;
         }
 

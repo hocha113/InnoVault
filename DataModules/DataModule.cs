@@ -9,7 +9,8 @@ namespace InnoVault.DataModules
     /// 一个模块就是"一组带版本的可序列化字段"，由 <see cref="DataModuleStore"/> 聚合并持久化。<br/>
     /// 模块类型本身继承 <see cref="VaultType{T}"/>，因此可被 InnoVault 统一发现、注册和检查 Key 冲突；<br/>
     /// 但 <see cref="DataModuleStore"/> 中保存的是按作用域创建的独立数据实例，而不是注册期的 VaultType 模板单例。<br/>
-    /// 默认实现会反射序列化公共可读写属性与公共可写字段；需要集合、嵌套结构或自定义迁移时，直接重写
+    /// 默认实现会反射序列化公共可读写属性与公共可写字段；支持常见标量、枚举、<c>Item</c>
+    /// 以及这些类型的 <c>IList&lt;T&gt;</c> 集合；需要复杂嵌套结构或自定义迁移时，直接重写
     /// <see cref="SaveData"/> / <see cref="LoadData"/>，不调用 base 即可完全接管
     /// </summary>
     public abstract class DataModule : VaultType<DataModule>
