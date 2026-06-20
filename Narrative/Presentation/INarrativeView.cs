@@ -1,4 +1,6 @@
-namespace InnoVault.Narrative
+using InnoVault.Narrative.Runtime;
+
+namespace InnoVault.Narrative.Presentation
 {
     /// <summary>
     /// 叙事视图契约。<see cref="NarrativeRunner"/> 每帧把当前会话同步给所有已注册视图，<br/>

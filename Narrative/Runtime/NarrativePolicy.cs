@@ -1,7 +1,8 @@
+using InnoVault.Narrative.Progress;
 using System;
 using Terraria;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
     /// 声明式触发策略，由 <see cref="NarrativeScheduler"/> 评估。<br/>

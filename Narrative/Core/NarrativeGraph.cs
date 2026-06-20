@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Core
 {
     /// <summary>
     /// 一段叙事内容的结构：有序节点 + 标签索引。<br/>

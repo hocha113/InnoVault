@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Terraria.ModLoader.IO;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Progress
 {
     /// <summary>
     /// 叙事进度存储的窄接口。只暴露与"剧情语义"相关的读写（场景进度、选择分支、标记、计数器、字符串），<br/>

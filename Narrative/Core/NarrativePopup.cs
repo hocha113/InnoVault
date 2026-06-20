@@ -1,6 +1,7 @@
+using InnoVault.Narrative.Services;
 using Terraria;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Core
 {
     /// <summary>
     /// 功能弹窗的解析结果

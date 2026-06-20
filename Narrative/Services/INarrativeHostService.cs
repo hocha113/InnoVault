@@ -1,4 +1,6 @@
-namespace InnoVault.Narrative
+using InnoVault.Narrative.Progress;
+
+namespace InnoVault.Narrative.Services
 {
     /// <summary>
     /// 宿主服务聚合，便于消费模组一次性提供进度存储与奖励发放实现。<br/>

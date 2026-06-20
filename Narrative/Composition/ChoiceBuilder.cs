@@ -1,6 +1,7 @@
+using InnoVault.Narrative.Core;
 using System;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Composition
 {
     /// <summary>
     /// 选项构建器，用于在 <see cref="NarrativeComposer.Choice(CharacterId, string, Action{ChoiceBuilder})"/> 中声明选项与限时行为

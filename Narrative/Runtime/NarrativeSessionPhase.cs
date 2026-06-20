@@ -1,4 +1,6 @@
-namespace InnoVault.Narrative
+using InnoVault.Narrative.Progress;
+
+namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
     /// 会话的运行期阶段。与存档层的 <see cref="ScenarioProgress"/> 分工：<br/>

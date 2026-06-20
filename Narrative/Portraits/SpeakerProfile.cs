@@ -1,8 +1,9 @@
+using InnoVault.Narrative.Core;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Portraits
 {
     /// <summary>
     /// 角色档案：把"显示名"与"各表情立绘"集中登记一次，<br/>

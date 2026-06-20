@@ -1,9 +1,11 @@
+using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Services;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
     /// 一次叙事播放的运行期真相。持有当前节点、播放状态、等待选择 / 等待弹窗、完成状态等，<br/>

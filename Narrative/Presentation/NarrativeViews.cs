@@ -1,7 +1,8 @@
+using InnoVault.Narrative.Runtime;
 using System;
 using System.Collections.Generic;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Presentation
 {
     /// <summary>
     /// 叙事视图注册表。视图在加载时把自己注册进来，<see cref="NarrativeRunner"/> 通过本表广播会话状态，<br/>

@@ -2,7 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using Terraria.ModLoader.IO;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Progress
 {
     /// <summary>
     /// 一个响应式叙事事件。取代旧实现把多种事件挤进一个 int 位域的做法，<br/>

@@ -1,4 +1,4 @@
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Presentation
 {
     /// <summary>
     /// 默认视图使用的少量界面文案。框架只提供中性英文默认值，<br/>

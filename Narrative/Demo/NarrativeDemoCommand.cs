@@ -1,7 +1,11 @@
+using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Portraits;
+using InnoVault.Narrative.Runtime;
+using InnoVault.Narrative.Services;
 using Terraria;
 using Terraria.ModLoader;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Demo
 {
     /// <summary>
     /// 启动内置 Narrative 演示场景的调试命令：<c>/narrativedemo</c>。<br/>

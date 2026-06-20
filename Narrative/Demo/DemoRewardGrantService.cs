@@ -1,6 +1,8 @@
+using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Services;
 using Terraria;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Demo
 {
     /// <summary>
     /// 仅供 Narrative 演示使用的奖励发放服务。真实消费者应实现自己的 <see cref="IRewardGrantService"/>，<br/>

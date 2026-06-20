@@ -1,6 +1,7 @@
+using InnoVault.Narrative.Core;
 using System.Collections.Generic;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Styling
 {
     /// <summary>
     /// 样式注册表。对话框 / 选择框 / 弹窗皮肤统一以 <see cref="StyleId"/> 注册与查找，<br/>

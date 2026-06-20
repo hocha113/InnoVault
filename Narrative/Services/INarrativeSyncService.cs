@@ -1,4 +1,6 @@
-namespace InnoVault.Narrative
+using InnoVault.Narrative.Progress;
+
+namespace InnoVault.Narrative.Services
 {
     /// <summary>
     /// 可选的多人同步服务。框架默认只在本地播放叙事，进度也只在本地记录；<br/>

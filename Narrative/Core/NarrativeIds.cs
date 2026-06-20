@@ -1,4 +1,4 @@
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Core
 {
     /// <summary>
     /// 角色标识符。用于把"角色身份"与"显示名 / 立绘"解耦，<br/>

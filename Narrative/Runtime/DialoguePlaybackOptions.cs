@@ -1,4 +1,4 @@
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
     /// 对话播放参数：打字速度、自动播放、快进等。这些都是<b>运行时策略</b>，<br/>

@@ -1,7 +1,9 @@
+using InnoVault.Narrative.Composition;
+using InnoVault.Narrative.Runtime;
 using System;
 using System.Collections.Generic;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Core
 {
     /// <summary>
     /// 叙事场景基类，是内容作者定义剧情的载体。继承它并实现 <see cref="Build"/> 即可，<br/>

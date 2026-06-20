@@ -1,7 +1,8 @@
+using InnoVault.Narrative.Core;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Styling
 {
     /// <summary>
     /// 选择框皮肤。负责选项面板与单个选项背景的绘制及配色，<br/>

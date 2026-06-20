@@ -1,6 +1,7 @@
+using InnoVault.Narrative.Core;
 using Terraria;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Services
 {
     /// <summary>
     /// 奖励发放服务，由消费模组实现并注入。框架在弹窗被领取时调用它，<br/>

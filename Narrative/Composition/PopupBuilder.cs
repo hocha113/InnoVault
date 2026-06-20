@@ -1,4 +1,6 @@
-namespace InnoVault.Narrative
+using InnoVault.Narrative.Core;
+
+namespace InnoVault.Narrative.Composition
 {
     /// <summary>
     /// 功能弹窗载荷的便捷工厂。返回的载荷可继续链式配置（如 <c>Reward(id).Titled("...").Claimable()</c>），<br/>

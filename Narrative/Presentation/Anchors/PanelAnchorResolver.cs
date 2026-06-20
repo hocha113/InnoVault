@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using Terraria;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Presentation.Anchors
 {
     /// <summary>
     /// 锚点解析助手。让选择框 / 功能弹窗可以稳定地相对对话框定位（例如悬浮在对话框上方），<br/>

@@ -1,3 +1,6 @@
+using InnoVault.Narrative.Portraits;
+using InnoVault.Narrative.Runtime;
+using InnoVault.Narrative.Styling;
 using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -6,7 +9,7 @@ using System;
 using Terraria;
 using Terraria.GameContent;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Presentation
 {
     /// <summary>
     /// 默认对话框视图。负责打字显示、立绘、说话者名、底部命令提示与限时指示，<br/>

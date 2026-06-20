@@ -1,7 +1,8 @@
+using InnoVault.Narrative.Core;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Portraits
 {
     /// <summary>
     /// 角色立绘注册表。以 <see cref="CharacterId"/> 为键集中管理 <see cref="SpeakerProfile"/>，<br/>

@@ -1,8 +1,12 @@
+using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Presentation;
+using InnoVault.Narrative.Progress;
+using InnoVault.Narrative.Services;
 using System;
 using System.Collections.Generic;
 using Terraria;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
     /// 叙事运行总控。持有当前会话与待启动队列，统一推进会话、处理两阶段完成、衔接后续场景，<br/>
@@ -20,7 +24,7 @@ namespace InnoVault.Narrative
 
         /// <summary>指定场景是否正在运行或排队</summary>
         public static bool IsScenarioActiveOrPending(string key)
-            => (Active != null && Active.Key == key) || _pending.Contains(key);
+            => Active != null && Active.Key == key || _pending.Contains(key);
 
         /// <summary>启动一个场景；若当前忙则入队，等空闲后自动启动</summary>
         public static bool Begin(NarrativeScenario scenario) => Begin(scenario, null);

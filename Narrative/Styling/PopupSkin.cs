@@ -1,7 +1,8 @@
+using InnoVault.Narrative.Core;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Styling
 {
     /// <summary>
     /// 功能弹窗皮肤。负责弹窗面板与配色；具体载荷（奖励 / 提示）的图标与正文<br/>

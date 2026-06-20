@@ -1,6 +1,7 @@
+using InnoVault.Narrative.Core;
 using System;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Composition
 {
     /// <summary>
     /// 叙事内容构建器，是内容作者编写场景的<b>唯一推荐入口</b>。<br/>

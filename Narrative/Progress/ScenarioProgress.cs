@@ -1,4 +1,4 @@
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Progress
 {
     /// <summary>
     /// 场景进度状态。关键点是把"触发"与"完成"分成不同阶段，<br/>

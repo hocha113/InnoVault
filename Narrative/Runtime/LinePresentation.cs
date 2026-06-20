@@ -1,6 +1,7 @@
+using InnoVault.Narrative.Core;
 using Microsoft.Xna.Framework;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
     /// 当前正在展示的一行对话的运行期状态。<br/>

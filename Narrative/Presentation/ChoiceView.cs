@@ -1,3 +1,7 @@
+using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Presentation.Anchors;
+using InnoVault.Narrative.Runtime;
+using InnoVault.Narrative.Styling;
 using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -6,7 +10,7 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.GameContent;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Presentation
 {
     /// <summary>
     /// 默认选择框视图。展示选项、处理悬停与点击，并把选择结果以意图形式回传给会话；<br/>

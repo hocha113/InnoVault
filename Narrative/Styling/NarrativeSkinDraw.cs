@@ -1,7 +1,7 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Styling
 {
     /// <summary>
     /// 皮肤绘制用的共享图元助手，集中维护填充矩形 / 边框等基础绘制，<br/>

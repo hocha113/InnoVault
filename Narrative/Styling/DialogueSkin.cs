@@ -1,7 +1,9 @@
+using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Runtime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Styling
 {
     /// <summary>
     /// 对话框皮肤。负责面板 / 立绘框的绘制以及文本配色等视觉参数，<br/>

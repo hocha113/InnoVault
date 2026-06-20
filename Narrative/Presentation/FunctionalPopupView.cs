@@ -1,3 +1,7 @@
+using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Presentation.Anchors;
+using InnoVault.Narrative.Runtime;
+using InnoVault.Narrative.Styling;
 using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -5,7 +9,7 @@ using System;
 using Terraria;
 using Terraria.GameContent;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Presentation
 {
     /// <summary>
     /// 默认功能弹窗视图（奖励 / 提示）。只展示载荷并回传领取 / 关闭意图，<br/>

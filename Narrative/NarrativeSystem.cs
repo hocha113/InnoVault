@@ -1,4 +1,10 @@
 using InnoVault.GameSystem;
+using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Portraits;
+using InnoVault.Narrative.Presentation;
+using InnoVault.Narrative.Runtime;
+using InnoVault.Narrative.Services;
+using InnoVault.Narrative.Styling;
 using Microsoft.Xna.Framework;
 using Terraria;
 using Terraria.ModLoader;

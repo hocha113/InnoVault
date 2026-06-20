@@ -1,8 +1,11 @@
+using InnoVault.Narrative.Core;
+using InnoVault.Narrative.Progress;
+using InnoVault.Narrative.Services;
 using System;
 using System.Collections.Generic;
 using Terraria;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
     /// 声明式场景调度器。每帧评估各场景的 <see cref="NarrativePolicy"/>，挑选优先级最高且满足条件者触发。<br/>

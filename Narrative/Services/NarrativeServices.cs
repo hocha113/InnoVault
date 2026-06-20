@@ -1,4 +1,6 @@
-namespace InnoVault.Narrative
+using InnoVault.Narrative.Progress;
+
+namespace InnoVault.Narrative.Services
 {
     /// <summary>
     /// 叙事框架的服务定位入口。框架内部只依赖这些接口，<br/>

@@ -1,7 +1,8 @@
+using InnoVault.Narrative.Runtime;
 using System;
 using System.Collections.Generic;
 
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Core
 {
     /// <summary>
     /// 节点类型，显式标记取代旧实现里靠"是否含回调 / 选项"推断特殊节点的脆弱做法
