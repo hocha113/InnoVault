@@ -1,10 +1,10 @@
-using InnoVault.Narrative;
+using InnoVault.Narrative.Progress;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria.ModLoader.IO;
 
-namespace InnoVault.DataModules
+namespace InnoVault.DataModules.Integrations
 {
     /// <summary>
     /// 一个示范性的桥接模块：它既是可被 <see cref="DataModuleStore"/> 持久化的 <see cref="DataModule"/>，<br/>

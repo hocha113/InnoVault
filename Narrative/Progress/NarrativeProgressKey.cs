@@ -1,4 +1,4 @@
-namespace InnoVault.Narrative
+namespace InnoVault.Narrative.Progress
 {
     /// <summary>
     /// 叙事进度字段键，由"模组名 + 场景 Key + 字段名"组成，确保跨模组、跨场景不冲突。<br/>
