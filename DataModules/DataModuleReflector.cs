@@ -23,6 +23,8 @@ namespace InnoVault.DataModules
 
         private static readonly Dictionary<Type, Accessor[]> _cache = [];
 
+        public static void ClearCache() => _cache.Clear();
+
         private static bool IsSupported(Type t)
             => t == typeof(bool) || t == typeof(int) || t == typeof(long)
             || t == typeof(float) || t == typeof(double) || t == typeof(string) || t.IsEnum;

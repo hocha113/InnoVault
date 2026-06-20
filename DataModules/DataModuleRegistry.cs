@@ -67,6 +67,7 @@ namespace InnoVault.DataModules
             _built = false;
             _keyToType.Clear();
             _types.Clear();
+            DataModuleReflector.ClearCache();
         }
     }
 
@@ -80,7 +81,11 @@ namespace InnoVault.DataModules
         void IVaultLoader.UnLoadData() {
             DataModuleRegistry.Clear();
             VaultTypeRegistry<DataModule>.ClearRegisteredVaults();
+            VaultType<DataModule>.Instances.Clear();
+            VaultType<DataModule>.TypeToInstance.Clear();
             VaultType<DataModule>.TypeToMod.Clear();
+            VaultType<DataModule>.ByID.Clear();
+            VaultType<DataModule>.UniversalInstances.Clear();
         }
     }
 }

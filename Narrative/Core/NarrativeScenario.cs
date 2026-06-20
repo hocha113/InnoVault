@@ -82,6 +82,10 @@ namespace InnoVault.Narrative
         public static T Find<T>() where T : NarrativeScenario
             => TypeToInstance.TryGetValue(typeof(T), out var scenario) ? (T)scenario : null;
 
+        /// <summary>按场景类型解析默认 Key，优先返回已注册实例的 Key，未注册时回退为类型全名</summary>
+        public static string GetKey<T>() where T : NarrativeScenario
+            => Find<T>()?.Key ?? typeof(T).FullName;
+
         /// <summary>所有已注册场景</summary>
         public static IReadOnlyCollection<NarrativeScenario> All => _byKey.Values;
 

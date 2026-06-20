@@ -58,10 +58,9 @@ namespace InnoVault.Narrative
         public static NarrativeTarget Scenario(string scenarioKey) => new() { Kind = TargetKind.GotoScenario, ScenarioKey = scenarioKey };
         /// <summary>按场景类型跳转到另一个场景，避免手写字符串 Key</summary>
         public static NarrativeTarget Scenario<T>() where T : NarrativeScenario {
-            T scenario = NarrativeScenario.Find<T>();
             return new NarrativeTarget {
                 Kind = TargetKind.GotoScenario,
-                ScenarioKey = scenario?.Key ?? typeof(T).FullName
+                ScenarioKey = NarrativeScenario.GetKey<T>()
             };
         }
     }

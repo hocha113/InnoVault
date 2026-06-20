@@ -42,7 +42,11 @@ namespace InnoVault.Narrative
             NarrativeServices.ResetToDefaults();
 
             VaultTypeRegistry<NarrativeScenario>.ClearRegisteredVaults();
+            VaultType<NarrativeScenario>.Instances.Clear();
+            VaultType<NarrativeScenario>.TypeToInstance.Clear();
             VaultType<NarrativeScenario>.TypeToMod.Clear();
+            VaultType<NarrativeScenario>.ByID.Clear();
+            VaultType<NarrativeScenario>.UniversalInstances.Clear();
         }
     }
 }
