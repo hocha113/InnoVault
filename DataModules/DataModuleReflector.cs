@@ -307,6 +307,24 @@ namespace InnoVault.DataModules
             if (value is Item item) {
                 return ItemIO.Save(item);
             }
+            if (value is IList<bool> boolList) {
+                return new List<bool>(boolList);
+            }
+            if (value is IList<int> intList) {
+                return new List<int>(intList);
+            }
+            if (value is IList<long> longList) {
+                return new List<long>(longList);
+            }
+            if (value is IList<float> floatList) {
+                return new List<float>(floatList);
+            }
+            if (value is IList<double> doubleList) {
+                return new List<double>(doubleList);
+            }
+            if (value is IList<string> stringList) {
+                return new List<string>(stringList);
+            }
             if (value is IList<TagCompound> tagList) {
                 List<TagCompound> result = [];
                 foreach (TagCompound sub in tagList) {

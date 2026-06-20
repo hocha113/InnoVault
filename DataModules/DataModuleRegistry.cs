@@ -38,7 +38,6 @@ namespace InnoVault.DataModules
 
             foreach (DataModule template in VaultTypeRegistry<DataModule>.RegisteredVaults) {
                 Type type = template.GetType();
-                _types.Add(type);
 
                 string key = template.SaveKey;
                 if (_keyToType.TryGetValue(key, out Type other) && other != type) {
@@ -46,6 +45,7 @@ namespace InnoVault.DataModules
                     continue;
                 }
                 _keyToType[key] = type;
+                _types.Add(type);
             }
         }
 
