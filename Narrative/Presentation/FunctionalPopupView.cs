@@ -1,7 +1,7 @@
+using System;
 using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using System;
 using Terraria;
 using Terraria.GameContent;
 
@@ -27,26 +27,32 @@ namespace InnoVault.Narrative
         private bool _hasCache;
 
         /// <inheritdoc/>
-        public override void VaultSetup() {
+        public override void VaultSetup()
+        {
             base.VaultSetup();
             NarrativeViews.Register(this);
         }
 
         /// <inheritdoc/>
-        public void Sync(NarrativeSession active) {
-            if (active != null && active.ActivePopup != null) {
+        public void Sync(NarrativeSession active)
+        {
+            if (active != null && active.ActivePopup != null)
+            {
                 Open();
             }
-            else {
+            else
+            {
                 Close();
             }
         }
 
         /// <inheritdoc/>
-        public override void Update() {
+        public override void Update()
+        {
             NarrativeSession session = NarrativeRunner.Active;
             PopupPayload payload = session?.ActivePopup;
-            if (payload == null) {
+            if (payload == null)
+            {
                 return;
             }
 
@@ -66,21 +72,26 @@ namespace InnoVault.Narrative
 
             Point mouse = new(Main.mouseX, Main.mouseY);
             bool hover = _panelRect.Contains(mouse);
-            if (hover) {
+            if (hover)
+            {
                 player.mouseInterface = true;
-                if (keyLeftPressState == KeyPressState.Pressed) {
+                if (keyLeftPressState == KeyPressState.Pressed)
+                {
                     session.ClaimPopup();
                 }
             }
         }
 
         /// <inheritdoc/>
-        public override void Draw(SpriteBatch spriteBatch) {
-            if (!_hasCache) {
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (!_hasCache)
+            {
                 return;
             }
             float alpha = OpenProgress;
-            if (alpha <= 0.01f) {
+            if (alpha <= 0.01f)
+            {
                 return;
             }
 
@@ -88,22 +99,26 @@ namespace InnoVault.Narrative
 
             Vector2 center = _panelRect.Center.ToVector2();
 
-            if (_iconItemType > 0) {
+            if (_iconItemType > 0)
+            {
                 Main.instance.LoadItem(_iconItemType);
                 Texture2D tex = TextureAssets.Item[_iconItemType].Value;
-                if (tex != null) {
+                if (tex != null)
+                {
                     float iconScale = Math.Min(48f / tex.Width, 48f / tex.Height);
                     float floatOff = (float)Math.Sin(GlobalTimer * 3f) * 3f;
                     spriteBatch.Draw(tex, center - new Vector2(0, 22f - floatOff), null, Color.White * alpha, 0f, tex.Size() / 2f, iconScale * 1.4f, SpriteEffects.None, 0f);
                 }
             }
 
-            if (!string.IsNullOrEmpty(_title)) {
+            if (!string.IsNullOrEmpty(_title))
+            {
                 Vector2 size = FontAssets.MouseText.Value.MeasureString(_title) * 0.8f;
                 Utils.DrawBorderString(spriteBatch, _title, center + new Vector2(-size.X / 2f, 12f), _skin.TitleColor * alpha, 0.8f);
             }
 
-            if (!string.IsNullOrEmpty(_body)) {
+            if (!string.IsNullOrEmpty(_body))
+            {
                 Vector2 size = FontAssets.MouseText.Value.MeasureString(_body) * 0.7f;
                 Utils.DrawBorderString(spriteBatch, _body, center + new Vector2(-size.X / 2f, 34f), _skin.BodyColor * alpha, 0.7f);
             }

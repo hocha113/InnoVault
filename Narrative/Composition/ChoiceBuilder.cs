@@ -9,7 +9,8 @@ namespace InnoVault.Narrative
     {
         internal ChoiceNode Node { get; }
 
-        internal ChoiceBuilder(ChoiceNode node) {
+        internal ChoiceBuilder(ChoiceNode node)
+        {
             Node = node;
         }
 
@@ -21,8 +22,10 @@ namespace InnoVault.Narrative
         /// <param name="enabled">启用判定，<see langword="null"/> 表示始终启用</param>
         /// <param name="disabledHint">禁用提示</param>
         public ChoiceBuilder Option(ChoiceId id, string text, NarrativeTarget target = null,
-            Action onSelect = null, Func<bool> enabled = null, string disabledHint = null) {
-            Node.Options.Add(new ChoiceOption {
+            Action onSelect = null, Func<bool> enabled = null, string disabledHint = null)
+        {
+            Node.Options.Add(new ChoiceOption
+            {
                 Id = id,
                 Text = text,
                 Target = target ?? NarrativeTarget.Continue,
@@ -36,7 +39,8 @@ namespace InnoVault.Narrative
         /// <summary>设置该选择为限时选择</summary>
         /// <param name="seconds">限时秒数</param>
         /// <param name="defaultChoice">超时默认选择的选项 id，<see langword="null"/> 时超时随机选择一个可用项</param>
-        public ChoiceBuilder Timed(float seconds, ChoiceId? defaultChoice = null) {
+        public ChoiceBuilder Timed(float seconds, ChoiceId? defaultChoice = null)
+        {
             Node.Timed = TimedSettings.Of(seconds);
             Node.DefaultChoice = defaultChoice;
             return this;

@@ -18,28 +18,35 @@ namespace InnoVault.Narrative
         private static readonly PopupSkin _defaultPopup = new BasicPopupSkin();
 
         /// <summary>注册对话框皮肤</summary>
-        public static void RegisterDialogue(StyleId id, DialogueSkin skin) {
-            if (skin != null) {
+        public static void RegisterDialogue(StyleId id, DialogueSkin skin)
+        {
+            if (skin != null)
+            {
                 _dialogue[id] = skin;
             }
         }
 
         /// <summary>注册选择框皮肤</summary>
-        public static void RegisterChoice(StyleId id, ChoiceSkin skin) {
-            if (skin != null) {
+        public static void RegisterChoice(StyleId id, ChoiceSkin skin)
+        {
+            if (skin != null)
+            {
                 _choice[id] = skin;
             }
         }
 
         /// <summary>注册弹窗皮肤</summary>
-        public static void RegisterPopup(StyleId id, PopupSkin skin) {
-            if (skin != null) {
+        public static void RegisterPopup(StyleId id, PopupSkin skin)
+        {
+            if (skin != null)
+            {
                 _popup[id] = skin;
             }
         }
 
         /// <summary>一次注册同一 <see cref="StyleId"/> 下的整套皮肤</summary>
-        public static void RegisterSet(StyleId id, DialogueSkin dialogue = null, ChoiceSkin choice = null, PopupSkin popup = null) {
+        public static void RegisterSet(StyleId id, DialogueSkin dialogue = null, ChoiceSkin choice = null, PopupSkin popup = null)
+        {
             RegisterDialogue(id, dialogue);
             RegisterChoice(id, choice);
             RegisterPopup(id, popup);
@@ -58,7 +65,8 @@ namespace InnoVault.Narrative
             => _popup.TryGetValue(id, out var skin) ? skin : _defaultPopup;
 
         /// <summary>清空消费者注册的皮肤（卸载时调用），内置默认皮肤始终可用</summary>
-        internal static void Clear() {
+        internal static void Clear()
+        {
             _dialogue.Clear();
             _choice.Clear();
             _popup.Clear();

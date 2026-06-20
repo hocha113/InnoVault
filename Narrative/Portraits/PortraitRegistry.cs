@@ -1,5 +1,6 @@
-using Microsoft.Xna.Framework.Graphics;
+using System;
 using System.Collections.Generic;
+using Microsoft.Xna.Framework.Graphics;
 
 namespace InnoVault.Narrative
 {
@@ -12,8 +13,10 @@ namespace InnoVault.Narrative
         private static readonly Dictionary<CharacterId, SpeakerProfile> _profiles = [];
 
         /// <summary>注册（或获取已存在的）角色档案，返回档案以便链式配置</summary>
-        public static SpeakerProfile Register(CharacterId id) {
-            if (!_profiles.TryGetValue(id, out var profile)) {
+        public static SpeakerProfile Register(CharacterId id)
+        {
+            if (!_profiles.TryGetValue(id, out var profile))
+            {
                 profile = new SpeakerProfile(id);
                 _profiles[id] = profile;
             }
@@ -21,8 +24,10 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>注册一个已构建好的角色档案（同 id 覆盖）</summary>
-        public static SpeakerProfile Register(SpeakerProfile profile) {
-            if (profile != null) {
+        public static SpeakerProfile Register(SpeakerProfile profile)
+        {
+            if (profile != null)
+            {
                 _profiles[profile.Id] = profile;
             }
             return profile;

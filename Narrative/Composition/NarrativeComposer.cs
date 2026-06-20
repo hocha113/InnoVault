@@ -13,12 +13,15 @@ namespace InnoVault.Narrative
         private string _pendingLabel;
 
         /// <summary>基于一张图创建构建器</summary>
-        public NarrativeComposer(NarrativeGraph graph) {
+        public NarrativeComposer(NarrativeGraph graph)
+        {
             _graph = graph;
         }
 
-        private T AddNode<T>(T node) where T : NarrativeNode {
-            if (_pendingLabel != null) {
+        private T AddNode<T>(T node) where T : NarrativeNode
+        {
+            if (_pendingLabel != null)
+            {
                 node.Label = _pendingLabel;
                 _pendingLabel = null;
             }
@@ -27,7 +30,8 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>为下一个加入的节点附加跳转标签（用于 Hub 菜单 / 返回主菜单）</summary>
-        public NarrativeComposer Label(string label) {
+        public NarrativeComposer Label(string label)
+        {
             _pendingLabel = label;
             return this;
         }
@@ -37,13 +41,15 @@ namespace InnoVault.Narrative
             => Say(speaker, ExpressionId.Default, text, onEnter, onExit);
 
         /// <summary>添加一句对话（指定表情）</summary>
-        public NarrativeComposer Say(CharacterId speaker, ExpressionId expression, string text, Action onEnter = null, Action onExit = null) {
+        public NarrativeComposer Say(CharacterId speaker, ExpressionId expression, string text, Action onEnter = null, Action onExit = null)
+        {
             AddNode(new SayNode { Speaker = speaker, Expression = expression, Text = text, OnEnter = onEnter, OnExit = onExit });
             return this;
         }
 
         /// <summary>添加一句限时对话（到时自动推进）</summary>
-        public NarrativeComposer SayTimed(CharacterId speaker, string text, float seconds, Action onEnter = null, Action onExit = null) {
+        public NarrativeComposer SayTimed(CharacterId speaker, string text, float seconds, Action onEnter = null, Action onExit = null)
+        {
             AddNode(new SayNode { Speaker = speaker, Text = text, Timed = TimedSettings.Of(seconds), OnEnter = onEnter, OnExit = onExit });
             return this;
         }
@@ -53,14 +59,16 @@ namespace InnoVault.Narrative
             => Choice(speaker, ExpressionId.Default, prompt, build);
 
         /// <summary>添加一个带选项的对话（指定表情）</summary>
-        public NarrativeComposer Choice(CharacterId speaker, ExpressionId expression, string prompt, Action<ChoiceBuilder> build) {
+        public NarrativeComposer Choice(CharacterId speaker, ExpressionId expression, string prompt, Action<ChoiceBuilder> build)
+        {
             var node = AddNode(new ChoiceNode { Speaker = speaker, Expression = expression, Prompt = prompt });
             build?.Invoke(new ChoiceBuilder(node));
             return this;
         }
 
         /// <summary>添加一个功能弹窗节点</summary>
-        public NarrativeComposer Popup(PopupPayload payload, bool blocking = true, Action onEnter = null) {
+        public NarrativeComposer Popup(PopupPayload payload, bool blocking = true, Action onEnter = null)
+        {
             AddNode(new PopupNode { Payload = payload, Blocking = blocking, OnEnter = onEnter });
             return this;
         }
@@ -70,13 +78,15 @@ namespace InnoVault.Narrative
             => Popup(Popups.Reward(itemType, stack, title), blocking);
 
         /// <summary>添加一个执行宿主命令的节点</summary>
-        public NarrativeComposer Command(Action command) {
+        public NarrativeComposer Command(Action command)
+        {
             AddNode(new CommandNode { Command = command });
             return this;
         }
 
         /// <summary>等待固定 tick 数</summary>
-        public NarrativeComposer Wait(int ticks) {
+        public NarrativeComposer Wait(int ticks)
+        {
             AddNode(new WaitNode { Ticks = ticks });
             return this;
         }
@@ -86,19 +96,22 @@ namespace InnoVault.Narrative
             => Wait((int)(seconds * 60f));
 
         /// <summary>添加一个运行期条件跳转</summary>
-        public NarrativeComposer Branch(Func<bool> predicate, NarrativeTarget ifTrue, NarrativeTarget ifFalse) {
+        public NarrativeComposer Branch(Func<bool> predicate, NarrativeTarget ifTrue, NarrativeTarget ifFalse)
+        {
             AddNode(new BranchNode { Predicate = predicate, IfTrue = ifTrue, IfFalse = ifFalse });
             return this;
         }
 
         /// <summary>无条件跳转到图内标签</summary>
-        public NarrativeComposer Goto(string label) {
+        public NarrativeComposer Goto(string label)
+        {
             AddNode(new BranchNode { Predicate = null, IfTrue = NarrativeTarget.Goto(label) });
             return this;
         }
 
         /// <summary>显式结束当前场景</summary>
-        public NarrativeComposer End() {
+        public NarrativeComposer End()
+        {
             AddNode(new BranchNode { Predicate = null, IfTrue = NarrativeTarget.End });
             return this;
         }
@@ -107,11 +120,14 @@ namespace InnoVault.Narrative
         /// 构建期条件块：在 <paramref name="condition"/> 为真时插入 <paramref name="then"/> 的节点，<br/>
         /// 否则插入 <paramref name="otherwise"/>。用于替代内容脚本里的 <c>if (hasX) {...}</c> 写法
         /// </summary>
-        public NarrativeComposer When(Func<bool> condition, Action<NarrativeComposer> then, Action<NarrativeComposer> otherwise = null) {
-            if (condition != null && condition()) {
+        public NarrativeComposer When(Func<bool> condition, Action<NarrativeComposer> then, Action<NarrativeComposer> otherwise = null)
+        {
+            if (condition != null && condition())
+            {
                 then?.Invoke(this);
             }
-            else {
+            else
+            {
                 otherwise?.Invoke(this);
             }
             return this;

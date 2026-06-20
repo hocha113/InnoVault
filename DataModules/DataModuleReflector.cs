@@ -6,7 +6,7 @@ using Terraria.ModLoader.IO;
 namespace InnoVault.DataModules
 {
     /// <summary>
-    /// <see cref="AutoDataModule"/> 使用的反射序列化助手。支持公共可读写属性与公共可写字段，<br/>
+    /// <see cref="DataModule"/> 默认使用的反射序列化助手。支持公共可读写属性与公共可写字段，<br/>
     /// 类型覆盖 <see cref="bool"/> / <see cref="int"/> / <see cref="long"/> / <see cref="float"/> /
     /// <see cref="double"/> / <see cref="string"/> 以及任意枚举（按 int 存储）。<br/>
     /// 反射元数据按类型缓存，避免每次保存 / 读取重复扫描

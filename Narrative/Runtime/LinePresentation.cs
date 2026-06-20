@@ -44,7 +44,8 @@ namespace InnoVault.Narrative
         public int VisibleCharCount => (int)VisibleChars;
 
         /// <summary>开始展示新的一行，重置打字与限时状态</summary>
-        public void Begin(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed) {
+        public void Begin(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed)
+        {
             Speaker = speaker;
             Expression = expression;
             Text = text ?? string.Empty;
@@ -53,13 +54,15 @@ namespace InnoVault.Narrative
             LayoutReady = false;
 
             IsTimed = timed != null;
-            if (IsTimed) {
+            if (IsTimed)
+            {
                 TimedTotalTicks = timed.Seconds * 60f;
                 TimedRemainingTicks = TimedTotalTicks;
                 AllowManualAdvance = timed.AllowManualAdvance;
                 ShowTimedIndicator = timed.ShowIndicator;
             }
-            else {
+            else
+            {
                 TimedTotalTicks = 0f;
                 TimedRemainingTicks = 0f;
                 AllowManualAdvance = true;

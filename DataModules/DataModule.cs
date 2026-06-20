@@ -1,4 +1,5 @@
 using System;
+using InnoVault;
 using Terraria.ModLoader.IO;
 
 namespace InnoVault.DataModules
@@ -7,9 +8,12 @@ namespace InnoVault.DataModules
     /// 通用模块化保存单元。它是 InnoVault 的<b>独立数据系统</b>，不属于任何具体玩法子系统，<br/>
     /// 可服务叙事、任务、好感、科技树、解锁、世界事件、UI 数据等。<br/>
     /// 一个模块就是"一组带版本的可序列化字段"，由 <see cref="DataModuleStore"/> 聚合并持久化。<br/>
-    /// 需要零样板时改继承 <see cref="AutoDataModule"/>，需要完全手控时直接继承本类
+    /// 模块类型本身继承 <see cref="VaultType{T}"/>，因此可被 InnoVault 统一发现、注册和检查 Key 冲突；<br/>
+    /// 但 <see cref="DataModuleStore"/> 中保存的是按作用域创建的独立数据实例，而不是注册期的 VaultType 模板单例。<br/>
+    /// 默认实现会反射序列化公共可读写属性与公共可写字段；需要集合、嵌套结构或自定义迁移时，直接重写
+    /// <see cref="SaveData"/> / <see cref="LoadData"/>，不调用 base 即可完全接管
     /// </summary>
-    public abstract class DataModule
+    public abstract class DataModule : VaultType<DataModule>
     {
         /// <summary>序列化键，默认取类名；同一 <see cref="DataModuleStore"/> 内必须唯一</summary>
         public virtual string SaveKey => GetType().Name;
@@ -18,24 +22,22 @@ namespace InnoVault.DataModules
         public virtual int Version => 1;
 
         /// <summary>写出本模块字段</summary>
-        public abstract void SaveData(TagCompound tag);
+        public virtual void SaveData(TagCompound tag) => DataModuleReflector.Save(this, tag);
 
         /// <summary>读入本模块字段</summary>
         /// <param name="tag">本模块的子标签</param>
         /// <param name="loadedVersion">存档中记录的版本，用于迁移；旧档可能小于 <see cref="Version"/></param>
-        public abstract void LoadData(TagCompound tag, int loadedVersion);
+        public virtual void LoadData(TagCompound tag, int loadedVersion) => DataModuleReflector.Load(this, tag);
 
         /// <summary>重置为默认值（重新开始 / 清档时使用）</summary>
-        public virtual void Reset() { }
+        public virtual void Reset() => DataModuleReflector.Reset(this);
 
         /// <summary>
-        /// 深拷贝本模块。默认通过一次"序列化—反序列化"往返实现，子类可重写为更高效的字段拷贝
+        /// 深拷贝本模块。默认通过反射字段拷贝实现，子类可重写为更高效或更深层的拷贝
         /// </summary>
         public virtual DataModule Clone() {
             DataModule clone = (DataModule)Activator.CreateInstance(GetType());
-            TagCompound tag = [];
-            SaveData(tag);
-            clone.LoadData(tag, Version);
+            DataModuleReflector.Copy(this, clone);
             return clone;
         }
     }

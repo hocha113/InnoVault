@@ -66,7 +66,8 @@ namespace InnoVault.Narrative
         private static Player LocalPlayer => Main.LocalPlayer;
 
         /// <summary>创建一次会话</summary>
-        public NarrativeSession(NarrativeScenario scenario, NarrativeGraph graph, StyleId style) {
+        public NarrativeSession(NarrativeScenario scenario, NarrativeGraph graph, StyleId style)
+        {
             Scenario = scenario;
             Key = scenario?.Key ?? string.Empty;
             Graph = graph;
@@ -108,10 +109,12 @@ namespace InnoVault.Narrative
         #endregion
 
         /// <summary>启动会话，进入首个节点</summary>
-        public void Start() {
+        public void Start()
+        {
             _currentIndex = -1;
             Phase = NarrativeSessionPhase.Playing;
-            if (Graph == null || Graph.Count == 0) {
+            if (Graph == null || Graph.Count == 0)
+            {
                 Complete();
                 return;
             }
@@ -119,33 +122,40 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>每帧推进（由 <see cref="NarrativeRunner"/> 在 UpdateUI 驱动）</summary>
-        public void Tick(float frames) {
-            if (IsFinished) {
+        public void Tick(float frames)
+        {
+            if (IsFinished)
+            {
                 return;
             }
             _settleGuard = 0;
 
-            if (_toggleAuto) {
+            if (_toggleAuto)
+            {
                 _toggleAuto = false;
                 Options.AutoMode = !Options.AutoMode;
                 Options.FastMode = false;
                 _autoTimer = 0f;
             }
-            if (_toggleFast) {
+            if (_toggleFast)
+            {
                 _toggleFast = false;
                 Options.FastMode = !Options.FastMode;
                 Options.AutoMode = false;
                 _autoTimer = 0f;
             }
 
-            if (ActivePopup != null) {
+            if (ActivePopup != null)
+            {
                 TickActivePopup(frames);
             }
-            if (IsFinished) {
+            if (IsFinished)
+            {
                 return;
             }
 
-            switch (Phase) {
+            switch (Phase)
+            {
                 case NarrativeSessionPhase.Playing:
                     TickPlaying(frames);
                     break;
@@ -157,28 +167,33 @@ namespace InnoVault.Narrative
 
         private NarrativeNode CurrentNode => Graph?.Get(_currentIndex);
 
-        private void Transition(int nextIndex) {
+        private void Transition(int nextIndex)
+        {
             CurrentNode?.OnExit?.Invoke();
             _currentIndex = nextIndex;
             EnterCurrent();
         }
 
-        private void EnterCurrent() {
-            if (++_settleGuard > 5000) {
+        private void EnterCurrent()
+        {
+            if (++_settleGuard > 5000)
+            {
                 VaultMod.Instance.Logger.Warn($"Narrative scenario '{Key}' aborted: too many instant transitions (possible Goto loop).");
                 Abort();
                 return;
             }
 
             NarrativeNode node = CurrentNode;
-            if (node == null) {
+            if (node == null)
+            {
                 Complete();
                 return;
             }
 
             node.OnEnter?.Invoke();
 
-            switch (node) {
+            switch (node)
+            {
                 case SayNode say:
                     BeginLine(say.Speaker, say.Expression, say.Text, say.Timed);
                     break;
@@ -191,7 +206,8 @@ namespace InnoVault.Narrative
                     _settleGuard = 0;
                     break;
                 case PopupNode popup:
-                    if (popup.Payload == null) {
+                    if (popup.Payload == null)
+                    {
                         Transition(_currentIndex + 1);
                         return;
                     }
@@ -199,11 +215,13 @@ namespace InnoVault.Narrative
                     _popupBlocking = popup.Blocking;
                     _popupTimer = 0f;
                     LastPopupResult = PopupResolution.Pending;
-                    if (popup.Blocking) {
+                    if (popup.Blocking)
+                    {
                         Phase = NarrativeSessionPhase.AwaitingPopup;
                         _settleGuard = 0;
                     }
-                    else {
+                    else
+                    {
                         Transition(_currentIndex + 1);
                     }
                     break;
@@ -218,7 +236,8 @@ namespace InnoVault.Narrative
             }
         }
 
-        private void BeginLine(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed) {
+        private void BeginLine(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed)
+        {
             Line.Begin(speaker, expression, text, timed);
             DialogueVisible = true;
             Phase = NarrativeSessionPhase.Playing;
@@ -226,17 +245,21 @@ namespace InnoVault.Narrative
             _settleGuard = 0;
         }
 
-        private void GoToTarget(NarrativeTarget target) {
+        private void GoToTarget(NarrativeTarget target)
+        {
             target ??= NarrativeTarget.Continue;
-            switch (target.Kind) {
+            switch (target.Kind)
+            {
                 case NarrativeTarget.TargetKind.Continue:
                     Transition(_currentIndex + 1);
                     break;
                 case NarrativeTarget.TargetKind.GotoLabel:
-                    if (Graph.TryGetLabelIndex(target.Label, out int idx)) {
+                    if (Graph.TryGetLabelIndex(target.Label, out int idx))
+                    {
                         Transition(idx);
                     }
-                    else {
+                    else
+                    {
                         VaultMod.Instance.Logger.Warn($"Narrative scenario '{Key}' goto unknown label '{target.Label}', completing.");
                         CurrentNode?.OnExit?.Invoke();
                         Complete();
@@ -254,11 +277,14 @@ namespace InnoVault.Narrative
             }
         }
 
-        private void TickPlaying(float frames) {
+        private void TickPlaying(float frames)
+        {
             //等待节点
-            if (_waitRemaining > 0f) {
+            if (_waitRemaining > 0f)
+            {
                 _waitRemaining -= frames;
-                if (_waitRemaining <= 0f) {
+                if (_waitRemaining <= 0f)
+                {
                     _waitRemaining = 0f;
                     Transition(_currentIndex + 1);
                 }
@@ -268,145 +294,179 @@ namespace InnoVault.Narrative
             LinePresentation line = Line;
 
             //空文本节点直接推进
-            if (!line.HasContent && CurrentNode is not ChoiceNode) {
+            if (!line.HasContent && CurrentNode is not ChoiceNode)
+            {
                 Transition(_currentIndex + 1);
                 return;
             }
 
             //打字机推进
-            if (line.LayoutReady && !line.Finished) {
+            if (line.LayoutReady && !line.Finished)
+            {
                 float perChar = Options.FastMode ? Options.FastTicksPerChar : Options.TicksPerChar;
-                if (perChar <= 0f) {
+                if (perChar <= 0f)
+                {
                     perChar = 0.0001f;
                 }
                 line.VisibleChars += frames / perChar;
-                if (line.VisibleChars > line.TotalChars) {
+                if (line.VisibleChars > line.TotalChars)
+                {
                     line.VisibleChars = line.TotalChars;
                 }
             }
 
             //点击 / 跳过：未打完则补全
-            if (_advanceRequested && line.LayoutReady && !line.Finished) {
+            if (_advanceRequested && line.LayoutReady && !line.Finished)
+            {
                 _advanceRequested = false;
                 line.RevealAll();
             }
-            if (_skipRequested) {
+            if (_skipRequested)
+            {
                 _skipRequested = false;
-                if (line.LayoutReady && !line.Finished) {
+                if (line.LayoutReady && !line.Finished)
+                {
                     line.RevealAll();
                 }
             }
 
-            if (!line.Finished) {
+            if (!line.Finished)
+            {
                 return;
             }
 
             //已打完字
-            if (CurrentNode is ChoiceNode choice) {
+            if (CurrentNode is ChoiceNode choice)
+            {
                 OpenChoices(choice);
                 return;
             }
 
-            if (line.IsTimed) {
+            if (line.IsTimed)
+            {
                 line.TimedRemainingTicks -= frames;
-                if (line.AllowManualAdvance && _advanceRequested) {
+                if (line.AllowManualAdvance && _advanceRequested)
+                {
                     _advanceRequested = false;
                     Transition(_currentIndex + 1);
                     return;
                 }
-                if (line.TimedRemainingTicks <= 0f) {
+                if (line.TimedRemainingTicks <= 0f)
+                {
                     (CurrentNode as SayNode)?.Timed?.OnExpired?.Invoke();
                     Transition(_currentIndex + 1);
                 }
                 return;
             }
 
-            if (_advanceRequested) {
+            if (_advanceRequested)
+            {
                 _advanceRequested = false;
                 Transition(_currentIndex + 1);
                 return;
             }
 
-            if (Options.AutoMode || Options.FastMode) {
+            if (Options.AutoMode || Options.FastMode)
+            {
                 _autoTimer += frames;
                 float delay = Options.FastMode ? Options.FastAutoAdvanceDelay : Options.GetAutoDelay(line.TotalChars);
-                if (_autoTimer >= delay) {
+                if (_autoTimer >= delay)
+                {
                     _autoTimer = 0f;
                     Transition(_currentIndex + 1);
                 }
             }
-            else {
+            else
+            {
                 _autoTimer = 0f;
             }
         }
 
-        private void OpenChoices(ChoiceNode choice) {
+        private void OpenChoices(ChoiceNode choice)
+        {
             PendingChoice = choice;
             Phase = NarrativeSessionPhase.AwaitingChoice;
             _selectedChoiceIndex = -1;
             ChoiceHoverIndex = -1;
             _autoTimer = 0f;
-            if (choice.Timed != null) {
+            if (choice.Timed != null)
+            {
                 _choiceTimedTotal = choice.Timed.Seconds * 60f;
                 _choiceTimedRemaining = _choiceTimedTotal;
             }
-            else {
+            else
+            {
                 _choiceTimedTotal = 0f;
                 _choiceTimedRemaining = 0f;
             }
         }
 
-        private void TickChoice(float frames) {
+        private void TickChoice(float frames)
+        {
             ChoiceNode choice = PendingChoice;
-            if (choice == null) {
+            if (choice == null)
+            {
                 Phase = NarrativeSessionPhase.Playing;
                 return;
             }
 
-            if (choice.Timed != null) {
+            if (choice.Timed != null)
+            {
                 _choiceTimedRemaining -= frames;
-                if (_choiceTimedRemaining <= 0f) {
+                if (_choiceTimedRemaining <= 0f)
+                {
                     choice.Timed.OnExpired?.Invoke();
                     ResolveTimeout(choice);
                     return;
                 }
             }
 
-            if (_selectedChoiceIndex >= 0) {
+            if (_selectedChoiceIndex >= 0)
+            {
                 int index = _selectedChoiceIndex;
                 _selectedChoiceIndex = -1;
-                if (index < choice.Options.Count) {
+                if (index < choice.Options.Count)
+                {
                     ChoiceOption option = choice.Options[index];
-                    if (option.IsEnabled) {
+                    if (option.IsEnabled)
+                    {
                         ResolveChoice(option);
                     }
                 }
             }
         }
 
-        private void ResolveTimeout(ChoiceNode choice) {
+        private void ResolveTimeout(ChoiceNode choice)
+        {
             ChoiceOption option = null;
-            if (choice.DefaultChoice.HasValue) {
+            if (choice.DefaultChoice.HasValue)
+            {
                 option = choice.Options.FirstOrDefault(o => o.Id.Equals(choice.DefaultChoice.Value) && o.IsEnabled);
             }
-            if (option == null) {
+            if (option == null)
+            {
                 List<ChoiceOption> enabled = choice.Options.Where(o => o.IsEnabled).ToList();
-                if (enabled.Count > 0) {
+                if (enabled.Count > 0)
+                {
                     option = enabled[Main.rand.Next(enabled.Count)];
                 }
             }
-            if (option != null) {
+            if (option != null)
+            {
                 ResolveChoice(option);
             }
-            else {
+            else
+            {
                 PendingChoice = null;
                 GoToTarget(NarrativeTarget.Continue);
             }
         }
 
-        private void ResolveChoice(ChoiceOption option) {
+        private void ResolveChoice(ChoiceOption option)
+        {
             //只解析一次：解析后离开等待选择阶段，杜绝重复弹出
-            if (Phase != NarrativeSessionPhase.AwaitingChoice) {
+            if (Phase != NarrativeSessionPhase.AwaitingChoice)
+            {
                 return;
             }
             PendingChoice = null;
@@ -415,16 +475,20 @@ namespace InnoVault.Narrative
             GoToTarget(option.Target ?? NarrativeTarget.Continue);
         }
 
-        private void TickActivePopup(float frames) {
+        private void TickActivePopup(float frames)
+        {
             //非必领弹窗的自动保持
-            if (_popupIntent == 0 && !ActivePopup.RequireClaim && ActivePopup.AutoHoldSeconds >= 0f) {
+            if (_popupIntent == 0 && !ActivePopup.RequireClaim && ActivePopup.AutoHoldSeconds >= 0f)
+            {
                 _popupTimer += frames;
-                if (_popupTimer >= ActivePopup.AutoHoldSeconds * 60f) {
+                if (_popupTimer >= ActivePopup.AutoHoldSeconds * 60f)
+                {
                     _popupIntent = 1;
                 }
             }
 
-            if (_popupIntent == 0) {
+            if (_popupIntent == 0)
+            {
                 return;
             }
 
@@ -433,31 +497,37 @@ namespace InnoVault.Narrative
             PopupPayload payload = ActivePopup;
             bool wasBlocking = _popupBlocking;
 
-            if (intent == 1) {
+            if (intent == 1)
+            {
                 payload.OnClaimed(LocalPlayer);
                 LastPopupResult = PopupResolution.Claimed;
             }
-            else {
+            else
+            {
                 payload.OnDismissed(LocalPlayer);
                 LastPopupResult = PopupResolution.Dismissed;
             }
 
             ActivePopup = null;
-            if (wasBlocking) {
+            if (wasBlocking)
+            {
                 Phase = NarrativeSessionPhase.Playing;
                 Transition(_currentIndex + 1);
             }
         }
 
-        private void Complete() {
+        private void Complete()
+        {
             Phase = NarrativeSessionPhase.Completed;
             PendingChoice = null;
             DialogueVisible = false;
         }
 
         /// <summary>中止会话（世界切换 / 强制关闭），不会写入完成标记</summary>
-        public void Abort() {
-            if (Phase == NarrativeSessionPhase.Completed) {
+        public void Abort()
+        {
+            if (Phase == NarrativeSessionPhase.Completed)
+            {
                 return;
             }
             Phase = NarrativeSessionPhase.Aborted;

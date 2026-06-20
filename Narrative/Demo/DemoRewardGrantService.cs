@@ -8,8 +8,10 @@ namespace InnoVault.Narrative
     /// </summary>
     internal sealed class DemoRewardGrantService : IRewardGrantService
     {
-        public void Grant(RewardPayload reward, Player player) {
-            if (reward == null || player == null || !player.active || reward.ItemType <= 0) {
+        public void Grant(RewardPayload reward, Player player)
+        {
+            if (reward == null || player == null || !player.active || reward.ItemType <= 0)
+            {
                 return;
             }
             player.QuickSpawnItem(player.GetSource_Misc("InnoVault:NarrativeDemo"), reward.ItemType, reward.Stack);

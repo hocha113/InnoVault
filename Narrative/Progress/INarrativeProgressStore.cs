@@ -52,15 +52,19 @@ namespace InnoVault.Narrative
             => scenarioKey != null && _progress.TryGetValue(scenarioKey, out var p) ? p : ScenarioProgress.None;
 
         /// <inheritdoc/>
-        public void SetProgress(string scenarioKey, ScenarioProgress progress) {
-            if (!string.IsNullOrEmpty(scenarioKey)) {
+        public void SetProgress(string scenarioKey, ScenarioProgress progress)
+        {
+            if (!string.IsNullOrEmpty(scenarioKey))
+            {
                 _progress[scenarioKey] = progress;
             }
         }
 
         /// <inheritdoc/>
-        public bool TryGetChoice(string scenarioKey, out string choiceId) {
-            if (scenarioKey != null && _choices.TryGetValue(scenarioKey, out choiceId)) {
+        public bool TryGetChoice(string scenarioKey, out string choiceId)
+        {
+            if (scenarioKey != null && _choices.TryGetValue(scenarioKey, out choiceId))
+            {
                 return true;
             }
             choiceId = null;
@@ -68,8 +72,10 @@ namespace InnoVault.Narrative
         }
 
         /// <inheritdoc/>
-        public void SetChoice(string scenarioKey, string choiceId) {
-            if (!string.IsNullOrEmpty(scenarioKey)) {
+        public void SetChoice(string scenarioKey, string choiceId)
+        {
+            if (!string.IsNullOrEmpty(scenarioKey))
+            {
                 _choices[scenarioKey] = choiceId ?? string.Empty;
             }
         }
@@ -88,7 +94,8 @@ namespace InnoVault.Narrative
         public void SetString(NarrativeProgressKey key, string value) => _strings[key.Flat] = value ?? string.Empty;
 
         /// <summary>清空全部进度（世界切换 / 重新开始时使用）</summary>
-        public void Clear() {
+        public void Clear()
+        {
             _progress.Clear();
             _choices.Clear();
             _flags.Clear();
@@ -97,7 +104,8 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>序列化到 <see cref="TagCompound"/></summary>
-        public void Save(TagCompound tag) {
+        public void Save(TagCompound tag)
+        {
             tag["progress"] = _progress.Select(kv => $"{kv.Key}={(int)kv.Value}").ToList();
             tag["choices"] = _choices.Select(kv => $"{kv.Key}={kv.Value}").ToList();
             tag["flags"] = _flags.Where(kv => kv.Value).Select(kv => kv.Key).ToList();
@@ -106,41 +114,56 @@ namespace InnoVault.Narrative
         }
 
         /// <summary>从 <see cref="TagCompound"/> 反序列化</summary>
-        public void Load(TagCompound tag) {
+        public void Load(TagCompound tag)
+        {
             Clear();
-            if (tag.TryGet("progress", out List<string> progress)) {
-                foreach (string entry in progress) {
+            if (tag.TryGet("progress", out List<string> progress))
+            {
+                foreach (string entry in progress)
+                {
                     int eq = entry.LastIndexOf('=');
-                    if (eq > 0 && int.TryParse(entry[(eq + 1)..], out int v)) {
+                    if (eq > 0 && int.TryParse(entry[(eq + 1)..], out int v))
+                    {
                         _progress[entry[..eq]] = (ScenarioProgress)v;
                     }
                 }
             }
-            if (tag.TryGet("choices", out List<string> choices)) {
-                foreach (string entry in choices) {
+            if (tag.TryGet("choices", out List<string> choices))
+            {
+                foreach (string entry in choices)
+                {
                     int eq = entry.IndexOf('=');
-                    if (eq >= 0) {
+                    if (eq >= 0)
+                    {
                         _choices[entry[..eq]] = entry[(eq + 1)..];
                     }
                 }
             }
-            if (tag.TryGet("flags", out List<string> flags)) {
-                foreach (string flag in flags) {
+            if (tag.TryGet("flags", out List<string> flags))
+            {
+                foreach (string flag in flags)
+                {
                     _flags[flag] = true;
                 }
             }
-            if (tag.TryGet("counters", out List<string> counters)) {
-                foreach (string entry in counters) {
+            if (tag.TryGet("counters", out List<string> counters))
+            {
+                foreach (string entry in counters)
+                {
                     int eq = entry.LastIndexOf('=');
-                    if (eq > 0 && int.TryParse(entry[(eq + 1)..], out int v)) {
+                    if (eq > 0 && int.TryParse(entry[(eq + 1)..], out int v))
+                    {
                         _counters[entry[..eq]] = v;
                     }
                 }
             }
-            if (tag.TryGet("strings", out List<string> strings)) {
-                foreach (string entry in strings) {
+            if (tag.TryGet("strings", out List<string> strings))
+            {
+                foreach (string entry in strings)
+                {
                     int eq = entry.IndexOf('=');
-                    if (eq >= 0) {
+                    if (eq >= 0)
+                    {
                         _strings[entry[..eq]] = entry[(eq + 1)..];
                     }
                 }

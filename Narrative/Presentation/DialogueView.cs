@@ -1,8 +1,9 @@
+using System;
+using System.Linq;
 using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Graphics;
-using System;
 using Terraria;
 using Terraria.GameContent;
 
@@ -50,25 +51,31 @@ namespace InnoVault.Narrative
         private bool _overHint;
 
         /// <inheritdoc/>
-        public override void VaultSetup() {
+        public override void VaultSetup()
+        {
             base.VaultSetup();
             NarrativeViews.Register(this);
         }
 
         /// <inheritdoc/>
-        public void Sync(NarrativeSession active) {
-            if (active != null && active.DialogueVisible) {
+        public void Sync(NarrativeSession active)
+        {
+            if (active != null && active.DialogueVisible)
+            {
                 Open();
             }
-            else {
+            else
+            {
                 Close();
             }
         }
 
         /// <inheritdoc/>
-        public override void Update() {
+        public override void Update()
+        {
             NarrativeSession session = NarrativeRunner.Active;
-            if (session == null || !session.DialogueVisible) {
+            if (session == null || !session.DialogueVisible)
+            {
                 return;
             }
 
@@ -82,13 +89,15 @@ namespace InnoVault.Narrative
             _speakerName = PortraitRegistry.ResolveName(line.Speaker);
 
             float textAreaWidth = _skin.PanelWidth - Padding * 2f - (_portrait != null ? PortraitSize + PortraitGap : 0f);
-            if (textAreaWidth < 60f) {
+            if (textAreaWidth < 60f)
+            {
                 textAreaWidth = 60f;
             }
 
             _wrappedLines = VaultUtils.WrapText(line.Text ?? string.Empty, font, textAreaWidth, textScale).ToArray();
             int total = 0;
-            foreach (string l in _wrappedLines) {
+            foreach (string l in _wrappedLines)
+            {
                 total += l.Length;
             }
             line.TotalChars = total;
@@ -97,7 +106,8 @@ namespace InnoVault.Narrative
             float lineHeight = font.MeasureString("A").Y * textScale + LineSpacing;
             float contentHeight = _wrappedLines.Length * lineHeight;
             float panelHeight = MathHelper.Clamp(contentHeight + Padding * 2f + HeaderHeight, MinHeight, MaxHeight);
-            if (_portrait != null) {
+            if (_portrait != null)
+            {
                 panelHeight = Math.Max(panelHeight, PortraitSize + Padding * 2f);
             }
 
@@ -121,7 +131,8 @@ namespace InnoVault.Narrative
             HandleInput(session);
         }
 
-        private void LayoutHintRects() {
+        private void LayoutHintRects()
+        {
             float y = PanelRect.Bottom - 22f;
             float x = PanelRect.X + Padding;
             DynamicSpriteFont font = FontAssets.MouseText.Value;
@@ -137,53 +148,65 @@ namespace InnoVault.Narrative
             _skipRect = new Rectangle((int)x, (int)y, (int)skipW, 18);
         }
 
-        private void HandleInput(NarrativeSession session) {
+        private void HandleInput(NarrativeSession session)
+        {
             Point mouse = new(Main.mouseX, Main.mouseY);
             bool hover = PanelRect.Contains(mouse);
-            if (hover) {
+            if (hover)
+            {
                 player.mouseInterface = true;
             }
 
             bool pressed = keyLeftPressState == KeyPressState.Pressed;
             _overHint = false;
 
-            if (_showHints && pressed) {
-                if (_autoRect.Contains(mouse)) {
+            if (_showHints && pressed)
+            {
+                if (_autoRect.Contains(mouse))
+                {
                     _overHint = true;
                     session.ToggleAuto();
                 }
-                else if (_fastRect.Contains(mouse)) {
+                else if (_fastRect.Contains(mouse))
+                {
                     _overHint = true;
                     session.ToggleFast();
                 }
-                else if (_skipRect.Contains(mouse)) {
+                else if (_skipRect.Contains(mouse))
+                {
                     _overHint = true;
                     session.RequestSkipLine();
                 }
             }
-            else {
+            else
+            {
                 _overHint = _autoRect.Contains(mouse) || _fastRect.Contains(mouse) || _skipRect.Contains(mouse);
             }
 
-            if (hover && !_overHint && pressed) {
+            if (hover && !_overHint && pressed)
+            {
                 session.RequestAdvance();
             }
         }
 
         /// <inheritdoc/>
-        public override void Draw(SpriteBatch spriteBatch) {
-            if (!_hasCache) {
+        public override void Draw(SpriteBatch spriteBatch)
+        {
+            if (!_hasCache)
+            {
                 return;
             }
             float alpha = OpenProgress;
-            if (alpha <= 0.01f) {
+            if (alpha <= 0.01f)
+            {
                 return;
             }
 
             _skin.DrawPanel(spriteBatch, PanelRect, alpha);
 
             float textLeft = PanelRect.X + Padding;
-            if (_portrait != null) {
+            if (_portrait != null)
+            {
                 Rectangle frame = new((int)(PanelRect.X + Padding), (int)(PanelRect.Y + Padding), (int)PortraitSize, (int)PortraitSize);
                 _skin.DrawPortraitFrame(spriteBatch, frame, alpha);
                 DrawPortrait(spriteBatch, frame, alpha);
@@ -193,58 +216,69 @@ namespace InnoVault.Narrative
             DynamicSpriteFont font = FontAssets.MouseText.Value;
             float textScale = _skin.TextScale;
 
-            if (!string.IsNullOrEmpty(_speakerName)) {
+            if (!string.IsNullOrEmpty(_speakerName))
+            {
                 Utils.DrawBorderString(spriteBatch, _speakerName, new Vector2(textLeft, PanelRect.Y + Padding - 2f), _skin.SpeakerColor * alpha, _skin.NameScale);
             }
 
             float lineHeight = font.MeasureString("A").Y * textScale + LineSpacing;
             float y = PanelRect.Y + Padding + HeaderHeight;
             int remaining = _visibleCount;
-            foreach (string fullLine in _wrappedLines) {
+            foreach (string fullLine in _wrappedLines)
+            {
                 string draw = fullLine;
-                if (remaining < fullLine.Length) {
+                if (remaining < fullLine.Length)
+                {
                     draw = fullLine[..Math.Max(0, remaining)];
                 }
-                if (draw.Length > 0) {
+                if (draw.Length > 0)
+                {
                     Utils.DrawBorderString(spriteBatch, draw, new Vector2(textLeft, y), _skin.TextColor * alpha, textScale);
                 }
                 y += lineHeight;
                 remaining -= fullLine.Length;
-                if (remaining <= 0) {
+                if (remaining <= 0)
+                {
                     break;
                 }
             }
 
-            if (_timedActive) {
+            if (_timedActive)
+            {
                 DrawTimedBar(spriteBatch, alpha);
             }
 
-            if (_showHints) {
+            if (_showHints)
+            {
                 DrawHints(spriteBatch, alpha);
             }
 
-            if (_waitingAdvance) {
+            if (_waitingAdvance)
+            {
                 float blink = (float)(Math.Sin(GlobalTimer * 6f) * 0.5 + 0.5);
                 Utils.DrawBorderString(spriteBatch, NarrativeUIText.ContinueGlyph,
                     new Vector2(PanelRect.Right - 24f, PanelRect.Bottom - 26f), _skin.HintColor * (alpha * blink), 0.9f);
             }
         }
 
-        private void DrawPortrait(SpriteBatch spriteBatch, Rectangle frame, float alpha) {
+        private void DrawPortrait(SpriteBatch spriteBatch, Rectangle frame, float alpha)
+        {
             float scale = Math.Min((frame.Width - 6f) / _portrait.Width, (frame.Height - 6f) / _portrait.Height);
             Vector2 center = frame.Center.ToVector2();
             Color color = _silhouette ? _skin.SilhouetteColor * alpha : Color.White * alpha;
             spriteBatch.Draw(_portrait, center, null, color, 0f, _portrait.Size() / 2f, scale, SpriteEffects.None, 0f);
         }
 
-        private void DrawTimedBar(SpriteBatch spriteBatch, float alpha) {
+        private void DrawTimedBar(SpriteBatch spriteBatch, float alpha)
+        {
             int barWidth = (int)(PanelRect.Width * _timedProgress);
             Rectangle bar = new(PanelRect.X, PanelRect.Y - 4, barWidth, 3);
             Color color = Color.Lerp(new Color(255, 90, 80), _skin.HintColor, _timedProgress);
             NarrativeSkinDraw.FillRect(spriteBatch, bar, color * alpha);
         }
 
-        private void DrawHints(SpriteBatch spriteBatch, float alpha) {
+        private void DrawHints(SpriteBatch spriteBatch, float alpha)
+        {
             const float hintScale = 0.7f;
             Color on = _skin.HintColor * alpha;
             Color off = _skin.HintColor * (alpha * 0.4f);

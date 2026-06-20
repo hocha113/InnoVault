@@ -1,10 +1,11 @@
 using System;
 using System.Collections.Generic;
+using InnoVault.GameSystem;
 
 namespace InnoVault.DataModules
 {
     /// <summary>
-    /// 数据模块类型注册表。在 InnoVault 加载完成后扫描所有模组中的具体 <see cref="DataModule"/> 类型，<br/>
+    /// 数据模块类型注册表。在 InnoVault 加载完成后读取 <see cref="VaultTypeRegistry{TVault}"/> 中的具体 <see cref="DataModule"/> 模板，<br/>
     /// 建立 SaveKey 到类型的映射并检测冲突；供 <see cref="DataModuleStore"/> 在读档时按 SaveKey 补齐模块实例。<br/>
     /// 要求模块类型具有公共无参构造函数
     /// </summary>
@@ -33,14 +34,14 @@ namespace InnoVault.DataModules
             }
         }
 
-        /// <summary>扫描并构建类型映射（由加载器在 PostSetupContent 调用）</summary>
+        /// <summary>基于 VaultType 注册结果构建类型映射（由加载器在 PostSetupContent 调用）</summary>
         public static void Build()
         {
             _built = true;
             _keyToType.Clear();
             _types.Clear();
 
-            foreach (DataModule template in VaultUtils.GetDerivedInstances<DataModule>())
+            foreach (DataModule template in VaultTypeRegistry<DataModule>.RegisteredVaults)
             {
                 Type type = template.GetType();
                 _types.Add(type);
@@ -84,11 +85,15 @@ namespace InnoVault.DataModules
 
     /// <summary>
     /// 把 <see cref="DataModuleRegistry"/> 接入 InnoVault 的加载生命周期：<br/>
-    /// 在 PostSetupContent 构建类型映射（便于尽早暴露冲突），在卸载时清理
+    /// 在 PostSetupContent 构建类型映射（便于尽早暴露冲突），在卸载时清理 DataModule 自身与 VaultType 注册状态
     /// </summary>
     internal sealed class DataModuleLoader : IVaultLoader
     {
         void IVaultLoader.SetupData() => DataModuleRegistry.Build();
-        void IVaultLoader.UnLoadData() => DataModuleRegistry.Clear();
+        void IVaultLoader.UnLoadData() {
+            DataModuleRegistry.Clear();
+            VaultTypeRegistry<DataModule>.ClearRegisteredVaults();
+            VaultType<DataModule>.TypeToMod.Clear();
+        }
     }
 }
