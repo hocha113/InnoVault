@@ -64,6 +64,7 @@ namespace InnoVault.Narrative.Runtime
         //—— UI 输入意图（由视图设置，运行时消费）——
         private bool _advanceRequested;
         private bool _skipRequested;
+        private bool _skipToNextStopRequested;
         private int _selectedChoiceIndex = -1;
         private int _popupIntent;
         private bool _toggleAuto;
@@ -102,6 +103,11 @@ namespace InnoVault.Narrative.Runtime
         public void RequestAdvance() => _advanceRequested = true;
         /// <summary>请求补全当前行打字</summary>
         public void RequestSkipLine() => _skipRequested = true;
+        /// <summary>
+        /// 请求跳到下一个停顿点。普通对话会被补全并跳过；遇到选项、弹窗、命令、
+        /// 分支、等待、限时行或带回调的节点时停止，把控制权交还给玩家。
+        /// </summary>
+        public void RequestSkipToNextStop() => _skipToNextStopRequested = true;
         /// <summary>选择某个选项（按下标）</summary>
         public void SelectChoice(int index) => _selectedChoiceIndex = index;
         /// <summary>切换自动播放</summary>
@@ -312,8 +318,15 @@ namespace InnoVault.Narrative.Runtime
                     line.RevealAll();
                 }
             }
+            if (_skipToNextStopRequested && line.LayoutReady && !line.Finished) {
+                line.RevealAll();
+            }
 
             if (!line.Finished) {
+                return;
+            }
+
+            if (_skipToNextStopRequested && TryAdvanceSkipToNextStop()) {
                 return;
             }
 
@@ -354,6 +367,54 @@ namespace InnoVault.Narrative.Runtime
             else {
                 _autoTimer = 0f;
             }
+        }
+
+        private bool TryAdvanceSkipToNextStop() {
+            NarrativeNode current = CurrentNode;
+            if (current == null) {
+                _skipToNextStopRequested = false;
+                return false;
+            }
+
+            if (current is ChoiceNode choice) {
+                OpenChoices(choice);
+                _skipToNextStopRequested = false;
+                return true;
+            }
+
+            if (IsSkipStopNode(current)) {
+                _skipToNextStopRequested = false;
+                return false;
+            }
+
+            NarrativeNode next = Graph?.Get(_currentIndex + 1);
+            if (next == null || IsSkipStopNode(next)) {
+                _skipToNextStopRequested = false;
+                return false;
+            }
+
+            Transition(_currentIndex + 1);
+            return true;
+        }
+
+        private static bool IsSkipStopNode(NarrativeNode node) {
+            if (node == null) {
+                return true;
+            }
+
+            if (node.OnEnter != null || node.OnExit != null) {
+                return true;
+            }
+
+            return node switch {
+                SayNode say => say.Timed != null,
+                ChoiceNode => true,
+                PopupNode => true,
+                CommandNode => true,
+                BranchNode => true,
+                WaitNode => true,
+                _ => true,
+            };
         }
 
         private void OpenChoices(ChoiceNode choice) {

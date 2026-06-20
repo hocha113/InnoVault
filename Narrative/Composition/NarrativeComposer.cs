@@ -49,6 +49,16 @@ namespace InnoVault.Narrative.Composition
             return this;
         }
 
+        /// <summary>添加一句限时对话（默认表情，完整定时配置）</summary>
+        public NarrativeComposer SayTimed(CharacterId speaker, string text, TimedSettings timed, Action onEnter = null, Action onExit = null)
+            => SayTimed(speaker, ExpressionId.Default, text, timed, onEnter, onExit);
+
+        /// <summary>添加一句限时对话（指定表情，完整定时配置）</summary>
+        public NarrativeComposer SayTimed(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed, Action onEnter = null, Action onExit = null) {
+            AddNode(new SayNode { Speaker = speaker, Expression = expression, Text = text, Timed = timed, OnEnter = onEnter, OnExit = onExit });
+            return this;
+        }
+
         /// <summary>添加一个带选项的对话</summary>
         public NarrativeComposer Choice(CharacterId speaker, string prompt, Action<ChoiceBuilder> build)
             => Choice(speaker, ExpressionId.Default, prompt, build);

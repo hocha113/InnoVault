@@ -42,5 +42,14 @@ namespace InnoVault.Narrative.Composition
             Node.DefaultChoice = defaultChoice;
             return this;
         }
+
+        /// <summary>设置该选择为限时选择（完整定时配置）</summary>
+        /// <param name="timed">限时配置；<see langword="null"/> 表示取消限时</param>
+        /// <param name="defaultChoice">超时默认选择的选项 id，<see langword="null"/> 时超时随机选择一个可用项</param>
+        public ChoiceBuilder Timed(TimedSettings timed, ChoiceId? defaultChoice = null) {
+            Node.Timed = timed;
+            Node.DefaultChoice = defaultChoice;
+            return this;
+        }
     }
 }

@@ -12,10 +12,27 @@ namespace InnoVault.Narrative.Presentation
     {
         private static readonly List<INarrativeView> _views = [];
 
+        /// <summary>
+        /// 是否允许框架内置默认视图自注册。复杂 consumer 可以在加载早期关闭对应默认视图，
+        /// 再注册自己的 <see cref="INarrativeView"/> 实现，避免 UI 叠加显示。
+        /// </summary>
+        public static bool UseDefaultDialogueView { get; set; } = true;
+        /// <summary>是否允许框架内置默认选择框视图自注册。</summary>
+        public static bool UseDefaultChoiceView { get; set; } = true;
+        /// <summary>是否允许框架内置默认弹窗视图自注册。</summary>
+        public static bool UseDefaultPopupView { get; set; } = true;
+
         /// <summary>注册一个视图</summary>
         public static void Register(INarrativeView view) {
             if (view != null && !_views.Contains(view)) {
                 _views.Add(view);
+            }
+        }
+
+        /// <summary>注销一个视图。用于替换默认视图或关闭临时 consumer 视图。</summary>
+        public static void Unregister(INarrativeView view) {
+            if (view != null) {
+                _views.Remove(view);
             }
         }
 
@@ -31,6 +48,11 @@ namespace InnoVault.Narrative.Presentation
         }
 
         /// <summary>清空注册（卸载时调用）</summary>
-        internal static void Clear() => _views.Clear();
+        internal static void Clear() {
+            _views.Clear();
+            UseDefaultDialogueView = true;
+            UseDefaultChoiceView = true;
+            UseDefaultPopupView = true;
+        }
     }
 }
