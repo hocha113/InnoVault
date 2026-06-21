@@ -87,6 +87,47 @@ namespace InnoVault.Narrative.Composition
         public NarrativeComposer Reward(int itemType, int stack = 1, string title = null, bool blocking = true)
             => Popup(Popups.Reward(itemType, stack, title), blocking);
 
+        /// <summary>
+        /// 在该句台词开始时弹出物品奖励，并展示同一说话者的对话。<br/>
+        /// 等价于 <c>Popup(Reward(...), blocking); Say(...)</c>（旧 ADV <c>AddReward</c> 语义）。
+        /// </summary>
+        public NarrativeComposer SayReward(
+            CharacterId speaker,
+            string text,
+            int itemType,
+            int stack = 1,
+            string title = null,
+            bool blocking = false,
+            float anchorGap = 0f,
+            float anchorYOffset = 0f,
+            Action onEnter = null,
+            Action onExit = null)
+            => SayReward(speaker, ExpressionId.Default, text, itemType, stack, title, blocking, anchorGap, anchorYOffset, onEnter, onExit);
+
+        /// <summary>
+        /// 在该句台词（指定表情）开始时弹出物品奖励，并展示对话。
+        /// </summary>
+        public NarrativeComposer SayReward(
+            CharacterId speaker,
+            ExpressionId expression,
+            string text,
+            int itemType,
+            int stack = 1,
+            string title = null,
+            bool blocking = false,
+            float anchorGap = 0f,
+            float anchorYOffset = 0f,
+            Action onEnter = null,
+            Action onExit = null) {
+            RewardPayload payload = Popups.Reward(itemType, stack, title);
+            if (anchorGap > 0f || anchorYOffset != 0f) {
+                payload.Anchored(anchorGap > 0f ? anchorGap : 70f, anchorYOffset);
+            }
+
+            Popup(payload, blocking);
+            return Say(speaker, expression, text, onEnter, onExit);
+        }
+
         /// <summary>添加一个执行宿主命令的节点</summary>
         public NarrativeComposer Command(Action command) {
             AddNode(new CommandNode { Command = command });
