@@ -59,6 +59,7 @@ namespace InnoVault.Narrative.Runtime
         private float _choiceTimedRemaining;
         private float _popupTimer;
         private bool _popupBlocking;
+        private readonly Queue<PopupRequest> _popupQueue = new();
         private int _settleGuard;
         private bool _completionPending;
         private bool _completionDeferred;
@@ -178,7 +179,7 @@ namespace InnoVault.Narrative.Runtime
 
             //场景已到达结尾但仍在等待非阻塞弹窗领取 / 关闭：等其解析后再真正完成
             if (_completionPending) {
-                if (ActivePopup == null) {
+                if (ActivePopup == null && _popupQueue.Count == 0) {
                     CompleteNow();
                 }
                 return;
@@ -238,16 +239,13 @@ namespace InnoVault.Narrative.Runtime
                         Transition(_currentIndex + 1);
                         return;
                     }
-                    ActivePopup = popup.Payload;
-                    _popupBlocking = popup.Blocking;
-                    _popupTimer = 0f;
-                    LastPopupResult = PopupResolution.Pending;
-                    if (popup.Blocking) {
+                    EnqueueOrShowPopup(popup.Payload, popup.Blocking);
+                    if (!popup.Blocking) {
+                        Transition(_currentIndex + 1);
+                    }
+                    else if (!ReferenceEquals(ActivePopup, popup.Payload)) {
                         Phase = NarrativeSessionPhase.AwaitingPopup;
                         _settleGuard = 0;
-                    }
-                    else {
-                        Transition(_currentIndex + 1);
                     }
                     break;
                 case CommandNode command:
@@ -612,11 +610,56 @@ namespace InnoVault.Narrative.Runtime
                 LastPopupResult = PopupResolution.Timeout;
             }
 
+            ResolveActivePopup(wasBlocking);
+        }
+
+        private void EnqueueOrShowPopup(PopupPayload payload, bool blocking) {
+            var request = new PopupRequest(payload, blocking);
+            if (ActivePopup == null) {
+                ShowPopup(request);
+                return;
+            }
+
+            _popupQueue.Enqueue(request);
+        }
+
+        private void ShowPopup(PopupRequest request) {
+            ActivePopup = request.Payload;
+            _popupBlocking = request.Blocking;
+            _popupTimer = 0f;
+            LastPopupResult = PopupResolution.Pending;
+            if (request.Blocking) {
+                Phase = NarrativeSessionPhase.AwaitingPopup;
+                _settleGuard = 0;
+            }
+        }
+
+        private void ResolveActivePopup(bool wasBlocking) {
             ActivePopup = null;
+            if (_popupQueue.Count > 0) {
+                ShowPopup(_popupQueue.Dequeue());
+                if (_popupBlocking || wasBlocking) {
+                    Phase = NarrativeSessionPhase.AwaitingPopup;
+                    _settleGuard = 0;
+                }
+                return;
+            }
+
             if (wasBlocking) {
                 Phase = NarrativeSessionPhase.Playing;
                 Transition(_currentIndex + 1);
             }
+        }
+
+        private readonly struct PopupRequest
+        {
+            public PopupRequest(PopupPayload payload, bool blocking) {
+                Payload = payload;
+                Blocking = blocking;
+            }
+
+            public PopupPayload Payload { get; }
+            public bool Blocking { get; }
         }
 
         private void Complete() {
@@ -627,7 +670,7 @@ namespace InnoVault.Narrative.Runtime
 
             //若仍有未解析的非阻塞弹窗在展示，则推迟真正完成，等其领取 / 关闭后再结束。
             //（阻塞弹窗不会走到这里：它把流程挂在 AwaitingPopup，解析后才继续推进）
-            if (ActivePopup != null) {
+            if (ActivePopup != null || _popupQueue.Count > 0) {
                 _completionPending = true;
                 PendingChoice = null;
                 DialogueVisible = false;
@@ -654,6 +697,7 @@ namespace InnoVault.Narrative.Runtime
             Phase = NarrativeSessionPhase.Aborted;
             PendingChoice = null;
             ActivePopup = null;
+            _popupQueue.Clear();
             DialogueVisible = false;
         }
 

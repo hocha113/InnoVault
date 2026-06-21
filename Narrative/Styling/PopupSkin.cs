@@ -65,21 +65,19 @@ namespace InnoVault.Narrative.Styling
             }
 
             Main.instance.LoadItem(context.IconItemType);
-            Texture2D tex = TextureAssets.Item[context.IconItemType].Value;
-            if (tex == null) {
+            if (TextureAssets.Item[context.IconItemType].Value == null) {
                 return;
             }
 
             float appear = MathHelper.Clamp(context.ContentAppear, 0f, 1f);
             float ease = (float)Math.Sin(appear * MathHelper.PiOver2);
-            float iconScale = Math.Min(48f / tex.Width, 48f / tex.Height);
             float iconScaleEase = MathHelper.Lerp(0.35f, 1f, ease);
             float iconAlpha = appear * context.Alpha;
             float bounce = (float)Math.Sin(MathHelper.Clamp(ease * 1.2f, 0f, 1f) * MathHelper.Pi) * 0.08f;
             float floatOff = (float)Math.Sin(context.GlobalTimer * 3.2f + appear) * 4f * appear;
             Vector2 center = context.IconRect.Center.ToVector2() + new Vector2(0f, -floatOff);
-            spriteBatch.Draw(tex, center, null, Color.White * iconAlpha, 0f, tex.Size() / 2f,
-                iconScale * 1.4f * (iconScaleEase + bounce), SpriteEffects.None, 0f);
+            VaultUtils.SimpleDrawItem(spriteBatch, context.IconItemType, center, itemWidth: 48,
+                size: 1.4f * (iconScaleEase + bounce), color: Color.White * iconAlpha);
         }
 
         /// <summary>绘制标题。</summary>
