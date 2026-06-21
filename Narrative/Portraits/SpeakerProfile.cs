@@ -97,10 +97,14 @@ namespace InnoVault.Narrative.Portraits
             return this;
         }
 
-        /// <summary>解析显示名，缺省回退到角色 id</summary>
+        /// <summary>解析显示名；未配置 <see cref="DisplayName"/> 时回退到角色 id，配置后返回空/空白则隐藏名称</summary>
         public string ResolveName() {
-            string name = DisplayName?.Invoke();
-            return string.IsNullOrEmpty(name) ? Id.Value : name;
+            if (DisplayName == null) {
+                return Id.Value;
+            }
+
+            string name = DisplayName.Invoke();
+            return string.IsNullOrWhiteSpace(name) ? string.Empty : name;
         }
 
         /// <summary>解析指定表情的立绘，缺省回退到默认表情立绘，仍无则返回 <see langword="null"/></summary>
