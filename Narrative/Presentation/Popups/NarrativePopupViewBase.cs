@@ -18,8 +18,11 @@ namespace InnoVault.Narrative.Presentation.Popups
     public abstract class NarrativePopupViewBase<TSelf> : NarrativePanelViewBase<TSelf>, INarrativeView
         where TSelf : NarrativePopupViewBase<TSelf>
     {
+        /// <summary>当前使用的弹窗皮肤，由 <see cref="StyleRegistry.GetPopup"/> 解析</summary>
         protected PopupSkin Skin = new BasicPopupSkin();
+        /// <summary>单帧布局结果，供 <see cref="PopupSkin"/> 读写</summary>
         protected readonly PopupLayoutContext Layout = new();
+        /// <summary>弹窗展示状态机，跨帧累积入场 / 悬停等状态</summary>
         protected readonly PopupPresentationState State = new();
 
         /// <inheritdoc/>
@@ -37,10 +40,10 @@ namespace InnoVault.Narrative.Presentation.Popups
         /// <inheritdoc/>
         public override float RenderPriority => 3f;
 
-        /// <summary>该视图是否为 InnoVault 内置默认弹窗视图。</summary>
+        /// <summary>该视图是否为 InnoVault 内置默认弹窗视图</summary>
         protected virtual bool IsDefaultPopupView => false;
 
-        /// <summary>当前视图是否应注册到 NarrativeViews。</summary>
+        /// <summary>当前视图是否应注册到 NarrativeViews</summary>
         protected virtual bool ShouldRegisterView => !IsDefaultPopupView || NarrativeViews.UseDefaultPopupView;
 
         /// <inheritdoc/>
@@ -108,6 +111,7 @@ namespace InnoVault.Narrative.Presentation.Popups
             HandleInput(session);
         }
 
+        /// <summary>每帧更新弹窗入场缩放与内容出现进度，consumer 可覆写以自定义动画</summary>
         protected virtual void UpdatePresentationState() {
             State.Timer++;
             State.Alpha = NarrativePanelMotion.ResolveAlpha(MotionProgress, NarrativePanelMotion.Profile.Popup);
@@ -133,6 +137,7 @@ namespace InnoVault.Narrative.Presentation.Popups
         protected virtual Vector2 ResolvePopupAnchor(PopupPayload payload)
             => PanelAnchorResolver.AboveDialogue(Skin.PanelSize.Y + 24f);
 
+        /// <summary>处理点击领取或关闭，consumer 可覆写以扩展输入逻辑</summary>
         protected virtual void HandleInput(NarrativeSession session) {
             Point mouse = new(Main.mouseX, Main.mouseY);
             State.Hover = Layout.PanelRect.Contains(mouse);

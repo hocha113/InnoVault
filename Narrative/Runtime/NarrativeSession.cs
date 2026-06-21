@@ -114,7 +114,7 @@ namespace InnoVault.Narrative.Runtime
         public void RequestSkipLine() => _skipRequested = true;
         /// <summary>
         /// 请求跳到下一个停顿点。普通对话会被补全并跳过；遇到选项、弹窗、命令、
-        /// 分支、等待、限时行或带回调的节点时停止，把控制权交还给玩家。
+        /// 分支、等待、限时行或带回调的节点时停止，把控制权交还给玩家
         /// </summary>
         public void RequestSkipToNextStop() => _skipToNextStopRequested = true;
         /// <summary>选择某个选项（按下标）</summary>

@@ -20,7 +20,9 @@ namespace InnoVault.Narrative.Presentation.Choices
     public abstract class NarrativeChoiceViewBase<TSelf> : NarrativePanelViewBase<TSelf>, INarrativeView
         where TSelf : NarrativeChoiceViewBase<TSelf>
     {
+        /// <summary>当前使用的选择框皮肤，由 <see cref="StyleRegistry.GetChoice"/> 解析</summary>
         protected ChoiceSkin Skin = new BasicChoiceSkin();
+        /// <summary>单帧布局结果，供 <see cref="ChoiceSkin"/> 读写</summary>
         protected readonly ChoiceLayoutContext Layout = new();
 
         /// <inheritdoc/>
@@ -38,10 +40,10 @@ namespace InnoVault.Narrative.Presentation.Choices
         /// <inheritdoc/>
         public override float RenderPriority => 2f;
 
-        /// <summary>该视图是否为 InnoVault 内置默认选择框视图。</summary>
+        /// <summary>该视图是否为 InnoVault 内置默认选择框视图</summary>
         protected virtual bool IsDefaultChoiceView => false;
 
-        /// <summary>当前视图是否应注册到 NarrativeViews。</summary>
+        /// <summary>当前视图是否应注册到 NarrativeViews</summary>
         protected virtual bool ShouldRegisterView => !IsDefaultChoiceView || NarrativeViews.UseDefaultChoiceView;
 
         /// <inheritdoc/>
@@ -109,6 +111,7 @@ namespace InnoVault.Narrative.Presentation.Choices
             }
         }
 
+        /// <summary>处理滚动、悬停与选项点击，consumer 可覆写以扩展输入逻辑</summary>
         protected virtual void HandleInput(NarrativeSession session) {
             Point mouse = new(Main.mouseX, Main.mouseY);
             bool overPanel = Layout.PanelRect.Contains(mouse);

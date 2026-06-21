@@ -20,7 +20,9 @@ namespace InnoVault.Narrative.Presentation.Dialogue
     public abstract class NarrativeDialogueViewBase<TSelf> : NarrativePanelViewBase<TSelf>, INarrativeView, INarrativePanelAnchorProvider
         where TSelf : NarrativeDialogueViewBase<TSelf>
     {
+        /// <summary>当前使用的对话框皮肤，由 <see cref="StyleRegistry.GetDialogue"/> 解析</summary>
         protected DialogueSkin Skin = new BasicDialogueSkin();
+        /// <summary>单帧布局结果，供 <see cref="DialogueSkin"/> 读写</summary>
         protected readonly DialogueLayoutContext Layout = new();
         private DialogueSkin _lastSkin;
         private DialogueLayoutInput _lastLayoutInput;
@@ -33,7 +35,7 @@ namespace InnoVault.Narrative.Presentation.Dialogue
         private const float ContentFadeSpeed = 0.12f;
         private const float SpeakerSwitchSpeed = 0.14f;
 
-        /// <summary>最近一次有效对话面板矩形。</summary>
+        /// <summary>最近一次有效对话面板矩形</summary>
         public Rectangle PanelRect => Layout.PanelRect;
 
         Rectangle INarrativePanelAnchorProvider.DialoguePanelRect => PanelRect;
@@ -43,13 +45,13 @@ namespace InnoVault.Narrative.Presentation.Dialogue
         /// <inheritdoc/>
         public override bool CanDrag => false;
 
-        /// <summary>该视图是否为 InnoVault 内置默认对话视图。</summary>
+        /// <summary>该视图是否为 InnoVault 内置默认对话视图</summary>
         protected virtual bool IsDefaultDialogueView => false;
 
-        /// <summary>当前视图是否应注册到 NarrativeViews。</summary>
+        /// <summary>当前视图是否应注册到 NarrativeViews</summary>
         protected virtual bool ShouldRegisterView => !IsDefaultDialogueView || NarrativeViews.UseDefaultDialogueView;
 
-        /// <summary>对话框锚点，默认位于屏幕底部中央。</summary>
+        /// <summary>对话框锚点，默认位于屏幕底部中央</summary>
         protected virtual Vector2 DialogueAnchor => new(Main.screenWidth / 2f, Main.screenHeight - 140f);
 
         /// <inheritdoc/>
@@ -204,6 +206,7 @@ namespace InnoVault.Narrative.Presentation.Dialogue
             Layout.GlobalTimer = GlobalTimer;
         }
 
+        /// <summary>处理自动 / 快进 / 跳过与点击推进，consumer 可覆写以扩展输入逻辑</summary>
         protected virtual void HandleInput(NarrativeSession session) {
             Point mouse = new(Main.mouseX, Main.mouseY);
             bool hoverPanel = Layout.PanelRect.Contains(mouse);
@@ -261,6 +264,7 @@ namespace InnoVault.Narrative.Presentation.Dialogue
             Skin.DrawForegroundDecorations(spriteBatch, Layout);
         }
 
+        /// <summary>绘制头像纹理，consumer 可覆写以替换默认缩放与对齐</summary>
         protected virtual void DrawPortrait(SpriteBatch spriteBatch) {
             Texture2D portrait = Layout.Portrait;
             if (portrait == null || Layout.PortraitRect == Rectangle.Empty) {

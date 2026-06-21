@@ -33,7 +33,7 @@ namespace InnoVault.Narrative.Styling
         public virtual Color SilhouetteColor => new(12, 18, 28);
         /// <summary>面板内边距</summary>
         public virtual float Padding => 18f;
-        /// <summary>正文区额外水平收窄（像素），为 shader 六角/斜切内缘留白。</summary>
+        /// <summary>正文区额外水平收窄（像素），为 shader 六角/斜切内缘留白</summary>
         public virtual float TextWrapInset => 0f;
         /// <summary>文本行距</summary>
         public virtual float LineSpacing => 6f;
@@ -72,7 +72,7 @@ namespace InnoVault.Narrative.Styling
             NarrativeSkinDraw.DrawBorder(spriteBatch, frame, new Color(70, 130, 200) * alpha);
         }
 
-        /// <summary>根据输入计算本帧布局。复杂 consumer 可重写以完全接管对话框布局。</summary>
+        /// <summary>根据输入计算本帧布局。复杂 consumer 可重写以完全接管对话框布局</summary>
         public virtual void Layout(DialogueLayoutInput input, DialogueLayoutContext context) {
             context.Font = input.Font;
             context.Portrait = input.Portrait;
@@ -132,6 +132,7 @@ namespace InnoVault.Narrative.Styling
             LayoutCommandHints(context);
         }
 
+        /// <summary>测量底行全部命令提示文字的最大高度</summary>
         protected float MeasureHintRowTextHeight(DynamicSpriteFont font) {
             float height = 0f;
             height = Math.Max(height, font.MeasureString(ResolveAutoHint()).Y * HintScale);
@@ -141,31 +142,37 @@ namespace InnoVault.Narrative.Styling
             return MathF.Ceiling(height);
         }
 
+        /// <summary>测量单条提示文案在指定缩放下的文字高度</summary>
+        /// <param name="font">测量用字体</param>
+        /// <param name="text">提示文案</param>
+        /// <param name="scale">文字缩放</param>
         protected float MeasureHintRowTextHeight(DynamicSpriteFont font, string text, float scale)
             => MathF.Ceiling(font.MeasureString(text).Y * scale);
 
+        /// <summary>测量底行命令提示区域总高度（含点击热区扩展）</summary>
         protected float MeasureHintBandHeight(DynamicSpriteFont font)
             => MeasureHintRowTextHeight(font) + CommandHintHitPad;
 
+        /// <summary>测量正文区下方为命令提示预留的总高度</summary>
         protected float MeasureHintReserve(DynamicSpriteFont font)
             => MeasureHintBandHeight(font) + HintBottomMargin;
 
-        /// <summary>每帧更新皮肤状态。默认无状态。</summary>
+        /// <summary>每帧更新皮肤状态，默认无状态</summary>
         public virtual void Update(DialogueLayoutContext context) { }
 
-        /// <summary>样式切换或新会话开始时重置皮肤状态。</summary>
+        /// <summary>样式切换或新会话开始时重置皮肤状态</summary>
         public virtual void Reset() { }
 
-        /// <summary>自动播放提示文案，消费者可重写以接入本地化。</summary>
+        /// <summary>自动播放提示文案，消费者可重写以接入本地化</summary>
         protected virtual string ResolveAutoHint() => NarrativeUIText.Auto;
-        /// <summary>快进提示文案，消费者可重写以接入本地化。</summary>
+        /// <summary>快进提示文案，消费者可重写以接入本地化</summary>
         protected virtual string ResolveFastHint() => NarrativeUIText.Fast;
-        /// <summary>跳过提示文案，消费者可重写以接入本地化。</summary>
+        /// <summary>跳过提示文案，消费者可重写以接入本地化</summary>
         protected virtual string ResolveSkipHint() => NarrativeUIText.Skip;
-        /// <summary>继续提示文案，消费者可重写以接入本地化。</summary>
+        /// <summary>继续提示文案，消费者可重写以接入本地化</summary>
         protected virtual string ResolveContinueHint(bool hover) => NarrativeUIText.ContinueGlyph;
 
-        /// <summary>布局底部命令提示的点击区域。</summary>
+        /// <summary>布局底部命令提示的点击区域</summary>
         public virtual void LayoutCommandHints(DialogueLayoutContext context) {
             float rowTextHeight = MeasureHintRowTextHeight(context.Font);
             context.HintRowBaseline = context.PanelRect.Bottom - HintBottomMargin;
@@ -195,6 +202,7 @@ namespace InnoVault.Narrative.Styling
             context.ContinueRect = BuildHintHitRect(continueX, rowTop, continueW, rowTextHeight, context.HintRowBaseline);
         }
 
+        /// <summary>根据文字区域与统一底边构建命令提示点击热区</summary>
         protected Rectangle BuildHintHitRect(float posX, float rowTop, float textWidth, float rowTextHeight, float rowBaseline)
             => new Rectangle(
                 (int)(posX - CommandHintHitPad),
@@ -202,21 +210,22 @@ namespace InnoVault.Narrative.Styling
                 (int)(textWidth + CommandHintHitPad * 2f),
                 (int)(rowBaseline - rowTop + CommandHintHitPad));
 
+        /// <summary>根据文字区域构建命令提示点击热区，底边默认为文字区域下沿</summary>
         protected Rectangle BuildHintHitRect(float posX, float rowTop, float textWidth, float rowTextHeight)
             => BuildHintHitRect(posX, rowTop, textWidth, rowTextHeight, rowTop + rowTextHeight);
 
-        /// <summary>绘制对话框背景。</summary>
+        /// <summary>绘制对话框背景</summary>
         public virtual void DrawBackground(SpriteBatch spriteBatch, DialogueLayoutContext context)
             => DrawPanel(spriteBatch, context.PanelRect, context.Alpha);
 
-        /// <summary>绘制面板背景之上的装饰（粒子等，位于正文下方）。</summary>
+        /// <summary>绘制面板背景之上的装饰（粒子等，位于正文下方）</summary>
         public virtual void DrawBackgroundDecorations(SpriteBatch spriteBatch, DialogueLayoutContext context) { }
 
-        /// <summary>绘制头像框。</summary>
+        /// <summary>绘制头像框</summary>
         public virtual void DrawPortraitFrame(SpriteBatch spriteBatch, DialogueLayoutContext context)
             => DrawPortraitFrame(spriteBatch, context.PortraitRect, context.Alpha);
 
-        /// <summary>绘制说话者名称。</summary>
+        /// <summary>绘制说话者名称</summary>
         public virtual void DrawSpeakerName(SpriteBatch spriteBatch, DialogueLayoutContext context) {
             if (string.IsNullOrEmpty(context.SpeakerName)) {
                 return;
@@ -228,10 +237,10 @@ namespace InnoVault.Narrative.Styling
             Utils.DrawBorderString(spriteBatch, context.SpeakerName, pos, SpeakerColor * nameAlpha, NameScale);
         }
 
-        /// <summary>绘制说话者与正文间的装饰分隔线。</summary>
+        /// <summary>绘制说话者与正文间的装饰分隔线</summary>
         public virtual void DrawDivider(SpriteBatch spriteBatch, DialogueLayoutContext context) { }
 
-        /// <summary>绘制正文。</summary>
+        /// <summary>绘制正文</summary>
         public virtual void DrawText(SpriteBatch spriteBatch, DialogueLayoutContext context) {
             int remaining = context.VisibleChars;
             for (int i = 0; i < context.WrappedLines.Length; i++) {
@@ -251,7 +260,7 @@ namespace InnoVault.Narrative.Styling
             }
         }
 
-        /// <summary>绘制限时指示。</summary>
+        /// <summary>绘制限时指示</summary>
         public virtual void DrawTimedIndicator(SpriteBatch spriteBatch, DialogueLayoutContext context) {
             if (!context.TimedActive) {
                 return;
@@ -262,7 +271,7 @@ namespace InnoVault.Narrative.Styling
             NarrativeSkinDraw.FillRect(spriteBatch, bar, color * context.Alpha);
         }
 
-        /// <summary>绘制底部命令提示。</summary>
+        /// <summary>绘制底部命令提示</summary>
         public virtual void DrawCommandHints(SpriteBatch spriteBatch, DialogueLayoutContext context) {
             if (!context.ShowHints) {
                 return;
@@ -281,6 +290,7 @@ namespace InnoVault.Narrative.Styling
             }
         }
 
+        /// <summary>计算命令提示文字的绘制位置，按统一底边对齐；scale 小于 0 时使用 <see cref="DialogueLayoutContext.HintScale"/></summary>
         protected Vector2 GetHintDrawPosition(DialogueLayoutContext context, Rectangle hitRect, string text, float scale = -1f) {
             if (scale < 0f) {
                 scale = context.HintScale;
@@ -293,24 +303,24 @@ namespace InnoVault.Narrative.Styling
             return new Vector2(hitRect.X + CommandHintHitPad, baseline - height);
         }
 
-        /// <summary>绘制最前景装饰（应保持在正文之上，默认无）。</summary>
+        /// <summary>绘制最前景装饰（应保持在正文之上，默认无）</summary>
         public virtual void DrawForegroundDecorations(SpriteBatch spriteBatch, DialogueLayoutContext context) { }
 
-        /// <summary>打字音效触发间隔（可见字符数）。0 表示禁用。</summary>
+        /// <summary>打字音效触发间隔（可见字符数），0 表示禁用</summary>
         public virtual int TypingSoundInterval => 4;
 
-        /// <summary>打字机每推进 <see cref="TypingSoundInterval"/> 个字符时播放。</summary>
+        /// <summary>打字机每推进 <see cref="TypingSoundInterval"/> 个字符时播放</summary>
         public virtual void PlayTypingSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.Typing);
 
-        /// <summary>切换自动播放后播放（<paramref name="autoMode"/> 为切换后的状态）。</summary>
+        /// <summary>切换自动播放后播放（<paramref name="autoMode"/> 为切换后的状态）</summary>
         public virtual void PlayToggleAutoSound(bool autoMode)
             => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.ToggleAuto(autoMode));
 
-        /// <summary>切换快进后播放（<paramref name="fastMode"/> 为切换后的状态）。</summary>
+        /// <summary>切换快进后播放（<paramref name="fastMode"/> 为切换后的状态）</summary>
         public virtual void PlayToggleFastSound(bool fastMode)
             => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.ToggleFast(fastMode));
 
-        /// <summary>点击「跳过至下一停顿点」时播放。</summary>
+        /// <summary>点击「跳过至下一停顿点」时播放</summary>
         public virtual void PlaySkipSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.Skip);
     }
 
