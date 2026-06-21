@@ -11,21 +11,21 @@ namespace InnoVault.Narrative.Presentation.Anchors
     {
         private static INarrativePanelAnchorProvider _provider;
 
-        /// <summary>注册当前主对话面板锚点提供者。</summary>
+        /// <summary>注册当前主对话面板锚点提供者</summary>
         public static void RegisterProvider(INarrativePanelAnchorProvider provider) {
             if (provider != null) {
                 _provider = provider;
             }
         }
 
-        /// <summary>注销当前锚点提供者。</summary>
+        /// <summary>注销当前锚点提供者</summary>
         public static void UnregisterProvider(INarrativePanelAnchorProvider provider) {
             if (_provider == provider) {
                 _provider = null;
             }
         }
 
-        /// <summary>清空锚点提供者（卸载 / 重置时使用）。</summary>
+        /// <summary>清空锚点提供者（卸载 / 重置时使用）</summary>
         internal static void ClearProvider() => _provider = null;
 
         /// <summary>当前对话框面板矩形，无则为 <see cref="Rectangle.Empty"/></summary>
