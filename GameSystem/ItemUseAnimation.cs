@@ -214,13 +214,13 @@ namespace InnoVault.GameSystem
         public static void ApplyAnchoredHold(Player player, float rotation, Vector2 anchorWorldPos, Vector2 spriteSize, Vector2 gripOffset, bool enableWalkFrameNudge = true) {
             int facing = player.direction;
 
-            //面朝左时精灵被水平镜像，旋转整体 +π 才能让枪口仍指向原方向；该角度同时决定精灵的绘制朝向。
+            //面朝左时精灵被水平镜像，旋转整体 +π 才能让枪口仍指向原方向；该角度同时决定精灵的绘制朝向
             //写入字段前规范到 [-π, π]：原版 PlayerFrame 按 itemRotation * direction 的阈值挑选躯干帧，
             //第三方插值模组也会对该字段做角度混合，二者都要求规范角而非带 2π 偏移的原始值
             float drawRotation = facing < 0 ? rotation + MathHelper.Pi : rotation;
             player.itemRotation = MathHelper.WrapAngle(drawRotation);
 
-            //沿枪管长轴把锚点从精灵中心推向手部：推移量 = 半个精灵长 + 固定握距。
+            //沿枪管长轴把锚点从精灵中心推向手部：推移量 = 半个精灵长 + 固定握距
             //此处取原始 rotation 的轴向即可——面朝左引入的 +π 翻转与方向符号在数学上正好相互抵消
             float reachAlongBarrel = spriteSize.X * 0.5f + GripPadding;
             Vector2 gripShift = rotation.ToRotationVector2() * -reachAlongBarrel;

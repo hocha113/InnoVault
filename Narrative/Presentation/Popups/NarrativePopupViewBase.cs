@@ -13,7 +13,7 @@ namespace InnoVault.Narrative.Presentation.Popups
 {
     /// <summary>
     /// 可复用的功能弹窗视图基座。负责读取当前 <see cref="PopupPayload"/>、
-    /// 处理领取 / 关闭意图，具体表现由 <see cref="PopupSkin"/> 负责。
+    /// 处理领取 / 关闭意图，具体表现由 <see cref="PopupSkin"/> 负责
     /// </summary>
     public abstract class NarrativePopupViewBase<TSelf> : NarrativePanelViewBase<TSelf>, INarrativeView
         where TSelf : NarrativePopupViewBase<TSelf>

@@ -164,13 +164,13 @@ namespace InnoVault.Narrative.Styling
         public virtual void Reset() { }
 
         /// <summary>自动播放提示文案，消费者可重写以接入本地化</summary>
-        protected virtual string ResolveAutoHint() => NarrativeUIText.Auto;
+        protected virtual string ResolveAutoHint() => "Auto";
         /// <summary>快进提示文案，消费者可重写以接入本地化</summary>
-        protected virtual string ResolveFastHint() => NarrativeUIText.Fast;
+        protected virtual string ResolveFastHint() => "Fast";
         /// <summary>跳过提示文案，消费者可重写以接入本地化</summary>
-        protected virtual string ResolveSkipHint() => NarrativeUIText.Skip;
+        protected virtual string ResolveSkipHint() => "Skip";
         /// <summary>继续提示文案，消费者可重写以接入本地化</summary>
-        protected virtual string ResolveContinueHint(bool hover) => NarrativeUIText.ContinueGlyph;
+        protected virtual string ResolveContinueHint(bool hover) => ">";
 
         /// <summary>布局底部命令提示的点击区域</summary>
         public virtual void LayoutCommandHints(DialogueLayoutContext context) {

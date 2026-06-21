@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -563,8 +563,8 @@ namespace InnoVault.GameSystem
         /// <param name="player"></param>
         /// <param name="target"></param>
         /// <param name="modifiers"></param>  
-        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法。
-        /// 返回<see langword="true"/>仅仅会继续执行原ModItem方法而阻止全局Item类的额外修改运行。
+        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法
+        /// 返回<see langword="true"/>仅仅会继续执行原ModItem方法而阻止全局Item类的额外修改运行
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool? On_ModifyHitNPC(Item item, Player player, NPC target, ref NPC.HitModifiers modifiers) {
             return null;
@@ -592,8 +592,8 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="item"></param>
         /// <param name="itemLoot"></param>
-        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法。
-        /// 返回<see langword="true"/>仅仅会继续执行原ModItem方法而阻止全局Item类的额外修改运行。
+        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法
+        /// 返回<see langword="true"/>仅仅会继续执行原ModItem方法而阻止全局Item类的额外修改运行
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool? On_ModifyItemLoot(Item item, ItemLoot itemLoot) {
             return null;
@@ -693,8 +693,8 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="item"></param>
         /// <param name="tooltips"></param>
-        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法。
-        /// 返回<see langword="true"/>仅仅会继续执行原ModItem方法而阻止全局Item类的额外修改运行。
+        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法
+        /// 返回<see langword="true"/>仅仅会继续执行原ModItem方法而阻止全局Item类的额外修改运行
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool? On_ModifyTooltips(Item item, List<TooltipLine> tooltips) {
             return null;
@@ -714,8 +714,8 @@ namespace InnoVault.GameSystem
         /// <param name="item"></param>
         /// <param name="player"></param>
         /// <param name="crit"></param>
-        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法。
-        /// 返回<see langword="true"/>仅仅会继续执行原ModItem方法而阻止全局Item类的额外修改运行。
+        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法
+        /// 返回<see langword="true"/>仅仅会继续执行原ModItem方法而阻止全局Item类的额外修改运行
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool? On_ModifyWeaponCrit(Item item, Player player, ref float crit) {
             return null;
@@ -732,7 +732,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 修改物品伤害数据
         /// </summary>
-        /// <returns>返回<see langword="true"/>仅仅会继续执行原ModItem方法与全局Item类的额外修改运行。
+        /// <returns>返回<see langword="true"/>仅仅会继续执行原ModItem方法与全局Item类的额外修改运行
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool On_ModifyWeaponDamage(Item item, Player player, ref StatModifier damage) {
             return true;
@@ -770,8 +770,8 @@ namespace InnoVault.GameSystem
         /// <param name="weapon"></param>
         /// <param name="ammo"></param>
         /// <param name="player"></param>
-        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法。
-        /// 返回<see langword="true"/>阻断后续香草代码的判定并让该次射击消耗弹药。
+        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModItem方法与G方法
+        /// 返回<see langword="true"/>阻断后续香草代码的判定并让该次射击消耗弹药
         /// 返回<see langword="false"/>阻断后续香草代码的判定并让该次射击不会消耗弹药</returns>
         /// <returns></returns>
         public virtual bool? On_CanConsumeAmmo(Item weapon, Item ammo, Player player) {
@@ -939,7 +939,7 @@ namespace InnoVault.GameSystem
         /// <param name="type"></param>
         /// <param name="damage"></param>
         /// <param name="knockback"></param>
-        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModNPC方法与G方法。
+        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModNPC方法与G方法
         /// 返回<see langword="true"/>将会阻断后续TML方法的运行，但执行原版默认的射击行为
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool? On_Shoot(Item item, Player player, EntitySource_ItemUse_WithAmmo source, Vector2 position, Vector2 velocity, int type, int damage, float knockback) {

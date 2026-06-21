@@ -15,7 +15,7 @@ namespace InnoVault.Narrative.Presentation.Choices
 {
     /// <summary>
     /// 可复用的叙事选择框视图基座。负责读取选项、滚动、悬停与点击选择，
-    /// 具体布局和绘制交给 <see cref="ChoiceSkin"/>。
+    /// 具体布局和绘制交给 <see cref="ChoiceSkin"/>
     /// </summary>
     public abstract class NarrativeChoiceViewBase<TSelf> : NarrativePanelViewBase<TSelf>, INarrativeView
         where TSelf : NarrativeChoiceViewBase<TSelf>

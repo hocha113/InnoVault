@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -262,8 +262,8 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <param name="npc"></param>
         /// <param name="modifiers"></param>
-        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModNPC方法与G方法。
-        /// 返回<see langword="true"/>仅仅会继续执行原ModNPC方法而阻止全局NPC类的额外修改运行。
+        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModNPC方法与G方法
+        /// 返回<see langword="true"/>仅仅会继续执行原ModNPC方法而阻止全局NPC类的额外修改运行
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool? On_ModifyIncomingHit(NPC npc, ref NPC.HitModifiers modifiers) {
             return null;
@@ -289,8 +289,8 @@ namespace InnoVault.GameSystem
         /// <param name="projectile"></param>
         /// <param name="hit"></param>
         /// <param name="damageDone"></param>
-        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModNPC方法与G方法。
-        /// 返回<see langword="true"/>仅仅会继续执行原ModNPC方法而阻止全局NPC类的额外修改运行。
+        /// <returns>返回<see langword="null"/>会继续执行原来的方法，包括原ModNPC方法与G方法
+        /// 返回<see langword="true"/>仅仅会继续执行原ModNPC方法而阻止全局NPC类的额外修改运行
         /// 返回<see langword="false"/>阻止后续所有修改的运行</returns>
         public virtual bool? On_OnHitByProjectile(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone) {
             return null;
@@ -560,7 +560,7 @@ namespace InnoVault.GameSystem
 
         #region NetWork
         /// <summary>
-        /// 用于网络同步，该方法在多人游戏中运行。
+        /// 用于网络同步，该方法在多人游戏中运行
         /// 使用位掩码仅发送非零的ai槽位，以减少高频同步时的带宽消耗
         /// </summary>
         /// <param name="writer"></param>
@@ -579,7 +579,7 @@ namespace InnoVault.GameSystem
             }
         }
         /// <summary>
-        /// 用于网络同步，该方法在多人游戏中运行。
+        /// 用于网络同步，该方法在多人游戏中运行
         /// 使用位掩码仅接收非零的ai槽位，与<see cref="NetSend"/>对应
         /// </summary>
         /// <param name="reader"></param>

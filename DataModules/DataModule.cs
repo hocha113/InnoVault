@@ -7,6 +7,7 @@ namespace InnoVault.DataModules
     /// 通用模块化保存单元。它是 InnoVault 的<b>独立数据系统</b>，不属于任何具体玩法子系统，<br/>
     /// 可服务叙事、任务、好感、科技树、解锁、世界事件、UI 数据等。<br/>
     /// 一个模块就是"一组带版本的可序列化字段"，由 <see cref="DataModuleStore"/> 聚合并持久化。<br/>
+    /// 该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-DataModules-System"/><br/>
     /// 模块类型本身继承 <see cref="VaultType{T}"/>，因此可被 InnoVault 统一发现、注册和检查 Key 冲突；<br/>
     /// 但 <see cref="DataModuleStore"/> 中保存的是按作用域创建的独立数据实例，而不是注册期的 VaultType 模板单例。<br/>
     /// 默认实现会反射序列化公共可读写属性与公共可写字段；支持常见标量、枚举、<c>Item</c>

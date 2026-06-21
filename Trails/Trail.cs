@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -639,7 +639,7 @@ namespace InnoVault.Trails
         public void Dispose() {
             ReleaseResources();
             //防止垃圾回收器调用析构函数。因为资源已被释放，不再需要调用析构函数
-            //这是一个优化操作，告诉垃圾回收器在对象被销毁时不需要调用析构函数。
+            //这是一个优化操作，告诉垃圾回收器在对象被销毁时不需要调用析构函数
             //这通常是在资源已经手动释放的情况下使用，以减少垃圾回收器的不必要开销
             //GC.SuppressFinalize(this);
         }

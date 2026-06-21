@@ -89,7 +89,7 @@ namespace InnoVault.Narrative.Composition
 
         /// <summary>
         /// 在该句台词开始时弹出物品奖励，并展示同一说话者的对话<br/>
-        /// 等价于 <c>Popup(Reward(...), blocking); Say(...)</c>（旧 ADV <c>AddReward</c> 语义）。
+        /// 等价于 <c>Popup(Reward(...), blocking); Say(...)</c>（旧 ADV <c>AddReward</c> 语义）
         /// </summary>
         public NarrativeComposer SayReward(
             CharacterId speaker,

@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -583,8 +583,8 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 提前于 TML 的方法执行，这样继承重写 <see cref="ItemOverride.On_AltFunctionUse"/> 便拥有阻断后续逻辑的能力，用于进行一些高级修改。
-        /// 若多个覆盖器返回了非空值，则优先返回最后一个非空值。
+        /// 提前于 TML 的方法执行，这样继承重写 <see cref="ItemOverride.On_AltFunctionUse"/> 便拥有阻断后续逻辑的能力，用于进行一些高级修改
+        /// 若多个覆盖器返回了非空值，则优先返回最后一个非空值
         /// </summary>
         public static bool OnAltFunctionUseHook(On_AltFunctionUse_Delegate orig, Item item, Player player) {
             if (item.IsAir) {
@@ -614,8 +614,8 @@ namespace InnoVault.GameSystem
             return orig.Invoke(item, player);
         }
         /// <summary>
-        /// 提前于 TML 的方法执行，这样继承重写 <see cref="ItemOverride.On_UpdateAccessory"/> 便拥有阻断后续逻辑的能力，用于进行一些高级修改。
-        /// 若任意一个覆盖器返回 <c>false</c>，则立即中止原方法执行。
+        /// 提前于 TML 的方法执行，这样继承重写 <see cref="ItemOverride.On_UpdateAccessory"/> 便拥有阻断后续逻辑的能力，用于进行一些高级修改
+        /// 若任意一个覆盖器返回 <c>false</c>，则立即中止原方法执行
         /// </summary>
         public static void OnUpdateAccessoryHook(On_UpdateAccessory_Delegate orig, Item item, Player player, bool hideVisual) {
             if (item.IsAir) {

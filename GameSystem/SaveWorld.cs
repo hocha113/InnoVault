@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using Terraria;
 
@@ -43,7 +43,7 @@ namespace InnoVault.GameSystem
         /// 扫描 VaultSave 根目录下 WorldDatas / TPDatas（含其 Backups 子目录）中失去对应原版 .wld 世界文件的存档：
         /// 1. world_*.nbt / tp_*.nbt
         /// 2. world_*.zip / tp_*.zip（含时间戳前缀：yyyy-MM-dd-world_... / yyyy-MM-dd-tp_...）
-        /// 将它们移动到 RootPath/Orphaned 目录，并删除该目录下超过保留天数 (默认7天) 未修改的 .nbt/.zip 文件。
+        /// 将它们移动到 RootPath/Orphaned 目录，并删除该目录下超过保留天数 (默认7天) 未修改的 .nbt/.zip 文件
         /// </summary>
         /// <param name="retentionDays">孤立文件保留天数，默认 7 天</param>
         /// <returns>被移动到 Orphaned 的文件数量</returns>

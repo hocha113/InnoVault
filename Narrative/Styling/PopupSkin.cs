@@ -29,7 +29,7 @@ namespace InnoVault.Narrative.Styling
         public virtual void DrawPanel(SpriteBatch spriteBatch, Rectangle panel, float alpha)
             => NarrativeSkinDraw.DrawPanel(spriteBatch, panel, new Color(16, 24, 36), new Color(80, 150, 210), alpha);
 
-        /// <summary>计算弹窗布局。</summary>
+        /// <summary>计算弹窗布局</summary>
         public virtual void Layout(Vector2 anchor, float openProgress, float globalTimer, PopupLayoutContext context, bool isClosing = false) {
             Vector2 size = PanelSize;
             Vector2 pos = new(anchor.X - size.X / 2f, anchor.Y - size.Y / 2f);
@@ -45,20 +45,25 @@ namespace InnoVault.Narrative.Styling
             context.GlobalTimer = globalTimer;
         }
 
-        /// <summary>每帧更新皮肤状态。默认无状态。</summary>
+        /// <summary>每帧更新皮肤状态。默认无状态</summary>
         public virtual void Update(PopupLayoutContext context) { }
 
-        /// <summary>样式切换或载荷变化时重置皮肤状态。</summary>
+        /// <summary>样式切换或载荷变化时重置皮肤状态</summary>
         public virtual void Reset() { }
 
-        /// <summary>绘制弹窗面板。</summary>
+        /// <summary>领取提示文案，消费者可重写以接入本地化</summary>
+        protected virtual string ResolveClaimHint() => "Click to claim";
+        /// <summary>继续提示文案，消费者可重写以接入本地化</summary>
+        protected virtual string ResolveContinueHint() => "Click to continue";
+
+        /// <summary>绘制弹窗面板</summary>
         public virtual void DrawPanel(SpriteBatch spriteBatch, PopupLayoutContext context)
             => DrawPanel(spriteBatch, context.PanelRect, context.Alpha);
 
-        /// <summary>绘制弹窗边框或前景框架。</summary>
+        /// <summary>绘制弹窗边框或前景框架</summary>
         public virtual void DrawFrame(SpriteBatch spriteBatch, PopupLayoutContext context) { }
 
-        /// <summary>绘制弹窗图标。</summary>
+        /// <summary>绘制弹窗图标</summary>
         public virtual void DrawIcon(SpriteBatch spriteBatch, PopupLayoutContext context) {
             if (context.IconItemType <= 0) {
                 return;
@@ -80,7 +85,7 @@ namespace InnoVault.Narrative.Styling
                 size: 1.4f * (iconScaleEase + bounce), color: Color.White * iconAlpha);
         }
 
-        /// <summary>绘制标题。</summary>
+        /// <summary>绘制标题</summary>
         public virtual void DrawTitle(SpriteBatch spriteBatch, PopupLayoutContext context) {
             if (string.IsNullOrEmpty(context.Title)) {
                 return;
@@ -92,7 +97,7 @@ namespace InnoVault.Narrative.Styling
                 new Vector2(context.TitleRect.Center.X - size.X / 2f, context.TitleRect.Y), TitleColor * contentAlpha, 0.8f);
         }
 
-        /// <summary>绘制正文。</summary>
+        /// <summary>绘制正文</summary>
         public virtual void DrawBody(SpriteBatch spriteBatch, PopupLayoutContext context) {
             if (string.IsNullOrEmpty(context.Body)) {
                 return;
@@ -104,9 +109,9 @@ namespace InnoVault.Narrative.Styling
                 new Vector2(context.BodyRect.Center.X - size.X / 2f, context.BodyRect.Y), BodyColor * contentAlpha, 0.7f);
         }
 
-        /// <summary>绘制底部提示。</summary>
+        /// <summary>绘制底部提示</summary>
         public virtual void DrawHint(SpriteBatch spriteBatch, PopupLayoutContext context) {
-            string hint = context.RequireClaim ? NarrativeUIText.ClaimHint : NarrativeUIText.ContinueHint;
+            string hint = context.RequireClaim ? ResolveClaimHint() : ResolveContinueHint();
             Vector2 hintSize = context.Font.MeasureString(hint) * 0.6f;
             float blink = (float)(Math.Sin(context.GlobalTimer * 6f) * 0.5 + 0.5);
             float contentAlpha = MathHelper.Clamp(context.ContentAppear, 0f, 1f) * context.Alpha;
@@ -115,16 +120,16 @@ namespace InnoVault.Narrative.Styling
                 HintColor * (contentAlpha * (0.6f + blink * 0.4f)), 0.6f);
         }
 
-        /// <summary>绘制粒子或额外装饰。</summary>
+        /// <summary>绘制粒子或额外装饰</summary>
         public virtual void DrawParticles(SpriteBatch spriteBatch, PopupLayoutContext context) { }
 
-        /// <summary>弹窗载荷出现时播放（对齐 ADV 奖励框弹出）。</summary>
+        /// <summary>弹窗载荷出现时播放（对齐 ADV 奖励框弹出）</summary>
         public virtual void PlayOpenSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.PopupOpen);
 
-        /// <summary>玩家点击领取 / 确认时播放。</summary>
+        /// <summary>玩家点击领取 / 确认时播放</summary>
         public virtual void PlayClaimSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.PopupClaim);
 
-        /// <summary>奖励物品实际发放后播放。</summary>
+        /// <summary>奖励物品实际发放后播放</summary>
         public virtual void PlayGrantSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.RewardGrant);
     }
 

@@ -799,7 +799,7 @@ namespace InnoVault.Models3D.Gltf
 
         private static Matrix MatrixFromArray(float[] m) {
             //glTF stores matrices column-major. XNA's row-vector transform expects the same
-            //contiguous values in M11..M44 for equivalent Vector3.Transform behavior.
+            //contiguous values in M11..M44 for equivalent Vector3.Transform behavior
             return new Matrix(
                 m[0], m[1], m[2], m[3],
                 m[4], m[5], m[6], m[7],

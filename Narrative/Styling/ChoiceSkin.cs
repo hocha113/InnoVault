@@ -23,19 +23,19 @@ namespace InnoVault.Narrative.Styling
         public virtual Color DisabledTextColor => new(110, 110, 120);
         /// <summary>悬停高亮颜色</summary>
         public virtual Color HighlightColor => new(120, 200, 255);
-        /// <summary>最多可见选项数。</summary>
+        /// <summary>最多可见选项数</summary>
         public virtual int MaxVisibleOptions => 8;
-        /// <summary>面板内边距。</summary>
+        /// <summary>面板内边距</summary>
         public virtual float Padding => 14f;
-        /// <summary>选项高度。</summary>
+        /// <summary>选项高度</summary>
         public virtual float OptionHeight => 32f;
-        /// <summary>选项间距。</summary>
+        /// <summary>选项间距</summary>
         public virtual float OptionSpacing => 8f;
-        /// <summary>标题区域高度。</summary>
+        /// <summary>标题区域高度</summary>
         public virtual float TitleHeight => 24f;
-        /// <summary>最小面板宽度。</summary>
+        /// <summary>最小面板宽度</summary>
         public virtual float MinWidth => 200f;
-        /// <summary>最大面板宽度。</summary>
+        /// <summary>最大面板宽度</summary>
         public virtual float MaxWidth => 440f;
 
         /// <summary>绘制选项面板背景</summary>
@@ -53,7 +53,7 @@ namespace InnoVault.Narrative.Styling
             }
         }
 
-        /// <summary>计算选择框布局。</summary>
+        /// <summary>计算选择框布局</summary>
         public virtual void Layout(DynamicSpriteFont font, Vector2 anchor, float openProgress, int scrollOffset,
             bool timedActive, float timedProgress, float globalTimer, ChoiceLayoutContext context, bool isClosing = false) {
             context.Font = font;
@@ -66,7 +66,7 @@ namespace InnoVault.Narrative.Styling
             context.Alpha = NarrativePanelMotion.ResolveAlpha(openProgress, NarrativePanelMotion.Profile.Choice);
             context.GlobalTimer = globalTimer;
 
-            float maxTextWidth = font.MeasureString(NarrativeUIText.ChoiceTitle).X * 0.85f;
+            float maxTextWidth = font.MeasureString(ResolveChoiceTitle()).X * 0.85f;
             foreach (ChoiceOptionPresentation option in context.Options) {
                 string text = GetOptionDisplayText(option);
                 float width = font.MeasureString(text).X * TextScale;
@@ -92,33 +92,36 @@ namespace InnoVault.Narrative.Styling
             }
         }
 
-        /// <summary>每帧更新皮肤状态。默认无状态。</summary>
+        /// <summary>每帧更新皮肤状态。默认无状态</summary>
         public virtual void Update(ChoiceLayoutContext context) { }
 
-        /// <summary>样式切换或选项列表变化时重置皮肤状态。</summary>
+        /// <summary>样式切换或选项列表变化时重置皮肤状态</summary>
         public virtual void Reset() { }
 
-        /// <summary>绘制选择框面板。</summary>
+        /// <summary>选择框标题文案，消费者可重写以接入本地化</summary>
+        protected virtual string ResolveChoiceTitle() => "Choose";
+
+        /// <summary>绘制选择框面板</summary>
         public virtual void DrawPanel(SpriteBatch spriteBatch, ChoiceLayoutContext context)
             => DrawPanel(spriteBatch, context.PanelRect, context.Alpha);
 
-        /// <summary>绘制面板背景之上的装饰（粒子等，位于选项文字下方）。</summary>
+        /// <summary>绘制面板背景之上的装饰（粒子等，位于选项文字下方）</summary>
         public virtual void DrawBackgroundDecorations(SpriteBatch spriteBatch, ChoiceLayoutContext context) { }
 
-        /// <summary>绘制标题。</summary>
+        /// <summary>绘制标题</summary>
         public virtual void DrawTitle(SpriteBatch spriteBatch, ChoiceLayoutContext context) {
             DrawTitleDecoration(spriteBatch, context);
-            Utils.DrawBorderString(spriteBatch, NarrativeUIText.ChoiceTitle, context.TitleRect.Location.ToVector2(), HighlightColor * context.Alpha, 0.85f);
+            Utils.DrawBorderString(spriteBatch, ResolveChoiceTitle(), context.TitleRect.Location.ToVector2(), HighlightColor * context.Alpha, 0.85f);
         }
 
-        /// <summary>绘制标题装饰。</summary>
+        /// <summary>绘制标题装饰</summary>
         public virtual void DrawTitleDecoration(SpriteBatch spriteBatch, ChoiceLayoutContext context) { }
 
-        /// <summary>绘制标题分割线。</summary>
+        /// <summary>绘制标题分割线</summary>
         public virtual void DrawDivider(SpriteBatch spriteBatch, ChoiceLayoutContext context)
             => NarrativeSkinDraw.FillRect(spriteBatch, context.DividerRect, HighlightColor * (context.Alpha * 0.45f));
 
-        /// <summary>绘制全部可见选项。</summary>
+        /// <summary>绘制全部可见选项</summary>
         public virtual void DrawOptions(SpriteBatch spriteBatch, ChoiceLayoutContext context) {
             for (int i = 0; i < context.OptionRects.Count; i++) {
                 int optionIndex = context.ScrollOffset + i;
@@ -133,11 +136,11 @@ namespace InnoVault.Narrative.Styling
             }
         }
 
-        /// <summary>绘制单个选项背景。</summary>
+        /// <summary>绘制单个选项背景</summary>
         public virtual void DrawOptionBackground(SpriteBatch spriteBatch, ChoiceLayoutContext context, ChoiceOptionPresentation option, Rectangle rect, int optionIndex, float hover)
             => DrawOption(spriteBatch, rect, option.Enabled, hover, context.Alpha);
 
-        /// <summary>绘制单个选项文字。</summary>
+        /// <summary>绘制单个选项文字</summary>
         public virtual void DrawOptionText(SpriteBatch spriteBatch, ChoiceLayoutContext context, ChoiceOptionPresentation option, Rectangle rect, int optionIndex, float hover) {
             string text = GetOptionDisplayText(option);
             Color textColor = option.Enabled ? TextColor : DisabledTextColor;
@@ -145,7 +148,7 @@ namespace InnoVault.Narrative.Styling
             Utils.DrawBorderString(spriteBatch, text, textPos, textColor * context.Alpha, TextScale);
         }
 
-        /// <summary>绘制滚动提示。</summary>
+        /// <summary>绘制滚动提示</summary>
         public virtual void DrawScrollHints(SpriteBatch spriteBatch, ChoiceLayoutContext context) {
             if (!context.HasScroll) {
                 return;
@@ -160,7 +163,7 @@ namespace InnoVault.Narrative.Styling
             }
         }
 
-        /// <summary>绘制限时指示。</summary>
+        /// <summary>绘制限时指示</summary>
         public virtual void DrawTimedIndicator(SpriteBatch spriteBatch, ChoiceLayoutContext context) {
             if (!context.TimedActive) {
                 return;
@@ -171,10 +174,10 @@ namespace InnoVault.Narrative.Styling
             NarrativeSkinDraw.FillRect(spriteBatch, bar, color * context.Alpha);
         }
 
-        /// <summary>绘制最前景装饰（应保持在选项文字之上，默认无）。</summary>
+        /// <summary>绘制最前景装饰（应保持在选项文字之上，默认无）</summary>
         public virtual void DrawForegroundDecorations(SpriteBatch spriteBatch, ChoiceLayoutContext context) { }
 
-        /// <summary>获取选项展示文本（含禁用提示）。</summary>
+        /// <summary>获取选项展示文本（含禁用提示）</summary>
         protected virtual string GetOptionDisplayText(ChoiceOptionPresentation option) {
             if (!option.Enabled && !string.IsNullOrEmpty(option.DisabledHint)) {
                 return $"{option.Text} ({option.DisabledHint})";
@@ -182,10 +185,10 @@ namespace InnoVault.Narrative.Styling
             return option.Text ?? string.Empty;
         }
 
-        /// <summary>点击有效选项时播放。</summary>
+        /// <summary>点击有效选项时播放</summary>
         public virtual void PlaySelectSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.ChoiceSelect);
 
-        /// <summary>点击禁用选项时播放。</summary>
+        /// <summary>点击禁用选项时播放</summary>
         public virtual void PlayDisabledSelectSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.ChoiceDisabled);
     }
 

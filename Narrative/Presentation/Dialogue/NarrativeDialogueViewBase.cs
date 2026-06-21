@@ -15,7 +15,7 @@ namespace InnoVault.Narrative.Presentation.Dialogue
 {
     /// <summary>
     /// 可复用的叙事对话视图基座。它负责读取 <see cref="NarrativeSession"/>、
-    /// 处理输入意图、回填文本布局，并把实际视觉表现交给 <see cref="DialogueSkin"/>。
+    /// 处理输入意图、回填文本布局，并把实际视觉表现交给 <see cref="DialogueSkin"/>
     /// </summary>
     public abstract class NarrativeDialogueViewBase<TSelf> : NarrativePanelViewBase<TSelf>, INarrativeView, INarrativePanelAnchorProvider
         where TSelf : NarrativeDialogueViewBase<TSelf>
@@ -154,7 +154,7 @@ namespace InnoVault.Narrative.Presentation.Dialogue
         }
 
         private void UpdateLineLayout(LinePresentation line, DynamicSpriteFont font) {
-            // TextRect 已是屏幕像素宽度；WrapText 内部会再除以 TextScale，勿重复缩放。
+            // TextRect 已是屏幕像素宽度；WrapText 内部会再除以 TextScale，勿重复缩放
             float width = Math.Max(60f, Layout.TextRect.Width);
             Layout.WrappedLines = VaultUtils.WrapText(line.Text ?? string.Empty, font, width, Layout.TextScale).ToArray();
 

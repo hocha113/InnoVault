@@ -668,7 +668,7 @@ namespace InnoVault.Narrative.Runtime
                 return;
             }
 
-            //若仍有未解析的非阻塞弹窗在展示，则推迟真正完成，等其领取 / 关闭后再结束。
+            //若仍有未解析的非阻塞弹窗在展示，则推迟真正完成，等其领取 / 关闭后再结束
             //（阻塞弹窗不会走到这里：它把流程挂在 AwaitingPopup，解析后才继续推进）
             if (ActivePopup != null || _popupQueue.Count > 0) {
                 _completionPending = true;

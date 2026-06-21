@@ -1,4 +1,4 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -299,7 +299,7 @@ namespace InnoVault.TileProcessors
         public bool CheckDeath() => TileProcessorSystem.TileProcessorIsDead(this);
 
         /// <summary>
-        /// 重写这个函数设置一些特殊的死亡事件或者整理数据逻辑。
+        /// 重写这个函数设置一些特殊的死亡事件或者整理数据逻辑
         /// 一般不直接调用这个函数而是调用<see cref="Kill"/>
         /// </summary>
         public virtual void OnKill() { }

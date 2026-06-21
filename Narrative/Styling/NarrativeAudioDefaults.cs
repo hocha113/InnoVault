@@ -5,7 +5,7 @@ namespace InnoVault.Narrative.Styling
 {
     /// <summary>
     /// Narrative 默认音效参数，对齐 CWR ADV 原型（<c>DialogueBoxBase</c> / <c>ADVRewardPopup</c> / <c>ADVChoiceBox</c>）。<br/>
-    /// Consumer 可在 <see cref="DialogueSkin"/> / <see cref="PopupSkin"/> / <see cref="ChoiceSkin"/> 中重载播放方法以替换音色。
+    /// Consumer 可在 <see cref="DialogueSkin"/> / <see cref="PopupSkin"/> / <see cref="ChoiceSkin"/> 中重载播放方法以替换音色
     /// </summary>
     public static class NarrativeAudioDefaults
     {
@@ -38,7 +38,7 @@ namespace InnoVault.Narrative.Styling
         /// <summary>选项禁用点击</summary>
         public static SoundStyle ChoiceDisabled => SoundID.MenuClose with { Pitch = -0.3f };
 
-        /// <summary>播放音效。</summary>
+        /// <summary>播放音效</summary>
         public static void Play(SoundStyle style) => SoundEngine.PlaySound(style);
     }
 }

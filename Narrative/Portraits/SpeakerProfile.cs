@@ -22,7 +22,7 @@ namespace InnoVault.Narrative.Portraits
         public bool Silhouette { get; set; }
         /// <summary>默认表情立绘解析器</summary>
         public Func<Texture2D> DefaultPortrait { get; set; }
-        /// <summary>默认表情立绘裁剪区域解析器；<see langword="null"/> 表示绘制整张纹理。</summary>
+        /// <summary>默认表情立绘裁剪区域解析器；<see langword="null"/> 表示绘制整张纹理</summary>
         public Func<Rectangle?> DefaultPortraitSource { get; set; }
 
         private readonly Dictionary<ExpressionId, Func<Texture2D>> _expressions = [];
@@ -115,7 +115,7 @@ namespace InnoVault.Narrative.Portraits
             return DefaultPortrait?.Invoke();
         }
 
-        /// <summary>解析指定表情的裁剪区域，缺省回退默认表情裁剪区域。</summary>
+        /// <summary>解析指定表情的裁剪区域，缺省回退默认表情裁剪区域</summary>
         public Rectangle? ResolvePortraitSource(ExpressionId expression) {
             if (!expression.IsDefault && _expressionSources.TryGetValue(expression, out var resolver)) {
                 return resolver?.Invoke();
