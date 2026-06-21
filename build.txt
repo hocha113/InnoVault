@@ -2,5 +2,5 @@
 author = HoCha113
 homepage = https://github.com/hocha113/InnoVault/wiki
 buildIgnore = .git\*, Doc\*, .editorconfig, .gitignore, *.ps1
-version = 1.9.96
+version = 1.9.97
 includeSource = true
