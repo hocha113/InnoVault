@@ -153,7 +153,8 @@ namespace InnoVault.Narrative.Presentation.Dialogue
         }
 
         private void UpdateLineLayout(LinePresentation line, DynamicSpriteFont font) {
-            float width = Math.Max(60f, Layout.TextRect.Width / Math.Max(0.01f, Layout.TextScale));
+            // TextRect 已是屏幕像素宽度；WrapText 内部会再除以 TextScale，勿重复缩放。
+            float width = Math.Max(60f, Layout.TextRect.Width);
             Layout.WrappedLines = VaultUtils.WrapText(line.Text ?? string.Empty, font, width, Layout.TextScale).ToArray();
 
             int total = 0;

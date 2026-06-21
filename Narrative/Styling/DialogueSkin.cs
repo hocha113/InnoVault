@@ -36,6 +36,8 @@ namespace InnoVault.Narrative.Styling
         public virtual Color SilhouetteColor => new(12, 18, 28);
         /// <summary>面板内边距</summary>
         public virtual float Padding => 18f;
+        /// <summary>正文区额外水平收窄（像素），为 shader 六角/斜切内缘留白。</summary>
+        public virtual float TextWrapInset => 0f;
         /// <summary>文本行距</summary>
         public virtual float LineSpacing => 6f;
         /// <summary>头像区域大小</summary>
@@ -84,7 +86,7 @@ namespace InnoVault.Narrative.Styling
             context.NameScale = NameScale;
             context.HintScale = HintScale;
 
-            float textAreaWidth = PanelWidth - Padding * 2f - (context.HasPortrait ? PortraitSize + PortraitGap : 0f);
+            float textAreaWidth = PanelWidth - Padding * 2f - TextWrapInset - (context.HasPortrait ? PortraitSize + PortraitGap : 0f);
             if (textAreaWidth < 60f) {
                 textAreaWidth = 60f;
             }
@@ -119,13 +121,15 @@ namespace InnoVault.Narrative.Styling
                 context.PortraitRect = Rectangle.Empty;
             }
 
-            context.SpeakerRect = new Rectangle((int)textLeft, (int)(context.PanelRect.Y + Padding - 2f), (int)(context.PanelRect.Right - textLeft - Padding), (int)HeaderHeight);
+            int textRight = context.PanelRect.Right - (int)Padding - (int)TextWrapInset;
+            int textColumnWidth = Math.Max(0, textRight - (int)textLeft);
+            context.SpeakerRect = new Rectangle((int)textLeft, (int)(context.PanelRect.Y + Padding - 2f), textColumnWidth, (int)HeaderHeight);
             int textTop = (int)(context.PanelRect.Y + Padding + HeaderHeight);
             int textHeight = (int)(context.PanelRect.Bottom - hintReserve - textTop);
             if (textHeight < 0) {
                 textHeight = 0;
             }
-            context.TextRect = new Rectangle((int)textLeft, textTop, (int)(context.PanelRect.Right - textLeft - Padding), textHeight);
+            context.TextRect = new Rectangle((int)textLeft, textTop, textColumnWidth, textHeight);
             context.LineHeight = lineHeight;
 
             LayoutCommandHints(context);
