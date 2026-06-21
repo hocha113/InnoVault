@@ -1,5 +1,6 @@
 using InnoVault.Narrative.Core;
 using InnoVault.Narrative.Services;
+using InnoVault.Narrative.Styling;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -70,6 +71,7 @@ namespace InnoVault.Narrative.Runtime
         private int _popupIntent;
         private bool _toggleAuto;
         private bool _toggleFast;
+        private int _lastTypedSoundChar;
         /// <summary>选项悬停下标（视图写入，仅供皮肤高亮，不影响逻辑）</summary>
         public int ChoiceHoverIndex { get; set; } = -1;
 
@@ -157,12 +159,14 @@ namespace InnoVault.Narrative.Runtime
                 Options.AutoMode = !Options.AutoMode;
                 Options.FastMode = false;
                 _autoTimer = 0f;
+                StyleRegistry.GetDialogue(Style).PlayToggleAutoSound(Options.AutoMode);
             }
             if (_toggleFast) {
                 _toggleFast = false;
                 Options.FastMode = !Options.FastMode;
                 Options.AutoMode = false;
                 _autoTimer = 0f;
+                StyleRegistry.GetDialogue(Style).PlayToggleFastSound(Options.FastMode);
             }
 
             if (ActivePopup != null) {
@@ -259,6 +263,7 @@ namespace InnoVault.Narrative.Runtime
 
         private void BeginLine(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed) {
             Line.Begin(speaker, expression, text, timed);
+            _lastTypedSoundChar = 0;
             DialogueVisible = true;
             Phase = NarrativeSessionPhase.Playing;
             _autoTimer = 0f;
@@ -322,21 +327,25 @@ namespace InnoVault.Narrative.Runtime
                 if (line.VisibleChars > line.TotalChars) {
                     line.VisibleChars = line.TotalChars;
                 }
+                TryPlayTypingSounds(line);
             }
 
             //点击 / 跳过：未打完则补全
             if (_advanceRequested && line.LayoutReady && !line.Finished) {
                 _advanceRequested = false;
                 line.RevealAll();
+                SyncTypingSoundAfterReveal(line);
             }
             if (_skipRequested) {
                 _skipRequested = false;
                 if (line.LayoutReady && !line.Finished) {
                     line.RevealAll();
+                    SyncTypingSoundAfterReveal(line);
                 }
             }
             if (_skipToNextStopRequested && line.LayoutReady && !line.Finished) {
                 line.RevealAll();
+                SyncTypingSoundAfterReveal(line);
             }
 
             if (!line.Finished) {
@@ -590,6 +599,9 @@ namespace InnoVault.Narrative.Runtime
             if (intent == PopupIntentClaim) {
                 SafeInvoke(() => payload.OnClaimed(LocalPlayer), "Popup.OnClaimed");
                 LastPopupResult = PopupResolution.Claimed;
+                if (payload is RewardPayload reward && reward.ItemType > 0) {
+                    StyleRegistry.GetPopup(Style).PlayGrantSound();
+                }
             }
             else if (intent == PopupIntentDismiss) {
                 SafeInvoke(() => payload.OnDismissed(LocalPlayer), "Popup.OnDismissed");
@@ -666,6 +678,32 @@ namespace InnoVault.Narrative.Runtime
                 VaultMod.Instance.Logger.Error($"Narrative scenario '{Key}' {context} threw: {ex}");
                 return fallback;
             }
+        }
+
+        private void TryPlayTypingSounds(LinePresentation line) {
+            int visible = line.VisibleCharCount;
+            if (visible <= _lastTypedSoundChar) {
+                return;
+            }
+
+            DialogueSkin skin = StyleRegistry.GetDialogue(Style);
+            int interval = skin.TypingSoundInterval;
+            if (interval <= 0) {
+                _lastTypedSoundChar = visible;
+                return;
+            }
+
+            for (int c = _lastTypedSoundChar + 1; c <= visible; c++) {
+                if (c % interval == 0) {
+                    skin.PlayTypingSound();
+                }
+            }
+
+            _lastTypedSoundChar = visible;
+        }
+
+        private void SyncTypingSoundAfterReveal(LinePresentation line) {
+            _lastTypedSoundChar = line.VisibleCharCount;
         }
     }
 }

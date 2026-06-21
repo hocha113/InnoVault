@@ -30,6 +30,7 @@ namespace InnoVault.Narrative.Presentation.Popups
 
         private PopupPayload _lastPayload;
         private PopupSkin _lastSkin;
+        private bool _openSoundPlayed;
 
         /// <inheritdoc/>
         public override LayersModeEnum LayersMode => LayersModeEnum.Vanilla_Mouse_Text;
@@ -82,9 +83,14 @@ namespace InnoVault.Narrative.Presentation.Popups
             if (!ReferenceEquals(payload, _lastPayload)) {
                 _lastPayload = payload;
                 State.Reset();
+                _openSoundPlayed = false;
                 if (!skinChanged) {
                     Skin.Reset();
                 }
+            }
+            if (!_openSoundPlayed) {
+                Skin.PlayOpenSound();
+                _openSoundPlayed = true;
             }
             Layout.Payload = payload;
             Layout.State = State;
@@ -140,6 +146,7 @@ namespace InnoVault.Narrative.Presentation.Popups
             }
 
             if (Layout.RequireClaim) {
+                Skin.PlayClaimSound();
                 session.ClaimPopup();
             }
             else {

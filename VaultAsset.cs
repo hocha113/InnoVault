@@ -1,5 +1,6 @@
 ﻿using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
+using Terraria.Audio;
 
 namespace InnoVault
 {
@@ -7,7 +8,7 @@ namespace InnoVault
     /// 存储一些资源
     /// </summary>
     [VaultLoaden("Assets/")]
-    public class VaultAsset : IVaultLoader
+    public static class VaultAsset
     {
         /// <summary>
         /// 透明素材无填充

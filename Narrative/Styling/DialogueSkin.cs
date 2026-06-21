@@ -8,6 +8,7 @@ using ReLogic.Graphics;
 using System;
 using System.Linq;
 using Terraria;
+using Terraria.Audio;
 using Terraria.GameContent;
 
 namespace InnoVault.Narrative.Styling
@@ -293,6 +294,23 @@ namespace InnoVault.Narrative.Styling
 
         /// <summary>绘制最前景装饰（应保持在正文之上，默认无）。</summary>
         public virtual void DrawForegroundDecorations(SpriteBatch spriteBatch, DialogueLayoutContext context) { }
+
+        /// <summary>打字音效触发间隔（可见字符数）。0 表示禁用。</summary>
+        public virtual int TypingSoundInterval => 4;
+
+        /// <summary>打字机每推进 <see cref="TypingSoundInterval"/> 个字符时播放。</summary>
+        public virtual void PlayTypingSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.Typing);
+
+        /// <summary>切换自动播放后播放（<paramref name="autoMode"/> 为切换后的状态）。</summary>
+        public virtual void PlayToggleAutoSound(bool autoMode)
+            => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.ToggleAuto(autoMode));
+
+        /// <summary>切换快进后播放（<paramref name="fastMode"/> 为切换后的状态）。</summary>
+        public virtual void PlayToggleFastSound(bool fastMode)
+            => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.ToggleFast(fastMode));
+
+        /// <summary>点击「跳过至下一停顿点」时播放。</summary>
+        public virtual void PlaySkipSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.Skip);
     }
 
     /// <summary>框架内置的朴素默认对话框皮肤</summary>

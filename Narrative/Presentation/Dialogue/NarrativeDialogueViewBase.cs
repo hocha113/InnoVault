@@ -230,6 +230,7 @@ namespace InnoVault.Narrative.Presentation.Dialogue
                 return;
             }
             if (Layout.ShowHints && Layout.HoverSkip) {
+                StyleRegistry.GetDialogue(session.Style).PlaySkipSound();
                 session.RequestSkipToNextStop();
                 return;
             }

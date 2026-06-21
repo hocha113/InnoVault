@@ -129,8 +129,14 @@ namespace InnoVault.Narrative.Presentation.Choices
                 if (Layout.OptionRects[i].Contains(mouse)) {
                     int optionIndex = Layout.ScrollOffset + i;
                     Layout.HoverIndex = optionIndex;
-                    if (pressed && optionIndex < Layout.Options.Count && Layout.Options[optionIndex].Enabled) {
-                        session.SelectChoice(optionIndex);
+                    if (pressed && optionIndex < Layout.Options.Count) {
+                        if (Layout.Options[optionIndex].Enabled) {
+                            Skin.PlaySelectSound();
+                            session.SelectChoice(optionIndex);
+                        }
+                        else {
+                            Skin.PlayDisabledSelectSound();
+                        }
                     }
                     break;
                 }

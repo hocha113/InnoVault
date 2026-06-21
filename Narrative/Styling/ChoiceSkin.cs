@@ -6,6 +6,7 @@ using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Graphics;
 using System;
 using Terraria;
+using Terraria.Audio;
 using Terraria.GameContent;
 
 namespace InnoVault.Narrative.Styling
@@ -182,6 +183,12 @@ namespace InnoVault.Narrative.Styling
             }
             return option.Text ?? string.Empty;
         }
+
+        /// <summary>点击有效选项时播放。</summary>
+        public virtual void PlaySelectSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.ChoiceSelect);
+
+        /// <summary>点击禁用选项时播放。</summary>
+        public virtual void PlayDisabledSelectSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.ChoiceDisabled);
     }
 
     /// <summary>框架内置的朴素默认选择框皮肤</summary>

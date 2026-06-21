@@ -5,6 +5,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using Terraria;
+using Terraria.Audio;
 using Terraria.GameContent;
 
 namespace InnoVault.Narrative.Styling
@@ -119,6 +120,15 @@ namespace InnoVault.Narrative.Styling
 
         /// <summary>绘制粒子或额外装饰。</summary>
         public virtual void DrawParticles(SpriteBatch spriteBatch, PopupLayoutContext context) { }
+
+        /// <summary>弹窗载荷出现时播放（对齐 ADV 奖励框弹出）。</summary>
+        public virtual void PlayOpenSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.PopupOpen);
+
+        /// <summary>玩家点击领取 / 确认时播放。</summary>
+        public virtual void PlayClaimSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.PopupClaim);
+
+        /// <summary>奖励物品实际发放后播放。</summary>
+        public virtual void PlayGrantSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.RewardGrant);
     }
 
     /// <summary>框架内置的朴素默认弹窗皮肤</summary>
