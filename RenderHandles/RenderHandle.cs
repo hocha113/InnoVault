@@ -9,6 +9,7 @@ namespace InnoVault.RenderHandles
     /// <summary>
     /// 在系统中注册和管理渲染实例，提供自动管理的画布和 RT 对象，<br/>
     /// 每个绘制阶段对应一个独立的虚方法，实现者可同时重写多个阶段
+    /// <br/>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-RenderHandle-Pipeline"/>
     /// </summary>
     public abstract class RenderHandle : VaultType<RenderHandle>
     {

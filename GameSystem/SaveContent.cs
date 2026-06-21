@@ -123,6 +123,7 @@ namespace InnoVault.GameSystem
 
     /// <summary>
     /// 用于基本保存内容的基类
+    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-SaveContent-Save-System"/></br>
     /// </summary>
     public abstract class SaveContent<T> : VaultType<SaveContent<T>> where T : SaveContent<T>
     {
