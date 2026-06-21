@@ -1,4 +1,5 @@
 using InnoVault.Narrative.Core;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -21,8 +22,11 @@ namespace InnoVault.Narrative.Portraits
         public bool Silhouette { get; set; }
         /// <summary>默认表情立绘解析器</summary>
         public Func<Texture2D> DefaultPortrait { get; set; }
+        /// <summary>默认表情立绘裁剪区域解析器；<see langword="null"/> 表示绘制整张纹理。</summary>
+        public Func<Rectangle?> DefaultPortraitSource { get; set; }
 
         private readonly Dictionary<ExpressionId, Func<Texture2D>> _expressions = [];
+        private readonly Dictionary<ExpressionId, Func<Rectangle?>> _expressionSources = [];
 
         /// <summary>创建一个角色档案</summary>
         public SpeakerProfile(CharacterId id) {
@@ -47,10 +51,42 @@ namespace InnoVault.Narrative.Portraits
             return this;
         }
 
+        /// <summary>设置默认表情立绘及裁剪区域</summary>
+        public SpeakerProfile Portrait(Func<Texture2D> portrait, Rectangle? sourceRect) {
+            DefaultPortrait = portrait;
+            DefaultPortraitSource = () => sourceRect;
+            return this;
+        }
+
+        /// <summary>设置默认表情立绘及延迟解析的裁剪区域</summary>
+        public SpeakerProfile Portrait(Func<Texture2D> portrait, Func<Rectangle?> sourceRect) {
+            DefaultPortrait = portrait;
+            DefaultPortraitSource = sourceRect;
+            return this;
+        }
+
         /// <summary>登记一个具名表情立绘</summary>
         public SpeakerProfile Expression(ExpressionId expression, Func<Texture2D> portrait) {
             if (portrait != null) {
                 _expressions[expression] = portrait;
+            }
+            return this;
+        }
+
+        /// <summary>登记一个具名表情立绘及裁剪区域</summary>
+        public SpeakerProfile Expression(ExpressionId expression, Func<Texture2D> portrait, Rectangle? sourceRect) {
+            if (portrait != null) {
+                _expressions[expression] = portrait;
+                _expressionSources[expression] = () => sourceRect;
+            }
+            return this;
+        }
+
+        /// <summary>登记一个具名表情立绘及延迟解析的裁剪区域</summary>
+        public SpeakerProfile Expression(ExpressionId expression, Func<Texture2D> portrait, Func<Rectangle?> sourceRect) {
+            if (portrait != null) {
+                _expressions[expression] = portrait;
+                _expressionSources[expression] = sourceRect;
             }
             return this;
         }
@@ -73,6 +109,14 @@ namespace InnoVault.Narrative.Portraits
                 return resolver?.Invoke();
             }
             return DefaultPortrait?.Invoke();
+        }
+
+        /// <summary>解析指定表情的裁剪区域，缺省回退默认表情裁剪区域。</summary>
+        public Rectangle? ResolvePortraitSource(ExpressionId expression) {
+            if (!expression.IsDefault && _expressionSources.TryGetValue(expression, out var resolver)) {
+                return resolver?.Invoke();
+            }
+            return DefaultPortraitSource?.Invoke();
         }
     }
 }

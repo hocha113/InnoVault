@@ -30,11 +30,10 @@ namespace InnoVault.Narrative.Styling
             => NarrativeSkinDraw.DrawPanel(spriteBatch, panel, new Color(16, 24, 36), new Color(80, 150, 210), alpha);
 
         /// <summary>计算弹窗布局。</summary>
-        public virtual void Layout(Vector2 anchor, float openProgress, float globalTimer, PopupLayoutContext context) {
+        public virtual void Layout(Vector2 anchor, float openProgress, float globalTimer, PopupLayoutContext context, bool isClosing = false) {
             Vector2 size = PanelSize;
-            float eased = VaultUtils.EaseOutCubic(openProgress);
             Vector2 pos = new(anchor.X - size.X / 2f, anchor.Y - size.Y / 2f);
-            pos.Y -= (1f - eased) * 30f;
+            pos.Y -= NarrativePanelMotion.ResolveSlide(openProgress, isClosing, NarrativePanelMotion.Profile.Popup);
 
             context.PanelRect = new Rectangle((int)pos.X, (int)pos.Y, (int)size.X, (int)size.Y);
             Vector2 center = context.PanelRect.Center.ToVector2();
@@ -42,7 +41,7 @@ namespace InnoVault.Narrative.Styling
             context.TitleRect = new Rectangle(context.PanelRect.X + 12, (int)(center.Y + 10f), context.PanelRect.Width - 24, 24);
             context.BodyRect = new Rectangle(context.PanelRect.X + 12, (int)(center.Y + 32f), context.PanelRect.Width - 24, 24);
             context.HintRect = new Rectangle(context.PanelRect.X + 10, context.PanelRect.Bottom - 28, context.PanelRect.Width - 20, 20);
-            context.Alpha = openProgress;
+            context.Alpha = NarrativePanelMotion.ResolveAlpha(openProgress, NarrativePanelMotion.Profile.Popup);
             context.GlobalTimer = globalTimer;
         }
 
@@ -71,10 +70,16 @@ namespace InnoVault.Narrative.Styling
                 return;
             }
 
+            float appear = MathHelper.Clamp(context.ContentAppear, 0f, 1f);
+            float ease = (float)Math.Sin(appear * MathHelper.PiOver2);
             float iconScale = Math.Min(48f / tex.Width, 48f / tex.Height);
-            float floatOff = (float)Math.Sin(context.GlobalTimer * 3f) * 3f;
-            Vector2 center = context.IconRect.Center.ToVector2() - new Vector2(0, floatOff);
-            spriteBatch.Draw(tex, center, null, Color.White * context.Alpha, 0f, tex.Size() / 2f, iconScale * 1.4f, SpriteEffects.None, 0f);
+            float iconScaleEase = MathHelper.Lerp(0.35f, 1f, ease);
+            float iconAlpha = appear * context.Alpha;
+            float bounce = (float)Math.Sin(MathHelper.Clamp(ease * 1.2f, 0f, 1f) * MathHelper.Pi) * 0.08f;
+            float floatOff = (float)Math.Sin(context.GlobalTimer * 3.2f + appear) * 4f * appear;
+            Vector2 center = context.IconRect.Center.ToVector2() + new Vector2(0f, -floatOff);
+            spriteBatch.Draw(tex, center, null, Color.White * iconAlpha, 0f, tex.Size() / 2f,
+                iconScale * 1.4f * (iconScaleEase + bounce), SpriteEffects.None, 0f);
         }
 
         /// <summary>绘制标题。</summary>
@@ -83,9 +88,10 @@ namespace InnoVault.Narrative.Styling
                 return;
             }
 
+            float contentAlpha = MathHelper.Clamp(context.ContentAppear, 0f, 1f) * context.Alpha;
             Vector2 size = context.Font.MeasureString(context.Title) * 0.8f;
             Utils.DrawBorderString(spriteBatch, context.Title,
-                new Vector2(context.TitleRect.Center.X - size.X / 2f, context.TitleRect.Y), TitleColor * context.Alpha, 0.8f);
+                new Vector2(context.TitleRect.Center.X - size.X / 2f, context.TitleRect.Y), TitleColor * contentAlpha, 0.8f);
         }
 
         /// <summary>绘制正文。</summary>
@@ -94,9 +100,10 @@ namespace InnoVault.Narrative.Styling
                 return;
             }
 
+            float contentAlpha = MathHelper.Clamp(context.ContentAppear, 0f, 1f) * context.Alpha;
             Vector2 size = context.Font.MeasureString(context.Body) * 0.7f;
             Utils.DrawBorderString(spriteBatch, context.Body,
-                new Vector2(context.BodyRect.Center.X - size.X / 2f, context.BodyRect.Y), BodyColor * context.Alpha, 0.7f);
+                new Vector2(context.BodyRect.Center.X - size.X / 2f, context.BodyRect.Y), BodyColor * contentAlpha, 0.7f);
         }
 
         /// <summary>绘制底部提示。</summary>
@@ -104,9 +111,10 @@ namespace InnoVault.Narrative.Styling
             string hint = context.RequireClaim ? NarrativeUIText.ClaimHint : NarrativeUIText.ContinueHint;
             Vector2 hintSize = context.Font.MeasureString(hint) * 0.6f;
             float blink = (float)(Math.Sin(context.GlobalTimer * 6f) * 0.5 + 0.5);
+            float contentAlpha = MathHelper.Clamp(context.ContentAppear, 0f, 1f) * context.Alpha;
             Utils.DrawBorderString(spriteBatch, hint,
                 new Vector2(context.HintRect.Right - hintSize.X, context.HintRect.Bottom - hintSize.Y),
-                HintColor * (context.Alpha * (0.6f + blink * 0.4f)), 0.6f);
+                HintColor * (contentAlpha * (0.6f + blink * 0.4f)), 0.6f);
         }
 
         /// <summary>绘制粒子或额外装饰。</summary>

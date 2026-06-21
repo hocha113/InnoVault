@@ -10,25 +10,23 @@ namespace InnoVault.Narrative.Demo
     /// </summary>
     internal sealed class NarrativeDemoScenario : NarrativeScenario
     {
-        private static readonly CharacterId Guide = CharacterId.ForMod("InnoVault", "Guide");
-
         /// <inheritdoc/>
         protected override void Build(NarrativeComposer n) {
-            n.Say(Guide, "Welcome to the InnoVault Narrative demo.")
-             .Say(Guide, "happy", "This line is tagged with a different expression id.")
-             .Choice(Guide, "Would you like a gift?", c => c
+            n.Say("Guide", "Welcome to the InnoVault Narrative demo.")
+             .Say("Guide", "happy", "This line is tagged with a different expression id.")
+             .Choice("Guide", "Would you like a gift?", c => c
                  .Option("yes", "Yes, please", NarrativeTarget.Goto("gift"))
                  .Option("no", "No thanks", NarrativeTarget.Goto("bye")))
 
-             .Label("gift").Say(Guide, "Here you go, take this.")
+             .Label("gift").Say("Guide", "Here you go, take this.")
              .Popup(new DemoRewardPayload { ItemType = ItemID.Wood, Stack = 10, Title = "Demo Reward" })
              .Popup(Popups.Message("Tip", "Popups can also be plain messages.").Claimable(false).Hold(2f), blocking: false)
-             .Say(Guide, "Hope you like it.")
+             .Say("Guide", "Hope you like it.")
              .Goto("end")
 
-             .Label("bye").Say(Guide, "No problem, maybe next time.")
+             .Label("bye").Say("Guide", "No problem, maybe next time.")
 
-             .Label("end").Say(Guide, "Demo complete. Thanks for trying the framework!");
+             .Label("end").Say("Guide", "Demo complete. Thanks for trying the framework!");
         }
     }
 }

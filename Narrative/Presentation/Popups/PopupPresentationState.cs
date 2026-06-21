@@ -15,6 +15,8 @@ namespace InnoVault.Narrative.Presentation.Popups
         public float Timer;
         public float Alpha;
         public float Scale = 1f;
+        /// <summary>图标与标题的出现进度 0~1。</summary>
+        public float Appear;
         public bool Hover;
 
         public void Reset() {
@@ -22,6 +24,7 @@ namespace InnoVault.Narrative.Presentation.Popups
             Timer = 0f;
             Alpha = 0f;
             Scale = 1f;
+            Appear = 0f;
             Hover = false;
         }
     }

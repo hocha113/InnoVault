@@ -19,5 +19,7 @@ namespace InnoVault.Narrative.Presentation.Dialogue
         public Vector2 Anchor { get; init; }
         public float OpenProgress { get; init; }
         public float GlobalTimer { get; init; }
+        /// <summary>是否处于关闭过渡。关闭时使用与打开不同的缓动曲线。</summary>
+        public bool IsClosing { get; init; }
     }
 }

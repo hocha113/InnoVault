@@ -60,6 +60,7 @@ namespace InnoVault.Narrative.Runtime
         private bool _popupBlocking;
         private int _settleGuard;
         private bool _completionPending;
+        private bool _completionDeferred;
 
         //—— UI 输入意图（由视图设置，运行时消费）——
         private bool _advanceRequested;
@@ -71,6 +72,12 @@ namespace InnoVault.Narrative.Runtime
         private bool _toggleFast;
         /// <summary>选项悬停下标（视图写入，仅供皮肤高亮，不影响逻辑）</summary>
         public int ChoiceHoverIndex { get; set; } = -1;
+
+        /// <summary>由视图注入：为 true 时阻止推进到下一句</summary>
+        public Func<bool> BlocksAdvance { get; set; }
+
+        /// <summary>由视图注入：为 true 时推迟场景完成（如全身立绘 burn-out）</summary>
+        public Func<bool> BlocksCompletion { get; set; }
 
         private static Player LocalPlayer => Main.LocalPlayer;
 
@@ -139,6 +146,12 @@ namespace InnoVault.Narrative.Runtime
             }
             _settleGuard = 0;
 
+            if (_completionDeferred && !IsCompletionBlocked()) {
+                _completionDeferred = false;
+                CompleteNow();
+                return;
+            }
+
             if (_toggleAuto) {
                 _toggleAuto = false;
                 Options.AutoMode = !Options.AutoMode;
@@ -178,6 +191,10 @@ namespace InnoVault.Narrative.Runtime
         }
 
         private NarrativeNode CurrentNode => Graph?.Get(_currentIndex);
+
+        private bool IsAdvanceBlocked() => BlocksAdvance?.Invoke() == true;
+
+        private bool IsCompletionBlocked() => BlocksCompletion?.Invoke() == true;
 
         private void Transition(int nextIndex) {
             SafeInvoke(CurrentNode?.OnExit, "OnExit");
@@ -340,10 +357,16 @@ namespace InnoVault.Narrative.Runtime
                 line.TimedRemainingTicks -= frames;
                 if (line.AllowManualAdvance && _advanceRequested) {
                     _advanceRequested = false;
+                    if (IsAdvanceBlocked()) {
+                        return;
+                    }
                     Transition(_currentIndex + 1);
                     return;
                 }
                 if (line.TimedRemainingTicks <= 0f) {
+                    if (IsAdvanceBlocked()) {
+                        return;
+                    }
                     SafeInvoke((CurrentNode as SayNode)?.Timed?.OnExpired, "Timed.OnExpired");
                     Transition(_currentIndex + 1);
                 }
@@ -352,11 +375,18 @@ namespace InnoVault.Narrative.Runtime
 
             if (_advanceRequested) {
                 _advanceRequested = false;
+                if (IsAdvanceBlocked()) {
+                    return;
+                }
                 Transition(_currentIndex + 1);
                 return;
             }
 
             if (Options.AutoMode || Options.FastMode) {
+                if (IsAdvanceBlocked()) {
+                    _autoTimer = 0f;
+                    return;
+                }
                 _autoTimer += frames;
                 float delay = Options.FastMode ? Options.FastAutoAdvanceDelay : Options.GetAutoDelay(line.TotalChars);
                 if (_autoTimer >= delay) {
@@ -370,31 +400,59 @@ namespace InnoVault.Narrative.Runtime
         }
 
         private bool TryAdvanceSkipToNextStop() {
-            NarrativeNode current = CurrentNode;
-            if (current == null) {
-                _skipToNextStopRequested = false;
-                return false;
+            int guard = 0;
+            bool advanced = false;
+
+            while (_skipToNextStopRequested && guard++ < 512) {
+                if (Phase is NarrativeSessionPhase.AwaitingPopup or NarrativeSessionPhase.AwaitingChoice) {
+                    _skipToNextStopRequested = false;
+                    return advanced;
+                }
+
+                NarrativeNode current = CurrentNode;
+                if (current == null) {
+                    _skipToNextStopRequested = false;
+                    return advanced;
+                }
+
+                if (current is ChoiceNode choice) {
+                    OpenChoices(choice);
+                    _skipToNextStopRequested = false;
+                    return true;
+                }
+
+                if (IsSkipStopNode(current)) {
+                    _skipToNextStopRequested = false;
+                    if (Line.LayoutReady && !Line.Finished && current is SayNode) {
+                        Line.RevealAll();
+                    }
+                    return advanced;
+                }
+
+                if (IsAdvanceBlocked()) {
+                    _skipToNextStopRequested = false;
+                    return advanced;
+                }
+
+                if (Graph?.Get(_currentIndex + 1) == null) {
+                    _skipToNextStopRequested = false;
+                    return advanced;
+                }
+
+                Transition(_currentIndex + 1);
+                advanced = true;
+
+                if (Phase == NarrativeSessionPhase.AwaitingPopup) {
+                    _skipToNextStopRequested = false;
+                    return true;
+                }
             }
 
-            if (current is ChoiceNode choice) {
-                OpenChoices(choice);
-                _skipToNextStopRequested = false;
-                return true;
+            if (guard >= 512) {
+                VaultMod.Instance.Logger.Warn($"Narrative scenario '{Key}' skip guard tripped.");
             }
 
-            if (IsSkipStopNode(current)) {
-                _skipToNextStopRequested = false;
-                return false;
-            }
-
-            NarrativeNode next = Graph?.Get(_currentIndex + 1);
-            if (next == null || IsSkipStopNode(next)) {
-                _skipToNextStopRequested = false;
-                return false;
-            }
-
-            Transition(_currentIndex + 1);
-            return true;
+            return advanced;
         }
 
         private static bool IsSkipStopNode(NarrativeNode node) {
@@ -550,6 +608,11 @@ namespace InnoVault.Narrative.Runtime
         }
 
         private void Complete() {
+            if (IsCompletionBlocked()) {
+                _completionDeferred = true;
+                return;
+            }
+
             //若仍有未解析的非阻塞弹窗在展示，则推迟真正完成，等其领取 / 关闭后再结束。
             //（阻塞弹窗不会走到这里：它把流程挂在 AwaitingPopup，解析后才继续推进）
             if (ActivePopup != null) {
@@ -562,6 +625,7 @@ namespace InnoVault.Narrative.Runtime
         }
 
         private void CompleteNow() {
+            _completionDeferred = false;
             _completionPending = false;
             Phase = NarrativeSessionPhase.Completed;
             PendingChoice = null;
@@ -574,6 +638,7 @@ namespace InnoVault.Narrative.Runtime
                 return;
             }
             _completionPending = false;
+            _completionDeferred = false;
             Phase = NarrativeSessionPhase.Aborted;
             PendingChoice = null;
             ActivePopup = null;

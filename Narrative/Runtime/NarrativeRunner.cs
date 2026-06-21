@@ -127,7 +127,7 @@ namespace InnoVault.Narrative.Runtime
                 return false;
             }
 
-            NarrativeSession session = new(scenario, graph, scenario.DefaultStyle) { OnCompleted = onCompleted };
+            NarrativeSession session = new(scenario, graph, scenario.ResolvedDefaultStyle) { OnCompleted = onCompleted };
             Active = session;
             NarrativeServices.Progress?.SetProgress(scenario.Key, ScenarioProgress.Started);
             SafeInvoke(scenario.InvokeStarted, $"scenario '{scenario.Key}' OnStarted");

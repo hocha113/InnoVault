@@ -20,6 +20,8 @@ namespace InnoVault.Narrative.Presentation.Popups
         public int IconItemType;
         public bool RequireClaim;
         public float Alpha;
+        /// <summary>图标 / 标题等内容出现进度 0~1。</summary>
+        public float ContentAppear = 1f;
         public float GlobalTimer;
     }
 }

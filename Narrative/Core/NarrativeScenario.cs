@@ -28,8 +28,17 @@ namespace InnoVault.Narrative.Core
             }
         }
 
-        /// <summary>默认样式 id，对话框 / 选择框 / 弹窗据此取皮肤</summary>
+        /// <summary>默认样式 id，对话框 / 选择框 / 弹窗据此取皮肤。可写短名，运行时按所属 Mod 补全</summary>
         public virtual StyleId DefaultStyle => StyleId.Default;
+
+        /// <summary>按所属 Mod 补全后的默认样式 id</summary>
+        internal StyleId ResolvedDefaultStyle => NarrativeIdScope.Style(Mod?.Name, DefaultStyle);
+
+        /// <summary>构造本模组作用域内的角色 id（与在 <see cref="Build"/> 中写短名等价）</summary>
+        protected CharacterId Speaker(string name) => NarrativeIdScope.Character(Mod?.Name, name);
+
+        /// <summary>构造本模组作用域内的样式 id</summary>
+        protected StyleId Style(string name) => NarrativeIdScope.Style(Mod?.Name, name);
 
         /// <summary>
         /// 声明式触发策略，由 <see cref="ConfigurePolicy"/> 在加载期生成一次；<see langword="null"/> 表示不参与自动调度。<br/>
@@ -72,7 +81,7 @@ namespace InnoVault.Narrative.Core
 
         internal NarrativeGraph BuildGraph() {
             NarrativeGraph graph = new();
-            Build(new NarrativeComposer(graph));
+            Build(new NarrativeComposer(graph, Mod?.Name));
             return graph;
         }
 

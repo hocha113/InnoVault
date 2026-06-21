@@ -11,12 +11,19 @@ namespace InnoVault.Narrative.Composition
     public sealed class NarrativeComposer
     {
         private readonly NarrativeGraph _graph;
+        private readonly string _modName;
         private string _pendingLabel;
 
         /// <summary>基于一张图创建构建器</summary>
-        public NarrativeComposer(NarrativeGraph graph) {
+        public NarrativeComposer(NarrativeGraph graph) : this(graph, null) { }
+
+        /// <summary>基于一张图创建构建器，并按所属 Mod 自动补全未前缀的角色 id</summary>
+        public NarrativeComposer(NarrativeGraph graph, string modName) {
             _graph = graph;
+            _modName = modName;
         }
+
+        private CharacterId Resolve(CharacterId speaker) => NarrativeIdScope.Character(_modName, speaker);
 
         private T AddNode<T>(T node) where T : NarrativeNode {
             if (_pendingLabel != null) {
@@ -39,13 +46,13 @@ namespace InnoVault.Narrative.Composition
 
         /// <summary>添加一句对话（指定表情）</summary>
         public NarrativeComposer Say(CharacterId speaker, ExpressionId expression, string text, Action onEnter = null, Action onExit = null) {
-            AddNode(new SayNode { Speaker = speaker, Expression = expression, Text = text, OnEnter = onEnter, OnExit = onExit });
+            AddNode(new SayNode { Speaker = Resolve(speaker), Expression = expression, Text = text, OnEnter = onEnter, OnExit = onExit });
             return this;
         }
 
         /// <summary>添加一句限时对话（到时自动推进）</summary>
         public NarrativeComposer SayTimed(CharacterId speaker, string text, float seconds, Action onEnter = null, Action onExit = null) {
-            AddNode(new SayNode { Speaker = speaker, Text = text, Timed = TimedSettings.Of(seconds), OnEnter = onEnter, OnExit = onExit });
+            AddNode(new SayNode { Speaker = Resolve(speaker), Text = text, Timed = TimedSettings.Of(seconds), OnEnter = onEnter, OnExit = onExit });
             return this;
         }
 
@@ -55,7 +62,7 @@ namespace InnoVault.Narrative.Composition
 
         /// <summary>添加一句限时对话（指定表情，完整定时配置）</summary>
         public NarrativeComposer SayTimed(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed, Action onEnter = null, Action onExit = null) {
-            AddNode(new SayNode { Speaker = speaker, Expression = expression, Text = text, Timed = timed, OnEnter = onEnter, OnExit = onExit });
+            AddNode(new SayNode { Speaker = Resolve(speaker), Expression = expression, Text = text, Timed = timed, OnEnter = onEnter, OnExit = onExit });
             return this;
         }
 
@@ -65,7 +72,7 @@ namespace InnoVault.Narrative.Composition
 
         /// <summary>添加一个带选项的对话（指定表情）</summary>
         public NarrativeComposer Choice(CharacterId speaker, ExpressionId expression, string prompt, Action<ChoiceBuilder> build) {
-            var node = AddNode(new ChoiceNode { Speaker = speaker, Expression = expression, Prompt = prompt });
+            var node = AddNode(new ChoiceNode { Speaker = Resolve(speaker), Expression = expression, Prompt = prompt });
             build?.Invoke(new ChoiceBuilder(node));
             return this;
         }

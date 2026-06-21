@@ -4,6 +4,7 @@ using InnoVault.Narrative.Presentation.Dialogue;
 using InnoVault.Narrative.Runtime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using ReLogic.Graphics;
 using System;
 using System.Linq;
 using Terraria;
@@ -40,6 +41,18 @@ namespace InnoVault.Narrative.Styling
         public virtual float PortraitSize => 92f;
         /// <summary>头像与文本间距</summary>
         public virtual float PortraitGap => 14f;
+        /// <summary>头像框内边距（立绘缩放留白，0 表示立绘贴齐框线内侧）</summary>
+        public virtual float PortraitInnerPadding => 0f;
+        /// <summary>头像框线宽（立绘绘制与裁剪的内缩）</summary>
+        public virtual float PortraitFrameBorder => 2f;
+        /// <summary>底行命令提示距面板底边</summary>
+        public virtual float HintBottomMargin => 0f;
+        /// <summary>命令提示按钮间距</summary>
+        public virtual float CommandHintGap => 14f;
+        /// <summary>命令提示点击热区扩展</summary>
+        public virtual float CommandHintHitPad => 6f;
+        /// <summary>头像框与底行命令提示之间的最小间距</summary>
+        public virtual float PortraitHintClearance => 8f;
         /// <summary>面板最小高度</summary>
         public virtual float MinPanelHeight => 110f;
         /// <summary>面板最大高度</summary>
@@ -78,21 +91,27 @@ namespace InnoVault.Narrative.Styling
             string[] previewLines = VaultUtils.WrapText(input.Line.Text ?? string.Empty, input.Font, textAreaWidth, TextScale).ToArray();
             float lineHeight = input.Font.MeasureString("A").Y * TextScale + LineSpacing;
             float contentHeight = previewLines.Length * lineHeight;
-            float panelHeight = MathHelper.Clamp(contentHeight + Padding * 2f + HeaderHeight, MinPanelHeight, MaxPanelHeight);
+            float hintReserve = MeasureHintReserve(input.Font);
+            float textColumnHeight = Padding + HeaderHeight + contentHeight + hintReserve;
+            float panelHeight = MathHelper.Clamp(textColumnHeight, MinPanelHeight, MaxPanelHeight);
             if (context.HasPortrait) {
-                panelHeight = Math.Max(panelHeight, PortraitSize + Padding * 2f);
+                float portraitColumnHeight = Padding + PortraitSize + PortraitHintClearance + hintReserve;
+                panelHeight = Math.Max(panelHeight, portraitColumnHeight);
             }
 
-            float eased = VaultUtils.EaseOutCubic(input.OpenProgress);
             Vector2 size = new(PanelWidth, panelHeight);
             Vector2 pos = input.Anchor - new Vector2(size.X / 2f, size.Y);
-            pos.Y += (1f - eased) * 60f;
+            pos.Y += NarrativePanelMotion.ResolveSlide(input.OpenProgress, input.IsClosing, NarrativePanelMotion.Profile.Dialogue);
 
             context.PanelRect = new Rectangle((int)pos.X, (int)pos.Y, (int)size.X, (int)size.Y);
 
             float textLeft = context.PanelRect.X + Padding;
             if (context.HasPortrait) {
-                context.PortraitRect = new Rectangle((int)(context.PanelRect.X + Padding), (int)(context.PanelRect.Y + Padding), (int)PortraitSize, (int)PortraitSize);
+                context.PortraitRect = new Rectangle(
+                    (int)(context.PanelRect.X + Padding),
+                    (int)(context.PanelRect.Y + Padding),
+                    (int)PortraitSize,
+                    (int)PortraitSize);
                 textLeft += PortraitSize + PortraitGap;
             }
             else {
@@ -100,11 +119,34 @@ namespace InnoVault.Narrative.Styling
             }
 
             context.SpeakerRect = new Rectangle((int)textLeft, (int)(context.PanelRect.Y + Padding - 2f), (int)(context.PanelRect.Right - textLeft - Padding), (int)HeaderHeight);
-            context.TextRect = new Rectangle((int)textLeft, (int)(context.PanelRect.Y + Padding + HeaderHeight), (int)(context.PanelRect.Right - textLeft - Padding), (int)(context.PanelRect.Height - Padding * 2f - HeaderHeight));
+            int textTop = (int)(context.PanelRect.Y + Padding + HeaderHeight);
+            int textHeight = (int)(context.PanelRect.Bottom - hintReserve - textTop);
+            if (textHeight < 0) {
+                textHeight = 0;
+            }
+            context.TextRect = new Rectangle((int)textLeft, textTop, (int)(context.PanelRect.Right - textLeft - Padding), textHeight);
             context.LineHeight = lineHeight;
 
             LayoutCommandHints(context);
         }
+
+        protected float MeasureHintRowTextHeight(DynamicSpriteFont font) {
+            float height = 0f;
+            height = Math.Max(height, font.MeasureString(ResolveAutoHint()).Y * HintScale);
+            height = Math.Max(height, font.MeasureString(ResolveFastHint()).Y * HintScale);
+            height = Math.Max(height, font.MeasureString(ResolveSkipHint()).Y * HintScale);
+            height = Math.Max(height, font.MeasureString(ResolveContinueHint(hover: true)).Y * 0.9f);
+            return MathF.Ceiling(height);
+        }
+
+        protected float MeasureHintRowTextHeight(DynamicSpriteFont font, string text, float scale)
+            => MathF.Ceiling(font.MeasureString(text).Y * scale);
+
+        protected float MeasureHintBandHeight(DynamicSpriteFont font)
+            => MeasureHintRowTextHeight(font) + CommandHintHitPad;
+
+        protected float MeasureHintReserve(DynamicSpriteFont font)
+            => MeasureHintBandHeight(font) + HintBottomMargin;
 
         /// <summary>每帧更新皮肤状态。默认无状态。</summary>
         public virtual void Update(DialogueLayoutContext context) { }
@@ -112,26 +154,61 @@ namespace InnoVault.Narrative.Styling
         /// <summary>样式切换或新会话开始时重置皮肤状态。</summary>
         public virtual void Reset() { }
 
+        /// <summary>自动播放提示文案，消费者可重写以接入本地化。</summary>
+        protected virtual string ResolveAutoHint() => NarrativeUIText.Auto;
+        /// <summary>快进提示文案，消费者可重写以接入本地化。</summary>
+        protected virtual string ResolveFastHint() => NarrativeUIText.Fast;
+        /// <summary>跳过提示文案，消费者可重写以接入本地化。</summary>
+        protected virtual string ResolveSkipHint() => NarrativeUIText.Skip;
+        /// <summary>继续提示文案，消费者可重写以接入本地化。</summary>
+        protected virtual string ResolveContinueHint(bool hover) => NarrativeUIText.ContinueGlyph;
+
         /// <summary>布局底部命令提示的点击区域。</summary>
         public virtual void LayoutCommandHints(DialogueLayoutContext context) {
-            float y = context.PanelRect.Bottom - 22f;
-            float x = context.PanelRect.X + Padding;
-            float autoW = context.Font.MeasureString(NarrativeUIText.Auto).X * HintScale;
-            float fastW = context.Font.MeasureString(NarrativeUIText.Fast).X * HintScale;
-            float skipW = context.Font.MeasureString(NarrativeUIText.Skip).X * HintScale;
-            float continueW = context.Font.MeasureString(NarrativeUIText.ContinueGlyph).X * 0.9f;
+            float rowTextHeight = MeasureHintRowTextHeight(context.Font);
+            context.HintRowBaseline = context.PanelRect.Bottom - HintBottomMargin;
+            float rowTop = context.HintRowBaseline - rowTextHeight;
 
-            context.AutoRect = new Rectangle((int)x, (int)y, (int)autoW, 18);
-            x += autoW + 14f;
-            context.FastRect = new Rectangle((int)x, (int)y, (int)fastW, 18);
-            x += fastW + 14f;
-            context.SkipRect = new Rectangle((int)x, (int)y, (int)skipW, 18);
-            context.ContinueRect = new Rectangle((int)(context.PanelRect.Right - continueW - 20f), context.PanelRect.Bottom - 28, (int)continueW + 12, 22);
+            float autoW = context.Font.MeasureString(ResolveAutoHint()).X * HintScale;
+            float fastW = context.Font.MeasureString(ResolveFastHint()).X * HintScale;
+            float skipW = context.Font.MeasureString(ResolveSkipHint()).X * HintScale;
+            float continueW = context.Font.MeasureString(ResolveContinueHint(hover: true)).X * 0.9f;
+
+            float commandX;
+            if (context.HasPortrait && context.PortraitRect != Rectangle.Empty) {
+                float totalW = autoW + CommandHintGap + fastW + CommandHintGap + skipW;
+                commandX = context.PortraitRect.X + (context.PortraitRect.Width - totalW) * 0.5f;
+            }
+            else {
+                commandX = context.PanelRect.X + Padding;
+            }
+
+            context.AutoRect = BuildHintHitRect(commandX, rowTop, autoW, rowTextHeight, context.HintRowBaseline);
+            commandX += autoW + CommandHintGap;
+            context.FastRect = BuildHintHitRect(commandX, rowTop, fastW, rowTextHeight, context.HintRowBaseline);
+            commandX += fastW + CommandHintGap;
+            context.SkipRect = BuildHintHitRect(commandX, rowTop, skipW, rowTextHeight, context.HintRowBaseline);
+
+            float continueX = context.PanelRect.Right - Padding - continueW;
+            context.ContinueRect = BuildHintHitRect(continueX, rowTop, continueW, rowTextHeight, context.HintRowBaseline);
         }
+
+        protected Rectangle BuildHintHitRect(float posX, float rowTop, float textWidth, float rowTextHeight, float rowBaseline)
+            => new Rectangle(
+                (int)(posX - CommandHintHitPad),
+                (int)(rowTop - CommandHintHitPad),
+                (int)(textWidth + CommandHintHitPad * 2f),
+                (int)(rowBaseline - rowTop + CommandHintHitPad));
+
+        protected Rectangle BuildHintHitRect(float posX, float rowTop, float textWidth, float rowTextHeight)
+            => BuildHintHitRect(posX, rowTop, textWidth, rowTextHeight, rowTop + rowTextHeight);
 
         /// <summary>绘制对话框背景。</summary>
         public virtual void DrawBackground(SpriteBatch spriteBatch, DialogueLayoutContext context)
             => DrawPanel(spriteBatch, context.PanelRect, context.Alpha);
+
+        /// <summary>绘制面板背景之上的装饰（粒子等，位于正文下方）。</summary>
+        public virtual void DrawBackgroundDecorations(SpriteBatch spriteBatch, DialogueLayoutContext context) { }
 
         /// <summary>绘制头像框。</summary>
         public virtual void DrawPortraitFrame(SpriteBatch spriteBatch, DialogueLayoutContext context)
@@ -139,9 +216,14 @@ namespace InnoVault.Narrative.Styling
 
         /// <summary>绘制说话者名称。</summary>
         public virtual void DrawSpeakerName(SpriteBatch spriteBatch, DialogueLayoutContext context) {
-            if (!string.IsNullOrEmpty(context.SpeakerName)) {
-                Utils.DrawBorderString(spriteBatch, context.SpeakerName, context.SpeakerRect.Location.ToVector2(), SpeakerColor * context.Alpha, NameScale);
+            if (string.IsNullOrEmpty(context.SpeakerName)) {
+                return;
             }
+
+            float nameAlpha = context.ContentAlpha * context.SpeakerSwitchEase;
+            Vector2 pos = context.SpeakerRect.Location.ToVector2();
+            pos.Y -= (1f - context.SpeakerSwitchEase) * 6f;
+            Utils.DrawBorderString(spriteBatch, context.SpeakerName, pos, SpeakerColor * nameAlpha, NameScale);
         }
 
         /// <summary>绘制说话者与正文间的装饰分隔线。</summary>
@@ -158,7 +240,7 @@ namespace InnoVault.Narrative.Styling
                 }
                 if (draw.Length > 0) {
                     Vector2 pos = new(context.TextRect.X, context.TextRect.Y + i * context.LineHeight);
-                    Utils.DrawBorderString(spriteBatch, draw, pos, TextColor * context.Alpha, TextScale);
+                    Utils.DrawBorderString(spriteBatch, draw, pos, TextColor * context.ContentAlpha, TextScale);
                 }
                 remaining -= fullLine.Length;
                 if (remaining <= 0) {
@@ -184,19 +266,32 @@ namespace InnoVault.Narrative.Styling
                 return;
             }
 
-            Color on = HintColor * context.Alpha;
-            Color off = HintColor * (context.Alpha * 0.4f);
-            Utils.DrawBorderString(spriteBatch, NarrativeUIText.Auto, context.AutoRect.Location.ToVector2(), context.AutoMode ? on : off, HintScale);
-            Utils.DrawBorderString(spriteBatch, NarrativeUIText.Fast, context.FastRect.Location.ToVector2(), context.FastMode ? on : off, HintScale);
-            Utils.DrawBorderString(spriteBatch, NarrativeUIText.Skip, context.SkipRect.Location.ToVector2(), off, HintScale);
+            Color on = HintColor * context.ContentAlpha;
+            Color off = HintColor * (context.ContentAlpha * 0.4f);
+            Utils.DrawBorderString(spriteBatch, ResolveAutoHint(), GetHintDrawPosition(context, context.AutoRect, ResolveAutoHint()), context.AutoMode ? on : off, HintScale);
+            Utils.DrawBorderString(spriteBatch, ResolveFastHint(), GetHintDrawPosition(context, context.FastRect, ResolveFastHint()), context.FastMode ? on : off, HintScale);
+            Utils.DrawBorderString(spriteBatch, ResolveSkipHint(), GetHintDrawPosition(context, context.SkipRect, ResolveSkipHint()), off, HintScale);
 
             if (context.WaitingAdvance) {
                 float blink = (float)(Math.Sin(context.GlobalTimer * 6f) * 0.5 + 0.5);
-                Utils.DrawBorderString(spriteBatch, NarrativeUIText.ContinueGlyph, context.ContinueRect.Location.ToVector2(), HintColor * (context.Alpha * blink), 0.9f);
+                string continueText = ResolveContinueHint(context.HoverContinue);
+                Utils.DrawBorderString(spriteBatch, continueText, GetHintDrawPosition(context, context.ContinueRect, continueText, 0.9f), HintColor * (context.ContentAlpha * blink), 0.9f);
             }
         }
 
-        /// <summary>绘制最前景装饰。</summary>
+        protected Vector2 GetHintDrawPosition(DialogueLayoutContext context, Rectangle hitRect, string text, float scale = -1f) {
+            if (scale < 0f) {
+                scale = context.HintScale;
+            }
+
+            float baseline = context.HintRowBaseline > 0f
+                ? context.HintRowBaseline
+                : context.PanelRect.Bottom - HintBottomMargin;
+            float height = context.Font.MeasureString(text).Y * scale;
+            return new Vector2(hitRect.X + CommandHintHitPad, baseline - height);
+        }
+
+        /// <summary>绘制最前景装饰（应保持在正文之上，默认无）。</summary>
         public virtual void DrawForegroundDecorations(SpriteBatch spriteBatch, DialogueLayoutContext context) { }
     }
 

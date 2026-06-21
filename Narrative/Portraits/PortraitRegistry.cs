@@ -1,4 +1,5 @@
 using InnoVault.Narrative.Core;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System.Collections.Generic;
 
@@ -51,6 +52,10 @@ namespace InnoVault.Narrative.Portraits
         /// <summary>解析角色在指定表情下的立绘</summary>
         public static Texture2D ResolvePortrait(CharacterId id, ExpressionId expression)
             => _profiles.TryGetValue(id, out var profile) ? profile.ResolvePortrait(expression) : null;
+
+        /// <summary>解析角色在指定表情下的立绘裁剪区域。</summary>
+        public static Rectangle? ResolvePortraitSource(CharacterId id, ExpressionId expression)
+            => _profiles.TryGetValue(id, out var profile) ? profile.ResolvePortraitSource(expression) : null;
 
         /// <summary>是否为剪影绘制</summary>
         public static bool IsSilhouette(CharacterId id) => _profiles.TryGetValue(id, out var profile) && profile.Silhouette;

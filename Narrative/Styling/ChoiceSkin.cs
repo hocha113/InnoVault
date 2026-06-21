@@ -56,7 +56,7 @@ namespace InnoVault.Narrative.Styling
 
         /// <summary>计算选择框布局。</summary>
         public virtual void Layout(DynamicSpriteFont font, Vector2 anchor, float openProgress, int scrollOffset,
-            bool timedActive, float timedProgress, float globalTimer, ChoiceLayoutContext context) {
+            bool timedActive, float timedProgress, float globalTimer, ChoiceLayoutContext context, bool isClosing = false) {
             context.Font = font;
             context.TextScale = TextScale;
             context.ScrollOffset = scrollOffset;
@@ -64,7 +64,7 @@ namespace InnoVault.Narrative.Styling
             context.HasScroll = context.Options.Count > context.VisibleCount;
             context.TimedActive = timedActive;
             context.TimedProgress = timedProgress;
-            context.Alpha = openProgress;
+            context.Alpha = NarrativePanelMotion.ResolveAlpha(openProgress, NarrativePanelMotion.Profile.Choice);
             context.GlobalTimer = globalTimer;
 
             float maxTextWidth = font.MeasureString(NarrativeUIText.ChoiceTitle).X * 0.85f;
@@ -79,9 +79,8 @@ namespace InnoVault.Narrative.Styling
             float panelWidth = MathHelper.Clamp(maxTextWidth + Padding * 4f, MinWidth, MaxWidth);
             float panelHeight = Padding * 2f + TitleHeight + context.VisibleCount * OptionHeight + Math.Max(0, context.VisibleCount - 1) * OptionSpacing;
 
-            float eased = VaultUtils.EaseOutCubic(openProgress);
             Vector2 pos = new(anchor.X - panelWidth / 2f, anchor.Y - panelHeight);
-            pos.Y += (1f - eased) * 40f;
+            pos.Y += NarrativePanelMotion.ResolveSlide(openProgress, isClosing, NarrativePanelMotion.Profile.Choice);
             context.PanelRect = new Rectangle((int)pos.X, (int)pos.Y, (int)panelWidth, (int)panelHeight);
             context.TitleRect = new Rectangle(context.PanelRect.X + (int)Padding, context.PanelRect.Y + (int)Padding - 2, (int)(panelWidth - Padding * 2f), (int)TitleHeight);
             context.DividerRect = new Rectangle(context.TitleRect.X, context.TitleRect.Bottom - 2, context.TitleRect.Width, 1);
@@ -103,6 +102,9 @@ namespace InnoVault.Narrative.Styling
         /// <summary>绘制选择框面板。</summary>
         public virtual void DrawPanel(SpriteBatch spriteBatch, ChoiceLayoutContext context)
             => DrawPanel(spriteBatch, context.PanelRect, context.Alpha);
+
+        /// <summary>绘制面板背景之上的装饰（粒子等，位于选项文字下方）。</summary>
+        public virtual void DrawBackgroundDecorations(SpriteBatch spriteBatch, ChoiceLayoutContext context) { }
 
         /// <summary>绘制标题。</summary>
         public virtual void DrawTitle(SpriteBatch spriteBatch, ChoiceLayoutContext context) {
@@ -170,7 +172,7 @@ namespace InnoVault.Narrative.Styling
             NarrativeSkinDraw.FillRect(spriteBatch, bar, color * context.Alpha);
         }
 
-        /// <summary>绘制最前景装饰。</summary>
+        /// <summary>绘制最前景装饰（应保持在选项文字之上，默认无）。</summary>
         public virtual void DrawForegroundDecorations(SpriteBatch spriteBatch, ChoiceLayoutContext context) { }
 
         /// <summary>获取选项展示文本（含禁用提示）。</summary>

@@ -32,6 +32,12 @@ namespace InnoVault.Narrative.Core
         /// <summary>自动保持秒数，小于 0 表示一直等待玩家操作</summary>
         public float AutoHoldSeconds { get; set; } = -1f;
 
+        /// <summary>相对对话面板顶部的锚点间距（像素）；小于等于 0 时由视图决定默认值</summary>
+        public float AnchorGap { get; set; }
+
+        /// <summary>锚点额外纵向偏移（像素）</summary>
+        public float AnchorYOffset { get; set; }
+
         /// <summary>
         /// 默认皮肤会在该值大于 0 时绘制对应物品图标，避免皮肤层做类型判断
         /// </summary>
@@ -61,6 +67,13 @@ namespace InnoVault.Narrative.Core
         /// <summary>链式设置自动保持秒数（小于 0 表示一直等待玩家操作）</summary>
         public PopupPayload Hold(float seconds) {
             AutoHoldSeconds = seconds;
+            return this;
+        }
+
+        /// <summary>链式设置弹窗锚点（默认相对对话框顶部 -70px，与 CWR ADV 对齐）</summary>
+        public PopupPayload Anchored(float gap = 70f, float yOffset = 0f) {
+            AnchorGap = gap;
+            AnchorYOffset = yOffset;
             return this;
         }
     }
