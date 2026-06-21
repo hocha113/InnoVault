@@ -25,8 +25,7 @@ namespace InnoVault.DataModules
         public string[] Aliases { get; }
 
         /// <summary>创建一个自定义持久化键名</summary>
-        public DataModuleNameAttribute(string name, params string[] aliases)
-        {
+        public DataModuleNameAttribute(string name, params string[] aliases) {
             Name = name;
             Aliases = aliases ?? [];
         }

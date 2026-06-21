@@ -57,12 +57,9 @@ namespace InnoVault.Narrative.Runtime
 
         private static bool PendingContains(string key) => TryGetPending(key, out _);
 
-        private static bool TryGetPending(string key, out PendingScenario match)
-        {
-            foreach (PendingScenario pending in _pending)
-            {
-                if (pending.Key == key)
-                {
+        private static bool TryGetPending(string key, out PendingScenario match) {
+            foreach (PendingScenario pending in _pending) {
+                if (pending.Key == key) {
                     match = pending;
                     return true;
                 }

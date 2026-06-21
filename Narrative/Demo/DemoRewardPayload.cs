@@ -20,10 +20,8 @@ namespace InnoVault.Narrative.Demo
         public override int IconItemType => ItemType;
 
         /// <inheritdoc/>
-        public override void OnClaimed(Player player)
-        {
-            if (player == null || !player.active || ItemType <= 0)
-            {
+        public override void OnClaimed(Player player) {
+            if (player == null || !player.active || ItemType <= 0) {
                 return;
             }
             player.QuickSpawnItem(player.GetSource_Misc("InnoVault:NarrativeDemo"), ItemType, Stack);

@@ -1,6 +1,5 @@
 using InnoVault.UIHandles;
 using System;
-using Terraria;
 
 namespace InnoVault.Narrative.Presentation
 {
