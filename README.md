@@ -1,6 +1,6 @@
 ﻿**InnoVault** is a lightweight **API** mod that provides simple code support for community developers.
 
-Currently, it includes basic library implementations for the Particle System, Tile Processor system, UI System, NBT Save or Load, and more.
+Currently, it includes basic library implementations for the [Particle System](https://innovault.wiki/en/content/prt/), [Tile Processor system](https://innovault.wiki/en/content/tile-processor/), [UI System](https://innovault.wiki/en/content/ui-handle/), [NBT Save or Load](https://innovault.wiki/en/persistence/save-content/), and more.
 
 You can use it to achieve various effects without having to build everything from scratch.
 
@@ -15,5 +15,5 @@ You can expect an initial response within 72 hours of reporting the issue. Secur
 For more information, visit the following resources:
 
 - **[InnoVault GitHub Repository](https://github.com/hocha113/InnoVault)** for source code and project updates.
-- **[InnoVault Wiki](https://github.com/hocha113/InnoVault/wiki)** for basic API introductions and usage demonstrations.
+- **[InnoVault Wiki](https://innovault.wiki)** for API documentation, reading paths, and usage guides (Simplified Chinese and English). The [legacy GitHub Wiki](https://github.com/hocha113/InnoVault/wiki) is archived.
 - **[InnoVault Example Mod Repository](https://github.com/hocha113/InnoVaultExample)** for practical examples of how to use InnoVault’s APIs, including the English annotated version: **[InnoVault Example English Annotated Version](https://github.com/hocha113/InnoVaultExample/tree/en_annotation)**.

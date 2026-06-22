@@ -2,7 +2,7 @@
 {
     /// <summary>
     /// 提供一个通用的资源加载、卸载途径
-    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Mod-Prerequisite-Reference"/></br>
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/getting-started/ivault-loader/"/></br>
     /// </summary>
     public interface IVaultLoader
     {

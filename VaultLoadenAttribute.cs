@@ -12,7 +12,7 @@ namespace InnoVault
     /// <br/>
     /// 当应用于一个类时，此标签将作为其内部所有未被单独标记的静态成员的默认加载规则，并能递归作用于嵌套类
     /// <br/>
-    /// 该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-VaultLoaden"/>
+    /// 该API的使用介绍:<see href="https://innovault.wiki/cn/core/vault-loaden/"/>
     /// </summary>
     /// <remarks>
     /// <para>

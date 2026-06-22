@@ -12,7 +12,7 @@ namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 玩家行为覆盖，用于修改玩家的各种相关行为<br/>
-    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Override-System"/></br>
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/overrides/player/"/></br>
     /// </summary>
     public abstract class PlayerOverride : VaultType<PlayerOverride>
     {

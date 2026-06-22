@@ -11,6 +11,7 @@ namespace InnoVault.GameContent.BaseEntity
 {
     /// <summary>
     /// 设定一个基本的手持弹幕类，包含了手持弹幕所需要的基本行为和工具，并自动处理必要的网络同步
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/content/base-held-proj/"/></br>
     /// </summary>
     public abstract class BaseHeldProj : ModProjectile, ITetheredPlayer
     {

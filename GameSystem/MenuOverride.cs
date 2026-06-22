@@ -7,6 +7,7 @@ namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 用于修改游戏菜单的基类
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/overrides/menu/"/></br>
     /// </summary>
     public abstract class MenuOverride : VaultType<MenuOverride>
     {

@@ -8,6 +8,7 @@ namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 覆盖对应物块的行为
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/overrides/tile/"/></br>
     /// </summary>
     public class TileOverride : VaultType<TileOverride>
     {

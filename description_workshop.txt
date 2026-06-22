@@ -2,7 +2,7 @@
 
 如果您想了解更多，请访问 [url=https://github.com/hocha113/InnoVault] InnoVault 开源库 [/url]，在此您可以下载InnoVault的源代码
 
-如果您想学习使用InnoVault提供的API，请浏览 [url=https://github.com/hocha113/InnoVault/wiki] InnoVault Wiki [/url]，这里有对API的基本介绍和使用演示
+如果您想学习使用InnoVault提供的API，请浏览 [url=https://innovault.wiki/cn/] InnoVault Wiki [/url]，这里有对API的基本介绍和使用演示
 
 InnoVault Example Mod 演示了InnoVault提供的API的使用方法，开发者可以以InnoVault Example Mod的源代码为实际参考
 

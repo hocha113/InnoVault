@@ -7,7 +7,7 @@ namespace InnoVault.Narrative.Core
 {
     /// <summary>
     /// 叙事场景基类，是内容作者定义剧情的载体。继承它并实现 <see cref="Build"/> 即可，<br/>
-    /// 该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Narrative-System"/><br/>
+    /// 该API的使用介绍:<see href="https://innovault.wiki/cn/narrative/"/><br/>
     /// 由 tModLoader 自动加载、由本框架自动注册。场景只描述"播什么"，<br/>
     /// "怎么播 / 怎么记录 / 何时发奖励"由框架与宿主服务负责。<br/>
     /// 每次启动都会重新 <see cref="Build"/>，因此构建期条件（<see cref="NarrativeComposer.When"/>）能反映当前世界状态

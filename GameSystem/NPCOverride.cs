@@ -14,7 +14,7 @@ namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 提供一个强行覆盖目标NPC行为性质的基类，通过On钩子为基础运行
-    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Override-System"/></br>
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/overrides/npc/"/></br>
     /// </summary>
     public class NPCOverride : VaultType<NPCOverride>
     {

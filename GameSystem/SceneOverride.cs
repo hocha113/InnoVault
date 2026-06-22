@@ -26,6 +26,7 @@ namespace InnoVault.GameSystem
 
     /// <summary>
     /// 该基类用于控制和覆盖场景的元素，比如音乐
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/overrides/scene/"/></br>
     /// </summary>
     public class SceneOverride : VaultType<SceneOverride>
     {

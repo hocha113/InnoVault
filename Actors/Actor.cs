@@ -9,7 +9,7 @@ namespace InnoVault.Actors
 {
     /// <summary>
     /// 可自定义行为的实体基类
-    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Actor-Entity-System"/></br>
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/persistence/actor/"/></br>
     /// </summary>
     public abstract class Actor : VaultType<Actor>
     {

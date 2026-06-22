@@ -27,6 +27,7 @@ namespace InnoVault.GameSystem
     /// <see cref="ItemOverride.UseItemFrame"/>）<br/>
     /// 同一物品若已注册动画，<see cref="ItemOverride.UseStyle"/> 在动画生效时不会执行；需要共存时请重写
     /// <see cref="Active"/> 或 <see cref="ShouldAnimate"/> 做门控，或改用 <see cref="ItemOverride.On_UseStyle"/> 做更细粒度控制
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/overrides/item-use-animation/"/></br>
     /// </summary>
     public abstract class ItemUseAnimation : VaultType<ItemUseAnimation>
     {

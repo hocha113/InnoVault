@@ -11,7 +11,7 @@ namespace InnoVault.Models3D.Runtime
 {
     /// <summary>
     /// 3D 模型渲染器
-    /// <br/>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Models3D-System"/>
+    /// <br/>该API的使用介绍:<see href="https://innovault.wiki/cn/advanced/models3d/"/>
     /// <br/>挂载在 <see cref="RenderHandle"/> 的多个分层钩子上，按 <see cref="Model3DLayer"/> 绘制 3D 模型
     /// <br/>对外暴露三层 API：
     /// <list type="bullet">

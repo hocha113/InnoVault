@@ -14,7 +14,7 @@ namespace InnoVault.GameSystem
     /// <summary>
     /// 物品行为覆盖
     /// 该基类以单实例形式存在
-    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Override-System"/></br>
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/overrides/item/"/></br>
     /// </summary>
     public abstract class ItemOverride : VaultType<ItemOverride>, ILocalizedModType
     {

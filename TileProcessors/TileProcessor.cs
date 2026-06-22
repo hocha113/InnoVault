@@ -15,7 +15,7 @@ namespace InnoVault.TileProcessors
 {
     /// <summary>
     /// 物块处理器，简称TP实体，它的功能目标类似于<see cref="TileEntity"/>
-    /// <br>该API的使用介绍:<see href="https://github.com/hocha113/InnoVault/wiki/en-Basic-TP-Entity"/></br>
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/content/tile-processor/"/></br>
     /// </summary>
     public abstract class TileProcessor : VaultType<TileProcessor>
     {

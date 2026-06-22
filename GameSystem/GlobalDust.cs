@@ -6,6 +6,7 @@ namespace InnoVault.GameSystem
 {
     /// <summary>
     /// 用于修改所有尘埃的行为
+    /// <br>该API的使用介绍:<see href="https://innovault.wiki/cn/overrides/global-dust/"/></br>
     /// </summary>
     public abstract class GlobalDust : VaultType<GlobalDust>
     {
