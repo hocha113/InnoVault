@@ -42,6 +42,7 @@ namespace InnoVault.Actors
         internal static VaultHookMethodCache<GlobalActor> HookOnSpawn;
         internal static VaultHookMethodCache<GlobalActor> HookPreDraw;
         internal static VaultHookMethodCache<GlobalActor> HookPostDraw;
+        internal static VaultHookMethodCache<GlobalActor> HookCarryPlayer;
         #endregion
 
         #region Load and Unload
@@ -55,6 +56,7 @@ namespace InnoVault.Actors
             HookOnSpawn = AddHook<Action<Actor>>(a => a.OnSpawn);
             HookPreDraw = AddHook<Func<SpriteBatch, Actor, Color, bool>>(a => a.PreDraw);
             HookPostDraw = AddHook<Action<SpriteBatch, Actor, Color>>(a => a.PostDraw);
+            HookCarryPlayer = AddHook<CarryPlayerHook>(a => a.CarryPlayer);
         }
 
         void IVaultLoader.UnLoadData() {
@@ -66,6 +68,7 @@ namespace InnoVault.Actors
             HookOnSpawn = null;
             HookPreDraw = null;
             HookPostDraw = null;
+            HookCarryPlayer = null;
 
             //仅清空内容而非置 null，保证下一次注册阶段（早于 LoadData）字典立即可用
             ActorFactory.Clear();
