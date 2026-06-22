@@ -52,13 +52,14 @@ namespace InnoVault.Actors
         /// 在原版 AI 之后执行，且原版 latched 分支不会改写锚点位置，这里的写入可稳定生效
         /// </summary>
         public override void PostAI() {
-            Projectile proj = projectile;
-            //仅处理已勾住（ai[0]==2）的钩爪；其余弹幕快速返回（全局覆盖会对所有弹幕调用 PostAI）
-            if (proj.aiStyle != ProjAIStyleID.Hook || proj.ai[0] != 2f) {
+            //最廉价的门：无盒子时一次静态读取即返回（全局覆盖会对所有弹幕调用 PostAI，需尽早早退）
+            if (SolidActorCollision.ActiveCount == 0) {
                 return;
             }
 
-            if (SolidActorCollision.ActiveCount == 0) {
+            Projectile proj = projectile;
+            //仅处理已勾住（ai[0]==2）的钩爪
+            if (proj.aiStyle != ProjAIStyleID.Hook || proj.ai[0] != 2f) {
                 return;
             }
 
