@@ -137,6 +137,9 @@ namespace InnoVault.GameSystem
                 if (ProjRebuildLoader.HookShouldUpdatePosition.HookOverrideQuery.HasOverride(overrideInstance)) {
                     globalInstance.ShouldUpdatePositionOverrides.Add(overrideInstance);
                 }
+                if (ProjRebuildLoader.HookGrappleCanLatchOnTo.HookOverrideQuery.HasOverride(overrideInstance)) {
+                    globalInstance.GrappleCanLatchOnToOverrides.Add(overrideInstance);
+                }
                 if (ProjRebuildLoader.HookOnHitNPC.HookOverrideQuery.HasOverride(overrideInstance)) {
                     globalInstance.OnHitNPCOverrides.Add(overrideInstance);
                 }
@@ -169,6 +172,15 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <returns></returns>
         public virtual bool? ShouldUpdatePosition() => null;
+        /// <summary>
+        /// 决定该弹幕能否勾住坐标 <paramref name="x"/>, <paramref name="y"/>（图格坐标）处，仅对钩爪类弹幕（<see cref="Terraria.ID.ProjAIStyleID.Hook"/>）有意义
+        /// <br>返回 <see langword="true"/> 表示此处可勾、<see langword="false"/> 表示禁止勾住（一票否决）、<see langword="null"/> 表示不干预并交由原版与其他模组判定</br>
+        /// </summary>
+        /// <param name="player">该钩爪的主人玩家</param>
+        /// <param name="x">目标图格的 X 坐标</param>
+        /// <param name="y">目标图格的 Y 坐标</param>
+        /// <returns></returns>
+        public virtual bool? GrappleCanLatchOnTo(Player player, int x, int y) => null;
         /// <summary>
         /// 弹幕的AI逻辑，返回<see langword="false"/>可以阻断后续所有AI逻辑的运行，默认返回<see langword="true"/>
         /// </summary>

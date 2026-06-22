@@ -19,12 +19,15 @@ namespace InnoVault.GameSystem
         public delegate void On_Projectile_Void_Delegate(Projectile proj);
         public delegate bool On_PreDraw_Delegate(Projectile projectile, ref Color lightColor);
         public delegate void On_PostDraw_Delegate(Projectile projectile, Color lightColor);
+        public delegate bool? On_GrappleCanLatchOnTo_Delegate(Projectile projectile, Player player, int x, int y);
         public static event On_Projectile_Void_Delegate PreSetDefaultsEvent;
         public static event On_Projectile_Void_Delegate PostSetDefaultsEvent;
         private delegate bool? DelegateDraw(ref Color drawColor);
+        private delegate bool? DelegateGrappleCanLatchOnTo(Player player, int x, int y);
         public static MethodInfo onProjectileAI_Method;
         public static MethodInfo onPreDraw_Method;
         public static MethodInfo onPostDraw_Method;
+        public static MethodInfo onGrappleCanLatchOnTo_Method;
         public override bool InstancePerEntity => true;
         private static readonly List<VaultHookMethodCache<ProjOverride>> hooks = [];
         internal static VaultHookMethodCache<ProjOverride> HookAI;
@@ -36,6 +39,7 @@ namespace InnoVault.GameSystem
         internal static VaultHookMethodCache<ProjOverride> HookOnKill;
         internal static VaultHookMethodCache<ProjOverride> HookDraw;
         internal static VaultHookMethodCache<ProjOverride> HookPostDraw;
+        internal static VaultHookMethodCache<ProjOverride> HookGrappleCanLatchOnTo;
         public Dictionary<Type, ProjOverride> ProjOverrides { get; internal set; }
         //这些列表属于每个ProjRebuildLoader的实例(即每个弹幕)，只存储对当前弹幕生效的、且重写了对应方法的ProjOverride实例
         public List<ProjOverride> AIOverrides { get; private set; }
@@ -47,6 +51,7 @@ namespace InnoVault.GameSystem
         public List<ProjOverride> OnKillOverrides { get; private set; }
         public List<ProjOverride> DrawOverrides { get; private set; }
         public List<ProjOverride> PostDrawOverrides { get; private set; }
+        public List<ProjOverride> GrappleCanLatchOnToOverrides { get; private set; }
 
         public void InitializeList() {
             AIOverrides = [];
@@ -58,6 +63,7 @@ namespace InnoVault.GameSystem
             OnKillOverrides = [];
             DrawOverrides = [];
             PostDrawOverrides = [];
+            GrappleCanLatchOnToOverrides = [];
         }
 
         void IVaultLoader.LoadData() {
@@ -67,6 +73,8 @@ namespace InnoVault.GameSystem
             VaultHook.Add(onPreDraw_Method, OnPreDrawHook);
             onPostDraw_Method = typeof(ProjectileLoader).GetMethod("PostDraw", BindingFlags.Static | BindingFlags.Public);
             VaultHook.Add(onPostDraw_Method, OnPostDrawHook);
+            onGrappleCanLatchOnTo_Method = typeof(ProjectileLoader).GetMethod("GrappleCanLatchOnTo", BindingFlags.Static | BindingFlags.Public);
+            VaultHook.Add(onGrappleCanLatchOnTo_Method, OnGrappleCanLatchOnToHook);
         }
 
         void IVaultLoader.SetupData() {
@@ -79,6 +87,7 @@ namespace InnoVault.GameSystem
             HookOnKill = AddHook<Action<int>>(p => p.OnKill);
             HookDraw = AddHook<DelegateDraw>(p => p.Draw);
             HookPostDraw = AddHook<Func<Color, bool>>(p => p.PostDraw);
+            HookGrappleCanLatchOnTo = AddHook<DelegateGrappleCanLatchOnTo>(p => p.GrappleCanLatchOnTo);
         }
 
         void IVaultLoader.UnLoadData() {
@@ -87,6 +96,7 @@ namespace InnoVault.GameSystem
             onProjectileAI_Method = null;
             onPreDraw_Method = null;
             onPostDraw_Method = null;
+            onGrappleCanLatchOnTo_Method = null;
             Instances.Clear();
             hooks.Clear();
             HookAI = null;
@@ -98,6 +108,7 @@ namespace InnoVault.GameSystem
             HookOnKill = null;
             HookDraw = null;
             HookPostDraw = null;
+            HookGrappleCanLatchOnTo = null;
             VaultTypeRegistry<ProjOverride>.ClearRegisteredVaults();
             VaultType<ProjOverride>.TypeToMod.Clear();
         }
@@ -251,6 +262,37 @@ namespace InnoVault.GameSystem
             }
 
             orig.Invoke(proj, lightColor);
+        }
+
+        public static bool? OnGrappleCanLatchOnToHook(On_GrappleCanLatchOnTo_Delegate orig, Projectile proj, Player player, int x, int y) {
+            bool? result = orig.Invoke(proj, player, x, y);
+            if (result == false) {
+                return false;//原版或其他模组已一票否决，尊重该结果
+            }
+
+            //全局(TargetID == -1)覆盖
+            bool? universal = UniversalForEach(proj, inds => inds.GrappleCanLatchOnTo(player, x, y));
+            if (universal.HasValue) {
+                if (!universal.Value) {
+                    return false;
+                }
+                result = true;
+            }
+
+            //ByID 专属覆盖
+            if (proj.TryGetGlobalProjectile(out ProjRebuildLoader gProj)) {
+                foreach (var value in gProj.GrappleCanLatchOnToOverrides) {
+                    bool? newResult = value.GrappleCanLatchOnTo(player, x, y);
+                    if (newResult.HasValue) {
+                        if (!newResult.Value) {
+                            return false;
+                        }
+                        result = true;
+                    }
+                }
+            }
+
+            return result;
         }
 #pragma warning restore CS1591 //缺少对公共可见类型或成员的 XML 注释
     }
