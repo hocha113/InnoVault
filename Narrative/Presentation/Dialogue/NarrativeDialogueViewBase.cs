@@ -245,6 +245,7 @@ namespace InnoVault.Narrative.Presentation.Dialogue
                 return;
             }
             if (Layout.ShowHints && Layout.HoverBacklog) {
+                StyleRegistry.GetDialogue(session.Style).PlayBacklogSound();
                 NarrativeHistory.Toggle();
                 return;
             }

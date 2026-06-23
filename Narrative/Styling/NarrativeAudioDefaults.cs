@@ -23,6 +23,9 @@ namespace InnoVault.Narrative.Styling
         /// <summary>跳过至下一停顿点</summary>
         public static SoundStyle Skip => SoundID.MenuTick with { Pitch = 0.35f };
 
+        /// <summary>打开 / 关闭历史对话面板</summary>
+        public static SoundStyle Backlog => SoundID.MenuOpen with { Volume = 0.45f, Pitch = 0.15f };
+
         /// <summary>功能弹窗出现</summary>
         public static SoundStyle PopupOpen => SoundID.Item4 with { Volume = 0.4f, Pitch = -0.2f };
 

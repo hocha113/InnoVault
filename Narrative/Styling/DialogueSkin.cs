@@ -349,6 +349,9 @@ namespace InnoVault.Narrative.Styling
 
         /// <summary>点击「跳过至下一停顿点」时播放</summary>
         public virtual void PlaySkipSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.Skip);
+
+        /// <summary>点击 Backlog（历史对话）按钮时播放</summary>
+        public virtual void PlayBacklogSound() => NarrativeAudioDefaults.Play(NarrativeAudioDefaults.Backlog);
     }
 
     /// <summary>框架内置的朴素默认对话框皮肤</summary>
