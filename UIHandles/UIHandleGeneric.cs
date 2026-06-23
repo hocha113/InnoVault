@@ -25,7 +25,7 @@
 
         /// <summary>
         /// 与<see cref="Instance"/>等价，但在类型未注册时返回<see langword="null"/>而不是抛出异常<br/>
-        /// 适合在 <c>using Mod = </c> 之类可选依赖场景中使用
+        /// 适合在 <c>using Mod = ... </c> 之类可选依赖场景中使用
         /// </summary>
         public static TSelf InstanceOrNull {
             get {
