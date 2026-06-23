@@ -49,6 +49,8 @@ namespace InnoVault.Narrative.Styling
         public virtual float HintBottomMargin => 0f;
         /// <summary>命令提示按钮间距</summary>
         public virtual float CommandHintGap => 14f;
+        /// <summary>空间紧张时命令提示按钮允许收缩到的最小间距</summary>
+        public virtual float MinCommandHintGap => 6f;
         /// <summary>命令提示点击热区扩展</summary>
         public virtual float CommandHintHitPad => 6f;
         /// <summary>头像框与底行命令提示之间的最小间距</summary>
@@ -188,33 +190,42 @@ namespace InnoVault.Narrative.Styling
             bool showBacklog = ShowBacklogButton;
             float backlogW = showBacklog ? context.Font.MeasureString(ResolveBacklogHint()).X * HintScale : 0f;
             float continueW = context.Font.MeasureString(ResolveContinueHint(hover: true)).X * 0.9f;
+            float continueX = context.PanelRect.Right - Padding - continueW;
+
+            int gapCount = showBacklog ? 3 : 2;
+            float commandGap = CommandHintGap;
+            float commandTextW = autoW + fastW + skipW + backlogW;
+            float commandTotalW = commandTextW + commandGap * gapCount;
+            float leftBound = context.PanelRect.X + Padding;
+            float rightBound = continueX - CommandHintGap;
+            float availableW = Math.Max(0f, rightBound - leftBound);
+            if (commandTotalW > availableW && gapCount > 0) {
+                commandGap = Math.Max(MinCommandHintGap, (availableW - commandTextW) / gapCount);
+                commandTotalW = commandTextW + commandGap * gapCount;
+            }
 
             float commandX;
             if (context.HasPortrait && context.PortraitRect != Rectangle.Empty) {
-                float totalW = autoW + CommandHintGap + fastW + CommandHintGap + skipW;
-                if (showBacklog) {
-                    totalW += CommandHintGap + backlogW;
-                }
-                commandX = context.PortraitRect.X + (context.PortraitRect.Width - totalW) * 0.5f;
+                commandX = context.PortraitRect.X + (context.PortraitRect.Width - commandTotalW) * 0.5f;
             }
             else {
-                commandX = context.PanelRect.X + Padding;
+                commandX = leftBound;
             }
+            commandX = MathHelper.Clamp(commandX, leftBound, Math.Max(leftBound, rightBound - commandTotalW));
 
             context.AutoRect = BuildHintHitRect(commandX, rowTop, autoW, rowTextHeight, context.HintRowBaseline);
-            commandX += autoW + CommandHintGap;
+            commandX += autoW + commandGap;
             context.FastRect = BuildHintHitRect(commandX, rowTop, fastW, rowTextHeight, context.HintRowBaseline);
-            commandX += fastW + CommandHintGap;
+            commandX += fastW + commandGap;
             context.SkipRect = BuildHintHitRect(commandX, rowTop, skipW, rowTextHeight, context.HintRowBaseline);
             if (showBacklog) {
-                commandX += skipW + CommandHintGap;
+                commandX += skipW + commandGap;
                 context.BacklogRect = BuildHintHitRect(commandX, rowTop, backlogW, rowTextHeight, context.HintRowBaseline);
             }
             else {
                 context.BacklogRect = Rectangle.Empty;
             }
 
-            float continueX = context.PanelRect.Right - Padding - continueW;
             context.ContinueRect = BuildHintHitRect(continueX, rowTop, continueW, rowTextHeight, context.HintRowBaseline);
         }
 
