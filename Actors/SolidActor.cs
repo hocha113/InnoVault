@@ -72,20 +72,22 @@ namespace InnoVault.Actors
         /// 玩家站在该实体顶面时每帧调用一次，用于把实体的运动传导给玩家
         /// <para>
         /// 通过累加 <see cref="SolidActorCarryContext.Displacement"/> 表达"本帧把玩家额外位移多少"，
-        /// 由承载驱动器统一施加。默认实现为刚体承载：水平始终跟随；竖直仅在实体上升时带动，下降交由重力贴合以避免抖动。
+        /// 由承载驱动器统一施加。默认实现为刚体承载：水平与竖直<b>双向</b>跟随实体本帧位移，并置
+        /// <see cref="SolidActorCarryContext.KeepGrounded"/> 为 <see langword="true"/> 把玩家锁定为接地状态
+        /// 双向竖直承载（而非只在上升时带动）可消除平台下降时玩家与顶面之间裂开的缝隙——正是该缝隙导致玩家
+        /// 被反复判定为腾空，从而出现抖动 / 扑翅
         /// </para>
         /// <para>
         /// 重写它可实现更丰富的接触行为，例如：传送带（在 <see cref="SolidActorCarryContext.Displacement"/> 上叠加水平量）、
-        /// 弹床（直接改写 <c>ctx.Player.velocity</c>）、冰面（对 <see cref="SolidActorCarryContext.CarrierDelta"/> 做衰减）等。
+        /// 弹床（改写 <c>ctx.Player.velocity</c> 并置 <see cref="SolidActorCarryContext.KeepGrounded"/> 为 <see langword="false"/>）、
+        /// 冰面（对 <see cref="SolidActorCarryContext.CarrierDelta"/> 做衰减）等
         /// </para>
         /// </summary>
         /// <param name="ctx">承载上下文</param>
         /// <returns>返回 <see langword="false"/> 可阻止后续的全局承载逻辑 <see cref="GlobalActor.CarryPlayer"/></returns>
         public virtual bool CarryPlayer(ref SolidActorCarryContext ctx) {
-            ctx.Displacement.X += ctx.CarrierDelta.X;
-            if (ctx.CarrierDelta.Y < 0f) {
-                ctx.Displacement.Y += ctx.CarrierDelta.Y;
-            }
+            ctx.Displacement += ctx.CarrierDelta;
+            ctx.KeepGrounded = true;
             return true;
         }
     }

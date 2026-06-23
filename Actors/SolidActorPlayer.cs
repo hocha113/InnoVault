@@ -93,6 +93,30 @@ namespace InnoVault.Actors
             }
 
             Player.position += ctx.Displacement;
+
+            if (ctx.KeepGrounded) {
+                GroundOn(box);
+            }
+        }
+
+        //把玩家锁定为"稳定站在该固体上"的接地状态，消除升降平台上的抖动与扑翅
+        //清除向下速度 + 复位 fallStart，使后续动画 / 落地判定不会把玩家当成腾空
+        private void GroundOn(SolidActor box) {
+            //向下速度清零（接地）；上升速度（跳跃 / 弹床）保留，避免吞掉起跳
+            if (Player.velocity.Y > 0f) {
+                Player.velocity.Y = 0f;
+            }
+
+            //轻贴顶面：消除承载后可能残留的亚像素缝隙 / 重叠，保证下一帧仍被判定为接地
+            float desiredBottom = box.SolidBox.Top;
+            float currentBottom = Player.position.Y + Player.height;
+            float gap = desiredBottom - currentBottom;
+            if (gap > 0f && gap <= 8f) {
+                Player.position.Y += gap;
+            }
+
+            //复位 fallStart：让原版的下落 / 摔伤 / 动画状态机不把"被平台带动"误认为坠落
+            Player.fallStart = (int)(Player.position.Y / 16f);
         }
 
         private void ResolveSolidVelocity() {
