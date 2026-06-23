@@ -145,6 +145,11 @@ namespace InnoVault.Actors
             foreach (var global in HookOnSpawn.Enumerate()) {
                 global.OnSpawn(actor);
             }
+
+            //初始化上一帧位置，避免生成首帧 FrameVelocity 取到 (Position - Vector2.Zero) 的巨大伪位移
+            if (actor is SolidActor solid) {
+                solid.LastPosition = solid.Position;
+            }
         }
 
         /// <summary>

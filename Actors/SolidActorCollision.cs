@@ -106,8 +106,18 @@ namespace InnoVault.Actors
                 return result;
             }
 
-            //依据"当前位置"相对盒子的方位决定从哪个面挡住
-            if (pos.Y + h <= by) {
+            //用"盒子移动前的边界"判断实体从哪个面接触，再把实体钳制/推挤到"盒子移动后"的当前边界。
+            //盒子自身位移发生在实体碰撞结算之后且不会推动实体，若直接用当前边界判定方位，
+            //当盒子迎面撞向实体、其近端边界在一帧内越过实体的接触边时，"来自哪个面"的判据会失效，
+            //导致实体直接穿过（相反速度互穿）。减去本帧位移即可还原接触发生时的相对方位
+            Vector2 fv = box.FrameVelocity;
+            float prevTop = by - fv.Y;
+            float prevLeft = bx - fv.X;
+            float prevRight = bx + bw - fv.X;
+            float prevBottom = by + bh - fv.Y;
+
+            //依据"实体相对盒子移动前的方位"决定从哪个面挡住，并钳制到盒子移动后的当前边界
+            if (pos.Y + h <= prevTop) {
                 //来自上方，落在顶面
                 bool passThrough = box.OneWay && box.AllowFallThrough && fallThrough && (vel.Y <= 1f || fall2);
                 if (!passThrough) {
@@ -115,15 +125,15 @@ namespace InnoVault.Actors
                     Collision.down = true;
                 }
             }
-            else if (!box.OneWay && pos.X + w <= bx) {
+            else if (!box.OneWay && pos.X + w <= prevLeft) {
                 //从左侧撞入
                 result.X = bx - (pos.X + w);
             }
-            else if (!box.OneWay && pos.X >= bx + bw) {
+            else if (!box.OneWay && pos.X >= prevRight) {
                 //从右侧撞入
                 result.X = bx + bw - pos.X;
             }
-            else if (!box.OneWay && pos.Y >= by + bh) {
+            else if (!box.OneWay && pos.Y >= prevBottom) {
                 //从下方顶头
                 result.Y = by + bh - pos.Y;
                 Collision.up = true;
