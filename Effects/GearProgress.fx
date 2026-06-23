@@ -1,4 +1,4 @@
-﻿sampler2D TextureSampler : register(s0);
+sampler2D TextureSampler : register(s0);
 float Progress;  //[0.0 ~ 1.0]
 float Rotation;  //当前图片的旋转角度（弧度）
 
@@ -33,6 +33,6 @@ technique Technique1
 {
     pass GearProgressPass
     {
-        PixelShader = compile ps_2_0 MainPS();
+        PixelShader = compile ps_3_0 MainPS();
     }
 }

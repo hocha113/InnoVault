@@ -30,6 +30,8 @@ namespace InnoVault.Narrative.Presentation.Backlog
         private BacklogSkin _lastSkin;
         private float _scrollOffset;
         private bool _scrollToBottomPending;
+        private bool _draggingScroll;
+        private int _dragGrabY;
 
         /// <summary>每次滚轮一格的滚动像素</summary>
         protected virtual float ScrollStep => 64f;
@@ -125,7 +127,7 @@ namespace InnoVault.Narrative.Presentation.Backlog
             }
         }
 
-        /// <summary>处理滚动、关闭按钮与点击空白关闭，consumer 可覆写以扩展</summary>
+        /// <summary>处理滚动、滚动条拖拽、关闭按钮与点击空白关闭，consumer 可覆写以扩展</summary>
         protected virtual void HandleInput() {
             Point mouse = new(Main.mouseX, Main.mouseY);
             bool overPanel = Layout.PanelRect.Contains(mouse);
@@ -133,14 +135,23 @@ namespace InnoVault.Narrative.Presentation.Backlog
                 player.mouseInterface = true;
             }
 
-            if (Layout.HasScroll && overPanel) {
+            Layout.HoverScrollThumb = Layout.HasScroll && Layout.ScrollThumbRect.Contains(mouse);
+
+            if (Layout.HasScroll && overPanel && !_draggingScroll) {
                 int scroll = MouseScrollDelta;
                 if (scroll != 0) {
                     _scrollOffset = MathHelper.Clamp(_scrollOffset - Math.Sign(scroll) * ScrollStep, 0f, Layout.MaxScroll);
                 }
             }
 
+            UpdateScrollbarDrag(mouse);
+            Layout.DraggingScroll = _draggingScroll;
             Layout.HoverClose = Layout.CloseRect.Contains(mouse);
+
+            //拖拽滚动条时吞掉本次点击，避免误触关闭
+            if (_draggingScroll) {
+                return;
+            }
 
             if (keyLeftPressState != KeyPressState.Pressed) {
                 return;
@@ -152,6 +163,54 @@ namespace InnoVault.Narrative.Presentation.Backlog
             if (!overPanel) {
                 Close();
             }
+        }
+
+        /// <summary>维护滚动条拖拽状态：滑块拖动 + 轨道点击跳转</summary>
+        private void UpdateScrollbarDrag(Point mouse) {
+            if (!Layout.HasScroll) {
+                _draggingScroll = false;
+                return;
+            }
+
+            if (_draggingScroll) {
+                if (keyLeftPressState is KeyPressState.Released or KeyPressState.None) {
+                    _draggingScroll = false;
+                }
+                else {
+                    ApplyThumbDrag(mouse.Y);
+                    player.mouseInterface = true;
+                }
+                return;
+            }
+
+            if (keyLeftPressState != KeyPressState.Pressed) {
+                return;
+            }
+
+            if (Layout.ScrollThumbRect.Contains(mouse)) {
+                _draggingScroll = true;
+                _dragGrabY = mouse.Y - Layout.ScrollThumbRect.Y;
+                player.mouseInterface = true;
+            }
+            else if (Layout.ScrollTrackRect.Contains(mouse)) {
+                _draggingScroll = true;
+                _dragGrabY = Layout.ScrollThumbRect.Height / 2;
+                ApplyThumbDrag(mouse.Y);
+                player.mouseInterface = true;
+            }
+        }
+
+        /// <summary>把滑块顶部对齐到鼠标（扣除抓取偏移）后换算成滚动偏移</summary>
+        private void ApplyThumbDrag(int mouseY) {
+            Rectangle track = Layout.ScrollTrackRect;
+            float travel = track.Height - Layout.ScrollThumbRect.Height;
+            if (travel <= 0f) {
+                _scrollOffset = 0f;
+                return;
+            }
+            float thumbTop = mouseY - _dragGrabY;
+            float ratio = MathHelper.Clamp((thumbTop - track.Y) / travel, 0f, 1f);
+            _scrollOffset = ratio * Layout.MaxScroll;
         }
 
         /// <inheritdoc/>

@@ -46,6 +46,14 @@ namespace InnoVault.Narrative.Presentation.Backlog
         public float MaxScroll;
         /// <summary>是否需要滚动</summary>
         public bool HasScroll;
+        /// <summary>滚动条轨道矩形（由皮肤在布局阶段算出，供拖拽命中测试）</summary>
+        public Rectangle ScrollTrackRect;
+        /// <summary>滚动条滑块矩形（由皮肤在布局阶段算出，供拖拽命中测试）</summary>
+        public Rectangle ScrollThumbRect;
+        /// <summary>鼠标是否悬停在滚动条滑块上</summary>
+        public bool HoverScrollThumb;
+        /// <summary>是否正在拖拽滚动条滑块</summary>
+        public bool DraggingScroll;
         /// <summary>鼠标是否悬停在关闭按钮上</summary>
         public bool HoverClose;
         /// <summary>当前是否无任何历史记录</summary>
