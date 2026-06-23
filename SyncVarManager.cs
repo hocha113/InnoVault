@@ -63,6 +63,12 @@ namespace InnoVault
         /// </summary>
         public static List<MemberInfo> GetSyncVars(Type type) => GetSyncMembers(type).Select(m => m.Member).ToList();
 
+        private static bool HasSyncVarAttribute(MemberInfo member, Type ownerType) {
+            return VaultUtils.GetAttributeSafely<SyncVarAttribute>(member, (phase, ex) => {
+                VaultMod.Instance.Logger.Warn($"Skipped SyncVar member {ownerType.FullName}.{member.Name} due to {phase} attribute load error: {ex.Message}");
+            }) != null;
+        }
+
         private static List<SyncMember> GetSyncMembers(Type type) {
             if (_syncVarsCache.TryGetValue(type, out var members)) {
                 return members;
@@ -84,11 +90,11 @@ namespace InnoVault
                 var levelMembers = new List<MemberInfo>();
 
                 var fields = t.GetFields(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-                    .Where(f => f.GetCustomAttribute<SyncVarAttribute>() != null);
+                    .Where(f => HasSyncVarAttribute(f, t));
                 levelMembers.AddRange(fields);
 
                 var props = t.GetProperties(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly)
-                    .Where(p => p.GetCustomAttribute<SyncVarAttribute>() != null && p.CanRead && p.CanWrite);
+                    .Where(p => p.CanRead && p.CanWrite && HasSyncVarAttribute(p, t));
                 levelMembers.AddRange(props);
 
                 //只在当前层级内按名称排序

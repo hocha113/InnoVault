@@ -31,6 +31,11 @@ namespace InnoVault.DataModules
 
         public static void ClearCache() => _cache.Clear();
 
+        private static void WarnAttributeLoadError(MemberInfo member, string attributeName, string phase, Exception ex) {
+            string ownerName = member.DeclaringType?.FullName ?? "<unknown>";
+            VaultMod.Instance.Logger.Warn($"Skipped DataModule member {ownerName}.{member.Name}: failed to read {attributeName} during {phase}: {ex.Message}");
+        }
+
         private static bool IsScalarSupported(Type t)
             => t == typeof(bool) || t == typeof(int) || t == typeof(long)
             || t == typeof(float) || t == typeof(double) || t == typeof(string) || t.IsEnum
@@ -55,12 +60,25 @@ namespace InnoVault.DataModules
         }
 
         private static bool TryBuildAccessor(MemberInfo member, Type memberType, Func<object, object> get, Action<object, object> set, out Accessor accessor) {
-            if (member.GetCustomAttribute<DataModuleIgnoreAttribute>() != null) {
+            bool attributeReadFailed = false;
+            DataModuleIgnoreAttribute ignoreAttr = VaultUtils.GetAttributeSafely<DataModuleIgnoreAttribute>(member, (phase, ex) => {
+                attributeReadFailed = true;
+                WarnAttributeLoadError(member, nameof(DataModuleIgnoreAttribute), phase, ex);
+            });
+            if (attributeReadFailed || ignoreAttr != null) {
                 accessor = null;
                 return false;
             }
 
-            DataModuleNameAttribute nameAttr = member.GetCustomAttribute<DataModuleNameAttribute>();
+            DataModuleNameAttribute nameAttr = VaultUtils.GetAttributeSafely<DataModuleNameAttribute>(member, (phase, ex) => {
+                attributeReadFailed = true;
+                WarnAttributeLoadError(member, nameof(DataModuleNameAttribute), phase, ex);
+            });
+            if (attributeReadFailed) {
+                accessor = null;
+                return false;
+            }
+
             string name = string.IsNullOrEmpty(nameAttr?.Name) ? member.Name : nameAttr.Name;
             string[] aliases = nameAttr?.Aliases ?? [];
 

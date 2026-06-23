@@ -754,12 +754,19 @@ namespace InnoVault
         }
 
         private static void ProcessClassMemberPassInto(MemberInfo member, Type type, VaultLoadenAttribute classAttribute, bool load) {
-            if (member is FieldInfo field && field.IsDefined(typeof(System.Runtime.CompilerServices.CompilerGeneratedAttribute), false)) {
-                //自动实现的属性会生成一个隐形的字段，而GetFields会将这个字段也找出来，导致错误的加载现象
-                //在针对成员自身的标签加载中可以因为标签识别而自动避开这个错误，但类级别标签的加载中却不行
-                //因为隐藏字段都属于编译器自行生成，有CompilerGeneratedAttribute标签
-                //所以在这里添加一个检测跳过这些隐藏字段
-                return;
+            if (member is FieldInfo field) {
+                bool attributeReadFailed = false;
+                var compilerGeneratedAttribute = VaultUtils.GetAttributeSafely<System.Runtime.CompilerServices.CompilerGeneratedAttribute>(field, (phase, ex) => {
+                    attributeReadFailed = true;
+                    VaultMod.Instance.Logger.Warn($"Skipped field {type.FullName}.{field.Name} while checking compiler-generated marker due to {phase} load error: {ex.Message}");
+                });
+                if (attributeReadFailed || compilerGeneratedAttribute != null) {
+                    //自动实现的属性会生成一个隐形的字段，而GetFields会将这个字段也找出来，导致错误的加载现象
+                    //在针对成员自身的标签加载中可以因为标签识别而自动避开这个错误，但类级别标签的加载中却不行
+                    //因为隐藏字段都属于编译器自行生成，有CompilerGeneratedAttribute标签
+                    //所以在这里添加一个检测跳过这些隐藏字段
+                    return;
+                }
             }
 
             Type memberType = member is FieldInfo f ? f.FieldType : (member as PropertyInfo)?.PropertyType;
