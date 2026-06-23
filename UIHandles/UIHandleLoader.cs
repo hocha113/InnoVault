@@ -420,6 +420,8 @@ namespace InnoVault.UIHandles
 
         /// <inheritdoc/>
         public override void Unload() {
+            UIInputGuard.Reset();
+
             foreach (var hander in UIHandles) {
                 hander.UnLoad();
             }

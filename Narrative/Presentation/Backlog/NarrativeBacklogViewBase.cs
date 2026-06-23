@@ -100,6 +100,7 @@ namespace InnoVault.Narrative.Presentation.Backlog
             Skin.Update(Layout);
 
             if (IsOpen) {
+                UIInputGuard.SuppressWeaponSwitch();
                 HandleInput();
             }
         }

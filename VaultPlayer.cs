@@ -28,6 +28,7 @@ namespace InnoVault
         }
 
         public override void PostUpdate() {
+            UIInputGuard.Tick();
             UpdateActiveNetworkQuery();
         }
 
