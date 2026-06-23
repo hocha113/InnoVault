@@ -1,3 +1,4 @@
+using InnoVault.Narrative.History;
 using InnoVault.Narrative.Progress;
 
 namespace InnoVault.Narrative.Services
@@ -11,6 +12,9 @@ namespace InnoVault.Narrative.Services
     {
         /// <summary>叙事进度存储，默认内存实现</summary>
         public static INarrativeProgressStore Progress { get; set; } = new MemoryNarrativeProgressStore();
+
+        /// <summary>对话历史存储，默认内存实现（落盘由框架 <c>NarrativeHistorySave</c> 承担）</summary>
+        public static INarrativeHistoryStore History { get; set; } = new MemoryNarrativeHistoryStore();
 
         /// <summary>奖励发放服务，默认 <see langword="null"/>（奖励弹窗只展示不发放）</summary>
         public static IRewardGrantService RewardGrant { get; set; }
@@ -34,6 +38,7 @@ namespace InnoVault.Narrative.Services
         /// <summary>恢复为默认实现（卸载 / 测试时使用）</summary>
         internal static void ResetToDefaults() {
             Progress = new MemoryNarrativeProgressStore();
+            History = new MemoryNarrativeHistoryStore();
             RewardGrant = null;
             Sync = null;
         }

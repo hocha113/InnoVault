@@ -22,9 +22,9 @@ namespace InnoVault
 
         public override void OnEnterWorld() {
             UIHandleLoader.OnEnterWorld();
-            NPCOverride.OnEnterWorldNetwork();
+            NPCOverrideNetWork.OnEnterWorld();
             TileProcessorNetWork.ClientRequest_TPData_Send();
-            ActorNetWork.RequestActiveActors();
+            ActorNetWork.SendActorFullSyncRequest();
         }
 
         public override void PostUpdate() {

@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq.Expressions;
+using Terraria;
 
 namespace InnoVault.Actors
 {
@@ -30,6 +31,11 @@ namespace InnoVault.Actors
         /// 该实体在其特定数组中的索引，这些数组跟踪世界中的实体
         /// </summary>
         public int WhoAmI;
+        /// <summary>
+        /// 该实体在其所在槽位上的"代"标识，由服务器在生成时分配并随网络包传输
+        /// <br>用于在槽位被复用后区分新旧实体，阻断延迟到达的过期数据包造成的张冠李戴</br>
+        /// </summary>
+        public ushort Generation;
         /// <summary>
         /// 如果为 true，则实体实际上存在于游戏世界中。在特定的实体数组中，如果 active 为 false，则该实体是垃圾数据
         /// </summary>
@@ -90,13 +96,46 @@ namespace InnoVault.Actors
         /// </summary>
         public int DrawExtendMode = 160;
         /// <summary>
-        /// 如果为 true，则在下一次网络更新时同步此实体的数据
+        /// 在服务器上置为 true 时，会在下一次网络心跳中对该实体强制进行一次全量同步
+        /// <br>常规字段变化已由服务器自动检测并增量广播，通常无需手动设置；在客户端置位无效</br>
         /// </summary>
         public bool NetUpdate;
         /// <summary>
         /// 该实体的绘制层级
         /// </summary>
         public ActorDrawLayer DrawLayer = ActorDrawLayer.Default;
+        /// <summary>
+        /// (服务器)上次广播该实体增量状态的游戏帧
+        /// </summary>
+        internal long LastBroadcastTick;
+        /// <summary>
+        /// (服务器)上次对该实体进行强制全量同步(心跳)的游戏帧
+        /// </summary>
+        internal long LastFullSyncTick;
+        /// <summary>
+        /// 该实体在活跃列表中的稠密索引，不在列表时为 -1
+        /// </summary>
+        internal int ActiveIndex = -1;
+        /// <summary>
+        /// (客户端)是否已收到过权威状态，用于驱动插值收敛
+        /// </summary>
+        public bool HasNetTarget;
+        /// <summary>
+        /// (客户端)最近一次收到的权威位置
+        /// </summary>
+        public Vector2 NetTargetPosition;
+        /// <summary>
+        /// (客户端)最近一次收到的权威速度，用于航位推算预测插值目标
+        /// </summary>
+        public Vector2 NetTargetVelocity;
+        /// <summary>
+        /// (客户端)最近一次收到的权威旋转
+        /// </summary>
+        public float NetTargetRotation;
+        /// <summary>
+        /// (客户端)收到最近一次权威状态时的游戏帧
+        /// </summary>
+        public long NetTargetTick;
         #endregion
         /// <summary>
         /// 注册内容
@@ -178,15 +217,91 @@ namespace InnoVault.Actors
         }
         #region Synchronization
         /// <summary>
-        /// 发送同步数据
+        /// 发送该实体的全部同步变量(无掩码全量)
         /// </summary>
         /// <param name="writer"></param>
         public void SendSyncData(BinaryWriter writer) => SyncVarManager.Send(this, writer);
         /// <summary>
-        /// 接收同步数据
+        /// 接收该实体的全部同步变量(无掩码全量)
         /// </summary>
         /// <param name="reader"></param>
         public void ReceiveSyncData(BinaryReader reader) => SyncVarManager.Receive(this, reader);
+        /// <summary>
+        /// 写出生成 / 晚加入所需的附加数据，用于把"非 <see cref="SyncVarAttribute"/> 的内部 AI 状态"
+        /// (例如运动相位、原点、计时器、朝向)纳入生成包与全量快照
+        /// <br>这样晚加入的客户端可以正确重建该实体，而不必依赖出生位置反推不变量(那会导致永久错位)</br>
+        /// <br>读写顺序必须与 <see cref="ReceiveExtraData"/> 完全一致</br>
+        /// </summary>
+        /// <param name="writer"></param>
+        public virtual void SendExtraData(BinaryWriter writer) { }
+        /// <summary>
+        /// 读取由 <see cref="SendExtraData"/> 写出的附加数据，读取顺序必须与其完全一致
+        /// </summary>
+        /// <param name="reader"></param>
+        public virtual void ReceiveExtraData(BinaryReader reader) { }
+        /// <summary>
+        /// (客户端)把当前状态记录为插值目标，在生成时调用以建立初始基准
+        /// </summary>
+        internal void InitNetTarget() {
+            NetTargetPosition = Position;
+            NetTargetVelocity = Velocity;
+            NetTargetRotation = Rotation;
+            NetTargetTick = (long)Main.GameUpdateCount;
+            HasNetTarget = true;
+        }
+        /// <summary>
+        /// (客户端)接收一次权威增量状态：位置与旋转会被改记为插值目标并保留本地预测值，
+        /// 由 <see cref="ApplyClientReconciliation"/> 平滑收敛；其余字段(尺寸 / 缩放 / 速度等)立即套用
+        /// </summary>
+        /// <param name="reader"></param>
+        internal void ClientReceiveState(BinaryReader reader) {
+            Vector2 oldPosition = Position;
+            float oldRotation = Rotation;
+
+            SyncVarManager.ReadState(this, reader);
+
+            NetTargetPosition = Position;
+            NetTargetVelocity = Velocity;
+            NetTargetRotation = Rotation;
+            NetTargetTick = (long)Main.GameUpdateCount;
+            HasNetTarget = true;
+
+            //恢复本地预测的位置 / 旋转，交由重对齐平滑靠拢，避免硬跳变
+            Position = oldPosition;
+            Rotation = oldRotation;
+        }
+        /// <summary>
+        /// (客户端)每帧在本地积分之后调用，把逻辑位置 / 旋转向权威目标平滑收敛
+        /// <br>采用航位推算(目标随权威速度外推)以适配持续运动的实体；误差过大时直接吸附以防长时间拉扯</br>
+        /// </summary>
+        public void ApplyClientReconciliation() {
+            if (!HasNetTarget) {
+                return;
+            }
+
+            float elapsed = (long)Main.GameUpdateCount - NetTargetTick;
+            if (elapsed < 0f) {
+                elapsed = 0f;
+            }
+
+            Vector2 predicted = NetTargetPosition + NetTargetVelocity * elapsed;
+            Vector2 error = predicted - Position;
+            float distanceSq = error.LengthSquared();
+            if (distanceSq > ActorNetWork.HardSnapDistanceSq) {
+                Position = predicted;
+            }
+            else if (distanceSq > ActorNetWork.ReconcileEpsilonSq) {
+                Position += error * ActorNetWork.PositionSmoothing;
+            }
+
+            float rotationError = MathHelper.WrapAngle(NetTargetRotation - Rotation);
+            if (Math.Abs(rotationError) > ActorNetWork.RotationSnap) {
+                Rotation = NetTargetRotation;
+            }
+            else if (Math.Abs(rotationError) > 0.0001f) {
+                Rotation += rotationError * ActorNetWork.RotationSmoothing;
+            }
+        }
         #endregion
     }
 }

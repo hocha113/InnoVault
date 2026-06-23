@@ -123,9 +123,13 @@ namespace InnoVault.GameSystem
             HookCanBeHitByItem = AddHook<Func<Player, Item, bool?>>(n => n.CanBeHitByItem);
             HookCanBeHitByNPC = AddHook<DelegateCanBeHitByNPC>(n => n.CanBeHitByNPC);
             HookCanBeHitByProjectile = AddHook<Func<Projectile, bool?>>(n => n.CanBeHitByProjectile);
+
+            //所有重制节点注册完毕后，按 FullName 字典序确定稳定的网络 ID（两端一致，免运行时重排）
+            NPCOverrideNetWork.BuildStableIDs();
         }
 
         void IVaultLoader.UnLoadData() {
+            NPCOverrideNetWork.Clear();
             Instances?.Clear();
             OverrideIDToInstances?.Clear();
             TypeToOverrideID?.Clear();
@@ -275,10 +279,16 @@ namespace InnoVault.GameSystem
                 foreach (var overrideInstance in values.Values) {
                     //必须写入 ID 以便接收端知道是哪个 Override
                     binaryWriter.Write(overrideInstance.OverrideID);
-                    //调用实例自己的同步方法
-                    //在这里同步最核心的状态数据，比如 ai 数组
-                    //不要在这里同步太大的数据，因为这是高频调用的
-                    overrideInstance.NetSend(binaryWriter);
+                    //每个 override 的负载用长度前缀包裹，使其自描述、可被接收端安全跳过，
+                    //避免两端 override 集合不一致时错位污染同一 NPC 后续 override 乃至其它 mod 的 ExtraAI 流
+                    //这里只同步最核心的热状态(ai)，不要塞入大数据
+                    using MemoryStream ms = new();
+                    using (BinaryWriter w = new(ms)) {
+                        overrideInstance.NetSend(w);
+                    }
+                    byte[] payload = ms.ToArray();
+                    binaryWriter.Write((ushort)payload.Length);
+                    binaryWriter.Write(payload);
                 }
             }
             else {
@@ -290,10 +300,19 @@ namespace InnoVault.GameSystem
             int count = binaryReader.ReadByte();
             for (int i = 0; i < count; i++) {
                 ushort id = binaryReader.ReadUInt16();
-                //找到对应的实例并读取数据
-                if (npc.TryGetOverride(out var values)
-                    && values.TryGetValue(OverrideIDToType[id], out var instance)) {
-                    instance.NetReceive(binaryReader);
+                ushort len = binaryReader.ReadUInt16();
+                //先把负载完整读出，保证无论能否解析都对齐到下一块
+                byte[] payload = binaryReader.ReadBytes(len);
+                try {
+                    if (OverrideIDToType.TryGetValue(id, out var type)
+                        && npc.TryGetOverride(out var values)
+                        && values.TryGetValue(type, out var instance)) {
+                        using MemoryStream ms = new(payload);
+                        using BinaryReader r = new(ms);
+                        instance.NetReceive(r);
+                    }
+                } catch (Exception ex) {
+                    VaultMod.LoggerError("NPCOverride.ReceiveExtraAI", $"Failed to receive NPCOverride ExtraAI: {ex}");
                 }
             }
         }
@@ -788,8 +807,8 @@ namespace InnoVault.GameSystem
                     value.PostAI();
                 }
 
-                //所有逻辑处理完成后，统一做一次网络同步
-                if (gNpc.NPCOverrides != null) {
+                //所有逻辑处理完成后，统一在服务端做一次网络同步，客户端无需空转遍历
+                if (VaultUtils.isServer && gNpc.NPCOverrides != null) {
                     foreach (var npcOverrideInstance in gNpc.NPCOverrides.Values) {
                         npcOverrideInstance.DoNetWork();
                     }

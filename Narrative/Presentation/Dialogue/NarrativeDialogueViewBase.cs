@@ -1,4 +1,5 @@
 using InnoVault.Narrative.Core;
+using InnoVault.Narrative.History;
 using InnoVault.Narrative.Portraits;
 using InnoVault.Narrative.Presentation.Anchors;
 using InnoVault.Narrative.Runtime;
@@ -208,6 +209,11 @@ namespace InnoVault.Narrative.Presentation.Dialogue
 
         /// <summary>处理自动 / 快进 / 跳过与点击推进，consumer 可覆写以扩展输入逻辑</summary>
         protected virtual void HandleInput(NarrativeSession session) {
+            //backlog 打开时由其独占输入，避免点击穿透推进对话
+            if (NarrativeHistory.IsOpen) {
+                return;
+            }
+
             Point mouse = new(Main.mouseX, Main.mouseY);
             bool hoverPanel = Layout.PanelRect.Contains(mouse);
             if (hoverPanel) {
@@ -217,6 +223,7 @@ namespace InnoVault.Narrative.Presentation.Dialogue
             Layout.HoverAuto = Layout.AutoRect.Contains(mouse);
             Layout.HoverFast = Layout.FastRect.Contains(mouse);
             Layout.HoverSkip = Layout.SkipRect.Contains(mouse);
+            Layout.HoverBacklog = Layout.BacklogRect.Contains(mouse);
             Layout.HoverContinue = Layout.ContinueRect.Contains(mouse);
 
             bool pressed = keyLeftPressState == KeyPressState.Pressed;
@@ -235,6 +242,10 @@ namespace InnoVault.Narrative.Presentation.Dialogue
             if (Layout.ShowHints && Layout.HoverSkip) {
                 StyleRegistry.GetDialogue(session.Style).PlaySkipSound();
                 session.RequestSkipToNextStop();
+                return;
+            }
+            if (Layout.ShowHints && Layout.HoverBacklog) {
+                NarrativeHistory.Toggle();
                 return;
             }
             if (hoverPanel) {

@@ -71,36 +71,45 @@ namespace InnoVault.GameSystem
         /// 这个重制节点的ID，在多人模式中共享服务端的结果
         /// </summary>
         public ushort OverrideID;
-        //不要直接设置这个
-        private bool _netOtherWorkSend;
-        //不要直接设置这个
-        private bool _netAIWorkSend;
+        //服务端待发送的脏标记，仅承载 Other/SyncVar（ai 直接走 npc.netUpdate 搭车 vanilla 同步）
+        private NPCOverrideSyncField _pendingSync = NPCOverrideSyncField.None;
         /// <summary>
         /// 用于网络同步，只能在服务端进行设置，其他端口永远返回<see langword="false"/>，
-        /// 当设置为<see langword="true"/>时，会自动调用<see cref="OtherNetWorkReceiveHander(BinaryReader)"/>进行网络数据同步
+        /// 设置为<see langword="true"/>时会在本帧末尾经 Event 通道同步 <see cref="OtherNetWorkSend"/> 与 <see cref="SyncVarAttribute"/> 数据
+        /// <br/>兼容保留，等价于 <see cref="RequestSync"/>(<see cref="NPCOverrideSyncField.Other"/> | <see cref="NPCOverrideSyncField.SyncVar"/>)
         /// </summary>
         public bool NetOtherWorkSend {
-            get {
-                if (!VaultUtils.isServer) {
-                    return false;
+            get => VaultUtils.isServer && (_pendingSync & (NPCOverrideSyncField.Other | NPCOverrideSyncField.SyncVar)) != NPCOverrideSyncField.None;
+            set {
+                if (value) {
+                    if (VaultUtils.isServer) {
+                        _pendingSync |= NPCOverrideSyncField.Other | NPCOverrideSyncField.SyncVar;
+                    }
                 }
-                return _netOtherWorkSend;
+                else {
+                    _pendingSync &= ~(NPCOverrideSyncField.Other | NPCOverrideSyncField.SyncVar);
+                }
             }
-            set => _netOtherWorkSend = value;
         }
         /// <summary>
         /// 用于网络同步，只能在服务端进行设置，其他端口永远返回<see langword="false"/>，
-        /// 当设置为<see langword="true"/>时，会自动调用<see cref="NetAISend()"/>进行网络数据同步
+        /// 设置为<see langword="true"/>时等价于 <c>npc.netUpdate = true</c>，通过 vanilla SyncNPC 同步 <see cref="ai"/>
+        /// <br/>兼容保留，等价于 <see cref="RequestSync"/>(<see cref="NPCOverrideSyncField.Ai"/>)
         /// </summary>
         public bool NetAIWorkSend {
-            get {
-                if (!VaultUtils.isServer) {
-                    return false;
+            get => VaultUtils.isServer && npc != null && npc.netUpdate;
+            set {
+                if (value && VaultUtils.isServer && npc != null) {
+                    npc.netUpdate = true;
                 }
-                return _netAIWorkSend;
             }
-            set => _netAIWorkSend = value;
         }
+        /// <summary>
+        /// 是否为该重制节点启用高频增量(delta)流式同步通道，默认<see langword="false"/>。
+        /// <br/>启用后其 <see cref="ai"/> 会以受控 cadence、按距离向附近客户端推送，且只发送相对上次快照变化的槽位，
+        /// 适合每帧连续变化的自定义 ai 值；它是 <c>npc.netUpdate</c> 的替代品，不要对同一组 ai 同时高频使用两者以免重复发送
+        /// </summary>
+        public bool StreamNetDelta;
         #endregion
         /// <summary>
         /// 封闭加载
@@ -561,84 +570,45 @@ namespace InnoVault.GameSystem
 
         #region NetWork
         /// <summary>
-        /// 用于网络同步，该方法在多人游戏中运行
-        /// 使用位掩码仅发送非零的ai槽位，以减少高频同步时的带宽消耗
+        /// 用于网络同步 <see cref="ai"/>，搭车 vanilla 的 SyncNPC(ExtraAI) 通道，保证与位置/速度原子到达。
+        /// 使用位掩码仅发送非零的 ai 槽位以减少带宽。重写时务必与 <see cref="NetReceive"/> 对应
         /// </summary>
         /// <param name="writer"></param>
-        public virtual void NetSend(BinaryWriter writer) {
-            ushort mask = 0;
-            for (int i = 0; i < MaxAISlot; i++) {
-                if (ai[i] != 0f) {
-                    mask |= (ushort)(1 << i);
-                }
-            }
-            writer.Write(mask);
-            for (int i = 0; i < MaxAISlot; i++) {
-                if ((mask & (1 << i)) != 0) {
-                    writer.Write(ai[i]);
-                }
-            }
-        }
+        public virtual void NetSend(BinaryWriter writer) => NPCOverrideNetWork.WriteAiMasked(writer, ai);
         /// <summary>
-        /// 用于网络同步，该方法在多人游戏中运行
-        /// 使用位掩码仅接收非零的ai槽位，与<see cref="NetSend"/>对应
+        /// 用于网络同步 <see cref="ai"/>，与 <see cref="NetSend"/> 对应，未发送的槽位会被清零
         /// </summary>
         /// <param name="reader"></param>
-        public virtual void NetReceive(BinaryReader reader) {
-            ushort mask = reader.ReadUInt16();
-            for (int i = 0; i < MaxAISlot; i++) {
-                if ((mask & (1 << i)) != 0) {
-                    ai[i] = reader.ReadSingle();
-                }
-                else {
-                    ai[i] = 0f;
-                }
+        public virtual void NetReceive(BinaryReader reader) => NPCOverrideNetWork.ReadAiMasked(reader, ai);
+        /// <summary>
+        /// 统一的网络同步入口，请求同步该重制节点的指定内容
+        /// <br/>服务端：<see cref="NPCOverrideSyncField.Ai"/> 通过 <c>npc.netUpdate</c> 搭车 vanilla 同步；
+        /// <see cref="NPCOverrideSyncField.Other"/>/<see cref="NPCOverrideSyncField.SyncVar"/> 在本帧末尾经 Event 通道广播
+        /// <br/>客户端：立即将数据发往服务端，由服务端校验后广播给其他客户端
+        /// </summary>
+        /// <param name="fields">要同步的数据种类，默认全部</param>
+        public void RequestSync(NPCOverrideSyncField fields = NPCOverrideSyncField.All) {
+            if (VaultUtils.isSinglePlayer || npc == null || fields == NPCOverrideSyncField.None) {
+                return;
             }
+            if (VaultUtils.isClient) {
+                NPCOverrideNetWork.SendEvent(this, fields);
+                return;
+            }
+            if ((fields & NPCOverrideSyncField.Ai) != 0) {
+                npc.netUpdate = true;
+            }
+            _pendingSync |= fields & (NPCOverrideSyncField.Other | NPCOverrideSyncField.SyncVar);
         }
         /// <summary>
-        /// 用于网络同步，在服务端运行
+        /// 服务端每帧调用，刷新待发送的 Other/SyncVar 脏数据。调用方已保证处于服务端
         /// </summary>
         internal void DoNetWork() {
-            if (!VaultUtils.isServer) {
+            if (_pendingSync == NPCOverrideSyncField.None) {
                 return;
             }
-
-            if (NetAIWorkSend) {
-                npc.netUpdate = true;
-                NetAIWorkSend = false;
-            }
-            if (NetOtherWorkSend) {
-                OtherNetWorkSendHander();
-                NetOtherWorkSend = false;
-            }
-        }
-
-        internal static void OtherNetWorkReceiveHander(BinaryReader reader) {
-            NPC npc = Main.npc[reader.ReadInt16()];
-            ushort id = reader.ReadUInt16();
-            if (npc.TryGetOverride(out var values)) {
-                foreach (var npcOverrideInstance in values.Values) {
-                    if (npcOverrideInstance.OverrideID != id) {
-                        continue;
-                    }
-                    npcOverrideInstance.OtherNetWorkReceive(reader);
-                    SyncVarManager.Receive(npcOverrideInstance, reader);
-                }
-            }
-        }
-
-        internal void OtherNetWorkSendHander() {
-            if (!VaultUtils.isServer) {
-                return;
-            }
-
-            ModPacket netMessage = Mod.GetPacket();
-            netMessage.Write((byte)MessageType.NPCOverrideOtherAI);
-            netMessage.Write((short)npc.whoAmI);
-            netMessage.Write(OverrideID);
-            OtherNetWorkSend(netMessage);
-            SyncVarManager.Send(this, netMessage);
-            netMessage.Send();
+            NPCOverrideNetWork.SendEvent(this, _pendingSync);
+            _pendingSync = NPCOverrideSyncField.None;
         }
 
         /// <summary>
@@ -678,357 +648,24 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 允许客户端主动将数据发送网络数据到服务器，启动服务器广播给其他客户端
+        /// 允许客户端主动将数据发送到服务器并由服务器广播给其他客户端
         /// </summary>
-        public void SendNetworkData() {
-            if (VaultUtils.isSinglePlayer) {
-                return;
-            }
-            ModPacket netMessage = VaultMod.Instance.GetPacket();
-            netMessage.Write((byte)MessageType.NPCOverrideNetWork);
-            netMessage.Write((short)npc.whoAmI);
-            netMessage.Write(OverrideID);
-            //使用位掩码仅发送非零的ai槽位
-            ushort mask = 0;
-            for (int i = 0; i < MaxAISlot; i++) {
-                if (ai[i] != 0f) {
-                    mask |= (ushort)(1 << i);
-                }
-            }
-            netMessage.Write(mask);
-            for (int i = 0; i < MaxAISlot; i++) {
-                if ((mask & (1 << i)) != 0) {
-                    netMessage.Write(ai[i]);
-                }
-            }
-            OtherNetWorkSend(netMessage);//手动发送网络数据
-            SyncVarManager.Send(this, netMessage);
-            netMessage.Send();
-        }
+        [Obsolete("请使用 RequestSync(NPCOverrideSyncField.All)")]
+        public void SendNetworkData() => RequestSync(NPCOverrideSyncField.All);
 
         /// <summary>
-        /// 接收网络数据，允许服务器将数据广播给所有客户端
+        /// 接收网络数据的兼容入口，内部转发到统一的 Event 处理
         /// </summary>
         /// <param name="reader"></param>
         /// <param name="whoAmI"></param>
-        public static void ReceiveNetworkData(BinaryReader reader, int whoAmI) {
-            int npcIndex = (int)reader.ReadInt16();
-            ushort overrideID = reader.ReadUInt16();
-            //使用位掩码读取ai数据
-            ushort mask = reader.ReadUInt16();
-            float[] newAI = new float[MaxAISlot];
-            for (int i = 0; i < MaxAISlot; i++) {
-                newAI[i] = (mask & (1 << i)) != 0 ? reader.ReadSingle() : 0f;
-            }
-
-            if (!npcIndex.TryGetNPC(out NPC npc)) {
-                return;
-            }
-
-            NPCOverride npcModify = null;
-            if (npc.TryGetOverride(out var values)) {
-                npcModify = values[OverrideIDToType[overrideID]];
-            }
-
-            if (npcModify == null) {
-                return;
-            }
-
-            for (int i = 0; i < MaxAISlot; i++) {
-                npcModify.ai[i] = newAI[i];
-            }
-
-            npcModify.OtherNetWorkReceive(reader);
-            SyncVarManager.Receive(npcModify, reader);
-
-            //服务器负责将数据广播给其他客户端
-            if (VaultUtils.isServer) {
-                ModPacket netMessage = VaultMod.Instance.GetPacket();
-                netMessage.Write((byte)MessageType.NPCOverrideNetWork);
-                netMessage.Write((short)npc.whoAmI);
-                netMessage.Write(overrideID);
-                netMessage.Write(mask);
-                for (int i = 0; i < MaxAISlot; i++) {
-                    if ((mask & (1 << i)) != 0) {
-                        netMessage.Write(newAI[i]);
-                    }
-                }
-                npcModify.OtherNetWorkSend(netMessage);
-                SyncVarManager.Send(npcModify, netMessage);
-                netMessage.Send(-1, whoAmI);
-            }
-        }
+        [Obsolete("内部处理入口，请使用 RequestSync")]
+        public static void ReceiveNetworkData(BinaryReader reader, int whoAmI) => NPCOverrideNetWork.HandleEvent(reader, whoAmI);
 
         /// <summary>
-        /// 请求服务器发送所有已加载的NPC重制数据
+        /// 请求服务器补发所有已加载的NPC重制节点数据
         /// </summary>
-        public static void GetSever_NPCOverrideRequestAllData() {
-            if (!VaultUtils.isClient) {
-                return;
-            }
-            var netMessage = VaultMod.Instance.GetPacket();
-            netMessage.Write((byte)MessageType.SendToClient_NPCOverrideRequestAllData);
-            netMessage.Send();
-        }
-        /// <summary>
-        /// 向指定客户端发送所有已加载的NPC重制数据
-        /// </summary>
-        internal static void SendToClient_NPCOverrideRequestAllData(int whoAmI) {
-            List<NPC> npcs = [.. Main.npc.Where(npc => npc.Alives() && ByID.ContainsKey(npc.type))];
-            List<NPCOverride> npcOverrides = [];
-            for (int i = 0; i < npcs.Count; i++) {
-                if (!npcs[i].TryGetOverride(out var values)) {
-                    continue;
-                }
-                npcOverrides.AddRange(values.Values);
-            }
-
-            if (npcOverrides.Count <= 0) {
-                return;
-            }
-
-            const int batchSize = 25; //每包最多多少个
-            int total = npcOverrides.Count;
-            int batches = (total + batchSize - 1) / batchSize;
-
-            for (int b = 0; b < batches; b++) {//一般来讲用拼图式请求是最好的，但NPC的数据不太可能会这样的大，所以不用那么复杂了
-                int start = b * batchSize;
-                int end = Math.Min(start + batchSize, total);
-                int count = end - start;
-
-                var netMessage = VaultMod.Instance.GetPacket();
-                netMessage.Write((byte)MessageType.Handler_NPCOverrideRequestAllData);
-
-                //写入当前批次的数量，batchSize最大25，用byte足够
-                netMessage.Write((byte)count);
-
-                for (int i = start; i < end; i++) {
-                    var npcOverride = npcOverrides[i];
-
-                    netMessage.Write((short)npcOverride.npc.whoAmI);
-                    netMessage.Write(npcOverride.OverrideID);
-
-                    //使用位掩码仅发送非零的ai槽位
-                    ushort mask = 0;
-                    for (int j = 0; j < MaxAISlot; j++) {
-                        if (npcOverride.ai[j] != 0f) {
-                            mask |= (ushort)(1 << j);
-                        }
-                    }
-                    netMessage.Write(mask);
-                    for (int j = 0; j < MaxAISlot; j++) {
-                        if ((mask & (1 << j)) != 0) {
-                            netMessage.Write(npcOverride.ai[j]);
-                        }
-                    }
-
-                    npcOverride.OtherNetWorkSend(netMessage);
-                    SyncVarManager.Send(npcOverride, netMessage);
-                }
-
-                netMessage.Send(whoAmI);
-            }
-        }
-        /// <summary>
-        /// 处理接收到的所有NPC重制数据
-        /// </summary>
-        /// <param name="reader"></param>
-        internal static void Handler_NPCOverrideRequestAllData(BinaryReader reader) {
-            int count = reader.ReadByte();
-            for (int i = 0; i < count; i++) {
-                int npcIndex = (int)reader.ReadInt16();
-                ushort overrideID = reader.ReadUInt16();
-
-                if (!npcIndex.TryGetNPC(out NPC npc)) {
-                    continue;
-                }
-
-                if (!npc.TryGetOverride(out var values)) {
-                    continue;
-                }
-
-                NPCOverride value = values[OverrideIDToType[overrideID]];
-                //使用位掩码读取ai数据
-                ushort mask = reader.ReadUInt16();
-                for (int j = 0; j < MaxAISlot; j++) {
-                    value.ai[j] = (mask & (1 << j)) != 0 ? reader.ReadSingle() : 0f;
-                }
-                value.OtherNetWorkReceive(reader);
-                SyncVarManager.Receive(value, reader);
-            }
-        }
-
-        /// <summary>
-        /// [客户端侧]向服务器请求验证数据
-        /// </summary>
-        internal static void RequestValidationDataFromServer() {
-            if (!VaultUtils.isClient) {
-                return;
-            }
-            var netMessage = VaultMod.Instance.GetPacket();
-            //请求验证
-            netMessage.Write((byte)MessageType.RequestNPCOverrideValidation);
-            netMessage.Send();
-        }
-
-        /// <summary>
-        /// [服务端侧]收到客户端请求后，发送标准数据给该客户端
-        /// </summary>
-        internal static void SendValidationDataToClient(int whoAmI) {
-            if (!VaultUtils.isServer) {
-                return;
-            }
-
-            var netMessage = VaultMod.Instance.GetPacket();
-            netMessage.Write((byte)MessageType.SyncNPCOverrideValidation);
-
-            //写入总数作为第一道保险
-            netMessage.Write(Instances.Count);
-
-            //写入每一个Override的FullName和对应的ID
-            //这里的Instances列表顺序就是服务端的权威顺序
-            foreach (var instance in Instances) {
-                netMessage.Write(instance.FullName);
-                netMessage.Write(TypeToOverrideID[instance.GetType()]);
-            }
-
-            netMessage.Send(whoAmI); //只发送给请求的那个客户端
-        }
-
-        /// <summary>
-        /// [客户端侧]接收服务端的标准数据并进行比对与恢复
-        /// </summary>
-        internal static void ReceiveAndValidateServerData(BinaryReader reader) {
-            if (!VaultUtils.isClient) {
-                return;
-            }
-
-            try {
-                int serverCount = reader.ReadInt32();
-                var serverMap = new Dictionary<string, ushort>();
-                for (int i = 0; i < serverCount; i++) {
-                    serverMap.Add(reader.ReadString(), reader.ReadUInt16());
-                }
-
-                //检查实例总数是否一致
-                if (serverCount != Instances.Count) {
-                    string errorMsg = $"NPCOverride validation failed: Instance count mismatch. Server: {serverCount}" +
-                        $", Client: {Instances.Count}. This is a critical error, likely due to different mod lists or versions.";
-                    VaultMod.Instance.Logger.Error(errorMsg);
-                    VaultUtils.Text(errorMsg, Color.Red);
-                    return;
-                }
-
-                if (serverCount == 0) {
-                    return;//如果确定服务端没有任何实例，则不需要进行后续检查
-                }
-
-                //检查实例内容是否完全一致
-                var clientNames = new HashSet<string>(Instances.Select(inst => inst.FullName));
-                var serverNames = new HashSet<string>(serverMap.Keys);
-                if (!clientNames.SetEquals(serverNames)) {
-                    //找出差异项用于提供更详细的日志
-                    var missingOnClient = serverNames.Except(clientNames).ToList();
-                    var extraOnClient = clientNames.Except(serverNames).ToList();
-                    string errorMsg = "NPCOverride validation failed: Instance sets do not match.";
-                    VaultMod.Instance.Logger.Error(errorMsg);
-                    VaultUtils.Text(errorMsg, Color.Red);
-                    if (missingOnClient.Count != 0) {
-                        VaultMod.Instance.Logger.Error($"Client is missing overrides present on server: [{string.Join(", ", missingOnClient)}]");
-                    }
-                    if (extraOnClient.Count != 0) {
-                        VaultMod.Instance.Logger.Error($"Client has extra overrides not present on server: [{string.Join(", ", extraOnClient)}]");
-                    }
-                    return;
-                }
-
-                //检查顺序是否一致，如果不一致则尝试恢复
-                bool needsResort = false;
-                foreach (var instance in Instances) {
-                    if (TypeToOverrideID[instance.GetType()] != serverMap[instance.FullName]) {
-                        needsResort = true;
-                        break;
-                    }
-                }
-
-                if (needsResort) {
-                    VaultMod.Instance.Logger.Warn("NPCOverride mismatch detected. Client-side instances will be re-sorted to match the server's authoritative order.");
-
-                    //开始重排
-                    var nameToInstanceMap = Instances.ToDictionary(inst => inst.FullName);
-                    var sortedInstances = new NPCOverride[serverCount];
-
-                    foreach (var serverEntry in serverMap) {
-                        //serverEntry.Value是权威ID, serverEntry.Key是FullName
-                        //根据权威ID作为索引，将客户端对应的实例放到正确的位置上
-                        sortedInstances[serverEntry.Value] = nameToInstanceMap[serverEntry.Key];
-                    }
-
-                    //用排好序的列表重建本地的映射表
-                    RebuildOverrideMappings([.. sortedInstances]);
-                    VaultMod.Instance.Logger.Info("NPCOverride client data successfully re-synced with the server.");
-                }
-                else {
-                    VaultMod.Instance.Logger.Info("NPCOverride validation successful. Client data matches server.");
-                }
-            } catch (Exception e) {
-                string errorMsg = "A critical error occurred during NPCOverride validation process. Disconnecting.";
-                VaultMod.Instance.Logger.Error($"{errorMsg}\n{e}");
-                VaultUtils.Text(errorMsg, Color.Red);
-            }
-        }
-
-        /// <summary>
-        /// 根据一个排好序的列表，重建所有相关的静态数据结构
-        /// </summary>
-        /// <param name="sortedInstances">已经按照服务端顺序排好的实例列表</param>
-        private static void RebuildOverrideMappings(List<NPCOverride> sortedInstances) {
-            //清空旧数据
-            Instances.Clear();
-            OverrideIDToInstances.Clear();
-            TypeToOverrideID.Clear();
-
-            //重新填充
-            for (int i = 0; i < sortedInstances.Count; i++) {
-                var instance = sortedInstances[i];
-                var newID = (ushort)i;
-
-                instance.OverrideID = newID;
-                Instances.Add(instance);
-                OverrideIDToInstances.Add(newID, instance);
-                TypeToOverrideID[instance.GetType()] = newID;
-            }
-        }
-
-        /// <summary>
-        /// 在进入游戏世界时请求验证数据与所有NPC数据
-        /// </summary>
-        internal static void OnEnterWorldNetwork() {
-            RequestValidationDataFromServer();
-            GetSever_NPCOverrideRequestAllData();
-        }
-
-        internal static void HandlePacket(MessageType type, BinaryReader reader, int whoAmI) {
-            if (type == MessageType.NPCOverrideOtherAI) {
-                OtherNetWorkReceiveHander(reader);
-            }
-            else if (type == MessageType.NPCOverrideNetWork) {
-                ReceiveNetworkData(reader, whoAmI);
-            }
-            else if (type == MessageType.SendToClient_NPCOverrideRequestAllData) {
-                SendToClient_NPCOverrideRequestAllData(whoAmI);
-            }
-            else if (type == MessageType.Handler_NPCOverrideRequestAllData) {
-                Handler_NPCOverrideRequestAllData(reader);
-            }
-            else if (type == MessageType.RequestNPCOverrideValidation) {
-                SendValidationDataToClient(whoAmI);
-            }
-            else if (type == MessageType.SyncNPCOverrideValidation) {
-                ReceiveAndValidateServerData(reader);
-            }
-        }
-
+        [Obsolete("进入世界时框架会自动请求，可改用进图同步流程 NPCOverrideNetWork.OnEnterWorld")]
+        public static void GetSever_NPCOverrideRequestAllData() => NPCOverrideNetWork.RequestBulk();
         #endregion
     }
 }

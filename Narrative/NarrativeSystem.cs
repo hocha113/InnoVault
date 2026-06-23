@@ -1,5 +1,6 @@
 using InnoVault.GameSystem;
 using InnoVault.Narrative.Core;
+using InnoVault.Narrative.History;
 using InnoVault.Narrative.Portraits;
 using InnoVault.Narrative.Presentation;
 using InnoVault.Narrative.Presentation.Anchors;
@@ -33,16 +34,27 @@ namespace InnoVault.Narrative
         }
 
         /// <inheritdoc/>
-        public override void OnWorldLoad() => NarrativeRunner.Reset();
+        public override void OnWorldLoad() {
+            NarrativeRunner.Reset();
+            if (!Main.dedServ) {
+                NarrativeHistory.Load();
+            }
+        }
 
         /// <inheritdoc/>
-        public override void OnWorldUnload() => NarrativeRunner.Reset();
+        public override void OnWorldUnload() {
+            if (!Main.dedServ) {
+                NarrativeHistory.Save();
+            }
+            NarrativeRunner.Reset();
+        }
 
         /// <inheritdoc/>
         public override void Unload() {
             NarrativeRunner.Reset();
             NarrativeScheduler.Reset();
             NarrativeViews.Clear();
+            NarrativeHistory.Reset();
             PanelAnchorResolver.ClearProvider();
             NarrativeScenario.ClearRegistry();
             PortraitRegistry.Clear();

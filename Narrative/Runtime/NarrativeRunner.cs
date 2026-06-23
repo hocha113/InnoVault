@@ -1,4 +1,5 @@
 using InnoVault.Narrative.Core;
+using InnoVault.Narrative.History;
 using InnoVault.Narrative.Presentation;
 using InnoVault.Narrative.Progress;
 using InnoVault.Narrative.Services;
@@ -190,6 +191,9 @@ namespace InnoVault.Narrative.Runtime
                 SafeInvoke(session.Scenario.InvokeCompleted, $"scenario '{session.Key}' OnCompleted");
             }
             SafeInvoke(session.OnCompleted, $"scenario '{session.Key}' completion callback");
+
+            //每段对话完成后落盘一次，降低崩溃 / 异常退出导致历史丢失的风险
+            NarrativeHistory.Save();
 
             if (!string.IsNullOrEmpty(session.RequestedScenario)) {
                 if (!Begin(session.RequestedScenario)) {

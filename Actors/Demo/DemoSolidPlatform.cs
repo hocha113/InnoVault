@@ -1,5 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using System.IO;
 using Terraria;
 
 namespace InnoVault.Actors
@@ -36,6 +37,19 @@ namespace InnoVault.Actors
             else if (Position.X < originX - PatrolRange) {
                 dir = 1;
             }
+        }
+
+        /// <inheritdoc/>
+        public override void SendExtraData(BinaryWriter writer) {
+            //把不属于 [SyncVar] 的内部巡逻状态纳入生成 / 晚加入快照，避免晚加入者用当前位置反推出错误的巡逻原点
+            writer.Write(originX);
+            writer.Write(dir);
+        }
+
+        /// <inheritdoc/>
+        public override void ReceiveExtraData(BinaryReader reader) {
+            originX = reader.ReadSingle();
+            dir = reader.ReadInt32();
         }
 
         /// <inheritdoc/>

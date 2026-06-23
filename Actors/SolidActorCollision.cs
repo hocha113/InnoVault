@@ -49,21 +49,20 @@ namespace InnoVault.Actors
         /// 拿到的是本帧最新位置，而不是上一帧末尾的位置
         /// </summary>
         public override void PreUpdateEntities() {
-            EarlyUpdateSolids();
             RebuildActiveList();
+            EarlyUpdateSolids();
         }
 
         /// <inheritdoc/>
         public override void OnWorldUnload() => activeSolids.Clear();
 
         private static void EarlyUpdateSolids() {
-            Actor[] actors = ActorLoader.Actors;
-            if (actors == null) {
-                return;
-            }
+            bool client = VaultUtils.isClient;
 
-            for (int i = 0; i < actors.Length; i++) {
-                if (actors[i] is not SolidActor solid || !solid.Active || !solid.SolidEnabled) {
+            //遍历本帧快照(activeSolids)，即使 SolidAI 中途生成 / 销毁实体也不会破坏遍历
+            for (int i = 0; i < activeSolids.Count; i++) {
+                SolidActor solid = activeSolids[i];
+                if (!solid.Active || !solid.SolidEnabled) {
                     continue;
                 }
 
@@ -71,18 +70,19 @@ namespace InnoVault.Actors
                 solid.PreUpdatedThisFrame = true;
                 solid.SolidAI();
                 solid.Position += solid.Velocity;
+
+                //客户端在积分后立即重对齐，保证本帧碰撞 / 承载使用已向权威收敛的位置
+                if (client) {
+                    solid.ApplyClientReconciliation();
+                }
             }
         }
 
         private static void RebuildActiveList() {
             activeSolids.Clear();
 
-            Actor[] actors = ActorLoader.Actors;
-            if (actors == null) {
-                return;
-            }
-
-            for (int i = 0; i < actors.Length; i++) {
+            IReadOnlyList<Actor> actors = ActorLoader.ActiveActors;
+            for (int i = 0; i < actors.Count; i++) {
                 if (actors[i] is SolidActor solid && solid.Active && solid.SolidEnabled) {
                     activeSolids.Add(solid);
                 }

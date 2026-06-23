@@ -171,6 +171,10 @@ namespace InnoVault.Narrative.Styling
         protected virtual string ResolveSkipHint() => "Skip";
         /// <summary>继续提示文案，消费者可重写以接入本地化</summary>
         protected virtual string ResolveContinueHint(bool hover) => ">";
+        /// <summary>Backlog（历史对话）提示文案，消费者可重写以接入本地化</summary>
+        protected virtual string ResolveBacklogHint() => "Log";
+        /// <summary>是否在底部命令行展示 Backlog 按钮（与 自动 / 加速 / 跳过 同级）</summary>
+        public virtual bool ShowBacklogButton => true;
 
         /// <summary>布局底部命令提示的点击区域</summary>
         public virtual void LayoutCommandHints(DialogueLayoutContext context) {
@@ -181,11 +185,16 @@ namespace InnoVault.Narrative.Styling
             float autoW = context.Font.MeasureString(ResolveAutoHint()).X * HintScale;
             float fastW = context.Font.MeasureString(ResolveFastHint()).X * HintScale;
             float skipW = context.Font.MeasureString(ResolveSkipHint()).X * HintScale;
+            bool showBacklog = ShowBacklogButton;
+            float backlogW = showBacklog ? context.Font.MeasureString(ResolveBacklogHint()).X * HintScale : 0f;
             float continueW = context.Font.MeasureString(ResolveContinueHint(hover: true)).X * 0.9f;
 
             float commandX;
             if (context.HasPortrait && context.PortraitRect != Rectangle.Empty) {
                 float totalW = autoW + CommandHintGap + fastW + CommandHintGap + skipW;
+                if (showBacklog) {
+                    totalW += CommandHintGap + backlogW;
+                }
                 commandX = context.PortraitRect.X + (context.PortraitRect.Width - totalW) * 0.5f;
             }
             else {
@@ -197,6 +206,13 @@ namespace InnoVault.Narrative.Styling
             context.FastRect = BuildHintHitRect(commandX, rowTop, fastW, rowTextHeight, context.HintRowBaseline);
             commandX += fastW + CommandHintGap;
             context.SkipRect = BuildHintHitRect(commandX, rowTop, skipW, rowTextHeight, context.HintRowBaseline);
+            if (showBacklog) {
+                commandX += skipW + CommandHintGap;
+                context.BacklogRect = BuildHintHitRect(commandX, rowTop, backlogW, rowTextHeight, context.HintRowBaseline);
+            }
+            else {
+                context.BacklogRect = Rectangle.Empty;
+            }
 
             float continueX = context.PanelRect.Right - Padding - continueW;
             context.ContinueRect = BuildHintHitRect(continueX, rowTop, continueW, rowTextHeight, context.HintRowBaseline);
@@ -282,6 +298,10 @@ namespace InnoVault.Narrative.Styling
             Utils.DrawBorderString(spriteBatch, ResolveAutoHint(), GetHintDrawPosition(context, context.AutoRect, ResolveAutoHint()), context.AutoMode ? on : off, HintScale);
             Utils.DrawBorderString(spriteBatch, ResolveFastHint(), GetHintDrawPosition(context, context.FastRect, ResolveFastHint()), context.FastMode ? on : off, HintScale);
             Utils.DrawBorderString(spriteBatch, ResolveSkipHint(), GetHintDrawPosition(context, context.SkipRect, ResolveSkipHint()), off, HintScale);
+
+            if (ShowBacklogButton) {
+                Utils.DrawBorderString(spriteBatch, ResolveBacklogHint(), GetHintDrawPosition(context, context.BacklogRect, ResolveBacklogHint()), context.HoverBacklog ? on : off, HintScale);
+            }
 
             if (context.WaitingAdvance) {
                 float blink = (float)(Math.Sin(context.GlobalTimer * 6f) * 0.5 + 0.5);

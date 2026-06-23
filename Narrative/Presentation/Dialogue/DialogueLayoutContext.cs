@@ -25,6 +25,8 @@ namespace InnoVault.Narrative.Presentation.Dialogue
         public Rectangle FastRect;
         /// <summary>跳过至下一停顿点的可点击区域</summary>
         public Rectangle SkipRect;
+        /// <summary>Backlog（历史对话）按钮的可点击区域</summary>
+        public Rectangle BacklogRect;
         /// <summary>按行折行后的正文文本</summary>
         public string[] WrappedLines = [];
         /// <summary>当前已显示的字符数（打字机进度）</summary>
@@ -75,6 +77,8 @@ namespace InnoVault.Narrative.Presentation.Dialogue
         public bool HoverFast;
         /// <summary>鼠标是否悬停在跳过按钮上</summary>
         public bool HoverSkip;
+        /// <summary>鼠标是否悬停在 Backlog 按钮上</summary>
+        public bool HoverBacklog;
         /// <summary>鼠标是否悬停在继续提示上</summary>
         public bool HoverContinue;
         /// <summary>全局动画计时器（秒），用于装饰性动画</summary>

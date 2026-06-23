@@ -4,6 +4,7 @@ using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq.Expressions;
 using Terraria;
 using Terraria.GameContent;
@@ -25,10 +26,19 @@ namespace InnoVault.Actors
         /// 游戏世界中所有活跃的Actor实例
         /// </summary>
         public static Actor[] Actors { get; private set; }
+        //O(1) 槽位分配器: 优先复用已回收槽位，否则从未使用区段递增取号；generation 保证复用安全
+        private static int nextNewSlot;
+        private static readonly Stack<int> recycledSlots = new();
+        //每个槽位的"代"计数器(服务器递增)，客户端不参与计算，仅使用包内 generation
+        private static ushort[] slotGenerations;
+        //活跃实体的稠密列表，热路径(更新 / 绘制 / 查询 / 广播)遍历它以避免 O(short.MaxValue) 全量扫描
+        private static readonly List<Actor> activeActors = new();
+        //更新期对活跃列表的快照，容忍 AI 中途的生成 / 销毁
+        private static readonly List<Actor> updateBuffer = new();
         /// <summary>
-        /// 下一个可用的Actor槽位索引
+        /// 当前世界中所有活跃的 <see cref="Actor"/> 稠密列表(内部维护，请勿缓存引用或在外部修改)
         /// </summary>
-        private static int nextFreeSlot = 0;
+        internal static IReadOnlyList<Actor> ActiveActors => activeActors;
         /// <summary>
         /// 一个字典，将<see cref="Actor"/>类型映射到其无参构造工厂委托
         /// 在<see cref="Actor.VaultRegister"/>注册阶段编译生成，用于代替反射 <see cref="Activator.CreateInstance(Type)"/>
@@ -48,6 +58,8 @@ namespace InnoVault.Actors
         #region Load and Unload
         void IVaultLoader.LoadData() {
             Actors = new Actor[MaxActorCount];
+            slotGenerations = new ushort[MaxActorCount];
+            ResetSlots();
 
             VaultTypeRegistry<Actor>.CompleteLoading();
 
@@ -61,6 +73,8 @@ namespace InnoVault.Actors
 
         void IVaultLoader.UnLoadData() {
             Actors = null;
+            slotGenerations = null;
+            ResetSlots();
 
             hooks.Clear();
             HookPreAI = null;
@@ -85,6 +99,13 @@ namespace InnoVault.Actors
             hooks.Add(hook);
             return hook;
         }
+
+        private static void ResetSlots() {
+            nextNewSlot = 0;
+            recycledSlots.Clear();
+            activeActors.Clear();
+            updateBuffer.Clear();
+        }
         #endregion
 
         #region 生成和周期管理
@@ -107,49 +128,96 @@ namespace InnoVault.Actors
         /// <param name="velocity">初始速度</param>
         /// <returns>生成的Actor实例的WhoAmI索引，如果生成失败返回-1</returns>
         public static int NewActor(int type, Vector2 position, Vector2 velocity = default) {
+            //多人客户端无权生成: 仅向服务器发送请求，由服务器集中分配槽位与 generation 后广播
             if (VaultUtils.isClient) {
-                ActorNetWork.SendNewActor(type, -1, position, velocity);
+                ActorNetWork.SendActorSpawnRequest(type, position, velocity);
                 return -1;
             }
 
+            return ServerSpawn(type, position, velocity);
+        }
+
+        /// <summary>
+        /// (服务器 / 单机)权威地生成一个Actor: 分配槽位与 generation，实例化并广播生成包
+        /// </summary>
+        internal static int ServerSpawn(int type, Vector2 position, Vector2 velocity) {
             int slot = FindNextFreeSlot();
             if (slot == -1) {
                 return -1;
             }
 
-            AddActor(type, slot, position, velocity);
-            ActorNetWork.SendNewActor(type, slot, position, velocity);
+            ushort generation = NextGeneration(slot);
+            Actor actor = InstantiateAt(type, slot, generation);
+            actor.Position = position;
+            actor.Velocity = velocity;
+            //初始化上一帧位置，避免生成首帧 FrameVelocity 取到 (Position - Vector2.Zero) 的巨大伪位移
+            if (actor is SolidActor solid) {
+                solid.LastPosition = position;
+            }
+
+            RunSpawn(actor);
+
+            if (!VaultUtils.isSinglePlayer) {
+                ActorNetWork.BroadcastActorSpawn(actor);
+            }
 
             return slot;
         }
 
         /// <summary>
-        /// 直接添加一个Actor到指定槽位
+        /// (客户端)根据服务器生成包在指定槽位创建实体，并应用全量状态与附加数据
         /// </summary>
-        /// <param name="type"></param>
-        /// <param name="slot"></param>
-        /// <param name="position"></param>
-        /// <param name="velocity"></param>
-        public static void AddActor(int type, int slot, Vector2 position, Vector2 velocity) {
+        internal static Actor NetworkSpawn(int type, int slot, ushort generation, BinaryReader reader) {
+            //槽位若被旧实体占用(陈旧 / 竞态)，先本地释放以免活跃列表泄漏
+            Actor existing = Actors[slot];
+            if (existing != null && existing.Active) {
+                FreeSlot(existing);
+            }
+
+            Actor actor = InstantiateAt(type, slot, generation);
+            SyncVarManager.ReadState(actor, reader);
+            if (actor is SolidActor solid) {
+                solid.LastPosition = actor.Position;
+            }
+
+            RunSpawn(actor);
+
+            //附加数据在 OnSpawn 之后应用，用权威内部状态覆盖由当前位置反推得到的(可能错误的)值
+            actor.ReceiveExtraData(reader);
+            actor.InitNetTarget();
+
+            return actor;
+        }
+
+        private static Actor InstantiateAt(int type, int slot, ushort generation) {
             Actor actor = Actor.IDToInstance[type].Clone();
             actor.ID = type;
             actor.WhoAmI = slot;
+            actor.Generation = generation;
             actor.Active = true;
-            actor.Position = position;
-            actor.Velocity = velocity;
-
             Actors[slot] = actor;
+            RegisterActive(actor);
+            return actor;
+        }
 
-            actor.OnSpawn(null);
+        private static void RunSpawn(Actor actor) {
+            actor.OnSpawn([]);
 
             foreach (var global in HookOnSpawn.Enumerate()) {
                 global.OnSpawn(actor);
             }
+        }
 
-            //初始化上一帧位置，避免生成首帧 FrameVelocity 取到 (Position - Vector2.Zero) 的巨大伪位移
-            if (actor is SolidActor solid) {
-                solid.LastPosition = solid.Position;
+        private static ushort NextGeneration(int slot) {
+            if (slotGenerations == null) {
+                return 1;
             }
+            ushort next = (ushort)(slotGenerations[slot] + 1);
+            if (next == 0) {
+                next = 1; //0 保留为"无效代"
+            }
+            slotGenerations[slot] = next;
+            return next;
         }
 
         /// <summary>
@@ -157,13 +225,17 @@ namespace InnoVault.Actors
         /// </summary>
         /// <returns>可用槽位的索引，如果没有可用槽位返回-1</returns>
         public static int FindNextFreeSlot() {
-            int startIndex = nextFreeSlot;
+            if (recycledSlots.Count > 0) {
+                return recycledSlots.Pop();
+            }
+            if (nextNewSlot < MaxActorCount) {
+                return nextNewSlot++;
+            }
 
+            //兜底: 线性扫描一个空闲槽位(正常情况下不会触发)
             for (int i = 0; i < MaxActorCount; i++) {
-                int index = (startIndex + i) % MaxActorCount;
-                if (Actors[index] == null || !Actors[index].Active) {
-                    nextFreeSlot = (index + 1) % MaxActorCount;
-                    return index;
+                if (Actors[i] == null || !Actors[i].Active) {
+                    return i;
                 }
             }
 
@@ -181,13 +253,71 @@ namespace InnoVault.Actors
             }
 
             Actor actor = Actors[whoAmI];
-            if (actor != null && actor.Active) {
-                actor.Active = false;
+            if (actor == null || !actor.Active) {
+                return;
+            }
 
+            //多人客户端无权销毁: 仅向服务器请求，实际释放等待服务器的销毁广播
+            if (VaultUtils.isClient) {
                 if (network) {
-                    ActorNetWork.SendKillActor(whoAmI);
+                    ActorNetWork.SendActorKillRequest(whoAmI, actor.Generation);
+                }
+                return;
+            }
+
+            ushort generation = actor.Generation;
+            FreeSlot(actor);
+
+            if (network && !VaultUtils.isSinglePlayer) {
+                ActorNetWork.SendActorKill(whoAmI, generation);
+            }
+        }
+
+        /// <summary>
+        /// (客户端)根据服务器销毁广播在校验 generation 后本地释放实体
+        /// </summary>
+        internal static void NetworkKill(int slot, ushort generation) {
+            if (slot < 0 || slot >= MaxActorCount) {
+                return;
+            }
+            Actor actor = Actors[slot];
+            if (actor != null && actor.Active && actor.Generation == generation) {
+                FreeSlot(actor);
+            }
+        }
+
+        private static void FreeSlot(Actor actor) {
+            actor.Active = false;
+            UnregisterActive(actor);
+
+            int slot = actor.WhoAmI;
+            if (slot >= 0 && slot < MaxActorCount && Actors[slot] == actor) {
+                Actors[slot] = null;
+                //仅服务器复用槽位; 客户端槽位由服务器指派，无需回收，避免无界增长
+                if (!VaultUtils.isClient) {
+                    recycledSlots.Push(slot);
                 }
             }
+        }
+
+        private static void RegisterActive(Actor actor) {
+            actor.ActiveIndex = activeActors.Count;
+            activeActors.Add(actor);
+        }
+
+        private static void UnregisterActive(Actor actor) {
+            int index = actor.ActiveIndex;
+            if (index < 0 || index >= activeActors.Count || activeActors[index] != actor) {
+                actor.ActiveIndex = -1;
+                return;
+            }
+
+            int lastIndex = activeActors.Count - 1;
+            Actor moved = activeActors[lastIndex];
+            activeActors[index] = moved;
+            moved.ActiveIndex = index;
+            activeActors.RemoveAt(lastIndex);
+            actor.ActiveIndex = -1;
         }
 
         /// <summary>
@@ -210,9 +340,19 @@ namespace InnoVault.Actors
         /// 每帧更新所有活跃的Actor
         /// </summary>
         public override void PostUpdateEverything() {
+            if (Actors == null) {
+                return;
+            }
+
             Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);
-            for (int i = 0; i < MaxActorCount; i++) {
-                Actor actor = Actors[i];
+            bool client = VaultUtils.isClient;
+
+            //快照活跃列表，使 AI 中途的生成 / 销毁不破坏本帧遍历
+            updateBuffer.Clear();
+            updateBuffer.AddRange(activeActors);
+
+            for (int i = 0; i < updateBuffer.Count; i++) {
+                Actor actor = updateBuffer[i];
                 if (actor == null || !actor.Active) {
                     continue;
                 }
@@ -228,28 +368,31 @@ namespace InnoVault.Actors
                     }
 
                     if (shouldUpdate) {
-                        //SolidActor 已在 PreUpdateEntities 中提前更新，避免玩家碰撞结算仍使用上一帧位置
+                        //SolidActor 已在 PreUpdateEntities 中提前更新(含客户端重对齐)，此处跳过避免重复
                         if (actor is SolidActor solid && solid.PreUpdatedThisFrame) {
                             solid.PreUpdatedThisFrame = false;
                         }
                         else {
                             actor.AI();
                             actor.Position += actor.Velocity;
+                            if (client) {
+                                actor.ApplyClientReconciliation();
+                            }
                         }
                     }
 
                     foreach (var global in HookPostAI.Enumerate()) {
                         global.PostAI(actor);
                     }
-
-                    if (actor.NetUpdate) {
-                        actor.NetUpdate = false;
-                        ActorNetWork.SendActorData(actor);
-                    }
                 } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"Error updating actor {i}: {ex}");
-                    actor.Active = false;
+                    VaultMod.Instance.Logger.Error($"Error updating actor {actor.WhoAmI}: {ex}");
+                    FreeSlot(actor);
                 }
+            }
+
+            //服务器权威: 统一在本帧末尾进行节流的增量广播
+            if (VaultUtils.isServer) {
+                ActorNetWork.ServerBroadcastTick(activeActors);
             }
         }
         #endregion
@@ -265,8 +408,8 @@ namespace InnoVault.Actors
                 return;
             }
 
-            for (int i = 0; i < MaxActorCount; i++) {
-                Actor actor = Actors[i];
+            for (int i = 0; i < activeActors.Count; i++) {
+                Actor actor = activeActors[i];
                 if (actor == null || !actor.Active || actor.DrawLayer != layer) {
                     continue;
                 }
@@ -377,7 +520,8 @@ namespace InnoVault.Actors
         /// </summary>
         public override void OnWorldLoad() {
             Actors = new Actor[MaxActorCount];
-            nextFreeSlot = 0;
+            slotGenerations = new ushort[MaxActorCount];
+            ResetSlots();
         }
         /// <summary>
         /// 在游戏世界卸载时清理所有Actor实例
@@ -387,11 +531,12 @@ namespace InnoVault.Actors
                 for (int i = 0; i < MaxActorCount; i++) {
                     if (Actors[i] != null) {
                         Actors[i].Active = false;
+                        Actors[i].ActiveIndex = -1;
                         Actors[i] = null;
                     }
                 }
             }
-            nextFreeSlot = 0;
+            ResetSlots();
         }
         #endregion
 
@@ -414,15 +559,7 @@ namespace InnoVault.Actors
         /// 获取所有活跃的Actor数量
         /// </summary>
         /// <returns>活跃Actor数量</returns>
-        public static int GetActiveActorCount() {
-            int count = 0;
-            for (int i = 0; i < MaxActorCount; i++) {
-                if (Actors[i] != null && Actors[i].Active) {
-                    count++;
-                }
-            }
-            return count;
-        }
+        public static int GetActiveActorCount() => activeActors.Count;
 
         /// <summary>
         /// 获取指定类型的所有活跃Actor
@@ -431,8 +568,8 @@ namespace InnoVault.Actors
         /// <returns>活跃Actor列表</returns>
         public static List<T> GetActiveActors<T>() where T : Actor {
             List<T> result = [];
-            for (int i = 0; i < MaxActorCount; i++) {
-                if (Actors[i] != null && Actors[i].Active && Actors[i] is T actor) {
+            for (int i = 0; i < activeActors.Count; i++) {
+                if (activeActors[i] is T actor && actor.Active) {
                     result.Add(actor);
                 }
             }

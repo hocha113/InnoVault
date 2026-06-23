@@ -1,4 +1,5 @@
 using InnoVault.Narrative.Core;
+using InnoVault.Narrative.History;
 using InnoVault.Narrative.Services;
 using InnoVault.Narrative.Styling;
 using System;
@@ -63,6 +64,7 @@ namespace InnoVault.Narrative.Runtime
         private int _settleGuard;
         private bool _completionPending;
         private bool _completionDeferred;
+        private bool _recordedAnyEntry;
 
         //—— UI 输入意图（由视图设置，运行时消费）——
         private bool _advanceRequested;
@@ -261,6 +263,7 @@ namespace InnoVault.Narrative.Runtime
 
         private void BeginLine(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed) {
             Line.Begin(speaker, expression, text, timed);
+            RecordLine(speaker, expression, text);
             _lastTypedSoundChar = 0;
             DialogueVisible = true;
             Phase = NarrativeSessionPhase.Playing;
@@ -569,6 +572,7 @@ namespace InnoVault.Narrative.Runtime
             }
             PendingChoice = null;
             NarrativeServices.Progress?.SetChoice(Key, option.Id.Value);
+            RecordChoice(option);
             SafeInvoke(option.OnSelect, "Choice.OnSelect");
             GoToTarget(option.Target ?? NarrativeTarget.Continue);
         }
@@ -699,6 +703,34 @@ namespace InnoVault.Narrative.Runtime
             ActivePopup = null;
             _popupQueue.Clear();
             DialogueVisible = false;
+        }
+
+        private void RecordLine(CharacterId speaker, ExpressionId expression, string text) {
+            if (string.IsNullOrEmpty(text)) {
+                return;
+            }
+            AppendHistory(NarrativeLogEntry.Line(Key, speaker, expression, text, Style, !_recordedAnyEntry));
+        }
+
+        private void RecordChoice(ChoiceOption option) {
+            string text = option?.Text;
+            if (string.IsNullOrEmpty(text)) {
+                return;
+            }
+            AppendHistory(NarrativeLogEntry.Choice(Key, text, Style, !_recordedAnyEntry));
+        }
+
+        private void AppendHistory(NarrativeLogEntry entry) {
+            INarrativeHistoryStore store = NarrativeServices.History;
+            if (store == null) {
+                return;
+            }
+            try {
+                store.Append(entry);
+                _recordedAnyEntry = true;
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Narrative scenario '{Key}' history append threw: {ex}");
+            }
         }
 
         private void SafeInvoke(Action action, string context) {

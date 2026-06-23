@@ -22,6 +22,12 @@ namespace InnoVault.Narrative.Presentation
         /// <summary>是否允许框架内置默认弹窗视图自注册</summary>
         public static bool UseDefaultPopupView { get; set; } = true;
 
+        /// <summary>
+        /// 是否允许框架内置默认 backlog 视图注册为生效视图。复杂 consumer 可关闭它，
+        /// 再注册自己的 <see cref="INarrativeBacklogView"/> 实现
+        /// </summary>
+        public static bool UseDefaultBacklogView { get; set; } = true;
+
         /// <summary>注册一个视图</summary>
         public static void Register(INarrativeView view) {
             if (view != null && !_views.Contains(view)) {
@@ -53,6 +59,7 @@ namespace InnoVault.Narrative.Presentation
             UseDefaultDialogueView = true;
             UseDefaultChoiceView = true;
             UseDefaultPopupView = true;
+            UseDefaultBacklogView = true;
         }
     }
 }
