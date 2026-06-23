@@ -75,8 +75,14 @@ namespace InnoVault.Narrative.Runtime
         private bool _toggleAuto;
         private bool _toggleFast;
         private int _lastTypedSoundChar;
+        private int _choiceHoverIndex = -1;
         /// <summary>选项悬停下标（视图写入，仅供皮肤高亮，不影响逻辑）</summary>
-        public int ChoiceHoverIndex { get; set; } = -1;
+        public int ChoiceHoverIndex {
+            get => _choiceHoverIndex;
+            set => SetChoiceHoverIndex(value);
+        }
+        /// <summary>选项悬停下标变化时触发，供场景特效或外部 UI 订阅</summary>
+        public event EventHandler<ChoiceHoverChangedEventArgs> ChoiceHoverChanged;
 
         /// <summary>由视图注入：为 true 时阻止推进到下一句</summary>
         public Func<bool> BlocksAdvance { get; set; }
@@ -122,6 +128,17 @@ namespace InnoVault.Narrative.Runtime
         public void RequestSkipToNextStop() => _skipToNextStopRequested = true;
         /// <summary>选择某个选项（按下标）</summary>
         public void SelectChoice(int index) => _selectedChoiceIndex = index;
+        /// <summary>设置当前悬停选项下标，<c>-1</c> 表示未悬停任何选项</summary>
+        public void SetChoiceHoverIndex(int index) {
+            if (_choiceHoverIndex == index) {
+                return;
+            }
+
+            int previousIndex = _choiceHoverIndex;
+            ChoiceOption previousOption = GetChoiceOption(previousIndex);
+            _choiceHoverIndex = index;
+            RaiseChoiceHoverChanged(new ChoiceHoverChangedEventArgs(index, previousIndex, GetChoiceOption(index), previousOption));
+        }
         /// <summary>切换自动播放</summary>
         public void ToggleAuto() => _toggleAuto = true;
         /// <summary>切换快进</summary>
@@ -519,6 +536,7 @@ namespace InnoVault.Narrative.Runtime
                 return;
             }
             if (choice.Options == null || choice.Options.Count == 0) {
+                SetChoiceHoverIndex(-1);
                 PendingChoice = null;
                 GoToTarget(NarrativeTarget.Continue);
                 return;
@@ -560,6 +578,7 @@ namespace InnoVault.Narrative.Runtime
                 ResolveChoice(option);
             }
             else {
+                SetChoiceHoverIndex(-1);
                 PendingChoice = null;
                 GoToTarget(NarrativeTarget.Continue);
             }
@@ -570,6 +589,7 @@ namespace InnoVault.Narrative.Runtime
             if (Phase != NarrativeSessionPhase.AwaitingChoice) {
                 return;
             }
+            SetChoiceHoverIndex(-1);
             PendingChoice = null;
             NarrativeServices.Progress?.SetChoice(Key, option.Id.Value);
             RecordChoice(option);
@@ -579,6 +599,28 @@ namespace InnoVault.Narrative.Runtime
 
         private bool IsChoiceOptionEnabled(ChoiceOption option)
             => option != null && option.IsEnabled;
+
+        private ChoiceOption GetChoiceOption(int index) {
+            IReadOnlyList<ChoiceOption> options = PendingChoice?.Options;
+            if (options == null || index < 0 || index >= options.Count) {
+                return null;
+            }
+            return options[index];
+        }
+
+        private void RaiseChoiceHoverChanged(ChoiceHoverChangedEventArgs args) {
+            EventHandler<ChoiceHoverChangedEventArgs> handler = ChoiceHoverChanged;
+            if (handler == null) {
+                return;
+            }
+            //悬停只是表现态，外部订阅者抛异常不应打断叙事推进
+            try {
+                handler.Invoke(this, args);
+            }
+            catch (Exception e) {
+                VaultMod.Instance.Logger.Error("ChoiceHoverChanged subscriber threw.", e);
+            }
+        }
 
         private void TickActivePopup(float frames) {
             //非必领弹窗的自动保持
@@ -780,6 +822,26 @@ namespace InnoVault.Narrative.Runtime
 
         private void SyncTypingSoundAfterReveal(LinePresentation line) {
             _lastTypedSoundChar = line.VisibleCharCount;
+        }
+    }
+
+    /// <summary>叙事选择框悬停项变化事件参数</summary>
+    public sealed class ChoiceHoverChangedEventArgs : EventArgs
+    {
+        /// <summary>当前悬停选项下标，<c>-1</c> 表示未悬停任何选项</summary>
+        public int CurrentIndex { get; }
+        /// <summary>上一帧悬停选项下标，<c>-1</c> 表示此前未悬停任何选项</summary>
+        public int PreviousIndex { get; }
+        /// <summary>当前悬停选项；无悬停或下标越界时为 <see langword="null"/></summary>
+        public ChoiceOption CurrentOption { get; }
+        /// <summary>上一帧悬停选项；此前无悬停或下标越界时为 <see langword="null"/></summary>
+        public ChoiceOption PreviousOption { get; }
+
+        public ChoiceHoverChangedEventArgs(int currentIndex, int previousIndex, ChoiceOption currentOption, ChoiceOption previousOption) {
+            CurrentIndex = currentIndex;
+            PreviousIndex = previousIndex;
+            CurrentOption = currentOption;
+            PreviousOption = previousOption;
         }
     }
 }

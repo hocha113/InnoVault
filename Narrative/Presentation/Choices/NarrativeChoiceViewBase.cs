@@ -144,7 +144,7 @@ namespace InnoVault.Narrative.Presentation.Choices
                     break;
                 }
             }
-            session.ChoiceHoverIndex = Layout.HoverIndex;
+            session.SetChoiceHoverIndex(Layout.HoverIndex);
         }
 
         private void UpdateClosingPresentation() {

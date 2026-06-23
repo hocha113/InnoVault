@@ -370,3 +370,5 @@ MigrationBackup/
 FodyWeavers.xsd
 
 Doc/
+
+*.ps1
