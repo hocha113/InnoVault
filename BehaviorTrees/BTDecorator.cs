@@ -1,4 +1,4 @@
-using InnoVault.StateMachines;
+﻿using InnoVault.StateMachines;
 using System;
 
 namespace InnoVault.BehaviorTrees
@@ -160,7 +160,7 @@ namespace InnoVault.BehaviorTrees
 
     /// <summary>
     /// 条件门：先评估<see cref="Condition"/>谓词，<see langword="true"/>时才 tick 子节点；<br/>
-    /// 谓词为<see langword="false"/>时直接返回 Failure（不会调用子节点）。<br/>
+    /// 谓词为<see langword="false"/>时直接返回 Failure（不会调用子节点）<br/>
     /// 当谓词从<see langword="true"/>翻转为<see langword="false"/>时，子节点（可能正在 Running）会被<see cref="BTNode{TContext}.Reset"/>，<br/>
     /// 避免下一次门打开时子节点继续上一次的脏进度
     /// </summary>

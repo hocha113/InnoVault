@@ -1,4 +1,4 @@
-using InnoVault.StateMachines;
+﻿using InnoVault.StateMachines;
 
 namespace InnoVault.BehaviorTrees
 {
@@ -20,8 +20,8 @@ namespace InnoVault.BehaviorTrees
         /// 单帧推进。<see cref="Blackboard"/>由根节点和<see cref="BehaviorTrees.BehaviorTreeBuilder"/>注入，可与同位状态机共享<br/><br/>
         /// <b>自我清理契约（实现自定义节点时必须遵守）</b>：<br/>
         /// 当本次<see cref="Tick"/>返回<see cref="BTStatus.Success"/>或<see cref="BTStatus.Failure"/>（即"本周期结束"）时，<br/>
-        /// 节点<b>必须</b>把内部进度（计时器、子节点索引、临时缓存等）复位到"下次<see cref="Tick"/>等同于首次<see cref="Tick"/>"的初始状态。<br/>
-        /// 父复合节点<b>不会</b>替你 reset 已经 settled 的兄弟——只有仍在<see cref="BTStatus.Running"/>的子节点在外层结束时才会被父节点调用<see cref="Reset"/>。<br/>
+        /// 节点<b>必须</b>把内部进度（计时器、子节点索引、临时缓存等）复位到"下次<see cref="Tick"/>等同于首次<see cref="Tick"/>"的初始状态<br/>
+        /// 父复合节点<b>不会</b>替你 reset 已经 settled 的兄弟——只有仍在<see cref="BTStatus.Running"/>的子节点在外层结束时才会被父节点调用<see cref="Reset"/><br/>
         /// 所有内置节点（<see cref="BehaviorTrees.Sequence{TContext}"/>、<see cref="BehaviorTrees.Selector{TContext}"/>、<see cref="BehaviorTrees.WaitLeaf{TContext}"/>等）<br/>
         /// 都已经在自身实现里履行了这一契约
         /// </summary>

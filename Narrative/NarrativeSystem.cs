@@ -1,4 +1,4 @@
-using InnoVault.GameSystem;
+﻿using InnoVault.GameSystem;
 using InnoVault.Narrative.Core;
 using InnoVault.Narrative.History;
 using InnoVault.Narrative.Portraits;
@@ -14,7 +14,7 @@ using Terraria.ModLoader;
 namespace InnoVault.Narrative
 {
     /// <summary>
-    /// 叙事框架的驱动与生命周期中枢。<br/>
+    /// 叙事框架的驱动与生命周期中枢<br/>
     /// 在 UpdateUI（客户端、游戏内）以帧率无关的步长推进运行总控与调度器，<br/>
     /// 并在世界切换 / 模组卸载时清理所有静态状态，避免热重载残留
     /// </summary>

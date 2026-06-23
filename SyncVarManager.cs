@@ -132,7 +132,7 @@ namespace InnoVault
 
         #region Stateful delta (baseline) sync
         //带基线的增量同步：写入端用位掩码标记变化的字段，仅发送变化值；读取端按掩码套用，
-        //跳过端在身份不匹配时按掩码读弃以保持批量流对齐。掩码字节数 = ceil(成员数 / 8)。
+        //跳过端在身份不匹配时按掩码读弃以保持批量流对齐。掩码字节数 = ceil(成员数 / 8)
 
         /// <summary>
         /// 重置某对象的增量基线，使下一次写入视为全量（通常在生成/重新建立同步关系时调用）
@@ -145,7 +145,7 @@ namespace InnoVault
         public static void WriteFull(object obj, BinaryWriter writer) => WriteStateCore(obj, writer, true);
 
         /// <summary>
-        /// 写入对象的增量同步数据：<paramref name="forceFull"/> 为真时写全量，否则只写自上次基线以来变化的字段。
+        /// 写入对象的增量同步数据：<paramref name="forceFull"/> 为真时写全量，否则只写自上次基线以来变化的字段
         /// 没有任何变化且非全量时返回 <see langword="false"/>，调用方可据此跳过发送
         /// </summary>
         public static bool WriteState(object obj, BinaryWriter writer, bool forceFull) => WriteStateCore(obj, writer, forceFull);

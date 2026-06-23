@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using InnoVault.Narrative.History;
 using InnoVault.Narrative.Portraits;
 using InnoVault.Narrative.Runtime;
@@ -15,7 +15,7 @@ namespace InnoVault.Narrative.Presentation.Backlog
 {
     /// <summary>
     /// 可复用的 backlog（历史对话）视图基座。读取 <see cref="NarrativeHistory.Entries"/>、把条目经
-    /// <see cref="PortraitRegistry"/> 解析为展示态、处理滚动与关闭，绘制委托给 <see cref="BacklogSkin"/>。<br/>
+    /// <see cref="PortraitRegistry"/> 解析为展示态、处理滚动与关闭，绘制委托给 <see cref="BacklogSkin"/><br/>
     /// 与逐帧同步的对话 / 选择视图不同，它由玩家主动开关，通过 <see cref="NarrativeHistory"/> 注册为当前 backlog 视图
     /// </summary>
     public abstract class NarrativeBacklogViewBase<TSelf> : UIHandle<TSelf>, INarrativeBacklogView

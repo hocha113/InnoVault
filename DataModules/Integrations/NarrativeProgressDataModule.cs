@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Progress;
+﻿using InnoVault.Narrative.Progress;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,9 +8,9 @@ namespace InnoVault.DataModules.Integrations
 {
     /// <summary>
     /// 一个示范性的桥接模块：它既是可被 <see cref="DataModuleStore"/> 持久化的 <see cref="DataModule"/>，<br/>
-    /// 又实现了叙事框架的 <see cref="INarrativeProgressStore"/>。<br/>
+    /// 又实现了叙事框架的 <see cref="INarrativeProgressStore"/><br/>
     /// 这样消费者就能把"叙事进度"纳入统一的模块化存档，而无需 Narrative 自身依赖 DataModules——<br/>
-    /// 依赖方向是 DataModules → Narrative（消费契约），符合分层边界。<br/>
+    /// 依赖方向是 DataModules → Narrative（消费契约），符合分层边界<br/>
     /// <br/>
     /// 用法：在自己的 <c>ModPlayer</c> 持有一个 <see cref="DataModuleStore"/>，于存档钩子调用其 Save/Load，<br/>
     /// 并设置 <c>NarrativeServices.Progress = store.Get&lt;NarrativeProgressDataModule&gt;();</c>

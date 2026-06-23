@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using InnoVault.Narrative.Progress;
 using InnoVault.Narrative.Services;
 using System;
@@ -8,7 +8,7 @@ using Terraria;
 namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
-    /// 声明式场景调度器。每帧评估各场景的 <see cref="NarrativePolicy"/>，挑选优先级最高且满足条件者触发。<br/>
+    /// 声明式场景调度器。每帧评估各场景的 <see cref="NarrativePolicy"/>，挑选优先级最高且满足条件者触发<br/>
     /// 阻塞采用谓词式（消费者可注册任意阻塞条件，如"Boss 战中"），框架自身始终把<br/>
     /// <see cref="NarrativeRunner.IsBusy"/> 视为阻塞——因此活动的对话 / 选择 / 阻塞弹窗都会自然阻止新场景触发
     /// </summary>

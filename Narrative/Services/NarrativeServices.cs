@@ -1,11 +1,11 @@
-using InnoVault.Narrative.History;
+﻿using InnoVault.Narrative.History;
 using InnoVault.Narrative.Progress;
 
 namespace InnoVault.Narrative.Services
 {
     /// <summary>
     /// 叙事框架的服务定位入口。框架内部只依赖这些接口，<br/>
-    /// 消费模组通过设置这些属性（或 <see cref="UseHost"/>）注入自己的实现。<br/>
+    /// 消费模组通过设置这些属性（或 <see cref="UseHost"/>）注入自己的实现<br/>
     /// 默认情况下进度走内存实现、奖励不发放（只展示），保证框架单独可运行
     /// </summary>
     public static class NarrativeServices

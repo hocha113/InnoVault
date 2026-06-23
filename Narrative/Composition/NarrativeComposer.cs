@@ -1,10 +1,10 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using System;
 
 namespace InnoVault.Narrative.Composition
 {
     /// <summary>
-    /// 叙事内容构建器，是内容作者编写场景的<b>唯一推荐入口</b>。<br/>
+    /// 叙事内容构建器，是内容作者编写场景的<b>唯一推荐入口</b><br/>
     /// 以链式调用把对话、选项、功能弹窗、命令、分支、跳转组织成一张 <see cref="NarrativeGraph"/>，<br/>
     /// 避免旧实现中多套等价构建 API 并存、以及为分支堆叠嵌套类的问题
     /// </summary>

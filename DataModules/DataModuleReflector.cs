@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Reflection;
@@ -11,7 +11,7 @@ namespace InnoVault.DataModules
     /// <see cref="DataModule"/> 默认使用的反射序列化助手。支持公共可读写属性与公共可写字段，<br/>
     /// 类型覆盖 <see cref="bool"/> / <see cref="int"/> / <see cref="long"/> / <see cref="float"/> /
     /// <see cref="double"/> / <see cref="string"/> / <see cref="Item"/> / <see cref="TagCompound"/> 以及任意枚举（按 int 存储），<br/>
-    /// 同时支持这些类型的 <see cref="IList{T}"/> 集合。<see cref="Item"/> 通过 <see cref="ItemIO"/> 保存。<br/>
+    /// 同时支持这些类型的 <see cref="IList{T}"/> 集合。<see cref="Item"/> 通过 <see cref="ItemIO"/> 保存<br/>
     /// 反射元数据按类型缓存，避免每次保存 / 读取重复扫描
     /// </summary>
     internal static class DataModuleReflector

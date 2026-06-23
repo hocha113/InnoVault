@@ -1,4 +1,4 @@
-using InnoVault.GameSystem;
+﻿using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using System.Collections.Generic;
 using Terraria;
@@ -27,8 +27,8 @@ namespace InnoVault.Actors
         public override int TargetID => -1;
 
         /// <summary>
-        /// 治本核心：把被 <see cref="SolidActor"/> 覆盖的图格声明为"可勾"，让原版钩爪 AI 原生完成 latch 全流程。
-        /// 飞行时的勾住判定与 latched 后的保持判定都会经过此处。
+        /// 治本核心：把被 <see cref="SolidActor"/> 覆盖的图格声明为"可勾"，让原版钩爪 AI 原生完成 latch 全流程
+        /// 飞行时的勾住判定与 latched 后的保持判定都会经过此处
         /// </summary>
         public override bool? GrappleCanLatchOnTo(Player player, int x, int y) {
             if (SolidActorCollision.ActiveCount == 0) {

@@ -1,10 +1,10 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using Microsoft.Xna.Framework;
 
 namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
-    /// 当前正在展示的一行对话的运行期状态。<br/>
+    /// 当前正在展示的一行对话的运行期状态<br/>
     /// 它在对话框层与运行时层之间充当共享黑板：布局后的总字符数由视图回填，<br/>
     /// 打字进度与限时倒计时由运行时推进，从而把"布局"留在视图、"计时"留在运行时
     /// </summary>

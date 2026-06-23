@@ -1,7 +1,7 @@
-namespace InnoVault.Narrative.Core
+﻿namespace InnoVault.Narrative.Core
 {
     /// <summary>
-    /// 叙事 id 的模组作用域解析。<br/>
+    /// 叙事 id 的模组作用域解析<br/>
     /// <see cref="NarrativeScenario"/> 继承 <see cref="VaultType{T}"/>，构建期已知所属 Mod；<br/>
     /// 内容作者可写短名（如 <c>"Helen"</c>），框架自动补全为 <c>ModName/Helen</c>
     /// </summary>

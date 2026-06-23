@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace InnoVault.Narrative.Core
 {
     /// <summary>
-    /// 一段叙事内容的结构：有序节点 + 标签索引。<br/>
+    /// 一段叙事内容的结构：有序节点 + 标签索引<br/>
     /// 标签使得"返回主菜单 / 跳转分支"可以在同一张图内声明式表达，<br/>
     /// 取代旧实现中为每个分支单独建立嵌套场景类的繁琐写法
     /// </summary>

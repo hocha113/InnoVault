@@ -12,7 +12,7 @@ namespace InnoVault.Actors
     /// <para>
     /// 采用"服务器单一权威"模型: 槽位与 <see cref="Actor.Generation"/> 由服务器集中分配，权威状态只由服务器
     /// 广播；客户端只发送生成 / 销毁请求与晚加入请求，并通过 <see cref="Actor.ApplyClientReconciliation"/>
-    /// 向权威状态平滑收敛。所有接收处理器都会做范围、generation 与有限性校验，非法或过期的数据包被安全丢弃。
+    /// 向权威状态平滑收敛。所有接收处理器都会做范围、generation 与有限性校验，非法或过期的数据包被安全丢弃
     /// </para>
     /// </summary>
     public class ActorNetWork : IVaultLoader

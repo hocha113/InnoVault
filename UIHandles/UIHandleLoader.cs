@@ -122,19 +122,19 @@ namespace InnoVault.UIHandles
         public static UIHandle CurrentDragOwner { get; set; }
 
         /// <summary>
-        /// 当前帧相对 60FPS 的"帧倍数"，用于驱动帧率独立的UI动画。<br/>
+        /// 当前帧相对 60FPS 的"帧倍数"，用于驱动帧率独立的UI动画<br/>
         /// - 60FPS 时约为 1<br/>
         /// - 144FPS 时约为 0.42<br/>
         /// - 30FPS 时约为 2<br/>
         /// 为防止极端帧率（窗口最小化/卡顿）跳变动画，会被钳制到 [0.05, 5] 范围<br/>
         /// <br/>
-        /// 实现说明：基于 <see cref="Stopwatch"/> 的真实墙钟时间测量，独立于 <see cref="Main.gameTimeCache"/>。<br/>
+        /// 实现说明：基于 <see cref="Stopwatch"/> 的真实墙钟时间测量，独立于 <see cref="Main.gameTimeCache"/><br/>
         /// 这是因为 <see cref="Main.gameTimeCache"/> 反映的是 Update 流水线的固定 1/60s 步长，<br/>
         /// 而 UI 动画的实际驱动 (<see cref="UIHandle.BuiltinPreUpdate"/>) 跟随 Draw 流水线触发；<br/>
         /// 主菜单 (<see cref="LayersModeEnum.Mod_MenuLoad"/>) 等场景下 Draw 频率不一定等于 60Hz，<br/>
-        /// 若仍取 <see cref="Main.gameTimeCache"/> 会导致 <see cref="AnimatedFloat"/> 的指数补偿失效。<br/>
+        /// 若仍取 <see cref="Main.gameTimeCache"/> 会导致 <see cref="AnimatedFloat"/> 的指数补偿失效<br/>
         /// <br/>
-        /// 框架内部会按 <see cref="LayersModeEnum"/> 独立计算 delta，避免不同 UI Layer 互相消耗帧时长。<br/>
+        /// 框架内部会按 <see cref="LayersModeEnum"/> 独立计算 delta，避免不同 UI Layer 互相消耗帧时长<br/>
         /// 该属性仅保留给外部调试 / 兼容读取；自动 UI 更新请使用内部按层计算的帧时长
         /// </summary>
         public static float CurrentFrameDelta => GetFrameDelta(LayersModeEnum.None);

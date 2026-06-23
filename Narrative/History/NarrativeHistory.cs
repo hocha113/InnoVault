@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Presentation;
+﻿using InnoVault.Narrative.Presentation;
 using InnoVault.Narrative.Services;
 using System;
 using System.Collections.Generic;
@@ -6,9 +6,9 @@ using System.Collections.Generic;
 namespace InnoVault.Narrative.History
 {
     /// <summary>
-    /// 对话历史的统一门面，也是<b>通用唤起接口</b>。<br/>
+    /// 对话历史的统一门面，也是<b>通用唤起接口</b><br/>
     /// 读取走 <see cref="NarrativeServices.History"/>；唤起转发给当前注册的 <see cref="INarrativeBacklogView"/>；<br/>
-    /// 持久化转发给框架内置的 <see cref="NarrativeHistorySave"/>（按角色、客户端本地）。<br/>
+    /// 持久化转发给框架内置的 <see cref="NarrativeHistorySave"/>（按角色、客户端本地）<br/>
     /// 任何消费者都可以用键位 / HUD 图标 / 命令调用 <see cref="Toggle"/> 自定义唤起形式
     /// </summary>
     public static class NarrativeHistory
@@ -17,7 +17,7 @@ namespace InnoVault.Narrative.History
         private static INarrativeBacklogView _view;
 
         /// <summary>
-        /// 是否启用框架内置的 <see cref="NarrativeHistorySave"/> 持久化（按角色、客户端本地）。<br/>
+        /// 是否启用框架内置的 <see cref="NarrativeHistorySave"/> 持久化（按角色、客户端本地）<br/>
         /// 自带持久化方案的消费者可设为 <see langword="false"/> 并替换 <see cref="NarrativeServices.History"/>
         /// </summary>
         public static bool UseBuiltinPersistence { get; set; } = true;

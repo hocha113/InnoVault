@@ -1,4 +1,4 @@
-using InnoVault.GameSystem;
+﻿using InnoVault.GameSystem;
 using InnoVault.Narrative.Services;
 using System;
 using System.IO;
@@ -10,8 +10,8 @@ namespace InnoVault.Narrative.History
 {
     /// <summary>
     /// 对话历史的<b>按角色、客户端本地</b>持久化。基于框架 <see cref="SaveContent{T}"/> 体系，<br/>
-    /// 存档文件按当前角色（<see cref="Main.ActivePlayerFileData"/>）区分，落在 InnoVault 存档根目录下的独立 NBT 文件。<br/>
-    /// 叙事本就只在客户端运行，故历史也由客户端按本机角色读写，不经服务器世界存档。<br/>
+    /// 存档文件按当前角色（<see cref="Main.ActivePlayerFileData"/>）区分，落在 InnoVault 存档根目录下的独立 NBT 文件<br/>
+    /// 叙事本就只在客户端运行，故历史也由客户端按本机角色读写，不经服务器世界存档<br/>
     /// 读写时机由 <see cref="NarrativeSystem"/> 驱动，调用入口为 <see cref="NarrativeHistory.Save"/> / <see cref="NarrativeHistory.Load"/>
     /// </summary>
     public sealed class NarrativeHistorySave : SaveContent<NarrativeHistorySave>

@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using InnoVault.Narrative.Portraits;
 using InnoVault.Narrative.Runtime;
 using Terraria;
@@ -7,7 +7,7 @@ using Terraria.ModLoader;
 namespace InnoVault.Narrative.Demo
 {
     /// <summary>
-    /// 启动内置 Narrative 演示场景的调试命令：<c>/narrativedemo</c>。<br/>
+    /// 启动内置 Narrative 演示场景的调试命令：<c>/narrativedemo</c><br/>
     /// 它只注册一个临时角色档案并启动演示场景；演示奖励自包含发放，不会改动全局奖励服务
     /// </summary>
     internal sealed class NarrativeDemoCommand : ModCommand

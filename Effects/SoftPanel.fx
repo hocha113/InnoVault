@@ -1,6 +1,6 @@
-// 程序化中性阴影面板：单个白像素 quad 拉伸到面板外扩矩形上，
+﻿// 程序化中性阴影面板：单个白像素 quad 拉伸到面板外扩矩形上，
 // 由 SDF 圆角矩形生成柔和外阴影 / 半透明渐变填充 / 内缘细高光，
-// 用于还原 GalGame 中那种悬浮、轻阴影、不张扬的中性 UI 质感。
+// 用于还原 GalGame 中那种悬浮、轻阴影、不张扬的中性 UI 质感
 sampler2D TextureSampler : register(s0);
 
 float2 PanelSize;     // 被绘制 quad 的尺寸（UI 像素，已含阴影外扩）

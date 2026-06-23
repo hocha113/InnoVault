@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -106,7 +106,7 @@ namespace InnoVault.GameSystem
 
         #region Stable ID
         /// <summary>
-        /// 在所有重制节点注册完成后，按 <see cref="Terraria.ModLoader.ModType.FullName"/> 字典序确定 wire ID。
+        /// 在所有重制节点注册完成后，按 <see cref="Terraria.ModLoader.ModType.FullName"/> 字典序确定 wire ID
         /// 两端内容一致时排序结果天然相同，无需运行时重排
         /// </summary>
         internal static void BuildStableIDs() {
@@ -230,7 +230,7 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// [服务端] 向请求的客户端补发当前所有重制节点的 Other/SyncVar 冷数据。
+        /// [服务端] 向请求的客户端补发当前所有重制节点的 Other/SyncVar 冷数据
         /// ai 在玩家进图时由 vanilla SyncNPC(ExtraAI) 自动覆盖，无需在此重复同步
         /// </summary>
         internal static void HandleBulkRequest(int whoAmI) {
@@ -303,8 +303,8 @@ namespace InnoVault.GameSystem
         #endregion
 
         #region High-frequency delta channel (Phase 2)
-        //受控 cadence 的跨 NPC 增量 ai 流式通道：服务端按距离向各客户端推送其附近且变化过的 ai 槽位。
-        //每个客户端维护独立基线，超出范围后丢弃基线、重新进入范围时自然全量补发；并带心跳全量自愈漏包。
+        //受控 cadence 的跨 NPC 增量 ai 流式通道：服务端按距离向各客户端推送其附近且变化过的 ai 槽位
+        //每个客户端维护独立基线，超出范围后丢弃基线、重新进入范围时自然全量补发；并带心跳全量自愈漏包
 
         /// <summary>两次增量批处理之间的最小服务端帧间隔</summary>
         internal const int DeltaCadenceTicks = 3;

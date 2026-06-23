@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
@@ -94,8 +94,8 @@ namespace InnoVault.Narrative.Styling
         }
 
         /// <summary>
-        /// 用 <c>SoftPanel</c> 着色器程序化绘制一块中性阴影圆角面板。<br/>
-        /// 内部会临时 End/Begin 当前 SpriteBatch 以挂载着色器，绘制后恢复为标准 UI 状态。<br/>
+        /// 用 <c>SoftPanel</c> 着色器程序化绘制一块中性阴影圆角面板<br/>
+        /// 内部会临时 End/Begin 当前 SpriteBatch 以挂载着色器，绘制后恢复为标准 UI 状态<br/>
         /// 着色器缺失时回退到 <see cref="DrawPanel"/>
         /// </summary>
         public static void DrawSoftPanel(SpriteBatch sb, Rectangle panel, in SoftPanelStyle style, float alpha) {

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria.ModLoader.IO;
@@ -7,7 +7,7 @@ namespace InnoVault.Narrative.Progress
 {
     /// <summary>
     /// 叙事进度存储的窄接口。只暴露与"剧情语义"相关的读写（场景进度、选择分支、标记、计数器、字符串），<br/>
-    /// 通用的模块化保存属于独立的数据系统职责，不应塞进叙事框架。<br/>
+    /// 通用的模块化保存属于独立的数据系统职责，不应塞进叙事框架<br/>
     /// 消费者可以用自己的 <c>ModPlayer</c> / <c>SaveContent</c> / 未来的 DataModules 实现本接口，<br/>
     /// 框架仅依赖该契约，并自带 <see cref="MemoryNarrativeProgressStore"/> 作为默认实现
     /// </summary>
@@ -36,7 +36,7 @@ namespace InnoVault.Narrative.Progress
     }
 
     /// <summary>
-    /// 默认的内存 + 简单 <see cref="TagCompound"/> 实现。<br/>
+    /// 默认的内存 + 简单 <see cref="TagCompound"/> 实现<br/>
     /// 适合单机本地剧情进度；消费者若需要与玩家存档 / 世界存档绑定，可在自己的存档钩子里调用 <see cref="Save"/> / <see cref="Load"/>
     /// </summary>
     public sealed class MemoryNarrativeProgressStore : INarrativeProgressStore

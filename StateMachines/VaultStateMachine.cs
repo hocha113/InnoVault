@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace InnoVault.StateMachines
@@ -122,7 +122,7 @@ namespace InnoVault.StateMachines
         }
 
         /// <summary>
-        /// 仅清除<see cref="IsTerminated"/>标记，不动当前状态。<br/>
+        /// 仅清除<see cref="IsTerminated"/>标记，不动当前状态<br/>
         /// 用于"外层桥接节点 Reset"等需要让<see cref="Update"/>恢复工作但又不希望重入<see cref="IVaultState{TContext}.OnEnter"/>的场景
         /// </summary>
         public void ResetTerminated() {
@@ -279,7 +279,7 @@ namespace InnoVault.StateMachines
         }
 
         /// <summary>
-        /// 写出当前权威端的状态 ID。<br/>
+        /// 写出当前权威端的状态 ID<br/>
         /// 当<see cref="NetSync"/>已配置但<see cref="IVaultState{TContext}.StateId"/>为负（未注册到<see cref="VaultStateRegistry{TContext}"/>）时，<br/>
         /// 会跳过写入并打出一次警告——避免把<c>-1</c>写进<c>ai[slot]</c>导致客户端忽略状态、出现静默不同步
         /// </summary>

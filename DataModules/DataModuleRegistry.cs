@@ -1,4 +1,4 @@
-using InnoVault.GameSystem;
+﻿using InnoVault.GameSystem;
 using System;
 using System.Collections.Generic;
 
@@ -6,7 +6,7 @@ namespace InnoVault.DataModules
 {
     /// <summary>
     /// 数据模块类型注册表。在 InnoVault 加载完成后读取 <see cref="VaultTypeRegistry{TVault}"/> 中的具体 <see cref="DataModule"/> 模板，<br/>
-    /// 建立 SaveKey 到类型的映射并检测冲突；供 <see cref="DataModuleStore"/> 在读档时按 SaveKey 补齐模块实例。<br/>
+    /// 建立 SaveKey 到类型的映射并检测冲突；供 <see cref="DataModuleStore"/> 在读档时按 SaveKey 补齐模块实例<br/>
     /// 要求模块类型具有公共无参构造函数
     /// </summary>
     public static class DataModuleRegistry

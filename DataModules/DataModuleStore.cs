@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using Terraria.ModLoader.IO;
 
@@ -6,7 +6,7 @@ namespace InnoVault.DataModules
 {
     /// <summary>
     /// 数据模块容器。按作用域（每玩家 / 每世界 / 每模组全局）各持有一个实例，<br/>
-    /// 聚合若干 <see cref="DataModule"/> 并提供版本化的 <see cref="SaveData"/> / <see cref="LoadData"/>。<br/>
+    /// 聚合若干 <see cref="DataModule"/> 并提供版本化的 <see cref="SaveData"/> / <see cref="LoadData"/><br/>
     /// 本类<b>不绑定持久化位置</b>：消费者在自己的 <c>ModPlayer</c> / <c>ModSystem</c> / <c>SaveContent</c><br/>
     /// 的存档钩子里调用本类的存取方法即可。模块按需懒创建；读取时会依据注册表补齐已持久化但尚未创建的模块
     /// </summary>

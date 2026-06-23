@@ -1,4 +1,4 @@
-namespace InnoVault.StateMachines
+﻿namespace InnoVault.StateMachines
 {
     /// <summary>
     /// 表示<see cref="VaultStateMachine{TContext}"/>所驱动的一个具体状态<br/>
@@ -28,14 +28,14 @@ namespace InnoVault.StateMachines
         /// 在多人模式下，无论客户端还是服务端，<see cref="OnUpdate"/>都会被驱动；<br/>
         /// 但仅<b>服务端</b>返回非<see langword="null"/>且不同于当前状态的实例时才会真正发生状态切换（<see cref="VaultStateMachine{TContext}.ServerAuthoritative"/>默认为<see langword="true"/>）<br/><br/>
         /// <b>客户端语义</b>：当<see cref="VaultStateMachine{TContext}.ServerAuthoritative"/>为<see langword="true"/>时，<br/>
-        /// 客户端调用<see cref="OnUpdate"/>但<b>会丢弃</b>其返回的下一状态——客户端的状态切换只能通过<see cref="INetStateSync{TContext}"/>从服务端被动同步进来。<br/>
+        /// 客户端调用<see cref="OnUpdate"/>但<b>会丢弃</b>其返回的下一状态——客户端的状态切换只能通过<see cref="INetStateSync{TContext}"/>从服务端被动同步进来<br/>
         /// 因此：希望"两端一致"的视觉/特效/计时副作用应当写在<see cref="OnUpdate"/>体内并自驱动；<br/>
         /// 任何"满足条件就切到下一状态"的判定都<b>不要</b>依赖返回值在客户端生效，而应当声明为<see cref="VaultStateTransition{TContext}"/>或<see cref="PhaseTrigger{TContext}"/>，<br/>
         /// 由服务端裁决后再通过<see cref="INetStateSync{TContext}"/>下发
         /// </summary>
         /// <param name="machine">驱动该状态的状态机实例</param>
         /// <param name="ctx">状态所处的上下文实例</param>
-        /// <returns>返回非<see langword="null"/>表示请求切换到该新状态；返回<see langword="null"/>表示保持当前状态。<br/>
+        /// <returns>返回非<see langword="null"/>表示请求切换到该新状态；返回<see langword="null"/>表示保持当前状态<br/>
         /// 注意客户端会无视该返回值——详见上文"客户端语义"</returns>
         IVaultState<TContext> OnUpdate(VaultStateMachine<TContext> machine, TContext ctx);
         /// <summary>

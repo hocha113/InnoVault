@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 
 namespace InnoVault.Narrative.History
 {
@@ -15,7 +15,7 @@ namespace InnoVault.Narrative.History
     }
 
     /// <summary>
-    /// 一条对话历史记录。它是<b>已发生</b>的展示快照，由 <see cref="Runtime.NarrativeSession"/> 在台词开始 / 选择解析时追加。<br/>
+    /// 一条对话历史记录。它是<b>已发生</b>的展示快照，由 <see cref="Runtime.NarrativeSession"/> 在台词开始 / 选择解析时追加<br/>
     /// 只保存稳定的语义 id（角色 / 表情 / 样式）与最终文本，<b>不</b>快照显示名与立绘——<br/>
     /// 这些由视图在展示时经 <see cref="Portraits.PortraitRegistry"/> 实时解析，保持运行时层与表现层解耦
     /// </summary>

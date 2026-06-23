@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using System.Collections.Generic;
 using Terraria.ModLoader.IO;
 
@@ -6,7 +6,7 @@ namespace InnoVault.Narrative.History
 {
     /// <summary>
     /// 对话历史存储的窄接口。只负责"运行时内存里有哪些条目"的追加 / 读取 / 清空，<br/>
-    /// 真正落盘由框架的 <c>NarrativeHistorySave</c>(<see cref="GameSystem.SaveContent{T}"/>) 承担。<br/>
+    /// 真正落盘由框架的 <c>NarrativeHistorySave</c>(<see cref="GameSystem.SaveContent{T}"/>) 承担<br/>
     /// 消费者可以替换 <see cref="Services.NarrativeServices.History"/> 为自定义实现，框架仅依赖该契约，<br/>
     /// 并自带 <see cref="MemoryNarrativeHistoryStore"/> 作为默认实现
     /// </summary>

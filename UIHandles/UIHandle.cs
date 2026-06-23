@@ -20,22 +20,22 @@ namespace InnoVault.UIHandles
         #region 生命周期事件
 
         /// <summary>
-        /// 当UI被请求打开时触发，<b>在<see cref="OnOpen"/>调用之前</b>。<br/>
+        /// 当UI被请求打开时触发，<b>在<see cref="OnOpen"/>调用之前</b><br/>
         /// 用于外部订阅打开请求（例如统计、保存上次状态等）
         /// </summary>
         public event Action<UIHandle> OnOpening;
         /// <summary>
-        /// 当UI被请求打开时触发，<b>在<see cref="OnOpen"/>与<see cref="OpenSound"/>之后</b>。<br/>
+        /// 当UI被请求打开时触发，<b>在<see cref="OnOpen"/>与<see cref="OpenSound"/>之后</b><br/>
         /// 用于外部订阅"已经成功完成打开流程"的时机
         /// </summary>
         public event Action<UIHandle> OnOpened;
         /// <summary>
-        /// 当UI被请求关闭时触发，<b>在<see cref="OnClose"/>调用之前</b>。<br/>
+        /// 当UI被请求关闭时触发，<b>在<see cref="OnClose"/>调用之前</b><br/>
         /// 用于外部订阅关闭请求
         /// </summary>
         public event Action<UIHandle> OnClosing;
         /// <summary>
-        /// 当UI被请求关闭时触发，<b>在<see cref="OnClose"/>与<see cref="CloseSound"/>之后</b>。<br/>
+        /// 当UI被请求关闭时触发，<b>在<see cref="OnClose"/>与<see cref="CloseSound"/>之后</b><br/>
         /// 用于外部订阅"已经成功完成关闭流程"的时机
         /// </summary>
         public event Action<UIHandle> OnClosed;
@@ -85,7 +85,7 @@ namespace InnoVault.UIHandles
         public AnimatedFloat HoverProgress = new AnimatedFloat(0f, 0.25f);
 
         /// <summary>
-        /// 全局时间累计（秒），便于子类计算呼吸/闪烁/脉动等周期性动画。<br/>
+        /// 全局时间累计（秒），便于子类计算呼吸/闪烁/脉动等周期性动画<br/>
         /// 由<see cref="UIHandleLoader"/>按真实时间累加，与帧率无关；<br/>
         /// 仅在UI<see cref="Active"/>为<see langword="true"/>时累加
         /// </summary>
@@ -235,7 +235,7 @@ namespace InnoVault.UIHandles
         }
 
         /// <summary>
-        /// 强制释放本UI持有的拖拽状态与全局拖拽锁。<br/>
+        /// 强制释放本UI持有的拖拽状态与全局拖拽锁<br/>
         /// 如果当前处于基类拖拽状态，则会触发<see cref="OnDragEnd"/>
         /// </summary>
         internal void ForceEndDrag(string reason) {

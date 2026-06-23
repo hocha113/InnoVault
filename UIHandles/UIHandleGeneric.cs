@@ -1,4 +1,4 @@
-namespace InnoVault.UIHandles
+﻿namespace InnoVault.UIHandles
 {
     /// <summary>
     /// <see cref="UIHandle"/>的泛型变体，自带类型安全的<see cref="Instance"/>静态访问器
@@ -17,15 +17,15 @@ namespace InnoVault.UIHandles
     public abstract class UIHandle<TSelf> : UIHandle where TSelf : UIHandle<TSelf>
     {
         /// <summary>
-        /// 当前类型在<see cref="UIHandleLoader"/>中注册的唯一实例。<br/>
+        /// 当前类型在<see cref="UIHandleLoader"/>中注册的唯一实例<br/>
         /// 若类型尚未注册（例如模组未加载或被禁用），将抛出异常；<br/>
         /// 若需要在不确定是否注册的场景下安全访问，请使用<see cref="InstanceOrNull"/>或<see cref="TryGetInstance"/>
         /// </summary>
         public static TSelf Instance => UIHandleLoader.GetUIHandleOfType<TSelf>();
 
         /// <summary>
-        /// 与<see cref="Instance"/>等价，但在类型未注册时返回<see langword="null"/>而不是抛出异常。<br/>
-        /// 适合在 <c>using Mod = ...</c> 之类可选依赖场景中使用
+        /// 与<see cref="Instance"/>等价，但在类型未注册时返回<see langword="null"/>而不是抛出异常<br/>
+        /// 适合在 <c>using Mod = </c> 之类可选依赖场景中使用
         /// </summary>
         public static TSelf InstanceOrNull {
             get {

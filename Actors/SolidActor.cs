@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Terraria;
 
 namespace InnoVault.Actors
@@ -7,8 +7,8 @@ namespace InnoVault.Actors
     /// 可被当作"物块碰撞"处理的可移动实体基类
     /// <para>
     /// 它的碰撞箱 <see cref="SolidBox"/> 会被注入到 <see cref="Terraria.Collision"/> 的碰撞结算里，
-    /// 使玩家 / NPC / 弹幕 / 钩爪 都能像撞物块一样与其交互（站立、阻挡、勾住）。
-    /// 阻挡判定由 <see cref="SolidActorCollision"/> 统一注入，无需逐实体编写代码。
+    /// 使玩家 / NPC / 弹幕 / 钩爪 都能像撞物块一样与其交互（站立、阻挡、勾住）
+    /// 阻挡判定由 <see cref="SolidActorCollision"/> 统一注入，无需逐实体编写代码
     /// </para>
     /// </summary>
     public abstract class SolidActor : Actor

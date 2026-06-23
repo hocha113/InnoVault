@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Composition;
+﻿using InnoVault.Narrative.Composition;
 using InnoVault.Narrative.Runtime;
 using System;
 using System.Collections.Generic;
@@ -9,7 +9,7 @@ namespace InnoVault.Narrative.Core
     /// 叙事场景基类，是内容作者定义剧情的载体。继承它并实现 <see cref="Build"/> 即可，<br/>
     /// 该API的使用介绍:<see href="https://innovault.wiki/cn/narrative/"/><br/>
     /// 由 tModLoader 自动加载、由本框架自动注册。场景只描述"播什么"，<br/>
-    /// "怎么播 / 怎么记录 / 何时发奖励"由框架与宿主服务负责。<br/>
+    /// "怎么播 / 怎么记录 / 何时发奖励"由框架与宿主服务负责<br/>
     /// 每次启动都会重新 <see cref="Build"/>，因此构建期条件（<see cref="NarrativeComposer.When"/>）能反映当前世界状态
     /// </summary>
     public abstract class NarrativeScenario : VaultType<NarrativeScenario>
@@ -17,7 +17,7 @@ namespace InnoVault.Narrative.Core
         private static readonly Dictionary<string, NarrativeScenario> _byKey = new(StringComparer.Ordinal);
 
         /// <summary>
-        /// 场景唯一 Key，默认使用 <c>ModName/TypeName</c>。<br/>
+        /// 场景唯一 Key，默认使用 <c>ModName/TypeName</c><br/>
         /// Narrative 是跨模组公共框架，场景 Key 会进入全局注册表、pending 队列和进度存储，不能只用类名
         /// </summary>
         public virtual string Key {
@@ -42,7 +42,7 @@ namespace InnoVault.Narrative.Core
         protected StyleId Style(string name) => NarrativeIdScope.Style(Mod?.Name, name);
 
         /// <summary>
-        /// 声明式触发策略，由 <see cref="ConfigurePolicy"/> 在加载期生成一次；<see langword="null"/> 表示不参与自动调度。<br/>
+        /// 声明式触发策略，由 <see cref="ConfigurePolicy"/> 在加载期生成一次；<see langword="null"/> 表示不参与自动调度<br/>
         /// 策略对象可以长期存在，但其中的谓词必须在被调用时读取实时游戏状态，不能在 <see cref="ConfigurePolicy"/> 内提前采样一次
         /// </summary>
         public NarrativePolicy Policy { get; private set; }
@@ -51,7 +51,7 @@ namespace InnoVault.Narrative.Core
         protected abstract void Build(NarrativeComposer composer);
 
         /// <summary>
-        /// 配置触发策略，返回 <see langword="null"/> 表示仅手动启动。<br/>
+        /// 配置触发策略，返回 <see langword="null"/> 表示仅手动启动<br/>
         /// 该方法只在加载 / setup 阶段执行一次；需要随世界、玩家、NPC 等变化的条件应写入返回的委托中实时判断
         /// </summary>
         protected virtual NarrativePolicy ConfigurePolicy() => null;

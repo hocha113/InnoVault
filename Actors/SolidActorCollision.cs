@@ -1,4 +1,4 @@
-using InnoVault.Collisions;
+﻿using InnoVault.Collisions;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
@@ -13,11 +13,11 @@ namespace InnoVault.Actors
     /// 它本身不再挂载任何底层钩子，而是作为通用碰撞钩子 <see cref="VaultCollisionHook"/> 的一个消费者：
     /// 注册 <see cref="TileCollisionHandler"/> / <see cref="SolidCheckHandler"/>，把每个活跃的 <see cref="SolidActor"/>
     /// 当作一块可移动固体叠加进碰撞结果。由于玩家 / NPC / 弹幕 / 钩爪的物块碰撞最终都汇聚到被钩住的咽喉点，
-    /// 它们会自动获得对 <see cref="SolidActor"/> 的碰撞响应，无需逐实体改写。
+    /// 它们会自动获得对 <see cref="SolidActor"/> 的碰撞响应，无需逐实体改写
     /// </para>
     /// <para>
     /// 这里只负责"阻挡 / 是否固体"这类无状态语义；"站上去被平台带着走"这类需要实体上下文的承载逻辑由
-    /// <see cref="SolidActorPlayer"/> 处理。
+    /// <see cref="SolidActorPlayer"/> 处理
     /// </para>
     /// </summary>
     public sealed class SolidActorCollision : ModSystem, IVaultLoader

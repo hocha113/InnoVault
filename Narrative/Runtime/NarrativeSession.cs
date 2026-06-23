@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using InnoVault.Narrative.History;
 using InnoVault.Narrative.Services;
 using InnoVault.Narrative.Styling;
@@ -11,7 +11,7 @@ namespace InnoVault.Narrative.Runtime
 {
     /// <summary>
     /// 一次叙事播放的运行期真相。持有当前节点、播放状态、等待选择 / 等待弹窗、完成状态等，<br/>
-    /// 所有流程推进都集中在这里（单一职责的"大脑"），UI 控件只读取它并回传输入意图。<br/>
+    /// 所有流程推进都集中在这里（单一职责的"大脑"），UI 控件只读取它并回传输入意图<br/>
     /// 这从根本上避免了旧实现中"选择后父对话段未收尾""换肤丢状态""启动即完成"等问题
     /// </summary>
     public sealed class NarrativeSession

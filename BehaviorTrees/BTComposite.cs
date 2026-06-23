@@ -127,7 +127,7 @@ namespace InnoVault.BehaviorTrees
         /// <summary>
         /// 至少一个 Success 即可：等到本帧所有子节点都已 settle (非 Running)，<br/>
         /// 只要其中至少有一个 Success 就整体 Success（允许部分子节点 Failure）；<br/>
-        /// 当本帧所有子节点都 Failure 时整体 Failure。<br/>
+        /// 当本帧所有子节点都 Failure 时整体 Failure<br/>
         /// 与<see cref="AnySuccess"/>的区别：本策略<b>不会</b>在第一个成功就立即返回，会等其它子节点结束<br/>
         /// 与<see cref="AllSuccess"/>的区别：允许部分子节点失败，只要至少一个成功
         /// </summary>

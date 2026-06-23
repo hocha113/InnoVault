@@ -1,4 +1,4 @@
-using Microsoft.Xna.Framework;
+﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -104,7 +104,7 @@ namespace InnoVault.GameSystem
             }
         }
         /// <summary>
-        /// 是否为该重制节点启用高频增量(delta)流式同步通道，默认<see langword="false"/>。
+        /// 是否为该重制节点启用高频增量(delta)流式同步通道，默认<see langword="false"/>
         /// <br/>启用后其 <see cref="ai"/> 会以受控 cadence、按距离向附近客户端推送，且只发送相对上次快照变化的槽位，
         /// 适合每帧连续变化的自定义 ai 值；它是 <c>npc.netUpdate</c> 的替代品，不要对同一组 ai 同时高频使用两者以免重复发送
         /// </summary>
@@ -569,7 +569,7 @@ namespace InnoVault.GameSystem
 
         #region NetWork
         /// <summary>
-        /// 用于网络同步 <see cref="ai"/>，搭车 vanilla 的 SyncNPC(ExtraAI) 通道，保证与位置/速度原子到达。
+        /// 用于网络同步 <see cref="ai"/>，搭车 vanilla 的 SyncNPC(ExtraAI) 通道，保证与位置/速度原子到达
         /// 使用位掩码仅发送非零的 ai 槽位以减少带宽。重写时务必与 <see cref="NetReceive"/> 对应
         /// </summary>
         /// <param name="writer"></param>

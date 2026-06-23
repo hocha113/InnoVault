@@ -1,11 +1,11 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using System.Collections.Generic;
 
 namespace InnoVault.Narrative.Styling
 {
     /// <summary>
     /// 样式注册表。对话框 / 选择框 / 弹窗皮肤统一以 <see cref="StyleId"/> 注册与查找，<br/>
-    /// 新增主题只需注册新皮肤，无需修改框架枚举或核心 UI 类。<br/>
+    /// 新增主题只需注册新皮肤，无需修改框架枚举或核心 UI 类<br/>
     /// 任意查找在缺省时回退到 <see cref="StyleId.Default"/> 的内置朴素皮肤，保证总能绘制
     /// </summary>
     public static class StyleRegistry

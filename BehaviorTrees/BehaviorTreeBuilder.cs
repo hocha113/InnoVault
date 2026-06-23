@@ -1,4 +1,4 @@
-using InnoVault.StateMachines;
+﻿using InnoVault.StateMachines;
 using System;
 using System.Collections.Generic;
 
@@ -53,7 +53,7 @@ namespace InnoVault.BehaviorTrees
         public BehaviorTreeBuilder<TContext> RandomSelector(Random rng = null)
             => PushComposite(new RandomSelector<TContext>(rng));
 
-        /// <summary>在<see cref="RandomSelector{TContext}"/>下声明一个带权重的子节点。<br/>
+        /// <summary>在<see cref="RandomSelector{TContext}"/>下声明一个带权重的子节点<br/>
         /// 用法：<c>.RandomSelector().Weighted(2f).Action(...).Weighted(1f).Action(...)</c><br/>
         /// 若当前栈顶不是<see cref="RandomSelector{TContext}"/>会立即抛出<see cref="InvalidOperationException"/>，<br/>
         /// 否则<c>_pendingWeight</c>会被静默携带到下一次进入 RandomSelector 的子节点，导致权重错位且不报错

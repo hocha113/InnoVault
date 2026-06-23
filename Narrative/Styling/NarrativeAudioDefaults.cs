@@ -1,10 +1,10 @@
-using Terraria.Audio;
+﻿using Terraria.Audio;
 using Terraria.ID;
 
 namespace InnoVault.Narrative.Styling
 {
     /// <summary>
-    /// Narrative 默认音效参数，对齐 CWR ADV 原型（<c>DialogueBoxBase</c> / <c>ADVRewardPopup</c> / <c>ADVChoiceBox</c>）。<br/>
+    /// Narrative 默认音效参数，对齐 CWR ADV 原型（<c>DialogueBoxBase</c> / <c>ADVRewardPopup</c> / <c>ADVChoiceBox</c>）<br/>
     /// Consumer 可在 <see cref="DialogueSkin"/> / <see cref="PopupSkin"/> / <see cref="ChoiceSkin"/> 中重载播放方法以替换音色
     /// </summary>
     public static class NarrativeAudioDefaults

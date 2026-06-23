@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using InnoVault.Narrative.Presentation;
 using InnoVault.Narrative.Presentation.Dialogue;
 using InnoVault.Narrative.Runtime;
@@ -12,7 +12,7 @@ namespace InnoVault.Narrative.Styling
 {
     /// <summary>
     /// 对话框皮肤。负责面板 / 立绘框的绘制以及文本配色等视觉参数，<br/>
-    /// 不持有任何剧情运行状态——状态属于 <see cref="NarrativeSession"/>。<br/>
+    /// 不持有任何剧情运行状态——状态属于 <see cref="NarrativeSession"/><br/>
     /// 通过 <see cref="StyleRegistry"/> 以 <see cref="StyleId"/> 注册，新增主题无需改动核心
     /// </summary>
     public abstract class DialogueSkin

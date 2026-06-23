@@ -1,11 +1,11 @@
-using InnoVault.Narrative.Composition;
+﻿using InnoVault.Narrative.Composition;
 using InnoVault.Narrative.Core;
 using Terraria.ID;
 
 namespace InnoVault.Narrative.Demo
 {
     /// <summary>
-    /// 框架内置的演示场景，用于验证对话、表情、选择分支、标签跳转、阻塞奖励弹窗与非阻塞提示弹窗。<br/>
+    /// 框架内置的演示场景，用于验证对话、表情、选择分支、标签跳转、阻塞奖励弹窗与非阻塞提示弹窗<br/>
     /// 它<b>不配置触发策略</b>，因此不会自动触发，仅可通过 <c>/narrativedemo</c> 命令手动启动
     /// </summary>
     internal sealed class NarrativeDemoScenario : NarrativeScenario

@@ -1,4 +1,4 @@
-using InnoVault.Narrative.Core;
+﻿using InnoVault.Narrative.Core;
 using InnoVault.Narrative.Services;
 using Terraria;
 
@@ -6,7 +6,7 @@ namespace InnoVault.Narrative.Demo
 {
     /// <summary>
     /// 演示专用的自包含奖励弹窗：领取时直接发放物品，不经过 <see cref="NarrativeServices"/>，<br/>
-    /// 因此运行内置演示不会污染全局奖励服务。<br/>
+    /// 因此运行内置演示不会污染全局奖励服务<br/>
     /// 真实消费者应改用 <c>n.Reward(...)</c> + 注入自己的 <see cref="IRewardGrantService"/>
     /// </summary>
     internal sealed class DemoRewardPayload : PopupPayload

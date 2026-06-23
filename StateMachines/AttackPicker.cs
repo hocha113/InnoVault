@@ -1,10 +1,10 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 
 namespace InnoVault.StateMachines
 {
     /// <summary>
-    /// 攻击/状态选择策略的抽象。<br/>
+    /// 攻击/状态选择策略的抽象<br/>
     /// 用于消除"在<see cref="IVaultState{TContext}.OnUpdate"/>里手写一长串 <c>switch (counter % N)</c>" 的复制<br/>
     /// 三种内置实现：<see cref="FixedSequencePicker{T}"/>（固定序列）、<see cref="WeightedRandomPicker{T}"/>（权重随机）、<see cref="RoundRobinPicker{T}"/>（轮询）<br/>
     /// 多人模式约定：服务端调用<see cref="Pick"/>后，<b>必须</b>把返回索引同步到客户端（通过<c>ai[]</c>或<see cref="Blackboard"/>）；<br/>
