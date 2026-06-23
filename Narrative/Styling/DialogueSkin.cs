@@ -321,17 +321,13 @@ namespace InnoVault.Narrative.Styling
             }
         }
 
-        /// <summary>计算命令提示文字的绘制位置，按统一底边对齐；scale 小于 0 时使用 <see cref="DialogueLayoutContext.HintScale"/></summary>
+        /// <summary>计算命令提示文字的绘制位置，按统一行顶对齐；scale 小于 0 时使用 <see cref="DialogueLayoutContext.HintScale"/></summary>
         protected Vector2 GetHintDrawPosition(DialogueLayoutContext context, Rectangle hitRect, string text, float scale = -1f) {
             if (scale < 0f) {
                 scale = context.HintScale;
             }
 
-            float baseline = context.HintRowBaseline > 0f
-                ? context.HintRowBaseline
-                : context.PanelRect.Bottom - HintBottomMargin;
-            float height = context.Font.MeasureString(text).Y * scale;
-            return new Vector2(hitRect.X + CommandHintHitPad, baseline - height);
+            return new Vector2(hitRect.X + CommandHintHitPad, hitRect.Y + CommandHintHitPad);
         }
 
         /// <summary>绘制最前景装饰（应保持在正文之上，默认无）</summary>
