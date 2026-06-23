@@ -228,8 +228,14 @@ namespace InnoVault.Actors
                     }
 
                     if (shouldUpdate) {
-                        actor.AI();
-                        actor.Position += actor.Velocity;
+                        //SolidActor 已在 PreUpdateEntities 中提前更新，避免玩家碰撞结算仍使用上一帧位置
+                        if (actor is SolidActor solid && solid.PreUpdatedThisFrame) {
+                            solid.PreUpdatedThisFrame = false;
+                        }
+                        else {
+                            actor.AI();
+                            actor.Position += actor.Velocity;
+                        }
                     }
 
                     foreach (var global in HookPostAI.Enumerate()) {

@@ -1,5 +1,6 @@
 using InnoVault.Collisions;
 using Microsoft.Xna.Framework;
+using System;
 using System.Collections.Generic;
 using Terraria;
 using Terraria.ModLoader;
@@ -44,12 +45,34 @@ namespace InnoVault.Actors
         }
 
         /// <summary>
-        /// 在所有实体更新之前刷新活跃列表，保证本帧玩家 / NPC / 弹幕碰撞时拿到的是最新的盒子
+        /// 在所有实体更新之前提前推进 SolidActor 并刷新活跃列表，保证本帧玩家 / NPC / 弹幕碰撞时
+        /// 拿到的是本帧最新位置，而不是上一帧末尾的位置
         /// </summary>
-        public override void PreUpdateEntities() => RebuildActiveList();
+        public override void PreUpdateEntities() {
+            EarlyUpdateSolids();
+            RebuildActiveList();
+        }
 
         /// <inheritdoc/>
         public override void OnWorldUnload() => activeSolids.Clear();
+
+        private static void EarlyUpdateSolids() {
+            Actor[] actors = ActorLoader.Actors;
+            if (actors == null) {
+                return;
+            }
+
+            for (int i = 0; i < actors.Length; i++) {
+                if (actors[i] is not SolidActor solid || !solid.Active || !solid.SolidEnabled) {
+                    continue;
+                }
+
+                solid.LastPosition = solid.Position;
+                solid.PreUpdatedThisFrame = true;
+                solid.SolidAI();
+                solid.Position += solid.Velocity;
+            }
+        }
 
         private static void RebuildActiveList() {
             activeSolids.Clear();
@@ -94,52 +117,82 @@ namespace InnoVault.Actors
                 return vel;
             }
 
-            Vector2 result = vel;
             float bx = b.Left;
             float by = b.Top;
             float bw = b.Width;
             float bh = b.Height;
-            Vector2 target = pos + result;
+            Vector2 workPos = pos;
+            Vector2 totalResult = Vector2.Zero;
 
-            //目标位置不与盒子相交则无需处理
-            if (!(target.X + w > bx && target.X < bx + bw && target.Y + h > by && target.Y < by + bh)) {
-                return result;
+            //相对运动下实体可能已嵌入盒子（尤其平台在 PreUpdate 中先位移）；先沿最小穿透轴推出
+            if (TryGetMinimumSeparation(workPos, w, h, bx, by, bw, bh, box.OneWay, out Vector2 separation)) {
+                totalResult += separation;
+                workPos += separation;
             }
 
-            //用"盒子移动前的边界"判断实体从哪个面接触，再把实体钳制/推挤到"盒子移动后"的当前边界。
-            //盒子自身位移发生在实体碰撞结算之后且不会推动实体，若直接用当前边界判定方位，
-            //当盒子迎面撞向实体、其近端边界在一帧内越过实体的接触边时，"来自哪个面"的判据会失效，
-            //导致实体直接穿过（相反速度互穿）。减去本帧位移即可还原接触发生时的相对方位
-            Vector2 fv = box.FrameVelocity;
-            float prevTop = by - fv.Y;
-            float prevLeft = bx - fv.X;
-            float prevRight = bx + bw - fv.X;
-            float prevBottom = by + bh - fv.Y;
+            Vector2 moveResult = vel;
+            Vector2 target = workPos + vel;
 
-            //依据"实体相对盒子移动前的方位"决定从哪个面挡住，并钳制到盒子移动后的当前边界
-            if (pos.Y + h <= prevTop) {
-                //来自上方，落在顶面
-                bool passThrough = box.OneWay && box.AllowFallThrough && fallThrough && (vel.Y <= 1f || fall2);
-                if (!passThrough) {
-                    result.Y = by - (pos.Y + h);
-                    Collision.down = true;
+            if (target.X + w > bx && target.X < bx + bw && target.Y + h > by && target.Y < by + bh) {
+                //依据"当前工作位置"相对盒子的方位决定从哪个面挡住
+                if (workPos.Y + h <= by) {
+                    //来自上方，落在顶面
+                    bool passThrough = box.OneWay && box.AllowFallThrough && fallThrough && (vel.Y <= 1f || fall2);
+                    if (!passThrough) {
+                        moveResult.Y = by - (workPos.Y + h);
+                        Collision.down = true;
+                    }
+                }
+                else if (!box.OneWay && workPos.X + w <= bx) {
+                    moveResult.X = bx - (workPos.X + w);
+                }
+                else if (!box.OneWay && workPos.X >= bx + bw) {
+                    moveResult.X = bx + bw - workPos.X;
+                }
+                else if (!box.OneWay && workPos.Y >= by + bh) {
+                    moveResult.Y = by + bh - workPos.Y;
+                    Collision.up = true;
+                }
+                else if (TryGetMinimumSeparation(workPos, w, h, bx, by, bw, bh, box.OneWay, out Vector2 residualSep)) {
+                    //仍嵌在内部且 if-else 未命中任何面时，再次最小穿透推出
+                    moveResult = residualSep;
                 }
             }
-            else if (!box.OneWay && pos.X + w <= prevLeft) {
-                //从左侧撞入
-                result.X = bx - (pos.X + w);
-            }
-            else if (!box.OneWay && pos.X >= prevRight) {
-                //从右侧撞入
-                result.X = bx + bw - pos.X;
-            }
-            else if (!box.OneWay && pos.Y >= prevBottom) {
-                //从下方顶头
-                result.Y = by + bh - pos.Y;
-                Collision.up = true;
+
+            totalResult += moveResult;
+            return totalResult;
+        }
+
+        private static bool TryGetMinimumSeparation(Vector2 pos, int w, int h, float bx, float by, float bw, float bh, bool oneWay, out Vector2 separation) {
+            separation = Vector2.Zero;
+
+            float overlapX = Math.Min(pos.X + w, bx + bw) - Math.Max(pos.X, bx);
+            float overlapY = Math.Min(pos.Y + h, by + bh) - Math.Max(pos.Y, by);
+            if (overlapX <= 0f || overlapY <= 0f) {
+                return false;
             }
 
-            return result;
+            if (oneWay) {
+                //单向平台：仅当玩家从上方嵌入时推到顶面，下方仍允许穿过
+                if (pos.Y + h <= by + bh * 0.5f) {
+                    separation.Y = by - (pos.Y + h);
+                    return Math.Abs(separation.Y) > 0f;
+                }
+                return false;
+            }
+
+            if (overlapX < overlapY) {
+                float centerX = pos.X + w * 0.5f;
+                float boxCenterX = bx + bw * 0.5f;
+                separation.X = centerX < boxCenterX ? -overlapX : overlapX;
+            }
+            else {
+                float centerY = pos.Y + h * 0.5f;
+                float boxCenterY = by + bh * 0.5f;
+                separation.Y = centerY < boxCenterY ? -overlapY : overlapY;
+            }
+
+            return separation != Vector2.Zero;
         }
 
         //单向平台仅在接受顶面时才算作"固体"，与原版 tileSolidTop 的语义保持一致

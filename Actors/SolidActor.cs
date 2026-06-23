@@ -35,6 +35,11 @@ namespace InnoVault.Actors
         /// </summary>
         public bool SolidEnabled = true;
         /// <summary>
+        /// 本帧是否已在 <see cref="SolidActorCollision"/> 的 <c>PreUpdateEntities</c> 中提前完成 AI 与位移，
+        /// 供 <see cref="ActorLoader"/> 在 <c>PostUpdateEverything</c> 中跳过重复更新
+        /// </summary>
+        internal bool PreUpdatedThisFrame;
+        /// <summary>
         /// 提供给碰撞注入层使用的纯矩形碰撞箱，默认等于 <see cref="Actor.HitBox"/>，
         /// 子类可重写以使用独立于绘制尺寸的碰撞区域
         /// </summary>
