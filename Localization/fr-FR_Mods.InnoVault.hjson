@@ -58,5 +58,7 @@ UI: {
 		StateMachineTabText: Machine à états
 		StateMachineOverlayText: Superposition FSM
 		BehaviorTreeOverlayText: Superposition arbre de comportement
+		TPForceSerialText: Forcer la mise à jour séquentielle
+		ActorForceSerialText: Forcer la mise à jour séquentielle
 	}
 }

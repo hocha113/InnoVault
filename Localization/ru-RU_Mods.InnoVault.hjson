@@ -58,5 +58,7 @@ UI: {
 		StateMachineTabText: Машина состояний
 		StateMachineOverlayText: Оверлей FSM
 		BehaviorTreeOverlayText: Оверлей дерева поведения
+		TPForceSerialText: Принудить последовательное обновление
+		ActorForceSerialText: Принудить последовательное обновление
 	}
 }

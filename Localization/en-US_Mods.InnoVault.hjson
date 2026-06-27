@@ -58,5 +58,7 @@ UI: {
 		StateMachineTabText: StateMachine
 		StateMachineOverlayText: FSM Overlay
 		BehaviorTreeOverlayText: BT Overlay
+		TPForceSerialText: Force Serial Update
+		ActorForceSerialText: Force Serial Update
 	}
 }

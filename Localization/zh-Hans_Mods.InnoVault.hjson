@@ -58,5 +58,7 @@ UI: {
 		StateMachineTabText: 状态机
 		StateMachineOverlayText: 状态机叠层
 		BehaviorTreeOverlayText: 行为树叠层
+		TPForceSerialText: 强制串行更新
+		ActorForceSerialText: 强制串行更新
 	}
 }
