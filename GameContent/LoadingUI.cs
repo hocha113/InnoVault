@@ -1,5 +1,4 @@
 ﻿using InnoVault.GameSystem;
-using InnoVault.TileProcessors;
 using InnoVault.UIHandles;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -157,7 +156,7 @@ namespace InnoVault.GameContent
     internal class WorldSaveUI : WorldLoadingUI
     {
         public override LayersModeEnum LayersMode => LayersModeEnum.Mod_MenuLoad;
-        public override bool DoActive => !VaultClientConfig.Instance.HideWorldLoadingScreen && !VaultSave.SavedWorld;
+        public override bool DoActive => !VaultClientConfig.Instance.HideWorldLoadingScreen && VaultLoadingProgress.IsSaving;
         protected override float Fadeout => 0.04f;
         protected override (string, string) GetDynamicText() {
             //动态省略号
@@ -178,10 +177,7 @@ namespace InnoVault.GameContent
                 if (VaultClientConfig.Instance.HideWorldLoadingScreen) {
                     return false;
                 }
-                if (VaultUtils.isClient) {
-                    return !TileProcessorNetWork.LoadenTPByNetWork;
-                }
-                return !TileProcessorLoader.LoadenTP;
+                return VaultLoadingProgress.IsLoading;
             }
         }
         protected float percentage;
@@ -206,24 +202,26 @@ namespace InnoVault.GameContent
             string dots = new string('.', (dotCounter / 20) % 4); //0~3 个点
             //文本内容
             string text1 = WorldLoadingText.Text1.Value + dots;
-            string text2 = VaultSave.LoadenWorld ? WorldLoadingText.Text3.Value : WorldLoadingText.Text2.Value;
+            //客户端关注的是网络数据接收，单机/服务端则根据世界数据是否就绪在“读取存档”与“加载物块处理器”间切换
+            string text2;
             if (VaultUtils.isClient) {
                 text2 = WorldLoadingText.Text4.Value;
+            }
+            else {
+                text2 = VaultLoadingProgress.WorldDataLoaded ? WorldLoadingText.Text3.Value : WorldLoadingText.Text2.Value;
             }
             text2 += dots;
             return (text1, text2);
         }
         protected virtual void UpdatePercentage() {
-            if (!VaultSave.LoadenWorld && TileProcessorLoader.WorldLoadProgress < 10f) {
-                TileProcessorLoader.WorldLoadProgress = MathHelper.Lerp(TileProcessorLoader.WorldLoadProgress, 10f, 0.01f);
-            }
+            //真实进度由 VaultLoadingProgress 统一计算，UI 只负责展示
+            float target = VaultLoadingProgress.Overall * 100f;
 
-            float origTarget = TileProcessorLoader.WorldLoadProgress;
-
-            if (VaultUtils.isClient) {
-                origTarget = origTarget * 0.4f + TileProcessorNetWork.NetworkLoadProgress * 0.6f;
+            //等待世界数据时，让进度条朝等待阶段上限缓慢“蠕动”，纯展示效果，不写入任何领域状态
+            float waitingCeiling = VaultLoadingProgress.LocalWaitingWorldDataEnd * 100f;
+            if (!VaultLoadingProgress.WorldDataLoaded && percentage < waitingCeiling) {
+                percentage = MathHelper.Lerp(percentage, waitingCeiling, 0.01f);
             }
-            float target = MathHelper.Clamp(origTarget, 0f, 100f);
 
             if (target > percentage) {
                 percentage = MathHelper.Lerp(percentage, target, 0.1f);
@@ -252,9 +250,8 @@ namespace InnoVault.GameContent
             Main.spriteBatch.End();
             Main.spriteBatch.Begin(0, BlendState.AlphaBlend, null, null, null, null, Main.UIScaleMatrix);
 
-            //延迟一段时间再显示感叹号
-            if (VaultUtils.isSinglePlayer ||
-                TileProcessorNetWork.loadTPNetworkTickCounter < TileProcessorNetWork.MaxBufferWaitingTimeMark * 2 / 3) {
+            //网络加载明显滞后时才显示感叹号
+            if (!VaultLoadingProgress.IsStalled) {
                 return;
             }
 

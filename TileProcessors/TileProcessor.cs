@@ -1,3 +1,4 @@
+using InnoVault.Concurrent;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -9,6 +10,7 @@ using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 using Terraria.ObjectData;
+using Terraria.Utilities;
 using static InnoVault.TileProcessors.TileProcessorLoader;
 
 namespace InnoVault.TileProcessors
@@ -162,6 +164,83 @@ namespace InnoVault.TileProcessors
         private Vector2 _centerInWorld;
         #endregion
 
+        #region 并行更新
+        /// <summary>
+        /// 本TP实体的并行更新策略，默认<see cref="ParallelExecutionKind.Serial"/>（与历史行为逐字节一致）<br/>
+        /// 重写为<see cref="ParallelExecutionKind.Independent"/>或<see cref="ParallelExecutionKind.Grouped"/>以加入多线程更新<br/>
+        /// 一旦opt-in，<see cref="Update"/>内的副作用（生成物/发包/随机数/击杀）必须改走
+        /// <see cref="DeferSpawnItem"/>、<see cref="DeferSpawnProjectile"/>、<see cref="DeferNetSend"/>、
+        /// <see cref="Rand"/>、<see cref="RequestKill"/>等线程安全入口
+        /// </summary>
+        public virtual ParallelExecutionKind ParallelKind => ParallelExecutionKind.Serial;
+
+        /// <summary>
+        /// 仅<see cref="ParallelExecutionKind.Grouped"/>需要实现：在<paramref name="builder"/>中声明本实体的邻居物块坐标<br/>
+        /// 框架据此把同一连通网络的TP划入同一并行岛屿（岛内串行、跨岛并行）<br/>
+        /// 只需声明位置邻接（如四向相邻格、机器外缘格），无需依赖运行期连接状态<br/>
+        /// 核心约定：实体在<see cref="Update"/>中读写的任何其它TP都必须落在所声明的邻接图内
+        /// </summary>
+        public virtual void CollectGroupLinks(ref TPGroupLinkBuilder builder) { }
+
+        /// <summary>
+        /// 并行阶段开始前，在主线程对每个已注册TP类型调用一次（单实例语义）<br/>
+        /// 用于做全局预处理，例如重建跨实体的路由/网络拓扑缓存，
+        /// 以避免在并行的<see cref="Update"/>中并发触碰全局结构
+        /// </summary>
+        public virtual void PreParallel() { }
+
+        /// <summary>
+        /// 线程安全的随机数源：并行阶段返回当前线程本地的随机数发生器，串行阶段回退到<see cref="Main.rand"/><br/>
+        /// 并行更新中务必使用它而非直接使用<see cref="Main.rand"/>（后者非线程安全）<br/>
+        /// 注意：并行阶段返回的线程本地随机源序列不可复现、且与线程分配相关，<b>不保证客户端/服务端一致</b>，仅可用于纯视觉/局部效果；
+        /// 任何需要跨端一致的随机必须由服务器决定后广播
+        /// </summary>
+        protected UnifiedRandom Rand => TileProcessorParallel.CurrentRand ?? Main.rand;
+
+        /// <summary>
+        /// 延迟执行一个副作用动作：并行阶段入当前线程缓冲、由Phase 2主线程统一执行；串行阶段立即执行
+        /// </summary>
+        protected void Defer(Action action) => TileProcessorParallel.Defer(action);
+
+        /// <summary>
+        /// 延迟一次网络发送（语义同<see cref="Defer"/>，命名用于强调网络副作用必须回到主线程）
+        /// </summary>
+        protected void DeferNetSend(Action send) => TileProcessorParallel.Defer(send);
+
+        /// <summary>
+        /// 线程安全地生成一个物品：并行阶段延迟到主线程生成，串行阶段立即生成<br/>
+        /// 生成完成后（主线程）回调<paramref name="onSpawned"/>，参数为物品索引，便于做后续网络同步
+        /// </summary>
+        protected void DeferSpawnItem(IEntitySource source, Rectangle area, Item item, Action<int> onSpawned = null)
+            => TileProcessorParallel.Defer(() => {
+                int type = Item.NewItem(source, area, item);
+                onSpawned?.Invoke(type);
+            });
+
+        /// <summary>
+        /// 线程安全地生成一个弹幕：并行阶段延迟到主线程生成，串行阶段立即生成<br/>
+        /// 生成完成后（主线程）回调<paramref name="onSpawned"/>，参数为弹幕索引
+        /// </summary>
+        protected void DeferSpawnProjectile(IEntitySource source, Vector2 position, Vector2 velocity, int type
+            , int damage, float knockback, int owner = -1, float ai0 = 0f, float ai1 = 0f, Action<int> onSpawned = null)
+            => TileProcessorParallel.Defer(() => {
+                int whoAmI = Projectile.NewProjectile(source, position, velocity, type, damage, knockback
+                    , owner < 0 ? Main.myPlayer : owner, ai0, ai1);
+                onSpawned?.Invoke(whoAmI);
+            });
+
+        /// <summary>
+        /// 线程安全地请求击杀本实体：并行阶段入队、由Phase 2主线程执行；串行阶段立即执行<br/>
+        /// 等价于在安全时机调用<see cref="Kill"/>
+        /// </summary>
+        protected void RequestKill() => Kill();
+
+        /// <summary>
+        /// 标记TP拓扑变化（连接关系改变等），促使框架按需重建并行岛屿，线程安全
+        /// </summary>
+        public void MarkTopologyDirty() => TileProcessorParallel.MarkTopologyDirty();
+        #endregion
+
         /// <summary>
         /// 封闭内容
         /// </summary>
@@ -280,6 +359,17 @@ namespace InnoVault.TileProcessors
         /// 如果有必要，你应该调用<see cref="CheckDeath"/>而不是调用这个
         /// </summary>
         public void Kill() {
+            //并行阶段禁止直接改动全局字典，转为延迟到Phase 2主线程执行
+            if (TileProcessorParallel.InParallelPhase) {
+                TileProcessorParallel.EnqueueKill(this);
+                return;
+            }
+
+            //Grouped型实体的移除会改变连通拓扑，标脏以便重建岛屿
+            if (ParallelKind == ParallelExecutionKind.Grouped) {
+                TileProcessorParallel.MarkTopologyDirty();
+            }
+
             OnKill();
             Active = false;
 
@@ -411,7 +501,13 @@ namespace InnoVault.TileProcessors
                 return;
             }
             SendpacketCount++;
-            TileProcessorNetWork.TileProcessorSendData(this);
+            //并行阶段把实际发包延迟到主线程，ModPacket/网络流非线程安全
+            if (TileProcessorParallel.InParallelPhase) {
+                TileProcessorParallel.Defer(() => TileProcessorNetWork.TileProcessorSendData(this));
+            }
+            else {
+                TileProcessorNetWork.TileProcessorSendData(this);
+            }
         }
 
         /// <summary>

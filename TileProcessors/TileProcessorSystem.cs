@@ -1,8 +1,10 @@
-﻿using InnoVault.Debugs;
+﻿using InnoVault.Concurrent;
+using InnoVault.Debugs;
 using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text;
@@ -44,6 +46,8 @@ namespace InnoVault.TileProcessors
             }
             //卸载世界时清空缓存的数据，防止污染下一个世界
             ActiveWorldTagData = null;
+            //清理并行调度的所有缓存状态
+            TileProcessorParallel.Clear();
         }
 
         /// <inheritdoc/>
@@ -61,12 +65,16 @@ namespace InnoVault.TileProcessors
 
         /// <inheritdoc/>
         public override void PostUpdateEverything() {
+            //加载系统的看门狗必须在 CanRunByWorld 门控之前驱动
+            //否则客户端在网络加载期间(NetworkTPLoaded 为 false)会被门控挡下，导致超时检测与卡块重传永不触发
+            VaultLoadingProgress.Tick();
+
+            //TP网络出站/入站的分帧泵同样必须在门控之前驱动：
+            //服务端需要持续推送数据块，客户端需要在网络加载期间分帧应用收到的TP数据
+            TileProcessorNetWork.NetworkPump();
+
             if (!CanRunByWorld()) {
                 return;
-            }
-
-            if (!VaultUtils.isSinglePlayer) {
-                TileProcessorNetWork.UpdateNetworkStatusWatchdog();
             }
 
             //全局钩子的冷却逻辑
@@ -263,43 +271,161 @@ namespace InnoVault.TileProcessors
             }
         }
 
+        //并行/串行下统一读取的鼠标上下文（整帧不变，提前算好，避免逐TP重复计算与闭包分配）
+        private static Rectangle parallelMouseRec;
+        private static Rectangle parallelSmartRec;
+        private static bool parallelSmartCursorActive;
+        //每帧重建的分桶缓存
+        private static readonly List<TileProcessor> serialBucket = new(256);
+        private static readonly List<TileProcessor> independentBucket = new(256);
+
         /// <summary>
-        /// 更新所有在世界中的TP实例
+        /// 更新所有在世界中的TP实例，采用"分桶 + 三阶段"并行管线：<br/>
+        /// Phase 0 主线程预处理（重置计数 / 鼠标上下文 / 单实例预处理 / 分桶 / 按需重建岛屿）；<br/>
+        /// Phase 1 并行（独立桶全量并行 + 分组桶按岛屿并行、岛内串行）；<br/>
+        /// Phase 1b 主线程串行桶；Phase 2 主线程有序排空所有延迟副作用<br/>
+        /// 当并行被禁用或实体数量过少时，完全回退到历史的单线程路径
         /// </summary>
         private static void UpdateInWorldProcessors() {
-            //仅重置上一帧有计数的ID，避免遍历所有已注册的TP类型
+            //Phase 0：仅重置上一帧有计数的ID，避免遍历所有已注册的TP类型
             foreach (var key in TP_ID_To_InWorld_Count.Keys) {
                 TP_ID_To_InWorld_Count[key] = 0;
             }
 
-            Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);
+            //鼠标/智能光标上下文整帧不变，提前算好
+            parallelMouseRec = Main.MouseWorld.GetRectangle(1);
             //智能光标(Smart Cursor)不会移动鼠标真实坐标，它把"被瞄准的图格"重定向到附近的可交互物块
             //原版用 Player.tileTargetX/Y 来表达这个目标。这里额外构造一个 16x16 矩形以覆盖这种情况
-            Rectangle smartRec = new Rectangle(Player.tileTargetX * 16, Player.tileTargetY * 16, 16, 16);
-            bool smartCursorActive = Main.SmartCursorIsUsed;
-            //使用for循环以安全地处理更新过程中集合的增删
-            for (int i = 0; i < TP_InWorld.Count; i++) {
-                TileProcessor tileProcessor = TP_InWorld[i];
-                if (!tileProcessor.Active) continue;
+            parallelSmartRec = new Rectangle(Player.tileTargetX * 16, Player.tileTargetY * 16, 16, 16);
+            parallelSmartCursorActive = Main.SmartCursorIsUsed;
 
+            //单实例预处理在并行/串行两条路径下都需要执行（如重建跨实体路由），故放在分支之前
+            RunPreParallel();
+
+            //并行不划算或被显式禁用：完全回退到历史的单线程路径
+            if (!TileProcessorParallel.ShouldRunParallel(TP_InWorld.Count)) {
+                TileProcessorParallel.SetUsedParallel(false);
+                //使用for循环以安全地处理更新过程中集合的增删
+                for (int i = 0; i < TP_InWorld.Count; i++) {
+                    UpdateOneProcessor(TP_InWorld[i]);
+                }
+                return;
+            }
+
+            try {
+                TileProcessorParallel.SetUsedParallel(true);
+
+                //Phase 0b：分桶 + 按需重建并行岛屿
+                ClassifyBuckets();
+                TileProcessorParallel.EnsureIslands();
+
+                //Phase 1：并行更新
+                TileProcessorParallel.BeginParallelPhase();
+                try {
+                    TileProcessorParallel.RunIndependent(independentBucket, UpdateOneProcessor);
+                    TileProcessorParallel.RunIslands(UpdateOneProcessor);
+                    TileProcessorParallel.EndParallelPhase();
+
+                    //Phase 1b：串行桶在主线程更新，副作用立即生效（与历史一致）
+                    for (int i = 0; i < serialBucket.Count; i++) {
+                        UpdateOneProcessor(serialBucket[i]);
+                    }
+                }
+                finally {
+                    //Phase 2：无论并行体/串行桶是否抛异常，都必须退出并行阶段并排空：合并计数 + 执行已入队的
+                    //延迟副作用（生成物 / 发包 / 死亡 / 击杀 / 报错文本）+ 回收命令缓冲到对象池
+                    //否则调度级异常会永久丢弃本帧的延迟副作用并使缓冲脱离对象池。EndParallelPhase 幂等
+                    TileProcessorParallel.EndParallelPhase();
+                    try {
+                        TileProcessorParallel.DrainDeferred();
+                    } catch (Exception drainEx) {
+                        //排空本身可能抛异常，独立捕获以免掩盖原始异常或二次泄漏
+                        VaultMod.Instance.Logger.Error($"[TileProcessorParallel] Drain after parallel update failed: {drainEx}");
+                    }
+                }
+            } catch (Exception ex) {
+                //调度级别的异常：仅自动禁用TP并行并回退到串行（不波及Actor子系统），优先保证可用性
+                TileProcessorParallel.AutoDisableParallel();
+                VaultMod.Instance.Logger.Error($"[TileProcessorParallel] Parallel update failed, disabled and fell back to serial: {ex}");
+            }
+        }
+
+        /// <summary>
+        /// 按<see cref="TileProcessor.ParallelKind"/>把世界中的活跃TP分入串行桶 / 独立桶（分组桶由岛屿调度处理）
+        /// </summary>
+        private static void ClassifyBuckets() {
+            serialBucket.Clear();
+            independentBucket.Clear();
+            var inWorld = TP_InWorld;
+            for (int i = 0; i < inWorld.Count; i++) {
+                TileProcessor tp = inWorld[i];
+                if (tp == null || !tp.Active) {
+                    continue;
+                }
+                switch (tp.ParallelKind) {
+                    case ParallelExecutionKind.Independent:
+                        independentBucket.Add(tp);
+                        break;
+                    case ParallelExecutionKind.Grouped:
+                        //由 TileProcessorParallel 的岛屿调度处理
+                        break;
+                    default:
+                        serialBucket.Add(tp);
+                        break;
+                }
+            }
+        }
+
+        /// <summary>
+        /// 在并行阶段之前，于主线程对每个非串行的已注册TP类型调用一次<see cref="TileProcessor.PreParallel"/>
+        /// </summary>
+        private static void RunPreParallel() {
+            foreach (TileProcessor tp in TP_ID_To_Instance.Values) {
+                if (tp.ParallelKind == ParallelExecutionKind.Serial) {
+                    continue;
+                }
+                try {
+                    tp.PreParallel();
+                } catch (Exception ex) {
+                    TPErrorHandle(tp, ex, "PreParallel");
+                }
+            }
+        }
+
+        /// <summary>
+        /// 单个TP实例的统一更新体，串行与并行两种调度共用<br/>
+        /// 顺序：悬停状态 → 世界计数 → 死亡判定 → 错误冷却 → 实际更新
+        /// </summary>
+        internal static void UpdateOneProcessor(TileProcessor tileProcessor) {
+            if (!tileProcessor.Active) {
+                return;
+            }
+
+            //整个更新体包一层防御：悬停/计数/死亡判定等若抛出，按单个TP隔离处理(进入ignoreBug冷却)，
+            //绝不让单个实体的异常上浮到调度层去触发整套并行的回退
+            try {
                 //更新鼠标悬浮状态，同时考虑智能光标 snap 到 TP 的情况
                 //每个 TP 通过 CanSmartCursorSelect 决定是否接收智能光标的 snap
-                bool hoverByMouse = tileProcessor.HitBox.Intersects(mouseRec);
-                bool hoverBySmart = smartCursorActive
+                bool hoverByMouse = tileProcessor.HitBox.Intersects(parallelMouseRec);
+                bool hoverBySmart = parallelSmartCursorActive
                     && tileProcessor.CanSmartCursorSelect
-                    && tileProcessor.HitBox.Intersects(smartRec);
+                    && tileProcessor.HitBox.Intersects(parallelSmartRec);
                 tileProcessor.HoverTP = tileProcessor.InScreen && (hoverByMouse || hoverBySmart);
 
-                TP_ID_To_InWorld_Count[tileProcessor.ID]++;
+                TileProcessorParallel.AddInWorldCount(tileProcessor.ID);
 
-                if (TileProcessorIsDead(tileProcessor)) continue;
+                if (TileProcessorIsDead(tileProcessor)) {
+                    return;
+                }
 
                 if (tileProcessor.ignoreBug > 0) {
                     tileProcessor.ignoreBug--;
-                    continue; //如果刚出过错或正在冷却，则跳过本次更新
+                    return; //如果刚出过错或正在冷却，则跳过本次更新
                 }
 
                 DoRun(tileProcessor, TileProcessorUpdate, "Update");
+            } catch (Exception ex) {
+                TPErrorHandle(tileProcessor, ex, "UpdateOneProcessor");
             }
         }
 
@@ -329,9 +455,28 @@ namespace InnoVault.TileProcessors
         }
 
         /// <summary>
-        /// 检查一个TP实例是否应被销毁
+        /// 检查一个TP实例是否应被销毁，命中则在安全时机执行击杀<br/>
+        /// 并行阶段会把击杀延迟到Phase 2主线程，串行阶段立即执行
         /// </summary>
         internal static bool TileProcessorIsDead(TileProcessor tileProcessor) {
+            bool isDead = EvaluateIsDead(tileProcessor);
+            //在多人游戏中，只有服务器能销毁TP实体
+            if (isDead && !VaultUtils.isClient) {
+                if (TileProcessorParallel.InParallelPhase) {
+                    TileProcessorParallel.EnqueueDeath(tileProcessor);
+                }
+                else {
+                    KillNow(tileProcessor);
+                }
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 只读地判定一个TP是否应当死亡（不产生任何副作用），可安全地在工作线程调用
+        /// </summary>
+        internal static bool EvaluateIsDead(TileProcessor tileProcessor) {
             try {
                 bool isDead = tileProcessor.IsDaed();
 
@@ -342,19 +487,26 @@ namespace InnoVault.TileProcessors
                     }
                 }
 
-                //在多人游戏中，只有服务器能销毁TP实体
-                if (isDead && !VaultUtils.isClient) {
-                    if (VaultUtils.isServer) {
-                        TileProcessorNetWork.SendTPDeathByServer(tileProcessor);
-                    }
-                    tileProcessor.Kill();
-                    return true;
-                }
+                return isDead;
             } catch (Exception ex) {
                 TPErrorHandle(tileProcessor, ex, "TileProcessorIsDead");
             }
 
             return false;
+        }
+
+        /// <summary>
+        /// 在主线程立即执行一次死亡击杀：服务器先广播死亡，再调用<see cref="TileProcessor.Kill"/>
+        /// </summary>
+        internal static void KillNow(TileProcessor tileProcessor) {
+            try {
+                if (VaultUtils.isServer) {
+                    TileProcessorNetWork.SendTPDeathByServer(tileProcessor);
+                }
+                tileProcessor.Kill();
+            } catch (Exception ex) {
+                TPErrorHandle(tileProcessor, ex, "TileProcessorKill");
+            }
         }
 
         /// <summary>
@@ -547,7 +699,13 @@ namespace InnoVault.TileProcessors
             errorBuilder.Append(ex.ToString()); //记录完整的异常信息，包括堆栈跟踪
 
             string errorMessage = errorBuilder.ToString();
-            VaultUtils.Text(errorMessage, Color.Red);
+            //并行阶段聊天框写入非线程安全，延迟到主线程统一输出
+            if (TileProcessorParallel.InParallelPhase) {
+                TileProcessorParallel.EnqueueErrorText(errorMessage);
+            }
+            else {
+                VaultUtils.Text(errorMessage, Color.Red);
+            }
             VaultMod.Instance.Logger.Error(errorMessage);
         }
 
@@ -570,7 +728,13 @@ namespace InnoVault.TileProcessors
             errorBuilder.Append(ex.ToString());
 
             string errorMessage = errorBuilder.ToString();
-            VaultUtils.Text(errorMessage, Color.Red);
+            //并行阶段聊天框写入非线程安全，延迟到主线程统一输出
+            if (TileProcessorParallel.InParallelPhase) {
+                TileProcessorParallel.EnqueueErrorText(errorMessage);
+            }
+            else {
+                VaultUtils.Text(errorMessage, Color.Red);
+            }
             VaultMod.Instance.Logger.Error(errorMessage);
         }
     }

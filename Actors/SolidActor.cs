@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.Concurrent;
+using Microsoft.Xna.Framework;
 using Terraria;
 
 namespace InnoVault.Actors
@@ -44,6 +45,12 @@ namespace InnoVault.Actors
         /// 子类可重写以使用独立于绘制尺寸的碰撞区域
         /// </summary>
         public virtual Rectangle SolidBox => HitBox;
+
+        /// <summary>
+        /// <see cref="SolidActor"/> 已在 <see cref="SolidActorCollision"/> 的 PreUpdateEntities 中串行提前更新，
+        /// 且会注入碰撞 / 承载玩家等共享状态，因此固定为串行，不参与多线程调度
+        /// </summary>
+        public sealed override ParallelExecutionKind ParallelKind => ParallelExecutionKind.Serial;
 
         /// <summary>
         /// 已被密封，请勿重写。该实现会在移动前记录 <see cref="LastPosition"/> 后再调用 <see cref="SolidAI"/>，

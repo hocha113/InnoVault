@@ -1,3 +1,4 @@
+using InnoVault.JsonDatas;
 using InnoVault.Models3D.Runtime;
 using Newtonsoft.Json.Linq;
 using System.Collections.Generic;
@@ -22,18 +23,18 @@ namespace InnoVault.Models3D.Gltf
         public static GltfDocument Parse(string json, Model3DDiagnostic diagnostic, string source) {
             JObject root = JObject.Parse(json);
             GltfDocument doc = new GltfDocument {
-                SceneIndex = ReadInt(root["scene"], 0)
+                SceneIndex = root.GetInt("scene", 0)
             };
 
             foreach (JToken token in root["accessors"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 doc.Accessors.Add(new GltfAccessor {
-                    BufferView = ReadInt(obj["bufferView"], -1),
-                    ByteOffset = ReadInt(obj["byteOffset"], 0),
-                    ComponentType = ReadInt(obj["componentType"], 0),
-                    Count = ReadInt(obj["count"], 0),
-                    Type = ReadString(obj["type"]),
-                    Normalized = ReadBool(obj["normalized"], false),
+                    BufferView = obj.GetInt("bufferView", -1),
+                    ByteOffset = obj.GetInt("byteOffset", 0),
+                    ComponentType = obj.GetInt("componentType", 0),
+                    Count = obj.GetInt("count", 0),
+                    Type = obj.GetString("type"),
+                    Normalized = obj.GetBool("normalized", false),
                     Sparse = obj["sparse"] != null,
                 });
             }
@@ -41,18 +42,18 @@ namespace InnoVault.Models3D.Gltf
             foreach (JToken token in root["bufferViews"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 doc.BufferViews.Add(new GltfBufferView {
-                    Buffer = ReadInt(obj["buffer"], -1),
-                    ByteOffset = ReadInt(obj["byteOffset"], 0),
-                    ByteLength = ReadInt(obj["byteLength"], 0),
-                    ByteStride = ReadInt(obj["byteStride"], 0),
+                    Buffer = obj.GetInt("buffer", -1),
+                    ByteOffset = obj.GetInt("byteOffset", 0),
+                    ByteLength = obj.GetInt("byteLength", 0),
+                    ByteStride = obj.GetInt("byteStride", 0),
                 });
             }
 
             foreach (JToken token in root["buffers"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 doc.Buffers.Add(new GltfBuffer {
-                    Uri = ReadString(obj["uri"]),
-                    ByteLength = ReadInt(obj["byteLength"], 0),
+                    Uri = obj.GetString("uri"),
+                    ByteLength = obj.GetInt("byteLength", 0),
                 });
             }
 
@@ -62,31 +63,31 @@ namespace InnoVault.Models3D.Gltf
                 JObject extensions = obj["extensions"] as JObject;
                 JObject specGloss = extensions?["KHR_materials_pbrSpecularGlossiness"] as JObject;
                 doc.Materials.Add(new GltfMaterial {
-                    Name = ReadString(obj["name"]),
-                    DoubleSided = ReadBool(obj["doubleSided"], false),
-                    BaseColorFactor = ReadFloatArray(pbr?["baseColorFactor"], 4),
-                    BaseColorTextureIndex = ReadInt(pbr?["baseColorTexture"]?["index"], -1),
-                    SpecGlossDiffuseFactor = ReadFloatArray(specGloss?["diffuseFactor"], 4),
-                    SpecGlossDiffuseTextureIndex = ReadInt(specGloss?["diffuseTexture"]?["index"], -1),
+                    Name = obj.GetString("name"),
+                    DoubleSided = obj.GetBool("doubleSided", false),
+                    BaseColorFactor = pbr.GetFloatArray("baseColorFactor", 4),
+                    BaseColorTextureIndex = pbr.GetObject("baseColorTexture").GetInt("index", -1),
+                    SpecGlossDiffuseFactor = specGloss.GetFloatArray("diffuseFactor", 4),
+                    SpecGlossDiffuseTextureIndex = specGloss.GetObject("diffuseTexture").GetInt("index", -1),
                 });
             }
 
             foreach (JToken token in root["meshes"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 GltfMesh mesh = new GltfMesh {
-                    Name = ReadString(obj["name"]),
+                    Name = obj.GetString("name"),
                 };
                 foreach (JToken primitiveToken in obj["primitives"] as JArray ?? new JArray()) {
                     JObject primitiveObj = (JObject)primitiveToken;
                     GltfPrimitive primitive = new GltfPrimitive {
-                        Indices = ReadInt(primitiveObj["indices"], -1),
-                        Material = ReadInt(primitiveObj["material"], -1),
-                        Mode = ReadInt(primitiveObj["mode"], 4),
+                        Indices = primitiveObj.GetInt("indices", -1),
+                        Material = primitiveObj.GetInt("material", -1),
+                        Mode = primitiveObj.GetInt("mode", 4),
                     };
                     JObject attributes = primitiveObj["attributes"] as JObject;
                     if (attributes != null) {
                         foreach (KeyValuePair<string, JToken> kv in attributes) {
-                            primitive.Attributes[kv.Key] = ReadInt(kv.Value, -1);
+                            primitive.Attributes[kv.Key] = kv.Value.AsInt(-1);
                         }
                     }
                     mesh.Primitives.Add(primitive);
@@ -97,16 +98,16 @@ namespace InnoVault.Models3D.Gltf
             foreach (JToken token in root["nodes"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 GltfNode node = new GltfNode {
-                    Name = ReadString(obj["name"]),
-                    Mesh = ReadInt(obj["mesh"], -1),
-                    Skin = ReadInt(obj["skin"], -1),
-                    Matrix = ReadFloatArray(obj["matrix"], 16),
-                    Translation = ReadFloatArray(obj["translation"], 3),
-                    Rotation = ReadFloatArray(obj["rotation"], 4),
-                    Scale = ReadFloatArray(obj["scale"], 3),
+                    Name = obj.GetString("name"),
+                    Mesh = obj.GetInt("mesh", -1),
+                    Skin = obj.GetInt("skin", -1),
+                    Matrix = obj.GetFloatArray("matrix", 16),
+                    Translation = obj.GetFloatArray("translation", 3),
+                    Rotation = obj.GetFloatArray("rotation", 4),
+                    Scale = obj.GetFloatArray("scale", 3),
                 };
                 foreach (JToken child in obj["children"] as JArray ?? new JArray()) {
-                    node.Children.Add(ReadInt(child, -1));
+                    node.Children.Add(child.AsInt(-1));
                 }
                 doc.Nodes.Add(node);
             }
@@ -114,10 +115,10 @@ namespace InnoVault.Models3D.Gltf
             foreach (JToken token in root["scenes"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 GltfScene scene = new GltfScene {
-                    Name = ReadString(obj["name"]),
+                    Name = obj.GetString("name"),
                 };
                 foreach (JToken node in obj["nodes"] as JArray ?? new JArray()) {
-                    scene.Nodes.Add(ReadInt(node, -1));
+                    scene.Nodes.Add(node.AsInt(-1));
                 }
                 doc.Scenes.Add(scene);
             }
@@ -125,12 +126,12 @@ namespace InnoVault.Models3D.Gltf
             foreach (JToken token in root["skins"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 GltfSkin skin = new GltfSkin {
-                    Name = ReadString(obj["name"]),
-                    InverseBindMatrices = ReadInt(obj["inverseBindMatrices"], -1),
-                    Skeleton = ReadInt(obj["skeleton"], -1),
+                    Name = obj.GetString("name"),
+                    InverseBindMatrices = obj.GetInt("inverseBindMatrices", -1),
+                    Skeleton = obj.GetInt("skeleton", -1),
                 };
                 foreach (JToken joint in obj["joints"] as JArray ?? new JArray()) {
-                    skin.Joints.Add(ReadInt(joint, -1));
+                    skin.Joints.Add(joint.AsInt(-1));
                 }
                 doc.Skins.Add(skin);
             }
@@ -138,40 +139,40 @@ namespace InnoVault.Models3D.Gltf
             foreach (JToken token in root["images"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 doc.Images.Add(new GltfImage {
-                    Uri = ReadString(obj["uri"]),
-                    MimeType = ReadString(obj["mimeType"]),
-                    BufferView = ReadInt(obj["bufferView"], -1),
+                    Uri = obj.GetString("uri"),
+                    MimeType = obj.GetString("mimeType"),
+                    BufferView = obj.GetInt("bufferView", -1),
                 });
             }
 
             foreach (JToken token in root["textures"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 doc.Textures.Add(new GltfTexture {
-                    Source = ReadInt(obj["source"], -1),
-                    Sampler = ReadInt(obj["sampler"], -1),
+                    Source = obj.GetInt("source", -1),
+                    Sampler = obj.GetInt("sampler", -1),
                 });
             }
 
             foreach (JToken token in root["animations"] as JArray ?? new JArray()) {
                 JObject obj = (JObject)token;
                 GltfAnimation anim = new GltfAnimation {
-                    Name = ReadString(obj["name"]),
+                    Name = obj.GetString("name"),
                 };
                 foreach (JToken samplerToken in obj["samplers"] as JArray ?? new JArray()) {
                     JObject samplerObj = (JObject)samplerToken;
                     anim.Samplers.Add(new GltfAnimationSampler {
-                        Input = ReadInt(samplerObj["input"], -1),
-                        Output = ReadInt(samplerObj["output"], -1),
-                        Interpolation = ReadString(samplerObj["interpolation"]),
+                        Input = samplerObj.GetInt("input", -1),
+                        Output = samplerObj.GetInt("output", -1),
+                        Interpolation = samplerObj.GetString("interpolation"),
                     });
                 }
                 foreach (JToken channelToken in obj["channels"] as JArray ?? new JArray()) {
                     JObject channelObj = (JObject)channelToken;
                     JObject targetObj = channelObj["target"] as JObject;
                     anim.Channels.Add(new GltfAnimationChannel {
-                        Sampler = ReadInt(channelObj["sampler"], -1),
-                        TargetNode = ReadInt(targetObj?["node"], -1),
-                        TargetPath = ReadString(targetObj?["path"]),
+                        Sampler = channelObj.GetInt("sampler", -1),
+                        TargetNode = targetObj.GetInt("node", -1),
+                        TargetPath = targetObj.GetString("path"),
                     });
                 }
                 doc.Animations.Add(anim);
@@ -205,29 +206,6 @@ namespace InnoVault.Models3D.Gltf
                 default:
                     return false;
             }
-        }
-
-        private static int ReadInt(JToken token, int fallback) {
-            return token == null ? fallback : token.Value<int>();
-        }
-
-        private static bool ReadBool(JToken token, bool fallback) {
-            return token == null ? fallback : token.Value<bool>();
-        }
-
-        private static string ReadString(JToken token) {
-            return token == null ? string.Empty : token.Value<string>() ?? string.Empty;
-        }
-
-        private static float[] ReadFloatArray(JToken token, int expected) {
-            if (token is not JArray array || array.Count != expected) {
-                return null;
-            }
-            float[] result = new float[expected];
-            for (int i = 0; i < expected; i++) {
-                result[i] = array[i].Value<float>();
-            }
-            return result;
         }
     }
 

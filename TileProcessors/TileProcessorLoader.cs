@@ -1,4 +1,5 @@
-﻿using InnoVault.GameSystem;
+﻿using InnoVault.Concurrent;
+using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -26,9 +27,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public const int MaxTPInWorldCount = 32767;
         /// <summary>
-        /// 是否加载好了TP实体到世界中
+        /// 是否加载好了TP实体到世界中<br/>
+        /// 该状态现已由 <see cref="VaultLoadingProgress"/> 统一管理，此处仅作兼容转发
         /// </summary>
-        public static bool LoadenTP { get; private set; }
+        public static bool LoadenTP => VaultLoadingProgress.LocalTPLoaded;
         /// <summary>
         /// 当前TP实体的最大ID
         /// </summary>
@@ -92,10 +94,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         internal static List<GlobalTileProcessor> TPGlobalHooks { get; private set; } = [];
         /// <summary>
-        /// 世界TP加载进度百分比，范围 0~100用于 UI 显示传输进度
-        /// 线程安全字段，可能被后台线程更新
+        /// 世界TP加载进度百分比，范围 0~100用于 UI 显示传输进度<br/>
+        /// 该进度现已由 <see cref="VaultLoadingProgress"/> 统一管理，此处仅作兼容转发
         /// </summary>
-        internal static volatile float WorldLoadProgress;
+        internal static float WorldLoadProgress => VaultLoadingProgress.LocalProgress * 100f;
         //反射KillMultiTile存储的方法对象
         private static MethodBase onTile_KillMultiTile_Method;
         //用于挂载KillMultiTile的委托类型
@@ -221,6 +223,12 @@ namespace InnoVault.TileProcessors
                 return null;
             }
 
+            //并行阶段禁止结构性修改世界列表/字典，延迟到Phase 2主线程执行
+            if (TileProcessorParallel.InParallelPhase) {
+                TileProcessorParallel.Defer(() => NewTPInWorld(tpID, position, item));
+                return null;
+            }
+
             TileProcessor reset = null;
 
             TileProcessor newProcessor = TP_ID_To_Instance[tpID].Clone();
@@ -229,6 +237,11 @@ namespace InnoVault.TileProcessors
             newProcessor.Active = true;
             newProcessor.InitializePositionAndBounds();
             newProcessor.SetProperty();
+
+            //Grouped型实体的加入会改变连通拓扑，标脏以便重建岛屿
+            if (newProcessor.ParallelKind == ParallelExecutionKind.Grouped) {
+                TileProcessorParallel.MarkTopologyDirty();
+            }
 
             //在这里实体已经被设置好了，更新一下Map
             TP_IDAndPoint_To_Instance[(newProcessor.ID, newProcessor.Position)] = newProcessor;//如果实体重叠，那么就会进行覆盖
@@ -271,6 +284,12 @@ namespace InnoVault.TileProcessors
         /// </remarks>
         public static TileProcessor AddInWorld(int tileID, Point16 position, Item item) {
             if (tileID == 0 || TP_InWorld.Count >= MaxTPInWorldCount) {//是的，我们拒绝泥土
+                return null;
+            }
+
+            //并行阶段禁止结构性修改世界列表/字典，延迟到Phase 2主线程执行
+            if (TileProcessorParallel.InParallelPhase) {
+                TileProcessorParallel.Defer(() => AddInWorld(tileID, position, item));
                 return null;
             }
 
@@ -337,10 +356,10 @@ namespace InnoVault.TileProcessors
         public static void LoadWorldTileProcessor() {
             InitializeWorldTP();
 
-            WorldLoadProgress = 0;
+            VaultLoadingProgress.BeginLocalLoad();
 
             Task.Run(async () => {
-                LoadenTP = false;
+                VaultLoadingProgress.LocalTPLoaded = false;
                 try {
                     await VaultUtils.WaitUntilAsync(() => VaultSave.LoadenWorld, 50, 10000);//最多等10秒
                 } catch (TaskCanceledException) {
@@ -349,14 +368,15 @@ namespace InnoVault.TileProcessors
                     VaultMod.Instance.Logger.Error($"[LoadWorldTileProcessor] An exception occurred while waiting for VaultSave.LoadenWorld: {ex.Message}");
                 }
 
-                WorldLoadProgress = 10;
+                VaultLoadingProgress.EnterPhase(LoadingPhase.ScanningWorld);
+                VaultLoadingProgress.ReportLocal(VaultLoadingProgress.LocalWaitingWorldDataEnd);
 
                 try {
                     LoadWorldTileProcessorInner();
                 } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error($"[LoadWorldTileProcessor] An error occurred while executing: {ex.Message}");
                 } finally {
-                    LoadenTP = true;
+                    VaultLoadingProgress.LocalTPLoaded = true;
                 }
             });
         }
@@ -379,19 +399,21 @@ namespace InnoVault.TileProcessors
                 }
             }
 
-            WorldLoadProgress = 15;
+            VaultLoadingProgress.EnterPhase(LoadingPhase.PlacingProcessors);
+            VaultLoadingProgress.ReportLocal(VaultLoadingProgress.LocalScanningEnd);
 
             int count = collectedDatas.Count;
             for (int i = 0; i < count; i++) {
                 var data = collectedDatas[i];
                 if (TileProcessorIsTopLeft(data.Item1, data.Item2, out Point16 point)) {
                     AddInWorld(data.Item3, point, null);
-                    WorldLoadProgress = 15 + i * 75f / count;
+                    VaultLoadingProgress.ReportPlacement(i, count);
                 }
             }
 
             //需要再次明确一个论点，世界加载钩子会在客户端和服务端上被调用，而客户端并不需要加载存档数据
             if (!VaultUtils.isClient && ActiveWorldTagData?.Count > 0) {
+                VaultLoadingProgress.EnterPhase(LoadingPhase.LoadingWorldData);
                 try {
                     LoadWorldData(ActiveWorldTagData);
                 } finally {
@@ -400,7 +422,7 @@ namespace InnoVault.TileProcessors
                 }
             }
 
-            WorldLoadProgress = 100;
+            VaultLoadingProgress.ReportLocal(1f);
 
             for (int i = 0; i < TP_InWorld.Count; i++) {
                 var tp = TP_InWorld[i];
@@ -511,6 +533,12 @@ namespace InnoVault.TileProcessors
         /// </summary>
         /// <param name="tp"></param>
         public static void RemoveFromDictionaries(TileProcessor tp) {
+            //并行阶段禁止结构性修改字典，延迟到Phase 2主线程执行
+            if (TileProcessorParallel.InParallelPhase) {
+                TileProcessorParallel.Defer(() => RemoveFromDictionaries(tp));
+                return;
+            }
+
             TP_IDAndPoint_To_Instance.Remove((tp.ID, tp.Position));
             TP_NameAndPoint_To_Instance.Remove((tp.FullName, tp.Position));
             //因为Point_To_Instance只考虑位置，所以在某些情况下可能出现实体顶替的情况，一个萝卜一个坑，移除时判断一下ID避免误杀
@@ -600,11 +628,24 @@ namespace InnoVault.TileProcessors
             return tpDictionary;
         }
 
+        //按类型缓存模块ID避免每次泛型查询都走Dictionary<Type,int>哈希
+        //模块ID在单次加载会话内恒定，且tModLoader重载会创建全新类型(静态字段自然重置)，故无需手动失效
+        private static class ModuleIDCache<T> where T : TileProcessor
+        {
+            internal static int Value = -1;
+        }
+
         /// <summary>
         /// 根据指定类型获取对应的模块ID
         /// </summary>
         /// <returns>返回该类型对应的模块ID</returns>
-        public static int GetModuleID<T>() where T : TileProcessor => TP_Type_To_ID[typeof(T)];
+        public static int GetModuleID<T>() where T : TileProcessor {
+            int id = ModuleIDCache<T>.Value;
+            if (id < 0) {
+                id = ModuleIDCache<T>.Value = TP_Type_To_ID[typeof(T)];
+            }
+            return id;
+        }
 
         /// <summary>
         /// 根据指定类型获取对应的模块ID
@@ -762,11 +803,19 @@ namespace InnoVault.TileProcessors
         /// <param name="y">要查找的模块的y坐标</param>
         /// <returns>返回与指定ID及坐标对应的 <see cref="TileProcessor"/>，如果未找到则返回<see langword="null"/></returns>
         public static TileProcessor FindModulePreciseSearch(int ID, int x, int y) {
-            //判断坐标是否为多结构物块的左上角，并获取其左上角位置
+            //我们必须理解这个函数的调用环境是相当恐怖的，可以预料到该函数将被极高频率的调用，所以哈希优化是必要的
+            //极高频快速路径：TP实体在注册时(NewTPInWorld/AddInWorld)其Position必然已被解析为左上角原点，
+            //因此字典里的键天然只会落在左上角上，命中即代表(x,y)就是合法的左上角，等价于完整的IsTopLeft判定
+            //如此便可省去昂贵的GetTopLeftOrNull(内部含Framing.GetTileSafely与TileObjectData.GetTileData)解析
+            //仅当不存在TryIsTopLeftPoint全局钩子(它可能把任意坐标改写为左上角)时启用，确保行为与慢路径完全一致
+            if (HookTryIsTopLeftPoint == null || HookTryIsTopLeftPoint.Enumerate().IsEmpty) {
+                return TP_IDAndPoint_To_Instance.TryGetValue((ID, new Point16(x, y)), out var fast) ? fast : null;
+            }
+
+            //存在TryIsTopLeftPoint钩子时，可能需要把内部坐标改写为左上角，走完整解析路径以保持原有语义
             if (!TileProcessorIsTopLeft(x, y, out Point16 point)) {
                 return null;
             }
-            //我们必须理解这个函数的调用环境是相当恐怖的，可以预料到该函数将被极高频率的调用，所以哈希优化是必要的
             if (TP_IDAndPoint_To_Instance.TryGetValue((ID, point), out var tileProcessor)) {
                 return tileProcessor;
             }

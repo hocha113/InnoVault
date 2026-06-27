@@ -1,4 +1,5 @@
-﻿using InnoVault.Debugs;
+﻿using InnoVault.Concurrent;
+using InnoVault.Debugs;
 using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -33,8 +34,17 @@ namespace InnoVault.Actors
         private static ushort[] slotGenerations;
         //活跃实体的稠密列表，热路径(更新 / 绘制 / 查询 / 广播)遍历它以避免 O(short.MaxValue) 全量扫描
         private static readonly List<Actor> activeActors = new();
-        //更新期对活跃列表的快照，容忍 AI 中途的生成 / 销毁
+        //更新期对活跃列表的快照，容忍 AI 中途的生成 / 销毁（仅串行回退路径使用）
         private static readonly List<Actor> updateBuffer = new();
+        //并行分桶（每帧重建）：独立桶并行更新，串行桶（含 SolidActor）在主线程更新
+        private static readonly List<Actor> serialBucket = new(256);
+        private static readonly List<Actor> independentBucket = new(256);
+        //并行/串行统一读取的整帧上下文，避免逐实体重复计算与闭包分配
+        private static Rectangle parallelMouseRec;
+        private static bool parallelClient;
+        //因调度级异常而自动禁用的标志，仅作用于Actor子系统，与TP子系统互不影响
+        //它独立于用户手动的 VaultParallel.EnableParallel 总开关：换世界时复位，使新世界可重新尝试并行
+        private static bool actorAutoDisabledByError;
         /// <summary>
         /// 当前世界中所有活跃的 <see cref="Actor"/> 稠密列表(内部维护，请勿缓存引用或在外部修改)
         /// </summary>
@@ -105,6 +115,8 @@ namespace InnoVault.Actors
             recycledSlots.Clear();
             activeActors.Clear();
             updateBuffer.Clear();
+            serialBucket.Clear();
+            independentBucket.Clear();
         }
         #endregion
 
@@ -128,6 +140,12 @@ namespace InnoVault.Actors
         /// <param name="velocity">初始速度</param>
         /// <returns>生成的Actor实例的WhoAmI索引，如果生成失败返回-1</returns>
         public static int NewActor(int type, Vector2 position, Vector2 velocity = default) {
+            //并行阶段禁止结构性增删槽位/活跃列表与网络发送，延迟到主线程执行（此时无法同步返回槽位，返回 -1）
+            if (VaultParallel.InParallelPhase) {
+                VaultParallel.Defer(() => NewActor(type, position, velocity));
+                return -1;
+            }
+
             //多人客户端无权生成: 仅向服务器发送请求，由服务器集中分配槽位与 generation 后广播
             if (VaultUtils.isClient) {
                 ActorNetWork.SendActorSpawnRequest(type, position, velocity);
@@ -248,6 +266,12 @@ namespace InnoVault.Actors
         /// <param name="whoAmI"></param>
         /// <param name="network"></param>
         public static void KillActor(int whoAmI, bool network = true) {
+            //并行阶段禁止结构性释放槽位与网络发送，延迟到主线程执行
+            if (VaultParallel.InParallelPhase) {
+                VaultParallel.Defer(() => KillActor(whoAmI, network));
+                return;
+            }
+
             if (whoAmI < 0 || whoAmI >= MaxActorCount) {
                 return;
             }
@@ -337,62 +361,141 @@ namespace InnoVault.Actors
 
         #region Update
         /// <summary>
-        /// 每帧更新所有活跃的Actor
+        /// 每帧更新所有活跃的Actor，采用"分桶 + 三阶段"并行管线：<br/>
+        /// Phase 0 主线程分桶（独立桶 / 串行桶，SolidActor 归串行）；<br/>
+        /// Phase 1 并行更新独立桶；Phase 1b 主线程更新串行桶；Phase 2 主线程排空延迟副作用（生成 / 销毁 / 发包）<br/>
+        /// 当并行被禁用或实体数量过少时，完全回退到历史的单线程路径
         /// </summary>
         public override void PostUpdateEverything() {
             if (Actors == null) {
                 return;
             }
 
-            Rectangle mouseRec = Main.MouseWorld.GetRectangle(1);
-            bool client = VaultUtils.isClient;
+            //整帧不变的上下文，提前算好
+            parallelMouseRec = Main.MouseWorld.GetRectangle(1);
+            parallelClient = VaultUtils.isClient;
 
-            //快照活跃列表，使 AI 中途的生成 / 销毁不破坏本帧遍历
-            updateBuffer.Clear();
-            updateBuffer.AddRange(activeActors);
-
-            for (int i = 0; i < updateBuffer.Count; i++) {
-                Actor actor = updateBuffer[i];
-                if (actor == null || !actor.Active) {
-                    continue;
+            //需同时满足"全局主开关开启"与"Actor未因异常被自动禁用"才走并行
+            if (actorAutoDisabledByError || !VaultParallel.ShouldRunParallel(activeActors.Count)) {
+                //串行回退：快照活跃列表，使 AI 中途的即时生成 / 销毁不破坏本帧遍历
+                updateBuffer.Clear();
+                updateBuffer.AddRange(activeActors);
+                for (int i = 0; i < updateBuffer.Count; i++) {
+                    UpdateOneActor(updateBuffer[i]);
                 }
-
-                actor.HoverTP = actor.InScreen && actor.HitBox.Intersects(mouseRec);
-
+            }
+            else {
                 try {
-                    bool shouldUpdate = true;
-                    foreach (var global in HookPreAI.Enumerate()) {
-                        if (!global.PreAI(actor)) {
-                            shouldUpdate = false;
+                    //Phase 0：分桶（并行期 activeActors 只读，增删全部延迟，故桶即快照）
+                    ClassifyBuckets();
+
+                    //Phase 1：并行更新独立桶
+                    VaultParallel.BeginPhase(0);
+                    try {
+                        VaultParallel.RunBatch(independentBucket, UpdateOneActor);
+                        VaultParallel.EndPhase();
+
+                        //Phase 1b：串行桶在主线程更新（含 SolidActor 的跳过逻辑），副作用即时
+                        for (int i = 0; i < serialBucket.Count; i++) {
+                            UpdateOneActor(serialBucket[i]);
                         }
                     }
-
-                    if (shouldUpdate) {
-                        //SolidActor 已在 PreUpdateEntities 中提前更新(含客户端重对齐)，此处跳过避免重复
-                        if (actor is SolidActor solid && solid.PreUpdatedThisFrame) {
-                            solid.PreUpdatedThisFrame = false;
+                    finally {
+                        //Phase 2：无论并行体/串行桶是否抛异常，都必须退出并行阶段并排空延迟操作
+                        //（生成 / 销毁 / 发包 / 报错文本）并回收命令缓冲到对象池；否则调度级异常会
+                        //永久丢弃本帧延迟副作用（多人状态不一致、Actor 残留幽灵）。EndPhase 幂等
+                        VaultParallel.EndPhase();
+                        try {
+                            VaultParallel.DrainActionsAndErrors();
+                        } catch (Exception drainEx) {
+                            //排空本身可能抛异常，独立捕获以免掩盖原始异常或二次泄漏
+                            VaultMod.Instance.Logger.Error($"[ActorParallel] Drain after parallel update failed: {drainEx}");
                         }
-                        else {
-                            actor.AI();
-                            actor.Position += actor.Velocity;
-                            if (client) {
-                                actor.ApplyClientReconciliation();
-                            }
-                        }
-                    }
-
-                    foreach (var global in HookPostAI.Enumerate()) {
-                        global.PostAI(actor);
                     }
                 } catch (Exception ex) {
-                    VaultMod.Instance.Logger.Error($"Error updating actor {actor.WhoAmI}: {ex}");
-                    FreeSlot(actor);
+                    //调度级别的异常：仅自动禁用Actor并行并回退到串行（不波及TP子系统），优先保证可用性
+                    actorAutoDisabledByError = true;
+                    VaultMod.Instance.Logger.Error($"[ActorParallel] Parallel update failed, disabled and fell back to serial: {ex}");
                 }
             }
 
-            //服务器权威: 统一在本帧末尾进行节流的增量广播
+            //服务器权威: 在延迟增删排空之后，统一进行节流的增量广播
             if (VaultUtils.isServer) {
                 ActorNetWork.ServerBroadcastTick(activeActors);
+            }
+        }
+
+        /// <summary>
+        /// 按<see cref="Actor.ParallelKind"/>把活跃 Actor 分入独立桶 / 串行桶<br/>
+        /// 仅 <see cref="ParallelExecutionKind.Independent"/> 进独立桶；其余（含 Serial 与 SolidActor）走串行桶
+        /// </summary>
+        private static void ClassifyBuckets() {
+            serialBucket.Clear();
+            independentBucket.Clear();
+            for (int i = 0; i < activeActors.Count; i++) {
+                Actor actor = activeActors[i];
+                if (actor == null || !actor.Active) {
+                    continue;
+                }
+                if (actor.ParallelKind == ParallelExecutionKind.Independent) {
+                    independentBucket.Add(actor);
+                }
+                else {
+                    serialBucket.Add(actor);
+                }
+            }
+        }
+
+        /// <summary>
+        /// 单个 Actor 的统一更新体，串行与并行两种调度共用<br/>
+        /// 顺序：悬停状态 → PreAI 钩子 → (Solid 跳过 / AI + 位移 + 客户端重对齐) → PostAI 钩子<br/>
+        /// 异常按单个 Actor 隔离：并行期延迟释放槽位（结构性修改），串行期立即释放<br/>
+        /// 并发约束：当 Actor 为 <see cref="ParallelExecutionKind.Independent"/> 时，本方法会在多个工作线程上并发执行，
+        /// 故全局钩子 <see cref="GlobalActor.PreAI"/>/<see cref="GlobalActor.PostAI"/> 会被并发调用于同一个 GlobalActor 单例，
+        /// 其实现必须线程安全、不得读写可变实例字段
+        /// </summary>
+        internal static void UpdateOneActor(Actor actor) {
+            if (actor == null || !actor.Active) {
+                return;
+            }
+
+            try {
+                //悬停状态也纳入防御范围：HitBox 若被重写抛出，按单个 Actor 隔离，绝不上浮到调度层触发整套并行回退
+                actor.HoverTP = actor.InScreen && actor.HitBox.Intersects(parallelMouseRec);
+
+                bool shouldUpdate = true;
+                foreach (var global in HookPreAI.Enumerate()) {
+                    if (!global.PreAI(actor)) {
+                        shouldUpdate = false;
+                    }
+                }
+
+                if (shouldUpdate) {
+                    //SolidActor 已在 PreUpdateEntities 中提前更新(含客户端重对齐)，此处跳过避免重复
+                    if (actor is SolidActor solid && solid.PreUpdatedThisFrame) {
+                        solid.PreUpdatedThisFrame = false;
+                    }
+                    else {
+                        actor.AI();
+                        actor.Position += actor.Velocity;
+                        if (parallelClient) {
+                            actor.ApplyClientReconciliation();
+                        }
+                    }
+                }
+
+                foreach (var global in HookPostAI.Enumerate()) {
+                    global.PostAI(actor);
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Error($"Error updating actor {actor.WhoAmI}: {ex}");
+                //并行阶段不可立即释放槽位（结构性修改 activeActors），延迟到主线程
+                if (VaultParallel.InParallelPhase) {
+                    VaultParallel.Defer(() => FreeSlot(actor));
+                }
+                else {
+                    FreeSlot(actor);
+                }
             }
         }
         #endregion
@@ -537,6 +640,10 @@ namespace InnoVault.Actors
                 }
             }
             ResetSlots();
+            //清理共享并行引擎的瞬态状态（与 TP 共用，幂等）
+            VaultParallel.Clear();
+            //复位"因异常自动禁用"，使新世界可重新尝试并行（避免一次异常永久降级）
+            actorAutoDisabledByError = false;
         }
         #endregion
 

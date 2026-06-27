@@ -1,10 +1,13 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.Concurrent;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq.Expressions;
 using Terraria;
+using Terraria.DataStructures;
+using Terraria.Utilities;
 
 namespace InnoVault.Actors
 {
@@ -182,6 +185,64 @@ namespace InnoVault.Actors
         public virtual void AI() {
 
         }
+
+        #region 并行更新
+        /// <summary>
+        /// 本Actor的并行更新策略，默认<see cref="ParallelExecutionKind.Serial"/>（与历史行为逐字节一致）<br/>
+        /// 重写为<see cref="ParallelExecutionKind.Independent"/>以加入多线程更新<br/>
+        /// 一旦opt-in，<see cref="AI"/>内的副作用（生成物/发包/随机数/销毁）必须改走
+        /// <see cref="DeferSpawnItem"/>、<see cref="DeferSpawnProjectile"/>、<see cref="DeferNetSend"/>、
+        /// <see cref="Rand"/>、<see cref="RequestKill"/>等线程安全入口<br/>
+        /// 注意：<see cref="SolidActor"/>已在碰撞层串行提前更新，固定为<see cref="ParallelExecutionKind.Serial"/>
+        /// </summary>
+        public virtual ParallelExecutionKind ParallelKind => ParallelExecutionKind.Serial;
+
+        /// <summary>
+        /// 线程安全的随机数源：并行阶段返回当前线程本地的随机数发生器，串行阶段回退到<see cref="Main.rand"/><br/>
+        /// 并行更新中务必使用它而非直接使用<see cref="Main.rand"/>（后者非线程安全）<br/>
+        /// 注意：并行阶段返回的线程本地随机源序列不可复现、且与线程分配相关，<b>不保证客户端/服务端一致</b>，仅可用于纯视觉/局部效果；
+        /// 任何需要跨端一致的随机必须由服务器决定后广播
+        /// </summary>
+        protected UnifiedRandom Rand => VaultParallel.CurrentRandom ?? Main.rand;
+
+        /// <summary>
+        /// 延迟执行一个副作用动作：并行阶段入当前线程缓冲、由主线程统一执行；串行阶段立即执行
+        /// </summary>
+        protected void Defer(Action action) => VaultParallel.Defer(action);
+
+        /// <summary>
+        /// 延迟一次网络发送（语义同<see cref="Defer"/>，命名用于强调网络副作用必须回到主线程）
+        /// </summary>
+        protected void DeferNetSend(Action send) => VaultParallel.Defer(send);
+
+        /// <summary>
+        /// 线程安全地生成一个物品：并行阶段延迟到主线程生成，串行阶段立即生成<br/>
+        /// 生成完成后（主线程）回调<paramref name="onSpawned"/>，参数为物品索引
+        /// </summary>
+        protected void DeferSpawnItem(IEntitySource source, Rectangle area, Item item, Action<int> onSpawned = null)
+            => VaultParallel.Defer(() => {
+                int type = Item.NewItem(source, area, item);
+                onSpawned?.Invoke(type);
+            });
+
+        /// <summary>
+        /// 线程安全地生成一个弹幕：并行阶段延迟到主线程生成，串行阶段立即生成<br/>
+        /// 生成完成后（主线程）回调<paramref name="onSpawned"/>，参数为弹幕索引
+        /// </summary>
+        protected void DeferSpawnProjectile(IEntitySource source, Vector2 position, Vector2 velocity, int type
+            , int damage, float knockback, int owner = -1, float ai0 = 0f, float ai1 = 0f, Action<int> onSpawned = null)
+            => VaultParallel.Defer(() => {
+                int whoAmI = Projectile.NewProjectile(source, position, velocity, type, damage, knockback
+                    , owner < 0 ? Main.myPlayer : owner, ai0, ai1);
+                onSpawned?.Invoke(whoAmI);
+            });
+
+        /// <summary>
+        /// 线程安全地请求销毁本Actor：并行阶段会延迟到主线程执行，串行阶段立即执行<br/>
+        /// 等价于在安全时机调用<see cref="ActorLoader.KillActor"/>
+        /// </summary>
+        protected void RequestKill() => ActorLoader.KillActor(WhoAmI);
+        #endregion
         /// <summary>
         /// 在实体生成到世界中时调用，可用于初始化数据
         /// </summary>

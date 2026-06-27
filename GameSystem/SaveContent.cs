@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
 
@@ -192,24 +193,42 @@ namespace InnoVault.GameSystem
         /// </summary>
         public static bool TryLoadRootTag(string path, out TagCompound tag, bool forceReload = false) {
             tag = null!;
-            if (!File.Exists(path)) {
-                TagCache.Invalidate(path);
-                return false;
-            }
 
-            try {
-                if (!forceReload && TagCache.TryGet(path, out tag)) {
+            if (File.Exists(path)) {
+                try {
+                    if (!forceReload && TagCache.TryGet(path, out tag)) {
+                        return true;
+                    }
+
+                    using FileStream stream = File.OpenRead(path);
+                    tag = TagIO.FromStream(stream);
+                    TagCache.Set(path, tag);
                     return true;
+                } catch (Exception ex) {
+                    //主文件损坏，记录后尝试 .bak 兜底（原子写入时由 ReplaceFileAtomic 自动保留的上一版）
+                    VaultMod.Instance.Logger.Warn($"[TryLoadRootTag] Failed to load NBT file at {path}: {ex}");
                 }
-
-                using FileStream stream = File.OpenRead(path);
-                tag = TagIO.FromStream(stream);
-                TagCache.Set(path, tag);
-                return true;
-            } catch (Exception ex) {
-                VaultMod.Instance.Logger.Warn($"[TryLoadRootTag] Failed to load NBT file at {path}: {ex}");
-                return false;
             }
+            else {
+                //主文件不存在时使旧缓存失效，避免读到上一个世界 / 角色的残留
+                TagCache.Invalidate(path);
+            }
+
+            string backupPath = path + ".bak";
+            if (File.Exists(backupPath)) {
+                try {
+                    using FileStream stream = File.OpenRead(backupPath);
+                    tag = TagIO.FromStream(stream);
+                    TagCache.Set(path, tag);
+                    VaultMod.Instance.Logger.Warn($"[TryLoadRootTag] Primary '{path}' missing or corrupt; recovered from backup '{backupPath}'.");
+                    return true;
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Warn($"[TryLoadRootTag] Failed to load backup NBT file at {backupPath}: {ex}");
+                }
+            }
+
+            tag = null!;
+            return false;
         }
 
         /// <summary>
@@ -217,18 +236,52 @@ namespace InnoVault.GameSystem
         /// 如果路径所处的目录不存在则自动创建
         /// </summary>
         public static void SaveTagToFile(TagCompound tag, string path) {
+            string tempPath = path + ".tmp";
             try {
                 var dir = Path.GetDirectoryName(path);
                 if (!string.IsNullOrEmpty(dir)) {
                     Directory.CreateDirectory(dir);
                 }
 
-                using FileStream stream = File.Create(path);
-                TagIO.ToStream(tag, stream);
+                //先写入临时文件并刷盘，再原子替换目标文件，避免写入中途被打断（崩溃 / 断电 / 异常）导致目标 NBT 被截断损坏
+                using (FileStream stream = File.Create(tempPath)) {
+                    TagIO.ToStream(tag, stream);
+                    stream.Flush(true);
+                }
+
+                ReplaceFileAtomic(tempPath, path);
 
                 TagCache.Set(path, tag);
             } catch (Exception ex) {
                 VaultMod.Instance.Logger.Error($"[SaveTagToFile] Failed to save NBT: {ex}");
+                TryDeleteFile(tempPath);
+            }
+        }
+        //将临时文件原子地替换为目标文件，并把旧文件保留为 .bak 作为额外的恢复点
+        private static void ReplaceFileAtomic(string tempPath, string path) {
+            if (!File.Exists(path)) {
+                File.Move(tempPath, path);
+                return;
+            }
+
+            string backupPath = path + ".bak";
+            try {
+                File.Replace(tempPath, path, backupPath, ignoreMetadataErrors: true);
+            } catch {
+                //个别文件系统不支持 File.Replace，退化为“旧文件改名 .bak + 新文件就位”
+                TryDeleteFile(backupPath);
+                File.Move(path, backupPath);
+                File.Move(tempPath, path);
+            }
+        }
+        //尽力删除一个文件，失败仅记录警告，不抛出
+        private static void TryDeleteFile(string path) {
+            try {
+                if (File.Exists(path)) {
+                    File.Delete(path);
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"[SaveTagToFile] Failed to delete file {path}: {ex}");
             }
         }
         /// <summary>
@@ -267,6 +320,77 @@ namespace InnoVault.GameSystem
             }
         }
         /// <summary>
+        /// 尝试从 zip 备份文件中读取并反序列化出 <see cref="TagCompound"/> 数据
+        /// zip 内仅包含单个 NBT 条目（由 <see cref="SaveTagToZip"/> 写入）
+        /// </summary>
+        public static bool TryLoadTagFromZip(string zipPath, out TagCompound tag) {
+            tag = null!;
+            if (!File.Exists(zipPath)) {
+                return false;
+            }
+
+            try {
+                using FileStream zipStream = File.OpenRead(zipPath);
+                using var archive = new System.IO.Compression.ZipArchive(zipStream, System.IO.Compression.ZipArchiveMode.Read);
+                var entry = archive.Entries.FirstOrDefault(e => e.Name.EndsWith(".nbt", StringComparison.OrdinalIgnoreCase))
+                    ?? archive.Entries.FirstOrDefault();
+                if (entry == null) {
+                    return false;
+                }
+
+                //复制到可定位的内存流，避免依赖 zip 条目流的可定位性
+                using var entryStream = entry.Open();
+                using var memory = new MemoryStream();
+                entryStream.CopyTo(memory);
+                memory.Position = 0;
+                tag = TagIO.FromStream(memory);
+                return true;
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"[TryLoadTagFromZip] Failed to load NBT from zip {zipPath}: {ex}");
+                return false;
+            }
+        }
+        //构建匹配某世界备份文件名的精确正则：可选的 yyyy-MM-dd- 时间戳前缀（见 SaveTagToZip 的命名）+ 恰好 baseName + .zip
+        //baseName 经 Regex.Escape 处理，避免其中的特殊字符破坏匹配，且锚定首尾防止误匹配以 baseName 结尾的他世界备份
+        private static Regex BuildBackupRegex(string baseName)
+            => new($@"^(\d{{4}}-\d{{2}}-\d{{2}}-)?{Regex.Escape(baseName)}\.zip$", RegexOptions.IgnoreCase);
+        /// <summary>
+        /// 在备份目录中按时间从新到旧查找与 <paramref name="baseZipPath"/> 同名的备份 zip，
+        /// 返回第一个可成功读取的 <see cref="TagCompound"/>，用于主文件与 .bak 均不可用时的灾难恢复
+        /// </summary>
+        public static bool TryRestoreFromBackupZips(string baseZipPath, out TagCompound tag) {
+            tag = null!;
+            try {
+                if (string.IsNullOrEmpty(baseZipPath)) {
+                    return false;
+                }
+                string dir = Path.GetDirectoryName(baseZipPath);
+                if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) {
+                    return false;
+                }
+
+                string baseName = Path.GetFileNameWithoutExtension(baseZipPath);
+                //不依赖 glob 的后缀语义（会误匹配以 baseName 结尾的他世界备份），改用精确正则筛选
+                Regex regex = BuildBackupRegex(baseName);
+                var files = Directory.EnumerateFiles(dir, "*.zip", SearchOption.TopDirectoryOnly)
+                    .Where(f => regex.IsMatch(Path.GetFileName(f)))
+                    .Select(f => new FileInfo(f))
+                    .OrderByDescending(f => f.LastWriteTimeUtc)
+                    .ToList();
+
+                foreach (var file in files) {
+                    if (TryLoadTagFromZip(file.FullName, out tag)) {
+                        return true;
+                    }
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"[TryRestoreFromBackupZips] Unexpected error: {ex}");
+            }
+
+            tag = null!;
+            return false;
+        }
+        /// <summary>
         /// 修剪同一世界（或TP数据）备份数量，按 LastWriteTime 升序删除最旧的，保留最新的指定数量
         /// 期望文件命名：yyyy-MM-dd-world_xxx.zip 或 world_xxx.zip（无时间戳残留）
         /// </summary>
@@ -282,8 +406,10 @@ namespace InnoVault.GameSystem
                     return;
                 }
                 string baseName = Path.GetFileNameWithoutExtension(baseZipPath);
-                string pattern = "*" + baseName + ".zip"; //匹配含时间戳及无时间戳
-                var files = Directory.GetFiles(dir, pattern, SearchOption.TopDirectoryOnly)
+                //不依赖 glob 的后缀语义（会误删以 baseName 结尾的他世界备份），改用精确正则筛选
+                Regex regex = BuildBackupRegex(baseName);
+                var files = Directory.EnumerateFiles(dir, "*.zip", SearchOption.TopDirectoryOnly)
+                                      .Where(f => regex.IsMatch(Path.GetFileName(f)))
                                       .Select(f => new FileInfo(f))
                                       .OrderBy(f => f.LastWriteTimeUtc)
                                       .ToList();
@@ -349,6 +475,11 @@ namespace InnoVault.GameSystem
             }
 
             if (rootTag.Count == 0) {
+                //本次没有任何数据：仅当旧存档文件已存在时写入空根标签以清除残留，
+                //避免数据被清空后下次加载复活旧值；同时不为从未有数据的存档凭空创建空文件
+                if (File.Exists(GenericInstance.SavePath)) {
+                    SaveTagToFile(rootTag, GenericInstance.SavePath);
+                }
                 return;
             }
 
@@ -398,6 +529,18 @@ namespace InnoVault.GameSystem
             }
 
             if (saveTag.Count == 0) {
+                //本次实例无数据：从已有存档中移除其旧条目，确保"清空"被持久化，而不是保留旧值
+                //仅当旧条目确实存在时才回写文件，避免无谓的写入
+                if (modTag.ContainsKey(save.LoadenName)) {
+                    modTag.Remove(save.LoadenName);
+                    if (modTag.Count == 0) {
+                        rootTag.Remove($"mod:{save.Mod.Name}");
+                    }
+                    else {
+                        rootTag[$"mod:{save.Mod.Name}"] = modTag;
+                    }
+                    SaveTagToFile(rootTag, save.SavePath);
+                }
                 return;
             }
 

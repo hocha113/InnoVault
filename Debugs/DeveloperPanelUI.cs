@@ -46,6 +46,10 @@ namespace InnoVault.Debugs
             Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.TPShowIDText?.Value ?? "ID Display",
                 () => DebugSettings.TileProcessorShowID,
                 v => DebugSettings.TileProcessorShowID = v));
+            //并行更新的排障开关：勾选即强制走历史的单线程路径
+            Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.TPForceSerialText?.Value ?? "Force Serial Update",
+                () => !TileProcessors.TileProcessorParallel.EnableParallel,
+                v => TileProcessors.TileProcessorParallel.EnableParallel = !v));
         }
 
         public override void Reset() {
@@ -75,6 +79,10 @@ namespace InnoVault.Debugs
             Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.ActorShowVelocityText?.Value ?? "Velocity Display",
                 () => DebugSettings.ActorShowVelocity,
                 v => DebugSettings.ActorShowVelocity = v));
+            //并行更新的排障开关（与 TileProcessor 共用同一个全局开关）：勾选即强制走单线程路径
+            Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.ActorForceSerialText?.Value ?? "Force Serial Update",
+                () => !Concurrent.VaultParallel.EnableParallel,
+                v => Concurrent.VaultParallel.EnableParallel = !v));
         }
 
         public override void Reset() {
@@ -262,11 +270,13 @@ namespace InnoVault.Debugs
         protected internal static LocalizedText TPShowNameText;
         protected internal static LocalizedText TPShowPositionText;
         protected internal static LocalizedText TPShowIDText;
+        protected internal static LocalizedText TPForceSerialText;
         protected internal static LocalizedText ActorBoxDrawText;
         protected internal static LocalizedText ActorShowNameText;
         protected internal static LocalizedText ActorShowPositionText;
         protected internal static LocalizedText ActorShowIDText;
         protected internal static LocalizedText ActorShowVelocityText;
+        protected internal static LocalizedText ActorForceSerialText;
         protected internal static LocalizedText StateMachineTabText;
         protected internal static LocalizedText StateMachineOverlayText;
         protected internal static LocalizedText BehaviorTreeOverlayText;
@@ -284,11 +294,13 @@ namespace InnoVault.Debugs
             TPShowNameText = this.GetLocalization(nameof(TPShowNameText), () => "Name Display");
             TPShowPositionText = this.GetLocalization(nameof(TPShowPositionText), () => "Position Display");
             TPShowIDText = this.GetLocalization(nameof(TPShowIDText), () => "ID Display");
+            TPForceSerialText = this.GetLocalization(nameof(TPForceSerialText), () => "Force Serial Update");
             ActorBoxDrawText = this.GetLocalization(nameof(ActorBoxDrawText), () => "Collision Box");
             ActorShowNameText = this.GetLocalization(nameof(ActorShowNameText), () => "Name Display");
             ActorShowPositionText = this.GetLocalization(nameof(ActorShowPositionText), () => "Position Display");
             ActorShowIDText = this.GetLocalization(nameof(ActorShowIDText), () => "ID Display");
             ActorShowVelocityText = this.GetLocalization(nameof(ActorShowVelocityText), () => "Velocity Display");
+            ActorForceSerialText = this.GetLocalization(nameof(ActorForceSerialText), () => "Force Serial Update");
             StateMachineTabText = this.GetLocalization(nameof(StateMachineTabText), () => "StateMachine");
             StateMachineOverlayText = this.GetLocalization(nameof(StateMachineOverlayText), () => "FSM Overlay");
             BehaviorTreeOverlayText = this.GetLocalization(nameof(BehaviorTreeOverlayText), () => "BT Overlay");

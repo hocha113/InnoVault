@@ -1322,7 +1322,18 @@ namespace InnoVault.GameSystem
         }
 
         public override void LoadData(Item item, TagCompound tag) {
-            ProcessRemakeAction(item, (inds) => inds.LoadData(item, tag));
+            if (!TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
+                return;
+            }
+            foreach (var inds in itemOverrides.Values) {
+                try {
+                    //优先读取按 FullName 隔离的子标签；旧存档没有子标签则回退到扁平标签，保持向下兼容
+                    TagCompound dataTag = tag.TryGet(inds.FullName, out TagCompound sub) ? sub : tag;
+                    inds.LoadData(item, dataTag);
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"[ItemOverride] LoadData threw for '{inds.FullName}' on item {item.type}: {ex}");
+                }
+            }
         }
 
         public override void MeleeEffects(Item item, Player player, Rectangle hitbox) {
@@ -1461,7 +1472,21 @@ namespace InnoVault.GameSystem
         }
 
         public override void SaveData(Item item, TagCompound tag) {
-            ProcessRemakeAction(item, (inds) => inds.SaveData(item, tag));
+            if (!TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
+                return;
+            }
+            foreach (var inds in itemOverrides.Values) {
+                try {
+                    //每个 override 的数据写入以其 FullName 命名的独立子标签，避免多个 override 之间键名冲突相互覆盖
+                    TagCompound sub = [];
+                    inds.SaveData(item, sub);
+                    if (sub.Count > 0) {
+                        tag[inds.FullName] = sub;
+                    }
+                } catch (Exception ex) {
+                    VaultMod.Instance.Logger.Error($"[ItemOverride] SaveData threw for '{inds.FullName}' on item {item.type}: {ex}");
+                }
+            }
         }
 
         public override void SplitStack(Item destination, Item source, int numToTransfer) {

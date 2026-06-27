@@ -512,9 +512,14 @@ namespace InnoVault.GameSystem
             if (npc.TryGetOverride(out var values)) {
                 foreach (var value in values.Values) {
                     try {
-                        value.SaveData(tag);
+                        //每个 override 的数据写入以其 FullName 命名的独立子标签，避免多个 override 之间键名冲突相互覆盖
+                        TagCompound sub = [];
+                        value.SaveData(sub);
+                        if (sub.Count > 0) {
+                            tag[value.FullName] = sub;
+                        }
                     } catch (Exception ex) {
-                        LogAndDeactivateNPC(npc, ex);
+                        LogOverrideDataError(npc, value, ex);
                     }
                 }
             }
@@ -524,9 +529,11 @@ namespace InnoVault.GameSystem
             if (npc.TryGetOverride(out var values)) {
                 foreach (var value in values.Values) {
                     try {
-                        value.LoadData(tag);
+                        //优先读取按 FullName 隔离的子标签；旧存档没有子标签则回退到扁平标签，保持向下兼容
+                        TagCompound dataTag = tag.TryGet(value.FullName, out TagCompound sub) ? sub : tag;
+                        value.LoadData(dataTag);
                     } catch (Exception ex) {
-                        LogAndDeactivateNPC(npc, ex);
+                        LogOverrideDataError(npc, value, ex);
                     }
                 }
             }
@@ -540,11 +547,16 @@ namespace InnoVault.GameSystem
                             return true;
                         }
                     } catch (Exception ex) {
-                        LogAndDeactivateNPC(npc, ex);
+                        LogOverrideDataError(npc, value, ex);
                     }
                 }
             }
             return false;
+        }
+
+        //存档读写阶段的异常只记录日志，不再停用 NPC：数据错误不应导致 NPC 直接从世界消失
+        internal static void LogOverrideDataError(NPC npc, NPCOverride value, Exception ex) {
+            VaultMod.Instance.Logger.Error($"[NPCOverride] Save/Load data threw for '{value?.FullName}' on NPC {npc?.type}: {ex}");
         }
 
         private static MethodInfo GetMethodInfo(string key) => npcLoaderType.GetMethod(key, BindingFlags.Public | BindingFlags.Static);
