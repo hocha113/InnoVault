@@ -2,5 +2,5 @@
 author = HoCha113
 homepage = https://innovault.wiki
 buildIgnore = .git\*, Doc\*, .editorconfig, .gitignore, *.ps1
-version = 1.9.97
+version = 1.9.98
 includeSource = true
