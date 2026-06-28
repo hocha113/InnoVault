@@ -21,6 +21,14 @@ namespace InnoVault.TileProcessors
     /// </summary>
     public sealed class TileProcessorSystem : ModSystem
     {
+        /// <summary>
+        /// 更新在逻辑更新前
+        /// </summary>
+        public static event Func<bool> PreUpdateEvent = null;
+
+        /// <inheritdoc/>
+        public override void Unload() => PreUpdateEvent = null;
+
         /// <inheritdoc/>
         public override void SaveWorldData(TagCompound tag) {
             tag["root:worldData"] = "";
@@ -74,6 +82,10 @@ namespace InnoVault.TileProcessors
             TileProcessorNetWork.NetworkPump();
 
             if (!CanRunByWorld()) {
+                return;
+            }
+
+            if (PreUpdateEvent?.Invoke() == false) {
                 return;
             }
 
