@@ -836,7 +836,7 @@ namespace InnoVault.Narrative.Runtime
         public ChoiceOption CurrentOption { get; }
         /// <summary>上一帧悬停选项；此前无悬停或下标越界时为 <see langword="null"/></summary>
         public ChoiceOption PreviousOption { get; }
-
+        /// <inheritdoc/>
         public ChoiceHoverChangedEventArgs(int currentIndex, int previousIndex, ChoiceOption currentOption, ChoiceOption previousOption) {
             CurrentIndex = currentIndex;
             PreviousIndex = previousIndex;
