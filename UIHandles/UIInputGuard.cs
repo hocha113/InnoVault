@@ -2,8 +2,7 @@ namespace InnoVault.UIHandles
 {
     /// <summary>
     /// UI 输入占用守卫。滚轮滚动列表等 UI 交互时，Player.mouseInterface 不足以阻止原版滚轮换武器，<br/>
-    /// 需要额外通过 <see cref="GameSystem.PlayerOverride.CanSwitchWeapon"/> 拦截。本类提供与 CWR
-    /// <c>DontSwitchWeaponTime</c> 等价的帧计数抑制，由 <see cref="UIInputPlayer"/> 消费
+    /// 需要额外通过 <see cref="GameSystem.PlayerOverride.CanSwitchWeapon"/> 拦截
     /// </summary>
     public static class UIInputGuard
     {
