@@ -30,10 +30,20 @@ namespace InnoVault.TileProcessors
         public override void LoadWorldData(TagCompound tag) {
             tag.TryGet("root:worldData", out string _);
             //如果不存在对应的NBT存档数据，说明是第一次进行有效加载
-            //那么就按照老版本去读取.twd的内容将老存档的数据加载进游戏的TP实体，以便保存时可以成功将老存档的数据保存进NBT
+            //那么就按照老版本去读取.twd的内容将老存档的数据暂存进ActiveWorldTagData，
+            //由LoadWorldTileProcessor在消费点回退使用，以便保存时可以成功将老存档的数据保存进NBT
             if (!File.Exists(SaveWorld.SaveTPDataPath)) {
                 ActiveWorldTagData = tag;
             }
+        }
+
+        /// <inheritdoc/>
+        public override void PreWorldGen() {
+            //世界生成前清空上一个世界会话残留的TP实体，否则生成结束后的自动存档
+            //会把残留实体一并写进新世界的TP数据文件，造成跨世界数据污染
+            //清空前先等待可能仍在进行的后台保存，避免保存任务遍历列表时发生并发修改
+            VaultSave.WaitForPendingSave();
+            InitializeWorldTP();
         }
 
         /// <inheritdoc/>
@@ -46,6 +56,9 @@ namespace InnoVault.TileProcessors
             }
             //卸载世界时清空缓存的数据，防止污染下一个世界
             ActiveWorldTagData = null;
+            //复位本地TP加载完成标志，使其严格以世界会话为生命周期
+            //保存门控使用的是LocalTPLoadInProgress，此复位不影响退出时已排队的保存任务
+            VaultLoadingProgress.LocalTPLoaded = false;
             //清理并行调度的所有缓存状态
             TileProcessorParallel.Clear();
         }

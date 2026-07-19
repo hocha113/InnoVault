@@ -36,7 +36,10 @@ namespace InnoVault.TileProcessors
         /// </summary>
         public static int TP_ID_Count { get; internal set; }
         /// <summary>
-        /// 当前世界的数据
+        /// 旧版存档的迁移暂存数据<br/>
+        /// 仅当世界不存在对应的TP实体NBT文件时，由 <see cref="TileProcessorSystem.LoadWorldData"/> 将 .twld 中的老存档标签填入，
+        /// 并在 <see cref="LoadWorldTileProcessor"/> 消费后清空<br/>
+        /// 常规的TP数据读取已不再依赖此缓存，而是在消费点通过 <see cref="TryReadSavedTPData"/> 实时读取NBT文件
         /// </summary>
         public static TagCompound ActiveWorldTagData { get; internal set; }
         /// <summary>
@@ -376,7 +379,7 @@ namespace InnoVault.TileProcessors
                 } catch (Exception ex) {
                     VaultMod.Instance.Logger.Error($"[LoadWorldTileProcessor] An error occurred while executing: {ex.Message}");
                 } finally {
-                    VaultLoadingProgress.LocalTPLoaded = true;
+                    VaultLoadingProgress.EndLocalLoad();
                 }
             });
         }
@@ -412,13 +415,30 @@ namespace InnoVault.TileProcessors
             }
 
             //需要再次明确一个论点，世界加载钩子会在客户端和服务端上被调用，而客户端并不需要加载存档数据
-            if (!VaultUtils.isClient && ActiveWorldTagData?.Count > 0) {
-                VaultLoadingProgress.EnterPhase(LoadingPhase.LoadingWorldData);
-                try {
-                    LoadWorldData(ActiveWorldTagData);
-                } finally {
-                    ActiveWorldTagData.Clear();//用完释放
-                    ActiveWorldTagData = null;
+            if (!VaultUtils.isClient) {
+                //在消费点实时读取当前世界的TP数据集，不再依赖预先填充的静态缓存：
+                //前置的 VaultSave.LoadenWorld 握手保证了备份修复已完成，且 TagCache 使得这里通常是缓存命中
+                TagCompound tag = null;
+                if (TryReadSavedTPData(out TagCompound fileTag)) {
+                    //处理数据清洗，将已卸载模组的数据转换为占位符格式
+                    if (fileTag.TryGet(key_TPData_TagList, out List<TagCompound> list)) {
+                        UnknowTP.CheckAndArchive(list);
+                    }
+                    tag = fileTag;
+                }
+                else if (ActiveWorldTagData?.Count > 0) {
+                    //NBT文件不存在，说明是第一次有效加载，回退到旧版.twld的迁移数据
+                    tag = ActiveWorldTagData;
+                }
+
+                if (tag?.Count > 0) {
+                    VaultLoadingProgress.EnterPhase(LoadingPhase.LoadingWorldData);
+                    try {
+                        LoadWorldData(tag);
+                    } finally {
+                        //旧档迁移数据用完即弃；文件标签归 TagCache 所有，不能在此清空其内容
+                        ActiveWorldTagData = null;
+                    }
                 }
             }
 
@@ -477,6 +497,24 @@ namespace InnoVault.TileProcessors
                 list.Add(thisTag);
             }
             tag[key_TPData_TagList] = list;
+        }
+
+        /// <summary>
+        /// 实时读取当前世界已保存的TP数据集，即 <see cref="SaveWorld.SaveTPDataPath"/> 指向的NBT根标签<br/>
+        /// 读取经由 <see cref="TagCache"/> 缓存，重复调用通常不会产生磁盘I/O，且自带 .bak 兜底恢复<br/>
+        /// 注意事项：<br/>
+        /// 1. 返回的是缓存持有的活引用，调用方不应修改其内容<br/>
+        /// 2. 读取到的是最近一次落盘的快照，而非世界的实时运行状态<br/>
+        /// 3. 仅在单人或服务端环境有效，多人客户端的TP数据来自网络同步，本地没有对应文件
+        /// </summary>
+        /// <param name="tag">输出读取到的根标签，失败时为 <see langword="null"/></param>
+        /// <returns>是否成功读取</returns>
+        public static bool TryReadSavedTPData(out TagCompound tag) {
+            tag = null;
+            if (VaultUtils.isClient) {
+                return false;
+            }
+            return SaveMod.TryLoadRootTag(SaveWorld.SaveTPDataPath, out tag);
         }
 
         /// <summary>

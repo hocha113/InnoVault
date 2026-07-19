@@ -110,6 +110,7 @@ namespace InnoVault.GameSystem
         private static volatile bool worldDataLoaded;          //旧 VaultSave.LoadenWorld
         private static volatile bool worldSaved = true;        //旧 VaultSave.SavedWorld
         private static volatile bool localTPLoaded;            //旧 TileProcessorLoader.LoadenTP
+        private static volatile bool localTPLoadInProgress;    //本地TP加载管线当前是否正在进行中
         private static volatile bool networkTPLoaded = true;   //旧 TileProcessorNetWork.LoadenTPByNetWork
         private static volatile bool networkInitializing;      //旧 TileProcessorNetWork.InitializeWorld
 
@@ -159,6 +160,15 @@ namespace InnoVault.GameSystem
         public static bool LocalTPLoaded {
             get => localTPLoaded;
             internal set => localTPLoaded = value;
+        }
+        /// <summary>
+        /// 本地TP加载管线（扫描世界、放置实体、应用存档数据）当前是否正在进行中<br/>
+        /// 与 <see cref="LocalTPLoaded"/> 不同，它描述的是“此刻是否有加载在跑”而非“本会话是否完成过加载”，
+        /// 保存TP数据时应以它作为门控，避免用加载到一半的状态覆盖磁盘上的有效数据
+        /// </summary>
+        public static bool LocalTPLoadInProgress {
+            get => localTPLoadInProgress;
+            internal set => localTPLoadInProgress = value;
         }
         /// <summary>
         /// 客户端是否已完成TP的网络加载
@@ -258,12 +268,22 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 在世界本地加载开始时调用：进入等待阶段、归零本地进度<br/>
-        /// 本地加载完成标志由后台加载线程在真正开始加载时清除，以与旧实现的时序保持一致
+        /// 在世界本地加载开始时调用：进入等待阶段、归零本地进度、标记加载进行中<br/>
+        /// 本地加载完成标志由后台加载线程在真正开始加载时清除，以与旧实现的时序保持一致<br/>
+        /// 进行中标志必须在此处（主线程钩子内）同步置位，确保后续任何保存请求都能看到它
         /// </summary>
         internal static void BeginLocalLoad() {
             EnterPhase(LoadingPhase.WaitingWorldData);
             localProgress = 0f;
+            localTPLoadInProgress = true;
+        }
+
+        /// <summary>
+        /// 在世界本地加载结束时调用（无论成功与否）：置位完成标志、清除进行中标志
+        /// </summary>
+        internal static void EndLocalLoad() {
+            localTPLoaded = true;
+            localTPLoadInProgress = false;
         }
 
         /// <summary>

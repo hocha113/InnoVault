@@ -1,6 +1,5 @@
 ﻿using InnoVault.TileProcessors;
 using System;
-using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -93,6 +92,9 @@ namespace InnoVault.GameSystem
             tag.TryGet("root:worldData", out string _);
             Task.Run(() => {
                 VaultLoadingProgress.WorldDataLoaded = false;
+                //若存在尚未落盘的后台保存（例如世界刚生成完毕、玩家紧接着进入该世界），先等待其完成，
+                //避免读取到缺失或写到一半的NBT文件
+                WaitForPendingSave();
                 DoLoadWorld();
                 LoadWorldEvent?.Invoke();
                 VaultLoadingProgress.WorldDataLoaded = true;
@@ -106,8 +108,8 @@ namespace InnoVault.GameSystem
             LoadWorldEvent = null;
             SaveWorldEvent = null;
         }
-        //等待挂起的世界保存任务完成（带超时上限），用于世界卸载 / 模组卸载等关键节点
-        private static void WaitForPendingSave() {
+        //等待挂起的世界保存任务完成（带超时上限），用于世界加载 / 世界卸载 / 世界生成 / 模组卸载等关键节点
+        internal static void WaitForPendingSave() {
             Task pending;
             lock (saveLock) {
                 pending = saveTask;
@@ -136,6 +138,8 @@ namespace InnoVault.GameSystem
             TryDo(SaveTileProcessors, "[SaveWorld] Failed to save TileProcessor data");
         }
         //统一加载世界相关数据
+        //TP实体的NBT数据不再在此处预读进静态缓存：TileProcessorLoader 会在消费点（LoadWorldTileProcessorInner）
+        //通过 TryReadSavedTPData 实时读取，这里只需保证备份修复先于读取发生（LoadenWorld 握手保证了这一点）
         private static void DoLoadWorld() {
             //加载前先检查主文件是否可用，必要时用备份 zip 恢复，避免主文件损坏直接导致整份世界数据回退默认值
             TryDo(() => RepairFromBackupIfNeeded(SaveWorld.GetInstance<SaveWorld>().SavePath, SaveWorld.BackupPath)
@@ -143,7 +147,6 @@ namespace InnoVault.GameSystem
             TryDo(() => RepairFromBackupIfNeeded(SaveWorld.SaveTPDataPath, SaveWorld.BackupTPDataPath)
                 , "[LoadWorld] Failed to repair TileProcessor data from backup");
             TryDo(() => SaveWorld.DoLoad(), "[LoadWorld] Failed to load world data");
-            TryDo(LoadTPDataByNBT, "[LoadWorld] Failed to load TileProcessor data");
         }
         //主文件（含 .bak）缺失或损坏时，尝试用最新的备份 zip 恢复并写回主文件，使后续正常加载流程可以读到
         private static void RepairFromBackupIfNeeded(string savePath, string backupBaseZipPath) {
@@ -157,9 +160,11 @@ namespace InnoVault.GameSystem
         }
         //将TP数据保存进对应的NBT文件中
         private static void SaveTileProcessors() {
-            //TP 尚未加载完成时不要保存，避免用不完整 / 空的运行时状态覆盖磁盘上的有效数据
-            //注意：不能再以"没有活跃 TP"为由跳过保存，否则当世界内 TP 全部被移除时旧文件不会更新，下次加载会复活幽灵数据
-            if (!TileProcessorLoader.LoadenTP) {
+            //TP 加载管线进行中时不要保存，避免用不完整 / 空的运行时状态覆盖磁盘上的有效数据
+            //注意一：不能以"本会话从未完成过加载"（旧 LoadenTP）作为门控，否则世界生成结束后的那次自动存档会被拦下，
+            //导致生成期写入的TP数据（如结构间的链接）永远无法落盘，新世界首次进入时全部回退为默认值
+            //注意二：不能以"没有活跃 TP"为由跳过保存，否则当世界内 TP 全部被移除时旧文件不会更新，下次加载会复活幽灵数据
+            if (VaultLoadingProgress.LocalTPLoadInProgress) {
                 return;
             }
 
@@ -189,20 +194,6 @@ namespace InnoVault.GameSystem
                 SaveMod.SaveTagToZip(tpTag, SaveWorld.BackupTPDataPath, true);
                 SaveMod.PruneBackups(SaveWorld.BackupTPDataPath, 7);
             }
-        }
-        //读取TP实体存储的NBT数据，并将其赋值给ActiveWorldTagData用于后续加载读取
-        //TP实体真正加载数据在步骤WorldGen.Hooks.OnWorldLoad中，运行在该加载钩子之后
-        private static void LoadTPDataByNBT() {
-            if (SaveMod.TryLoadRootTag(SaveWorld.SaveTPDataPath, out var tag)) {
-                //处理数据清洗，将已卸载模组的数据转换为占位符格式
-                if (tag.TryGet("TPData_TagList", out List<TagCompound> list)) {
-                    UnknowTP.CheckAndArchive(list);
-                }
-                TileProcessorLoader.ActiveWorldTagData = tag;
-            }
-            //当 NBT 文件不存在时，不要把 ActiveWorldTagData 置空：
-            //旧存档迁移路径（TileProcessorSystem.LoadWorldData）会在此之前把老世界标签填入它，
-            //这里置空会先于 LoadWorldTileProcessor 消费而抹掉迁移数据。跨世界残留已由 TileProcessorSystem.OnWorldUnload 负责清理
         }
         //快速处理异常所使用的套壳函数
         private static void TryDo(Action action, string errorMessage) {
