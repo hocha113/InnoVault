@@ -1,5 +1,6 @@
 using InnoVault.Narrative.Core;
 using System;
+using Terraria.Audio;
 
 namespace InnoVault.Narrative.Composition
 {
@@ -12,6 +13,21 @@ namespace InnoVault.Narrative.Composition
 
         internal ChoiceBuilder(ChoiceNode node) {
             Node = node;
+        }
+
+        /// <summary>为提示句绑定配音（默认同时静音打字机音）</summary>
+        public ChoiceBuilder Voice(SoundStyle voice, bool muteTypingSound = true) {
+            Node.Voice = voice;
+            Node.MuteTypingSound = muteTypingSound;
+            return this;
+        }
+
+        /// <summary>
+        /// 允许 Skip 飞过本选择的回调副作用（选项本身仍是停顿点；仅影响「因 OnEnter/OnExit 而额外挡 Skip」的语义）
+        /// </summary>
+        public ChoiceBuilder AllowSkipThrough(bool allow = true) {
+            Node.AllowSkipThrough = allow;
+            return this;
         }
 
         /// <summary>添加一个选项</summary>

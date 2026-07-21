@@ -1,5 +1,6 @@
 ﻿using InnoVault.Narrative.Core;
 using System;
+using Terraria.Audio;
 
 namespace InnoVault.Narrative.Composition
 {
@@ -41,28 +42,162 @@ namespace InnoVault.Narrative.Composition
         }
 
         /// <summary>添加一句对话（默认表情）</summary>
-        public NarrativeComposer Say(CharacterId speaker, string text, Action onEnter = null, Action onExit = null)
-            => Say(speaker, ExpressionId.Default, text, onEnter, onExit);
+        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（换脸等装饰）</param>
+        public NarrativeComposer Say(
+            CharacterId speaker,
+            string text,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false)
+            => Say(speaker, ExpressionId.Default, text, onEnter, onExit, allowSkipThrough);
 
         /// <summary>添加一句对话（指定表情）</summary>
-        public NarrativeComposer Say(CharacterId speaker, ExpressionId expression, string text, Action onEnter = null, Action onExit = null) {
-            AddNode(new SayNode { Speaker = Resolve(speaker), Expression = expression, Text = text, OnEnter = onEnter, OnExit = onExit });
+        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（换脸等装饰）</param>
+        public NarrativeComposer Say(
+            CharacterId speaker,
+            ExpressionId expression,
+            string text,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false) {
+            AddNode(new SayNode {
+                Speaker = Resolve(speaker),
+                Expression = expression,
+                Text = text,
+                OnEnter = onEnter,
+                OnExit = onExit,
+                AllowSkipThrough = allowSkipThrough,
+            });
+            return this;
+        }
+
+        /// <summary>添加一句带配音的对话（默认表情；有配音时默认静音打字机音）</summary>
+        public NarrativeComposer Say(
+            CharacterId speaker,
+            string text,
+            SoundStyle voice,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false)
+            => Say(speaker, ExpressionId.Default, text, voice, muteTypingSound: true, onEnter, onExit, allowSkipThrough);
+
+        /// <summary>添加一句带配音的对话（指定表情；有配音时默认静音打字机音）</summary>
+        public NarrativeComposer Say(
+            CharacterId speaker,
+            ExpressionId expression,
+            string text,
+            SoundStyle voice,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false)
+            => Say(speaker, expression, text, voice, muteTypingSound: true, onEnter, onExit, allowSkipThrough);
+
+        /// <summary>添加一句带配音的对话（可控制是否静音打字机音）</summary>
+        public NarrativeComposer Say(
+            CharacterId speaker,
+            ExpressionId expression,
+            string text,
+            SoundStyle voice,
+            bool muteTypingSound,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false) {
+            AddNode(new SayNode {
+                Speaker = Resolve(speaker),
+                Expression = expression,
+                Text = text,
+                Voice = voice,
+                MuteTypingSound = muteTypingSound,
+                OnEnter = onEnter,
+                OnExit = onExit,
+                AllowSkipThrough = allowSkipThrough,
+            });
             return this;
         }
 
         /// <summary>添加一句限时对话（到时自动推进）</summary>
-        public NarrativeComposer SayTimed(CharacterId speaker, string text, float seconds, Action onEnter = null, Action onExit = null) {
-            AddNode(new SayNode { Speaker = Resolve(speaker), Text = text, Timed = TimedSettings.Of(seconds), OnEnter = onEnter, OnExit = onExit });
+        public NarrativeComposer SayTimed(
+            CharacterId speaker,
+            string text,
+            float seconds,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false) {
+            AddNode(new SayNode {
+                Speaker = Resolve(speaker),
+                Text = text,
+                Timed = TimedSettings.Of(seconds),
+                OnEnter = onEnter,
+                OnExit = onExit,
+                AllowSkipThrough = allowSkipThrough,
+            });
             return this;
         }
 
         /// <summary>添加一句限时对话（默认表情，完整定时配置）</summary>
-        public NarrativeComposer SayTimed(CharacterId speaker, string text, TimedSettings timed, Action onEnter = null, Action onExit = null)
-            => SayTimed(speaker, ExpressionId.Default, text, timed, onEnter, onExit);
+        public NarrativeComposer SayTimed(
+            CharacterId speaker,
+            string text,
+            TimedSettings timed,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false)
+            => SayTimed(speaker, ExpressionId.Default, text, timed, onEnter, onExit, allowSkipThrough);
 
         /// <summary>添加一句限时对话（指定表情，完整定时配置）</summary>
-        public NarrativeComposer SayTimed(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed, Action onEnter = null, Action onExit = null) {
-            AddNode(new SayNode { Speaker = Resolve(speaker), Expression = expression, Text = text, Timed = timed, OnEnter = onEnter, OnExit = onExit });
+        public NarrativeComposer SayTimed(
+            CharacterId speaker,
+            ExpressionId expression,
+            string text,
+            TimedSettings timed,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false) {
+            AddNode(new SayNode {
+                Speaker = Resolve(speaker),
+                Expression = expression,
+                Text = text,
+                Timed = timed,
+                OnEnter = onEnter,
+                OnExit = onExit,
+                AllowSkipThrough = allowSkipThrough,
+            });
+            return this;
+        }
+
+        /// <summary>添加一句带配音的限时对话</summary>
+        public NarrativeComposer SayTimed(
+            CharacterId speaker,
+            string text,
+            float seconds,
+            SoundStyle voice,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false)
+            => SayTimed(speaker, ExpressionId.Default, text, TimedSettings.Of(seconds), voice, muteTypingSound: true, onEnter, onExit, allowSkipThrough);
+
+        /// <summary>添加一句带配音的限时对话（完整定时配置）</summary>
+        public NarrativeComposer SayTimed(
+            CharacterId speaker,
+            ExpressionId expression,
+            string text,
+            TimedSettings timed,
+            SoundStyle voice,
+            bool muteTypingSound = true,
+            Action onEnter = null,
+            Action onExit = null,
+            bool allowSkipThrough = false) {
+            AddNode(new SayNode {
+                Speaker = Resolve(speaker),
+                Expression = expression,
+                Text = text,
+                Timed = timed,
+                Voice = voice,
+                MuteTypingSound = muteTypingSound,
+                OnEnter = onEnter,
+                OnExit = onExit,
+                AllowSkipThrough = allowSkipThrough,
+            });
             return this;
         }
 
@@ -101,8 +236,9 @@ namespace InnoVault.Narrative.Composition
             float anchorGap = 0f,
             float anchorYOffset = 0f,
             Action onEnter = null,
-            Action onExit = null)
-            => SayReward(speaker, ExpressionId.Default, text, itemType, stack, title, blocking, anchorGap, anchorYOffset, onEnter, onExit);
+            Action onExit = null,
+            bool allowSkipThrough = false)
+            => SayReward(speaker, ExpressionId.Default, text, itemType, stack, title, blocking, anchorGap, anchorYOffset, onEnter, onExit, allowSkipThrough);
 
         /// <summary>
         /// 在该句台词（指定表情）开始时弹出物品奖励，并展示对话
@@ -118,14 +254,15 @@ namespace InnoVault.Narrative.Composition
             float anchorGap = 0f,
             float anchorYOffset = 0f,
             Action onEnter = null,
-            Action onExit = null) {
+            Action onExit = null,
+            bool allowSkipThrough = false) {
             RewardPayload payload = Popups.Reward(itemType, stack, title);
             if (anchorGap > 0f || anchorYOffset != 0f) {
                 payload.Anchored(anchorGap > 0f ? anchorGap : 70f, anchorYOffset);
             }
 
             Popup(payload, blocking);
-            return Say(speaker, expression, text, onEnter, onExit);
+            return Say(speaker, expression, text, onEnter, onExit, allowSkipThrough);
         }
 
         /// <summary>添加一个执行宿主命令的节点</summary>

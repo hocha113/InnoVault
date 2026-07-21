@@ -1,6 +1,7 @@
 using InnoVault.Narrative.Runtime;
 using System;
 using System.Collections.Generic;
+using Terraria.Audio;
 
 namespace InnoVault.Narrative.Core
 {
@@ -131,6 +132,11 @@ namespace InnoVault.Narrative.Core
         public Action OnEnter { get; set; }
         /// <summary>离开该节点时的宿主回调</summary>
         public Action OnExit { get; set; }
+        /// <summary>
+        /// 为 true 时，即使存在 <see cref="OnEnter"/> / <see cref="OnExit"/>，"跳过至下一停顿点"也可飞过本节点<br/>
+        /// 默认 false：有回调仍按原语义挡 Skip。仅换脸等装饰性回调需要显式打开
+        /// </summary>
+        public bool AllowSkipThrough { get; set; }
     }
 
     /// <summary>一句对话</summary>
@@ -146,6 +152,14 @@ namespace InnoVault.Narrative.Core
         public string Text { get; set; }
         /// <summary>定时设置，<see langword="null"/> 表示普通对话</summary>
         public TimedSettings Timed { get; set; }
+        /// <summary>本句配音；由 <see cref="Runtime.NarrativeSession"/> 统一播停，勿在 <see cref="OnEnter"/> 里手播</summary>
+        public SoundStyle? Voice { get; set; }
+        /// <summary>是否静音打字机音；有 <see cref="Voice"/> 时视为开启（可用 <see cref="ForceTypingSound"/> 覆盖）</summary>
+        public bool MuteTypingSound { get; set; }
+        /// <summary>即使有配音也保留打字机音（默认关闭）</summary>
+        public bool ForceTypingSound { get; set; }
+        /// <summary>本行是否应抑制打字机音</summary>
+        public bool ShouldMuteTyping => !ForceTypingSound && (MuteTypingSound || Voice.HasValue);
     }
 
     /// <summary>带选项的对话：先播放提示句，打字完成后弹出选项</summary>
@@ -165,6 +179,14 @@ namespace InnoVault.Narrative.Core
         public TimedSettings Timed { get; set; }
         /// <summary>限时结束默认选择的选项 id，<see langword="null"/> 时若超时则随机选择一个可用项</summary>
         public ChoiceId? DefaultChoice { get; set; }
+        /// <summary>提示句配音；由会话统一播停</summary>
+        public SoundStyle? Voice { get; set; }
+        /// <summary>是否静音打字机音；有 <see cref="Voice"/> 时视为开启</summary>
+        public bool MuteTypingSound { get; set; }
+        /// <summary>即使有配音也保留打字机音</summary>
+        public bool ForceTypingSound { get; set; }
+        /// <summary>提示句是否应抑制打字机音</summary>
+        public bool ShouldMuteTyping => !ForceTypingSound && (MuteTypingSound || Voice.HasValue);
     }
 
     /// <summary>功能弹窗节点（奖励 / 提示等）</summary>

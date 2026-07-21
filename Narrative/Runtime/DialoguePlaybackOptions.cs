@@ -22,6 +22,11 @@ namespace InnoVault.Narrative.Runtime
         public float AutoMaxDelay { get; set; } = 360f;
         /// <summary>快进模式段后自动推进延迟 tick</summary>
         public float FastAutoAdvanceDelay { get; set; } = 12f;
+        /// <summary>
+        /// Auto 模式下是否等当前句配音播完再翻页（默认开启）<br/>
+        /// Fast 不受影响；手动点击仍可随时打断配音
+        /// </summary>
+        public bool WaitForVoiceBeforeAutoAdvance { get; set; } = true;
 
         /// <summary>计算某段落自动播放的等待 tick</summary>
         public float GetAutoDelay(int totalChars) {

@@ -2,10 +2,12 @@
 using InnoVault.Narrative.History;
 using InnoVault.Narrative.Services;
 using InnoVault.Narrative.Styling;
+using ReLogic.Utilities;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Terraria;
+using Terraria.Audio;
 
 namespace InnoVault.Narrative.Runtime
 {
@@ -76,6 +78,8 @@ namespace InnoVault.Narrative.Runtime
         private bool _toggleFast;
         private int _lastTypedSoundChar;
         private int _choiceHoverIndex = -1;
+        private SlotId _voiceSlot = SlotId.Invalid;
+        private bool _lineMutesTyping;
         /// <summary>选项悬停下标（视图写入，仅供皮肤高亮，不影响逻辑）</summary>
         public int ChoiceHoverIndex {
             get => _choiceHoverIndex;
@@ -122,8 +126,8 @@ namespace InnoVault.Narrative.Runtime
         /// <summary>请求补全当前行打字</summary>
         public void RequestSkipLine() => _skipRequested = true;
         /// <summary>
-        /// 请求跳到下一个停顿点。普通对话会被补全并跳过；遇到选项、弹窗、命令、
-        /// 分支、等待、限时行或带回调的节点时停止，把控制权交还给玩家
+        /// 请求跳到下一个停顿点。能飞过的句子会一口气跳过；若当前已挡在硬停上跳不动，
+        /// 则本帧退化为与 <see cref="RequestAdvance"/> 相同的推进意图（补全 / 翻页 / 收尾）
         /// </summary>
         public void RequestSkipToNextStop() => _skipToNextStopRequested = true;
         /// <summary>选择某个选项（按下标）</summary>
@@ -221,6 +225,7 @@ namespace InnoVault.Narrative.Runtime
         private bool IsCompletionBlocked() => BlocksCompletion?.Invoke() == true;
 
         private void Transition(int nextIndex) {
+            StopVoice();
             SafeInvoke(CurrentNode?.OnExit, "OnExit");
             _currentIndex = nextIndex;
             EnterCurrent();
@@ -243,10 +248,10 @@ namespace InnoVault.Narrative.Runtime
 
             switch (node) {
                 case SayNode say:
-                    BeginLine(say.Speaker, say.Expression, say.Text, say.Timed);
+                    BeginLine(say.Speaker, say.Expression, say.Text, say.Timed, say.Voice, say.ShouldMuteTyping);
                     break;
                 case ChoiceNode choice:
-                    BeginLine(choice.Speaker, choice.Expression, choice.Prompt, choice.Timed);
+                    BeginLine(choice.Speaker, choice.Expression, choice.Prompt, choice.Timed, choice.Voice, choice.ShouldMuteTyping);
                     break;
                 case WaitNode wait:
                     _waitRemaining = wait.Ticks;
@@ -278,15 +283,49 @@ namespace InnoVault.Narrative.Runtime
             }
         }
 
-        private void BeginLine(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed) {
+        private void BeginLine(CharacterId speaker, ExpressionId expression, string text, TimedSettings timed, SoundStyle? voice, bool muteTyping) {
             Line.Begin(speaker, expression, text, timed);
             RecordLine(speaker, expression, text);
             _lastTypedSoundChar = 0;
+            _lineMutesTyping = muteTyping;
             DialogueVisible = true;
             Phase = NarrativeSessionPhase.Playing;
             _autoTimer = 0f;
             _settleGuard = 0;
+            PlayVoice(voice);
         }
+
+        private void PlayVoice(SoundStyle? voice) {
+            StopVoice();
+            if (voice == null || Main.dedServ) {
+                return;
+            }
+
+            SoundStyle style = voice.Value;
+            if (style.MaxInstances <= 0) {
+                style = style with { MaxInstances = 1, SoundLimitBehavior = SoundLimitBehavior.ReplaceOldest };
+            }
+
+            _voiceSlot = SoundEngine.PlaySound(style);
+        }
+
+        private void StopVoice() {
+            if (SoundEngine.TryGetActiveSound(_voiceSlot, out ActiveSound active)) {
+                active.Stop();
+            }
+            _voiceSlot = SlotId.Invalid;
+        }
+
+        /// <summary>当前句配音是否仍在播放（无配音 / 已结束 / 已被打断时为 false）</summary>
+        private bool IsVoicePlaying()
+            => SoundEngine.TryGetActiveSound(_voiceSlot, out ActiveSound active) && active.IsPlaying;
+
+        /// <summary>Auto 是否应因配音未结束而暂缓翻页（Fast 不门闩）</summary>
+        private bool IsVoiceBlockingAutoAdvance()
+            => Options.AutoMode
+                && !Options.FastMode
+                && Options.WaitForVoiceBeforeAutoAdvance
+                && IsVoicePlaying();
 
         private void GoToTarget(NarrativeTarget target) {
             target ??= NarrativeTarget.Continue;
@@ -349,6 +388,7 @@ namespace InnoVault.Narrative.Runtime
             }
 
             //点击 / 跳过：未打完则补全
+            bool lineWasFinishedBeforeInput = line.Finished;
             if (_advanceRequested && line.LayoutReady && !line.Finished) {
                 _advanceRequested = false;
                 line.RevealAll();
@@ -370,8 +410,14 @@ namespace InnoVault.Narrative.Runtime
                 return;
             }
 
-            if (_skipToNextStopRequested && TryAdvanceSkipToNextStop()) {
-                return;
+            // Skip：能跳就跳；跳不动且本帧前字已出完 → 视同普通推进（对齐单击对话框）
+            if (_skipToNextStopRequested) {
+                if (TryAdvanceSkipToNextStop()) {
+                    return;
+                }
+                if (lineWasFinishedBeforeInput) {
+                    _advanceRequested = true;
+                }
             }
 
             //已打完字
@@ -416,7 +462,8 @@ namespace InnoVault.Narrative.Runtime
                 }
                 _autoTimer += frames;
                 float delay = Options.FastMode ? Options.FastAutoAdvanceDelay : Options.GetAutoDelay(line.TotalChars);
-                if (_autoTimer >= delay) {
+                // delay 可先跑完；有配音时 Auto 再等到播完才翻，避免掐断台词
+                if (_autoTimer >= delay && !IsVoiceBlockingAutoAdvance()) {
                     _autoTimer = 0f;
                     Transition(_currentIndex + 1);
                 }
@@ -487,7 +534,8 @@ namespace InnoVault.Narrative.Runtime
                 return true;
             }
 
-            if (node.OnEnter != null || node.OnExit != null) {
+            // 原语义：有 OnEnter/OnExit 即停；AllowSkipThrough 显式放行（换脸等装饰）
+            if (!node.AllowSkipThrough && (node.OnEnter != null || node.OnExit != null)) {
                 return true;
             }
 
@@ -728,6 +776,7 @@ namespace InnoVault.Narrative.Runtime
         private void CompleteNow() {
             _completionDeferred = false;
             _completionPending = false;
+            StopVoice();
             Phase = NarrativeSessionPhase.Completed;
             PendingChoice = null;
             DialogueVisible = false;
@@ -740,6 +789,7 @@ namespace InnoVault.Narrative.Runtime
             }
             _completionPending = false;
             _completionDeferred = false;
+            StopVoice();
             Phase = NarrativeSessionPhase.Aborted;
             PendingChoice = null;
             ActivePopup = null;
@@ -799,6 +849,11 @@ namespace InnoVault.Narrative.Runtime
         }
 
         private void TryPlayTypingSounds(LinePresentation line) {
+            if (_lineMutesTyping) {
+                _lastTypedSoundChar = line.VisibleCharCount;
+                return;
+            }
+
             int visible = line.VisibleCharCount;
             if (visible <= _lastTypedSoundChar) {
                 return;
