@@ -152,7 +152,7 @@ namespace InnoVault.Narrative.Core
         public string Text { get; set; }
         /// <summary>定时设置，<see langword="null"/> 表示普通对话</summary>
         public TimedSettings Timed { get; set; }
-        /// <summary>本句配音；由 <see cref="Runtime.NarrativeSession"/> 统一播停，勿在 <see cref="OnEnter"/> 里手播</summary>
+        /// <summary>本句配音；由 <see cref="Runtime.NarrativeSession"/> 统一播停，勿在 <see cref="NarrativeNode.OnEnter"/> 里手播</summary>
         public SoundStyle? Voice { get; set; }
         /// <summary>是否静音打字机音；有 <see cref="Voice"/> 时视为开启（可用 <see cref="ForceTypingSound"/> 覆盖）</summary>
         public bool MuteTypingSound { get; set; }

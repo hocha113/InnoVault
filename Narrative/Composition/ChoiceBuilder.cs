@@ -16,6 +16,8 @@ namespace InnoVault.Narrative.Composition
         }
 
         /// <summary>为提示句绑定配音（默认同时静音打字机音）</summary>
+        /// <param name="voice">提示句配音</param>
+        /// <param name="muteTypingSound">是否静音打字机音</param>
         public ChoiceBuilder Voice(SoundStyle voice, bool muteTypingSound = true) {
             Node.Voice = voice;
             Node.MuteTypingSound = muteTypingSound;
@@ -25,6 +27,7 @@ namespace InnoVault.Narrative.Composition
         /// <summary>
         /// 允许 Skip 飞过本选择的回调副作用（选项本身仍是停顿点；仅影响「因 OnEnter/OnExit 而额外挡 Skip」的语义）
         /// </summary>
+        /// <param name="allow">为 true 时标记 <see cref="NarrativeNode.AllowSkipThrough"/></param>
         public ChoiceBuilder AllowSkipThrough(bool allow = true) {
             Node.AllowSkipThrough = allow;
             return this;
