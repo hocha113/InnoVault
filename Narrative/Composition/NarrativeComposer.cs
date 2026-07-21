@@ -14,6 +14,7 @@ namespace InnoVault.Narrative.Composition
         private readonly NarrativeGraph _graph;
         private readonly string _modName;
         private string _pendingLabel;
+        private bool _allowSkipThrough;
 
         /// <summary>基于一张图创建构建器</summary>
         /// <param name="graph">目标内容图</param>
@@ -34,6 +35,7 @@ namespace InnoVault.Narrative.Composition
                 node.Label = _pendingLabel;
                 _pendingLabel = null;
             }
+            node.AllowSkipThrough = _allowSkipThrough;
             _graph.Add(node);
             return node;
         }
@@ -45,19 +47,27 @@ namespace InnoVault.Narrative.Composition
             return this;
         }
 
+        /// <summary>
+        /// 其后加入的节点在存在 OnEnter/OnExit 时仍允许 Skip 飞过（换脸等装饰）<br/>
+        /// 对后续节点保持生效，直到再次调用并传入 <see langword="false"/>
+        /// </summary>
+        /// <param name="allow">是否允许 Skip 飞过带回调的节点</param>
+        public NarrativeComposer AllowSkipThrough(bool allow = true) {
+            _allowSkipThrough = allow;
+            return this;
+        }
+
         /// <summary>添加一句对话（默认表情）</summary>
         /// <param name="speaker">说话角色</param>
         /// <param name="text">已本地化的台词文本</param>
-        /// <param name="onEnter">进入该句时的回调（如换脸）；默认会挡 Skip，除非 <paramref name="allowSkipThrough"/></param>
+        /// <param name="onEnter">进入该句时的回调（如换脸）</param>
         /// <param name="onExit">离开该句时的回调（如发奖 / 接任务）</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer Say(
             CharacterId speaker,
             string text,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false)
-            => Say(speaker, ExpressionId.Default, text, onEnter, onExit, allowSkipThrough);
+            Action onExit = null)
+            => Say(speaker, ExpressionId.Default, text, onEnter, onExit);
 
         /// <summary>添加一句对话（指定表情）</summary>
         /// <param name="speaker">说话角色</param>
@@ -65,21 +75,18 @@ namespace InnoVault.Narrative.Composition
         /// <param name="text">已本地化的台词文本</param>
         /// <param name="onEnter">进入该句时的回调</param>
         /// <param name="onExit">离开该句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer Say(
             CharacterId speaker,
             ExpressionId expression,
             string text,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false) {
+            Action onExit = null) {
             AddNode(new SayNode {
                 Speaker = Resolve(speaker),
                 Expression = expression,
                 Text = text,
                 OnEnter = onEnter,
                 OnExit = onExit,
-                AllowSkipThrough = allowSkipThrough,
             });
             return this;
         }
@@ -90,15 +97,13 @@ namespace InnoVault.Narrative.Composition
         /// <param name="voice">本句配音，由会话统一播停</param>
         /// <param name="onEnter">进入该句时的回调</param>
         /// <param name="onExit">离开该句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer Say(
             CharacterId speaker,
             string text,
             SoundStyle voice,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false)
-            => Say(speaker, ExpressionId.Default, text, voice, muteTypingSound: true, onEnter, onExit, allowSkipThrough);
+            Action onExit = null)
+            => Say(speaker, ExpressionId.Default, text, voice, muteTypingSound: true, onEnter, onExit);
 
         /// <summary>添加一句带配音的对话（指定表情；有配音时默认静音打字机音）</summary>
         /// <param name="speaker">说话角色</param>
@@ -107,16 +112,14 @@ namespace InnoVault.Narrative.Composition
         /// <param name="voice">本句配音，由会话统一播停</param>
         /// <param name="onEnter">进入该句时的回调</param>
         /// <param name="onExit">离开该句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer Say(
             CharacterId speaker,
             ExpressionId expression,
             string text,
             SoundStyle voice,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false)
-            => Say(speaker, expression, text, voice, muteTypingSound: true, onEnter, onExit, allowSkipThrough);
+            Action onExit = null)
+            => Say(speaker, expression, text, voice, muteTypingSound: true, onEnter, onExit);
 
         /// <summary>添加一句带配音的对话（可控制是否静音打字机音）</summary>
         /// <param name="speaker">说话角色</param>
@@ -126,7 +129,6 @@ namespace InnoVault.Narrative.Composition
         /// <param name="muteTypingSound">是否静音打字机音</param>
         /// <param name="onEnter">进入该句时的回调</param>
         /// <param name="onExit">离开该句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer Say(
             CharacterId speaker,
             ExpressionId expression,
@@ -134,8 +136,7 @@ namespace InnoVault.Narrative.Composition
             SoundStyle voice,
             bool muteTypingSound,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false) {
+            Action onExit = null) {
             AddNode(new SayNode {
                 Speaker = Resolve(speaker),
                 Expression = expression,
@@ -144,7 +145,6 @@ namespace InnoVault.Narrative.Composition
                 MuteTypingSound = muteTypingSound,
                 OnEnter = onEnter,
                 OnExit = onExit,
-                AllowSkipThrough = allowSkipThrough,
             });
             return this;
         }
@@ -155,21 +155,18 @@ namespace InnoVault.Narrative.Composition
         /// <param name="seconds">限时秒数</param>
         /// <param name="onEnter">进入该句时的回调</param>
         /// <param name="onExit">离开该句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer SayTimed(
             CharacterId speaker,
             string text,
             float seconds,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false) {
+            Action onExit = null) {
             AddNode(new SayNode {
                 Speaker = Resolve(speaker),
                 Text = text,
                 Timed = TimedSettings.Of(seconds),
                 OnEnter = onEnter,
                 OnExit = onExit,
-                AllowSkipThrough = allowSkipThrough,
             });
             return this;
         }
@@ -180,15 +177,13 @@ namespace InnoVault.Narrative.Composition
         /// <param name="timed">限时配置</param>
         /// <param name="onEnter">进入该句时的回调</param>
         /// <param name="onExit">离开该句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer SayTimed(
             CharacterId speaker,
             string text,
             TimedSettings timed,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false)
-            => SayTimed(speaker, ExpressionId.Default, text, timed, onEnter, onExit, allowSkipThrough);
+            Action onExit = null)
+            => SayTimed(speaker, ExpressionId.Default, text, timed, onEnter, onExit);
 
         /// <summary>添加一句限时对话（指定表情，完整定时配置）</summary>
         /// <param name="speaker">说话角色</param>
@@ -197,15 +192,13 @@ namespace InnoVault.Narrative.Composition
         /// <param name="timed">限时配置</param>
         /// <param name="onEnter">进入该句时的回调</param>
         /// <param name="onExit">离开该句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer SayTimed(
             CharacterId speaker,
             ExpressionId expression,
             string text,
             TimedSettings timed,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false) {
+            Action onExit = null) {
             AddNode(new SayNode {
                 Speaker = Resolve(speaker),
                 Expression = expression,
@@ -213,7 +206,6 @@ namespace InnoVault.Narrative.Composition
                 Timed = timed,
                 OnEnter = onEnter,
                 OnExit = onExit,
-                AllowSkipThrough = allowSkipThrough,
             });
             return this;
         }
@@ -225,16 +217,14 @@ namespace InnoVault.Narrative.Composition
         /// <param name="voice">本句配音，由会话统一播停</param>
         /// <param name="onEnter">进入该句时的回调</param>
         /// <param name="onExit">离开该句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer SayTimed(
             CharacterId speaker,
             string text,
             float seconds,
             SoundStyle voice,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false)
-            => SayTimed(speaker, ExpressionId.Default, text, TimedSettings.Of(seconds), voice, muteTypingSound: true, onEnter, onExit, allowSkipThrough);
+            Action onExit = null)
+            => SayTimed(speaker, ExpressionId.Default, text, TimedSettings.Of(seconds), voice, muteTypingSound: true, onEnter, onExit);
 
         /// <summary>添加一句带配音的限时对话（完整定时配置）</summary>
         /// <param name="speaker">说话角色</param>
@@ -245,7 +235,6 @@ namespace InnoVault.Narrative.Composition
         /// <param name="muteTypingSound">是否静音打字机音</param>
         /// <param name="onEnter">进入该句时的回调</param>
         /// <param name="onExit">离开该句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer SayTimed(
             CharacterId speaker,
             ExpressionId expression,
@@ -254,8 +243,7 @@ namespace InnoVault.Narrative.Composition
             SoundStyle voice,
             bool muteTypingSound = true,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false) {
+            Action onExit = null) {
             AddNode(new SayNode {
                 Speaker = Resolve(speaker),
                 Expression = expression,
@@ -265,7 +253,6 @@ namespace InnoVault.Narrative.Composition
                 MuteTypingSound = muteTypingSound,
                 OnEnter = onEnter,
                 OnExit = onExit,
-                AllowSkipThrough = allowSkipThrough,
             });
             return this;
         }
@@ -319,7 +306,6 @@ namespace InnoVault.Narrative.Composition
         /// <param name="anchorYOffset">锚定纵向偏移</param>
         /// <param name="onEnter">进入台词句时的回调</param>
         /// <param name="onExit">离开台词句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer SayReward(
             CharacterId speaker,
             string text,
@@ -330,9 +316,8 @@ namespace InnoVault.Narrative.Composition
             float anchorGap = 0f,
             float anchorYOffset = 0f,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false)
-            => SayReward(speaker, ExpressionId.Default, text, itemType, stack, title, blocking, anchorGap, anchorYOffset, onEnter, onExit, allowSkipThrough);
+            Action onExit = null)
+            => SayReward(speaker, ExpressionId.Default, text, itemType, stack, title, blocking, anchorGap, anchorYOffset, onEnter, onExit);
 
         /// <summary>在该句台词（指定表情）开始时弹出物品奖励，并展示对话</summary>
         /// <param name="speaker">说话角色</param>
@@ -346,7 +331,6 @@ namespace InnoVault.Narrative.Composition
         /// <param name="anchorYOffset">锚定纵向偏移</param>
         /// <param name="onEnter">进入台词句时的回调</param>
         /// <param name="onExit">离开台词句时的回调</param>
-        /// <param name="allowSkipThrough">为 true 时，即使有 onEnter/onExit 也可被 Skip 飞过（仅装饰性回调）</param>
         public NarrativeComposer SayReward(
             CharacterId speaker,
             ExpressionId expression,
@@ -358,15 +342,14 @@ namespace InnoVault.Narrative.Composition
             float anchorGap = 0f,
             float anchorYOffset = 0f,
             Action onEnter = null,
-            Action onExit = null,
-            bool allowSkipThrough = false) {
+            Action onExit = null) {
             RewardPayload payload = Popups.Reward(itemType, stack, title);
             if (anchorGap > 0f || anchorYOffset != 0f) {
                 payload.Anchored(anchorGap > 0f ? anchorGap : 70f, anchorYOffset);
             }
 
             Popup(payload, blocking);
-            return Say(speaker, expression, text, onEnter, onExit, allowSkipThrough);
+            return Say(speaker, expression, text, onEnter, onExit);
         }
 
         /// <summary>添加一个执行宿主命令的节点</summary>
