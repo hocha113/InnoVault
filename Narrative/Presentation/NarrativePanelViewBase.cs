@@ -4,7 +4,7 @@ using System;
 namespace InnoVault.Narrative.Presentation
 {
     /// <summary>
-    /// 叙事面板视图基类。用与 CWR ADV 相同的<b>线性帧计数</b>驱动进出场，
+    /// 叙事面板视图基类。<b>线性帧计数</b>驱动进出场，
     /// 替代 <see cref="UIHandle.OpenProgress"/> 默认的指数 Lerp，避免过快或曲线叠加的怪异手感
     /// </summary>
     public abstract class NarrativePanelViewBase<TSelf> : UIHandle<TSelf>
@@ -14,10 +14,10 @@ namespace InnoVault.Narrative.Presentation
         private float _hideProgress;
         private bool _panelClosing;
 
-        /// <summary>打开动画时长（60FPS 帧数），对齐 CWR <c>ShowDuration</c></summary>
+        /// <summary>打开动画时长（60FPS 帧数）<c>ShowDuration</c></summary>
         protected virtual float ShowDurationFrames => 18f;
 
-        /// <summary>关闭动画时长（60FPS 帧数），对齐 CWR <c>HideDuration</c></summary>
+        /// <summary>关闭动画时长（60FPS 帧数）<c>HideDuration</c></summary>
         protected virtual float HideDurationFrames => 14f;
 
         /// <summary>

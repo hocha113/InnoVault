@@ -70,7 +70,7 @@ namespace InnoVault.Narrative.Core
             return this;
         }
 
-        /// <summary>链式设置弹窗锚点（默认相对对话框顶部 -70px，与 CWR ADV 对齐）</summary>
+        /// <summary>链式设置弹窗锚点（默认相对对话框顶部 -70px）</summary>
         public PopupPayload Anchored(float gap = 70f, float yOffset = 0f) {
             AnchorGap = gap;
             AnchorYOffset = yOffset;

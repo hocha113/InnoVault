@@ -3,11 +3,11 @@ using System;
 namespace InnoVault.Narrative.Presentation
 {
     /// <summary>
-    /// 叙事面板进出场动画的共享缓动与位移计算，对齐 CWR ADV 原型（线性帧进度 + EaseOutBack/EaseInCubic）
+    /// 叙事面板进出场动画的共享缓动与位移计算
     /// </summary>
     public static class NarrativePanelMotion
     {
-        /// <summary>各 UI 类型的位移与透明度配置，数值来自 CWR 原型</summary>
+        /// <summary>各 UI 类型的位移与透明度配置</summary>
         public readonly struct Profile(float openSlide, float closeSlide, float alphaBoost = 1f)
         {
             /// <summary>打开动画的 Y 轴滑移距离（像素）</summary>
