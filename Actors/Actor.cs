@@ -206,7 +206,8 @@ namespace InnoVault.Actors
         protected UnifiedRandom Rand => VaultParallel.CurrentRandom ?? Main.rand;
 
         /// <summary>
-        /// 延迟执行一个副作用动作：并行阶段入当前线程缓冲、由主线程统一执行；串行阶段立即执行
+        /// 延迟执行一个副作用动作：并行工作线程入本地缓冲、由主线程统一执行；
+        /// 主线程串行阶段立即执行，其他线程异步投递到游戏主线程
         /// </summary>
         protected void Defer(Action action) => VaultParallel.Defer(action);
 

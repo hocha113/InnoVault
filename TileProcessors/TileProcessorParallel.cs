@@ -69,7 +69,7 @@ namespace InnoVault.TileProcessors
             set => VaultParallel.MaxDegreeOfParallelism = value;
         }
         /// <summary>
-        /// 当世界中TP实体数量低于该阈值时不启用并行（并行调度本身存在开销，少量实体并行反而更慢）
+        /// 当世界中活跃TP实体数量低于该阈值时不启用并行（并行调度本身存在开销，少量实体并行反而更慢）
         /// </summary>
         public static int MinCountForParallel {
             get => VaultParallel.MinCountForParallel;
@@ -98,9 +98,9 @@ namespace InnoVault.TileProcessors
         public static void MarkTopologyDirty() => partitioner.MarkDirty();
 
         /// <summary>
-        /// 给定世界中的TP实体总数，判断本帧是否应当走并行路径：需同时满足"全局主开关开启"与"TP未因异常被自动禁用"
+        /// 给定世界中的活跃TP实体总数，判断本帧是否应当走并行路径：需同时满足"全局主开关开启"与"TP未因异常被自动禁用"
         /// </summary>
-        internal static bool ShouldRunParallel(int inWorldCount) => !autoDisabledByError && VaultParallel.ShouldRunParallel(inWorldCount);
+        internal static bool ShouldRunParallel(int activeCount) => !autoDisabledByError && VaultParallel.ShouldRunParallel(activeCount);
 
         /// <summary>
         /// 因调度级异常自动禁用TP并行并回退串行（仅影响TP子系统，不波及Actor）<br/>
@@ -115,7 +115,7 @@ namespace InnoVault.TileProcessors
 
         #region 线程安全入口（供TileProcessor的Defer*/Rand/Kill等调用）
         /// <summary>
-        /// 延迟一个副作用动作：并行阶段入当前线程缓冲，串行阶段（主线程）立即执行
+        /// 延迟一个副作用动作：并行工作线程写入本地缓冲，其他非主线程投递到游戏主线程
         /// </summary>
         internal static void Defer(Action action) => VaultParallel.Defer(action);
 

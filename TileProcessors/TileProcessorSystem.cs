@@ -316,7 +316,7 @@ namespace InnoVault.TileProcessors
             RunPreParallel();
 
             //并行不划算或被显式禁用：完全回退到历史的单线程路径
-            if (!TileProcessorParallel.ShouldRunParallel(TP_InWorld.Count)) {
+            if (!TileProcessorParallel.ShouldRunParallel(CountActiveProcessors())) {
                 TileProcessorParallel.SetUsedParallel(false);
                 //使用for循环以安全地处理更新过程中集合的增删
                 for (int i = 0; i < TP_InWorld.Count; i++) {
@@ -361,6 +361,16 @@ namespace InnoVault.TileProcessors
                 TileProcessorParallel.AutoDisableParallel();
                 VaultMod.Instance.Logger.Error($"[TileProcessorParallel] Parallel update failed, disabled and fell back to serial: {ex}");
             }
+        }
+
+        private static int CountActiveProcessors() {
+            int count = 0;
+            for (int i = 0; i < TP_InWorld.Count; i++) {
+                if (TP_InWorld[i]?.Active == true) {
+                    count++;
+                }
+            }
+            return count;
         }
 
         /// <summary>

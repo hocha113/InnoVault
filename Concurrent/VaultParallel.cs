@@ -4,6 +4,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Threading;
 using System.Threading.Tasks;
+using Terraria;
 using Terraria.Utilities;
 
 namespace InnoVault.Concurrent
@@ -72,7 +73,8 @@ namespace InnoVault.Concurrent
         public static bool ShouldRunParallel(int count) => EnableParallel && count >= MinCountForParallel;
 
         /// <summary>
-        /// 延迟一个副作用动作：并行阶段入当前线程缓冲，否则立即执行
+        /// 延迟一个副作用动作：并行工作线程写入本地缓冲，主线程串行阶段立即执行，
+        /// 其余线程异步投递到游戏主线程
         /// </summary>
         public static void Defer(Action action) {
             if (action == null) {
@@ -80,10 +82,15 @@ namespace InnoVault.Concurrent
             }
             if (InParallelPhase && CurrentBuffer != null) {
                 CurrentBuffer.Actions.Add(action);
+                return;
             }
-            else {
+
+            if (Program.IsMainThread && !InParallelPhase) {
                 action();
+                return;
             }
+
+            Main.QueueMainThreadAction(() => ExecuteDeferredAction(action, "@VaultParallel.MainThreadAction"));
         }
 
         /// <summary>
@@ -159,11 +166,7 @@ namespace InnoVault.Concurrent
             for (int b = 0; b < activeBuffers.Count; b++) {
                 List<Action> actions = activeBuffers[b].Actions;
                 for (int a = 0; a < actions.Count; a++) {
-                    try {
-                        actions[a]();
-                    } catch (Exception ex) {
-                        VaultMod.LoggerError("@VaultParallel.DrainAction", ex.Message);
-                    }
+                    ExecuteDeferredAction(actions[a], "@VaultParallel.DrainAction");
                 }
             }
 
@@ -176,6 +179,14 @@ namespace InnoVault.Concurrent
             }
             lock (activeBuffersLock) {
                 activeBuffers.Clear();
+            }
+        }
+
+        private static void ExecuteDeferredAction(Action action, string logKey) {
+            try {
+                action();
+            } catch (Exception ex) {
+                VaultMod.LoggerError(logKey, ex.ToString());
             }
         }
 
