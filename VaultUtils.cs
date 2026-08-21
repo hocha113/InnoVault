@@ -2309,6 +2309,9 @@ namespace InnoVault
             if (!npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
                 return false;
             }
+            if (globalInstance.NPCOverrides is null) {
+                return false;
+            }
             if (!globalInstance.NPCOverrides.TryGetValue(typeof(T), out var value2)) {
                 return false;
             }
