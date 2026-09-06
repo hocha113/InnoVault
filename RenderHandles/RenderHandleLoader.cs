@@ -1,4 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+﻿using InnoVault.GameSystem;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
@@ -154,6 +155,10 @@ namespace InnoVault.RenderHandles
                 orig(self, camera, players);
                 return;
             }
+
+            //在交还给原版绘制前剔除半构造的玩家实例，防止 tML 的 ModPlayer 钩子枚举越界
+            //两处 DrawPlayers 钩子的挂载顺序不受保证，故各自过滤一次，保证无论链序如何原版拿到的都是安全集合
+            players = PlayerRebuildLoader.FilterReadyPlayers(players);
 
             EnsureScreenSwap();
             var gd = Main.instance.GraphicsDevice;

@@ -1,8 +1,10 @@
 ﻿using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq.Expressions;
 using Terraria;
 using Terraria.Graphics.Renderers;
 using Terraria.ID;
@@ -70,6 +72,10 @@ namespace InnoVault.GameSystem
         /// 这个重制节点的ID，在多人模式中共享服务端的结果
         /// </summary>
         public ushort OverrideID;
+        //加载期为模板预计算的钩子重写掩码，克隆时从模板复制，供生成路径免反射分发
+        internal NPCHookFlags hookFlags;
+        //类型 → 编译好的无参构造工厂，替代 Activator.CreateInstance 的反射实例化，卸载时清空
+        internal static readonly ConcurrentDictionary<Type, Func<NPCOverride>> FactoryCache = new();
         //服务端待发送的脏标记，仅承载 Other/SyncVar（ai 直接走 npc.netUpdate 搭车 vanilla 同步）
         private NPCOverrideSyncField _pendingSync = NPCOverrideSyncField.None;
         /// <summary>
@@ -139,7 +145,8 @@ namespace InnoVault.GameSystem
         /// 克隆这个实例，注意，克隆出的新对象与原实例将不再具有任何引用关系
         /// </summary>
         /// <returns></returns>
-        public NPCOverride Clone() => (NPCOverride)Activator.CreateInstance(GetType());
+        public NPCOverride Clone() => FactoryCache.GetOrAdd(GetType()
+            , static type => Expression.Lambda<Func<NPCOverride>>(Expression.New(type)).Compile()).Invoke();
         /// <summary>
         /// 寻找对应NPC实例的重载实例
         /// </summary>
@@ -161,7 +168,11 @@ namespace InnoVault.GameSystem
                 }
 
                 result ??= [];
-                result[npcOverrideInstance.GetType()] = npcOverrideInstance.Clone();
+                NPCOverride clone = npcOverrideInstance.Clone();
+                //克隆体直接继承模板的网络 ID 与钩子掩码，挂载时无需再查字典
+                clone.OverrideID = npcOverrideInstance.OverrideID;
+                clone.hookFlags = npcOverrideInstance.hookFlags;
+                result[npcOverrideInstance.GetType()] = clone;
             }
 
             if (result == null) {
@@ -197,66 +208,65 @@ namespace InnoVault.GameSystem
 
             //遍历所有克隆出的实例
             foreach (var overrideInstance in inds.Values) {
-                //为实例设置NPC上下文并初始化
-                overrideInstance.OverrideID = TypeToOverrideID[overrideInstance.GetType()];
-                overrideInstance.ai = new float[MaxAISlot];
-                overrideInstance.localAI = new float[MaxAISlot];
+                //为实例设置NPC上下文并初始化，OverrideID 与钩子掩码已在克隆时从模板复制，
+                //ai/localAI 由构造器的字段初始化器保证是全新数组，无需重复分配
                 overrideInstance.npc = npc;
                 overrideInstance.SetProperty();
 
-                //使用已加载的静态钩子列表的高效查询能力，将实例分发到对应的专属列表中
-                if (NPCRebuildLoader.HookAI.HookOverrideQuery.HasOverride(overrideInstance)) {
+                //按加载期预计算的掩码将实例分发到对应的专属列表中，未命中的列表不会被创建
+                NPCHookFlags flags = overrideInstance.hookFlags;
+                if ((flags & NPCHookFlags.AI) != 0) {
                     globalInstance.AIOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookPostAI.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.PostAI) != 0) {
                     globalInstance.PostAIOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookOn_PreKill.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.On_PreKill) != 0) {
                     globalInstance.On_PreKillOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookCheckActive.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.CheckActive) != 0) {
                     globalInstance.CheckActiveOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookCheckDead.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.CheckDead) != 0) {
                     globalInstance.CheckDeadOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookSpecialOnKill.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.SpecialOnKill) != 0) {
                     globalInstance.SpecialOnKillOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookOnCheckDead.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.On_CheckActive) != 0) {
                     globalInstance.OnCheckActiveOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookDraw.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.Draw) != 0) {
                     globalInstance.DrawOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookPostDraw.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.PostDraw) != 0) {
                     globalInstance.PostDrawOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookFindFrame.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.FindFrame) != 0) {
                     globalInstance.FindFrameOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookModifyNPCLoot.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.ModifyNPCLoot) != 0) {
                     globalInstance.ModifyNPCLootOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookOnHitByItem.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.OnHitByItem) != 0) {
                     globalInstance.OnHitByItemOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookOnHitByProjectile.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.OnHitByProjectile) != 0) {
                     globalInstance.OnHitByProjectileOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookModifyHitByItem.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.ModifyHitByItem) != 0) {
                     globalInstance.ModifyHitByItemOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookModifyHitByProjectile.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.ModifyHitByProjectile) != 0) {
                     globalInstance.ModifyHitByProjectileOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookCanBeHitByItem.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.CanBeHitByItem) != 0) {
                     globalInstance.CanBeHitByItemOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookCanBeHitByNPC.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.CanBeHitByNPC) != 0) {
                     globalInstance.CanBeHitByNPCOverrides.Add(overrideInstance);
                 }
-                if (NPCRebuildLoader.HookCanBeHitByProjectile.HookOverrideQuery.HasOverride(overrideInstance)) {
+                if ((flags & NPCHookFlags.CanBeHitByProjectile) != 0) {
                     globalInstance.CanBeHitByProjectileOverrides.Add(overrideInstance);
                 }
             }

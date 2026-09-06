@@ -14,6 +14,34 @@ using static InnoVault.GameSystem.NPCOverride;
 namespace InnoVault.GameSystem
 {
     /// <summary>
+    /// 标记一个 <see cref="NPCOverride"/> 子类重写了哪些钩子，在加载期对模板预计算一次，
+    /// 生成 NPC 时直接读掩码分发，避免每次生成重复 HasOverride 查询（其内部每次调用都会分配一个绑定委托）
+    /// </summary>
+    [Flags]
+    internal enum NPCHookFlags : uint
+    {
+        None = 0,
+        AI = 1 << 0,
+        PostAI = 1 << 1,
+        On_PreKill = 1 << 2,
+        CheckActive = 1 << 3,
+        CheckDead = 1 << 4,
+        SpecialOnKill = 1 << 5,
+        On_CheckActive = 1 << 6,
+        Draw = 1 << 7,
+        PostDraw = 1 << 8,
+        FindFrame = 1 << 9,
+        ModifyNPCLoot = 1 << 10,
+        OnHitByItem = 1 << 11,
+        OnHitByProjectile = 1 << 12,
+        ModifyHitByItem = 1 << 13,
+        ModifyHitByProjectile = 1 << 14,
+        CanBeHitByItem = 1 << 15,
+        CanBeHitByNPC = 1 << 16,
+        CanBeHitByProjectile = 1 << 17,
+    }
+
+    /// <summary>
     /// 所有关于NPC行为覆盖和性质加载的钩子在此处挂载
     /// </summary>
     public class NPCRebuildLoader : GlobalNPC, IVaultLoader
@@ -51,6 +79,8 @@ namespace InnoVault.GameSystem
         public static MethodInfo onPostDraw_Method;
         public static MethodInfo onCheckDead_Method;
         public override bool InstancePerEntity => true;
+        //本次加载是否注册了任何重制节点，为假时所有 On_ 钩子直通原逻辑，免除每 NPC 每帧的空转查询
+        internal static bool hasAnyOverrides;
         private static readonly List<VaultHookMethodCache<NPCOverride>> hooks = [];
         internal static VaultHookMethodCache<NPCOverride> HookAI;
         internal static VaultHookMethodCache<NPCOverride> HookPostAI;
@@ -71,24 +101,44 @@ namespace InnoVault.GameSystem
         internal static VaultHookMethodCache<NPCOverride> HookCanBeHitByNPC;
         internal static VaultHookMethodCache<NPCOverride> HookCanBeHitByProjectile;
         public Dictionary<Type, NPCOverride> NPCOverrides { get; internal set; }
-        public List<NPCOverride> AIOverrides { get; private set; }
-        public List<NPCOverride> PostAIOverrides { get; private set; }
-        public List<NPCOverride> On_PreKillOverrides { get; private set; }
-        public List<NPCOverride> CheckActiveOverrides { get; private set; }
-        public List<NPCOverride> CheckDeadOverrides { get; private set; }
-        public List<NPCOverride> SpecialOnKillOverrides { get; private set; }
-        public List<NPCOverride> OnCheckActiveOverrides { get; private set; }
-        public List<NPCOverride> DrawOverrides { get; private set; }
-        public List<NPCOverride> PostDrawOverrides { get; private set; }
-        public List<NPCOverride> FindFrameOverrides { get; private set; }
-        public List<NPCOverride> ModifyNPCLootOverrides { get; private set; }
-        public List<NPCOverride> OnHitByItemOverrides { get; private set; }
-        public List<NPCOverride> OnHitByProjectileOverrides { get; private set; }
-        public List<NPCOverride> ModifyHitByItemOverrides { get; private set; }
-        public List<NPCOverride> ModifyHitByProjectileOverrides { get; private set; }
-        public List<NPCOverride> CanBeHitByItemOverrides { get; private set; }
-        public List<NPCOverride> CanBeHitByNPCOverrides { get; private set; }
-        public List<NPCOverride> CanBeHitByProjectileOverrides { get; private set; }
+        //以下 18 个列表按需惰性创建：多数重制节点只重写少数钩子，避免每次生成都分配 18 个空列表；
+        //内部分发直接读后备字段并判空，属性访问永不返回 null，公开 API 形状不变
+        private List<NPCOverride> aiOverrides;
+        private List<NPCOverride> postAIOverrides;
+        private List<NPCOverride> on_PreKillOverrides;
+        private List<NPCOverride> checkActiveOverrides;
+        private List<NPCOverride> checkDeadOverrides;
+        private List<NPCOverride> specialOnKillOverrides;
+        private List<NPCOverride> onCheckActiveOverrides;
+        private List<NPCOverride> drawOverrides;
+        private List<NPCOverride> postDrawOverrides;
+        private List<NPCOverride> findFrameOverrides;
+        private List<NPCOverride> modifyNPCLootOverrides;
+        private List<NPCOverride> onHitByItemOverrides;
+        private List<NPCOverride> onHitByProjectileOverrides;
+        private List<NPCOverride> modifyHitByItemOverrides;
+        private List<NPCOverride> modifyHitByProjectileOverrides;
+        private List<NPCOverride> canBeHitByItemOverrides;
+        private List<NPCOverride> canBeHitByNPCOverrides;
+        private List<NPCOverride> canBeHitByProjectileOverrides;
+        public List<NPCOverride> AIOverrides => aiOverrides ??= [];
+        public List<NPCOverride> PostAIOverrides => postAIOverrides ??= [];
+        public List<NPCOverride> On_PreKillOverrides => on_PreKillOverrides ??= [];
+        public List<NPCOverride> CheckActiveOverrides => checkActiveOverrides ??= [];
+        public List<NPCOverride> CheckDeadOverrides => checkDeadOverrides ??= [];
+        public List<NPCOverride> SpecialOnKillOverrides => specialOnKillOverrides ??= [];
+        public List<NPCOverride> OnCheckActiveOverrides => onCheckActiveOverrides ??= [];
+        public List<NPCOverride> DrawOverrides => drawOverrides ??= [];
+        public List<NPCOverride> PostDrawOverrides => postDrawOverrides ??= [];
+        public List<NPCOverride> FindFrameOverrides => findFrameOverrides ??= [];
+        public List<NPCOverride> ModifyNPCLootOverrides => modifyNPCLootOverrides ??= [];
+        public List<NPCOverride> OnHitByItemOverrides => onHitByItemOverrides ??= [];
+        public List<NPCOverride> OnHitByProjectileOverrides => onHitByProjectileOverrides ??= [];
+        public List<NPCOverride> ModifyHitByItemOverrides => modifyHitByItemOverrides ??= [];
+        public List<NPCOverride> ModifyHitByProjectileOverrides => modifyHitByProjectileOverrides ??= [];
+        public List<NPCOverride> CanBeHitByItemOverrides => canBeHitByItemOverrides ??= [];
+        public List<NPCOverride> CanBeHitByNPCOverrides => canBeHitByNPCOverrides ??= [];
+        public List<NPCOverride> CanBeHitByProjectileOverrides => canBeHitByProjectileOverrides ??= [];
         #endregion
 
         void IVaultLoader.LoadData() {
@@ -124,11 +174,48 @@ namespace InnoVault.GameSystem
             HookCanBeHitByNPC = AddHook<DelegateCanBeHitByNPC>(n => n.CanBeHitByNPC);
             HookCanBeHitByProjectile = AddHook<Func<Projectile, bool?>>(n => n.CanBeHitByProjectile);
 
+            //为每个模板实例预计算一次钩子重写掩码：HasOverride 每次调用都会分配绑定委托，
+            //只允许在加载期出现，生成 NPC 时直接读取克隆体上复制的掩码
+            (VaultHookMethodCache<NPCOverride> hook, NPCHookFlags flag)[] hookFlagPairs = [
+                (HookAI, NPCHookFlags.AI),
+                (HookPostAI, NPCHookFlags.PostAI),
+                (HookOn_PreKill, NPCHookFlags.On_PreKill),
+                (HookCheckActive, NPCHookFlags.CheckActive),
+                (HookCheckDead, NPCHookFlags.CheckDead),
+                (HookSpecialOnKill, NPCHookFlags.SpecialOnKill),
+                (HookOnCheckDead, NPCHookFlags.On_CheckActive),
+                (HookDraw, NPCHookFlags.Draw),
+                (HookPostDraw, NPCHookFlags.PostDraw),
+                (HookFindFrame, NPCHookFlags.FindFrame),
+                (HookModifyNPCLoot, NPCHookFlags.ModifyNPCLoot),
+                (HookOnHitByItem, NPCHookFlags.OnHitByItem),
+                (HookOnHitByProjectile, NPCHookFlags.OnHitByProjectile),
+                (HookModifyHitByItem, NPCHookFlags.ModifyHitByItem),
+                (HookModifyHitByProjectile, NPCHookFlags.ModifyHitByProjectile),
+                (HookCanBeHitByItem, NPCHookFlags.CanBeHitByItem),
+                (HookCanBeHitByNPC, NPCHookFlags.CanBeHitByNPC),
+                (HookCanBeHitByProjectile, NPCHookFlags.CanBeHitByProjectile),
+            ];
+            foreach (NPCOverride overrideInstance in Instances) {
+                NPCHookFlags flags = NPCHookFlags.None;
+                foreach ((VaultHookMethodCache<NPCOverride> hook, NPCHookFlags flag) in hookFlagPairs) {
+                    if (hook.HookOverrideQuery.HasOverride(overrideInstance)) {
+                        flags |= flag;
+                    }
+                }
+                overrideInstance.hookFlags = flags;
+            }
+
             //所有重制节点注册完毕后，按 FullName 字典序确定稳定的网络 ID（两端一致，免运行时重排）
             NPCOverrideNetWork.BuildStableIDs();
+
+            //记录本次加载是否存在任何重制节点，热路径钩子在无内容时整体直通原逻辑
+            hasAnyOverrides = ByID.Count > 0 || UniversalInstances.Count > 0;
         }
 
         void IVaultLoader.UnLoadData() {
+            hasAnyOverrides = false;
+            NPCOverride.FactoryCache.Clear();
             NPCOverrideNetWork.Clear();
             Instances?.Clear();
             OverrideIDToInstances?.Clear();
@@ -183,49 +270,51 @@ namespace InnoVault.GameSystem
 
         public override GlobalNPC Clone(NPC from, NPC to) {
             NPCRebuildLoader rebuildLoader = (NPCRebuildLoader)base.Clone(from, to);
-            //克隆时确保新的GlobalNPC实例拥有自己独立的列表集合
-            rebuildLoader.AIOverrides = [.. AIOverrides];
-            rebuildLoader.PostAIOverrides = [.. PostAIOverrides];
-            rebuildLoader.On_PreKillOverrides = [.. On_PreKillOverrides];
-            rebuildLoader.CheckActiveOverrides = [.. CheckActiveOverrides];
-            rebuildLoader.CheckDeadOverrides = [.. CheckDeadOverrides];
-            rebuildLoader.SpecialOnKillOverrides = [.. SpecialOnKillOverrides];
-            rebuildLoader.OnCheckActiveOverrides = [.. OnCheckActiveOverrides];
-            rebuildLoader.DrawOverrides = [.. DrawOverrides];
-            rebuildLoader.PostDrawOverrides = [.. PostDrawOverrides];
-            rebuildLoader.FindFrameOverrides = [.. FindFrameOverrides];
-            rebuildLoader.ModifyNPCLootOverrides = [.. ModifyNPCLootOverrides];
-            rebuildLoader.OnHitByItemOverrides = [.. OnHitByItemOverrides];
-            rebuildLoader.OnHitByProjectileOverrides = [.. OnHitByProjectileOverrides];
-            rebuildLoader.ModifyHitByItemOverrides = [.. ModifyHitByItemOverrides];
-            rebuildLoader.ModifyHitByProjectileOverrides = [.. ModifyHitByProjectileOverrides];
-            rebuildLoader.CanBeHitByItemOverrides = [.. CanBeHitByItemOverrides];
-            rebuildLoader.CanBeHitByNPCOverrides = [.. CanBeHitByNPCOverrides];
-            rebuildLoader.CanBeHitByProjectileOverrides = [.. CanBeHitByProjectileOverrides];
+            //克隆时确保新的GlobalNPC实例拥有自己独立的列表集合，空引用保持为空，按需再建
+            rebuildLoader.aiOverrides = CopyList(aiOverrides);
+            rebuildLoader.postAIOverrides = CopyList(postAIOverrides);
+            rebuildLoader.on_PreKillOverrides = CopyList(on_PreKillOverrides);
+            rebuildLoader.checkActiveOverrides = CopyList(checkActiveOverrides);
+            rebuildLoader.checkDeadOverrides = CopyList(checkDeadOverrides);
+            rebuildLoader.specialOnKillOverrides = CopyList(specialOnKillOverrides);
+            rebuildLoader.onCheckActiveOverrides = CopyList(onCheckActiveOverrides);
+            rebuildLoader.drawOverrides = CopyList(drawOverrides);
+            rebuildLoader.postDrawOverrides = CopyList(postDrawOverrides);
+            rebuildLoader.findFrameOverrides = CopyList(findFrameOverrides);
+            rebuildLoader.modifyNPCLootOverrides = CopyList(modifyNPCLootOverrides);
+            rebuildLoader.onHitByItemOverrides = CopyList(onHitByItemOverrides);
+            rebuildLoader.onHitByProjectileOverrides = CopyList(onHitByProjectileOverrides);
+            rebuildLoader.modifyHitByItemOverrides = CopyList(modifyHitByItemOverrides);
+            rebuildLoader.modifyHitByProjectileOverrides = CopyList(modifyHitByProjectileOverrides);
+            rebuildLoader.canBeHitByItemOverrides = CopyList(canBeHitByItemOverrides);
+            rebuildLoader.canBeHitByNPCOverrides = CopyList(canBeHitByNPCOverrides);
+            rebuildLoader.canBeHitByProjectileOverrides = CopyList(canBeHitByProjectileOverrides);
             rebuildLoader.NPCOverrides = NPCOverrides;
             return rebuildLoader;
         }
 
+        private static List<NPCOverride> CopyList(List<NPCOverride> overrides) => overrides is null ? null : [.. overrides];
+
         public void InitializeNPC() {
-            //当GlobalNPC实例被创建时，初始化它的列表字段
-            AIOverrides = [];
-            PostAIOverrides = [];
-            On_PreKillOverrides = [];
-            CheckActiveOverrides = [];
-            CheckDeadOverrides = [];
-            SpecialOnKillOverrides = [];
-            OnCheckActiveOverrides = [];
-            DrawOverrides = [];
-            PostDrawOverrides = [];
-            FindFrameOverrides = [];
-            ModifyNPCLootOverrides = [];
-            OnHitByItemOverrides = [];
-            OnHitByProjectileOverrides = [];
-            ModifyHitByItemOverrides = [];
-            ModifyHitByProjectileOverrides = [];
-            CanBeHitByItemOverrides = [];
-            CanBeHitByNPCOverrides = [];
-            CanBeHitByProjectileOverrides = [];
+            //当GlobalNPC实例被创建时，重置它的列表字段；列表由掩码命中的钩子在挂载实例时按需创建
+            aiOverrides = null;
+            postAIOverrides = null;
+            on_PreKillOverrides = null;
+            checkActiveOverrides = null;
+            checkDeadOverrides = null;
+            specialOnKillOverrides = null;
+            onCheckActiveOverrides = null;
+            drawOverrides = null;
+            postDrawOverrides = null;
+            findFrameOverrides = null;
+            modifyNPCLootOverrides = null;
+            onHitByItemOverrides = null;
+            onHitByProjectileOverrides = null;
+            modifyHitByItemOverrides = null;
+            modifyHitByProjectileOverrides = null;
+            canBeHitByItemOverrides = null;
+            canBeHitByNPCOverrides = null;
+            canBeHitByProjectileOverrides = null;
         }
 
         public override bool AppliesToEntity(NPC entity, bool lateInstantiation) => lateInstantiation && ByID.ContainsKey(entity.type);
@@ -273,65 +362,133 @@ namespace InnoVault.GameSystem
         }
 
         public override void SendExtraAI(NPC npc, BitWriter bitWriter, BinaryWriter binaryWriter) {
-            if (npc.TryGetOverride(out var values)) {
-                //写入重制实例的数量，防止两端不一致读取越界
-                binaryWriter.Write((byte)values.Count);
-                foreach (var overrideInstance in values.Values) {
-                    //必须写入 ID 以便接收端知道是哪个 Override
-                    binaryWriter.Write(overrideInstance.OverrideID);
-                    //每个 override 的负载用长度前缀包裹，使其自描述、可被接收端安全跳过，
-                    //避免两端 override 集合不一致时错位污染同一 NPC 后续 override 乃至其它 mod 的 ExtraAI 流
-                    //这里只同步最核心的热状态(ai)，不要塞入大数据
+            if (!npc.TryGetOverride(out var values)) {
+                binaryWriter.Write((byte)0);
+                return;
+            }
+
+            //写入重制实例的数量，防止两端不一致读取越界
+            binaryWriter.Write((byte)values.Count);
+            Stream stream = binaryWriter.BaseStream;
+            bool canSeek = stream.CanSeek;
+            foreach (var overrideInstance in values.Values) {
+                //必须写入 ID 以便接收端知道是哪个 Override
+                binaryWriter.Write(overrideInstance.OverrideID);
+                //每个 override 的负载用长度前缀包裹，使其自描述、可被接收端安全跳过，
+                //避免两端 override 集合不一致时错位污染同一 NPC 后续 override 乃至其它 mod 的 ExtraAI 流
+                //这里只同步最核心的热状态(ai)，不要塞入大数据
+                if (canSeek) {
+                    //可寻址流：先写长度占位，负载直接写入主流，写完回填实际长度，免除中间缓冲分配
+                    long lengthPos = stream.Position;
+                    binaryWriter.Write((ushort)0);
+                    long payloadStart = stream.Position;
+                    overrideInstance.NetSend(binaryWriter);
+                    long payloadEnd = stream.Position;
+                    long payloadLength = payloadEnd - payloadStart;
+                    if (payloadLength > ushort.MaxValue) {
+                        //长度前缀无法表达的超大负载按空负载回滚并报错，避免静默截断污染整个流；
+                        //Length 必须一并截断，否则打包端 ToArray 会把回滚区间的过期字节带上
+                        VaultMod.LoggerError("NPCOverride.SendExtraAI",
+                            $"NetSend payload too large ({payloadLength} bytes) from '{overrideInstance.FullName}', payload dropped.");
+                        stream.SetLength(payloadStart);
+                        stream.Position = payloadStart;
+                        continue;
+                    }
+                    stream.Position = lengthPos;
+                    binaryWriter.Write((ushort)payloadLength);
+                    stream.Position = payloadEnd;
+                }
+                else {
+                    //不可寻址流回退双缓冲路径
                     using MemoryStream ms = new();
                     using (BinaryWriter w = new(ms)) {
                         overrideInstance.NetSend(w);
                     }
                     byte[] payload = ms.ToArray();
+                    if (payload.Length > ushort.MaxValue) {
+                        VaultMod.LoggerError("NPCOverride.SendExtraAI",
+                            $"NetSend payload too large ({payload.Length} bytes) from '{overrideInstance.FullName}', payload dropped.");
+                        binaryWriter.Write((ushort)0);
+                        continue;
+                    }
                     binaryWriter.Write((ushort)payload.Length);
                     binaryWriter.Write(payload);
                 }
-            }
-            else {
-                binaryWriter.Write((byte)0);
             }
         }
 
         public override void ReceiveExtraAI(NPC npc, BitReader bitReader, BinaryReader binaryReader) {
             int count = binaryReader.ReadByte();
+            Stream stream = binaryReader.BaseStream;
+            bool canSeek = stream.CanSeek;
             for (int i = 0; i < count; i++) {
                 ushort id = binaryReader.ReadUInt16();
                 ushort len = binaryReader.ReadUInt16();
-                //先把负载完整读出，保证无论能否解析都对齐到下一块
-                byte[] payload = binaryReader.ReadBytes(len);
-                try {
-                    if (OverrideIDToType.TryGetValue(id, out var type)
-                        && npc.TryGetOverride(out var values)
-                        && values.TryGetValue(type, out var instance)) {
-                        using MemoryStream ms = new(payload);
-                        using BinaryReader r = new(ms);
-                        instance.NetReceive(r);
+
+                NPCOverride instance = null;
+                if (OverrideIDToType.TryGetValue(id, out var type)
+                    && npc.TryGetOverride(out var values)) {
+                    values.TryGetValue(type, out instance);
+                }
+
+                if (canSeek) {
+                    //可寻址流：原地读取负载，结束后强制对齐到块尾，无论解析成败都不会错位污染后续数据
+                    long end = stream.Position + len;
+                    try {
+                        if (instance != null) {
+                            instance.NetReceive(binaryReader);
+                            if (stream.Position != end) {
+                                //读取字节数与负载长度不符，说明两端 NetSend/NetReceive 不对称，对齐后继续
+                                VaultMod.LoggerError("NPCOverride.ReceiveExtraAI",
+                                    $"NetReceive of '{type?.FullName}' consumed {stream.Position - end + len} bytes, expected {len}; realigned.");
+                            }
+                        }
+                    } catch (Exception ex) {
+                        VaultMod.LoggerError("NPCOverride.ReceiveExtraAI", $"Failed to receive NPCOverride ExtraAI: {ex}");
+                    } finally {
+                        stream.Position = end;
                     }
-                } catch (Exception ex) {
-                    VaultMod.LoggerError("NPCOverride.ReceiveExtraAI", $"Failed to receive NPCOverride ExtraAI: {ex}");
+                }
+                else {
+                    //不可寻址流回退旧路径：先把负载完整读出，保证无论能否解析都对齐到下一块
+                    byte[] payload = binaryReader.ReadBytes(len);
+                    try {
+                        if (instance != null) {
+                            using MemoryStream ms = new(payload);
+                            using BinaryReader r = new(ms);
+                            instance.NetReceive(r);
+                        }
+                    } catch (Exception ex) {
+                        VaultMod.LoggerError("NPCOverride.ReceiveExtraAI", $"Failed to receive NPCOverride ExtraAI: {ex}");
+                    }
                 }
             }
         }
 
         public override void ModifyHitByItem(NPC npc, Player player, Item item, ref NPC.HitModifiers modifiers) {
-            foreach (var value in ModifyHitByItemOverrides) {
+            if (modifyHitByItemOverrides == null) {
+                return;
+            }
+            foreach (var value in modifyHitByItemOverrides) {
                 value.ModifyHitByItem(player, item, ref modifiers);
             }
         }
 
         public override void ModifyHitByProjectile(NPC npc, Projectile projectile, ref NPC.HitModifiers modifiers) {
-            foreach (var value in ModifyHitByProjectileOverrides) {
+            if (modifyHitByProjectileOverrides == null) {
+                return;
+            }
+            foreach (var value in modifyHitByProjectileOverrides) {
                 value.ModifyHitByProjectile(projectile, ref modifiers);
             }
         }
 
         public override bool CheckActive(NPC npc) {
+            if (checkActiveOverrides == null) {
+                return true;
+            }
             bool result = true;
-            foreach (var value in CheckActiveOverrides) {
+            foreach (var value in checkActiveOverrides) {
                 if (!value.CheckActive()) {
                     result = false;
                 }
@@ -467,8 +624,11 @@ namespace InnoVault.GameSystem
         }
 
         public override bool? CanBeHitByItem(NPC npc, Player player, Item item) {
+            if (canBeHitByItemOverrides == null) {
+                return null;
+            }
             bool? reset = null;
-            foreach (var value in CanBeHitByItemOverrides) {
+            foreach (var value in canBeHitByItemOverrides) {
                 bool? newReset = value.CanBeHitByItem(player, item);
                 if (newReset.HasValue) {
                     reset = newReset.Value;
@@ -481,8 +641,11 @@ namespace InnoVault.GameSystem
         }
 
         public override bool CanBeHitByNPC(NPC npc, NPC attacker) {
+            if (canBeHitByNPCOverrides == null) {
+                return true;
+            }
             bool? reset = null;
-            foreach (var value in CanBeHitByNPCOverrides) {
+            foreach (var value in canBeHitByNPCOverrides) {
                 bool? newReset = value.CanBeHitByNPC(attacker);
                 if (newReset.HasValue) {
                     reset = newReset.Value;
@@ -495,8 +658,11 @@ namespace InnoVault.GameSystem
         }
 
         public override bool? CanBeHitByProjectile(NPC npc, Projectile projectile) {
+            if (canBeHitByProjectileOverrides == null) {
+                return null;
+            }
             bool? reset = null;
-            foreach (var value in CanBeHitByProjectileOverrides) {
+            foreach (var value in canBeHitByProjectileOverrides) {
                 bool? newReset = value.CanBeHitByProjectile(projectile);
                 if (newReset.HasValue) {
                     reset = newReset.Value;
@@ -709,13 +875,13 @@ namespace InnoVault.GameSystem
         }
 
         public static bool OnPreKillHook(On_NPCDelegate2 orig, NPC npc) {
-            if (npc.type == NPCID.None || !npc.active) {
+            if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc);
             }
 
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc) && gNpc.on_PreKillOverrides != null) {
                 bool? result = null;
-                foreach (var value in gNpc.On_PreKillOverrides) {
+                foreach (var value in gNpc.on_PreKillOverrides) {
                     bool? newResult = value.On_PreKill();
                     if (newResult.HasValue) {
                         result = newResult.Value;
@@ -731,13 +897,13 @@ namespace InnoVault.GameSystem
         }
 
         public static bool OnCheckDeadHook(On_NPCDelegate2 orig, NPC npc) {
-            if (npc.type == NPCID.None || !npc.active) {
+            if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc);
             }
 
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc) && gNpc.checkDeadOverrides != null) {
                 bool? result = null;
-                foreach (var value in gNpc.CheckDeadOverrides) {
+                foreach (var value in gNpc.checkDeadOverrides) {
                     bool? newResult = value.CheckDead();
                     if (newResult.HasValue) {
                         result = newResult.Value;
@@ -751,13 +917,13 @@ namespace InnoVault.GameSystem
         }
 
         public static bool OnSpecialOnKillHook(On_NPCDelegate2 orig, NPC npc) {
-            if (npc.type == NPCID.None || !npc.active) {
+            if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc);
             }
 
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc) && gNpc.specialOnKillOverrides != null) {
                 bool? result = null;
-                foreach (var value in gNpc.SpecialOnKillOverrides) {
+                foreach (var value in gNpc.specialOnKillOverrides) {
                     bool? newResult = value.SpecialOnKill();
                     if (newResult.HasValue) {
                         result = newResult.Value;
@@ -771,13 +937,13 @@ namespace InnoVault.GameSystem
         }
 
         public static bool OnCheckActiveHook(On_NPCDelegate2 orig, NPC npc) {
-            if (npc.type == NPCID.None || !npc.active) {
+            if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc);
             }
 
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc) && gNpc.onCheckActiveOverrides != null) {
                 bool? result = null;
-                foreach (var value in gNpc.OnCheckActiveOverrides) {
+                foreach (var value in gNpc.onCheckActiveOverrides) {
                     bool? newResult = value.On_CheckActive();
                     if (newResult.HasValue) {
                         result = newResult.Value;
@@ -791,20 +957,30 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnNPCAIHook(On_NPCDelegate orig, NPC npc) {
-            if (npc.type == NPCID.None || !npc.active) {
+            if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 orig.Invoke(npc);
                 return;
             }
 
-            if (!UniversalForEach(npc, inds => inds.AI())) {
+            //这里是全 NPC 每帧路径，直接循环通用节点，绕开 UniversalForEach 的委托间接层
+            bool universalRunAI = true;
+            foreach (var inds in UniversalInstances) {
+                inds.UniversalSetNPCInstance(npc);
+                if (!inds.AI()) {
+                    universalRunAI = false;
+                }
+            }
+            if (!universalRunAI) {
                 return;
             }
 
             if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
                 bool result = true;
-                foreach (var value in gNpc.AIOverrides) {
-                    if (!value.AI()) {
-                        result = false;
+                if (gNpc.aiOverrides != null) {
+                    foreach (var value in gNpc.aiOverrides) {
+                        if (!value.AI()) {
+                            result = false;
+                        }
                     }
                 }
                 if (result) {
@@ -815,8 +991,10 @@ namespace InnoVault.GameSystem
                     }
                 }
 
-                foreach (var value in gNpc.PostAIOverrides) {
-                    value.PostAI();
+                if (gNpc.postAIOverrides != null) {
+                    foreach (var value in gNpc.postAIOverrides) {
+                        value.PostAI();
+                    }
                 }
 
                 //所有逻辑处理完成后，统一在服务端做一次网络同步，客户端无需空转遍历
@@ -830,17 +1008,20 @@ namespace InnoVault.GameSystem
                 orig.Invoke(npc);
             }
 
-            UniversalForEach(npc, inds => inds.PostAI());
+            foreach (var inds in UniversalInstances) {
+                inds.UniversalSetNPCInstance(npc);
+                inds.PostAI();
+            }
         }
 
         public static bool OnPreDrawHook(On_DrawDelegate orig, NPC npc, SpriteBatch spriteBatch, Vector2 screenPos, Color drawColor) {
-            if (npc.type == NPCID.None || !npc.active) {
+            if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc, spriteBatch, screenPos, drawColor);
             }
 
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc) && gNpc.drawOverrides != null) {
                 bool? result = null;
-                foreach (var value in gNpc.DrawOverrides) {
+                foreach (var value in gNpc.drawOverrides) {
                     bool? newResult = value.Draw(spriteBatch, screenPos, drawColor);
                     if (newResult.HasValue) {
                         result = newResult.Value;
@@ -859,9 +1040,9 @@ namespace InnoVault.GameSystem
                 return;
             }
 
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+            if (hasAnyOverrides && npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc) && gNpc.postDrawOverrides != null) {
                 bool reset = true;
-                foreach (var value in gNpc.PostDrawOverrides) {
+                foreach (var value in gNpc.postDrawOverrides) {
                     if (!value.PostDraw(spriteBatch, screenPos, drawColor)) {
                         reset = false;
                     }
@@ -875,9 +1056,14 @@ namespace InnoVault.GameSystem
         }
 
         public static void On_OnHitByItemHook(On_OnHitByItemDelegate orig, NPC npc, Player player, Item item, in NPC.HitInfo hit, int damageDone) {
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader rebuildLoader)) {
+            if (!hasAnyOverrides) {
+                orig.Invoke(npc, player, item, hit, damageDone);
+                return;
+            }
+
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader rebuildLoader) && rebuildLoader.onHitByItemOverrides != null) {
                 bool reset = true;
-                foreach (var inds in rebuildLoader.OnHitByItemOverrides) {
+                foreach (var inds in rebuildLoader.onHitByItemOverrides) {
                     if (!inds.On_OnHitByItem(player, item, hit, damageDone)) {
                         reset = false;
                     }
@@ -891,8 +1077,13 @@ namespace InnoVault.GameSystem
         }
 
         public static void On_OnHitByProjectileHook(On_OnHitByProjectileDelegate orig, NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone) {
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader rebuildLoader)) {
-                foreach (var inds in rebuildLoader.OnHitByProjectileOverrides) {
+            if (!hasAnyOverrides) {
+                orig.Invoke(npc, projectile, hit, damageDone);
+                return;
+            }
+
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader rebuildLoader) && rebuildLoader.onHitByProjectileOverrides != null) {
+                foreach (var inds in rebuildLoader.onHitByProjectileOverrides) {
                     if (!inds.DoHitByProjectileByInstance(projectile, in hit, damageDone)) {
                         return;
                     }
@@ -910,6 +1101,11 @@ namespace InnoVault.GameSystem
         }
 
         public static void ModifyIncomingHitHook(On_ModifyIncomingHitDelegate orig, NPC npc, ref NPC.HitModifiers modifiers) {
+            if (!hasAnyOverrides) {
+                orig.Invoke(npc, ref modifiers);
+                return;
+            }
+
             if (npc.TryGetOverride(out var npcOverrides)) {
                 foreach (var inds in npcOverrides.Values) {
                     if (!inds.DoModifyIncomingHitByInstance(ref modifiers)) {
@@ -929,14 +1125,14 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnFindFrameHook(On_FindFrameDelegate orig, NPC npc, int frameHeight) {
-            if (npc.type == NPCID.None || !npc.active) {
+            if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 orig.Invoke(npc, frameHeight);
                 return;
             }
 
-            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc)) {
+            if (npc.TryGetGlobalNPC(out NPCRebuildLoader gNpc) && gNpc.findFrameOverrides != null) {
                 bool reset = true;
-                foreach (var value in gNpc.FindFrameOverrides) {
+                foreach (var value in gNpc.findFrameOverrides) {
                     if (!value.FindFrame(frameHeight)) {
                         reset = false;
                     }
@@ -950,7 +1146,7 @@ namespace InnoVault.GameSystem
         }
 
         public static void OnSetChatButtonsHook(On_SetChatButtonsDelegate orig, ref string button, ref string button2) {
-            var npc = Main.LocalPlayer.TalkNPC;
+            NPC npc = hasAnyOverrides ? Main.LocalPlayer.TalkNPC : null;
             if (npc == null) {
                 orig.Invoke(ref button, ref button2);
                 return;
@@ -972,7 +1168,7 @@ namespace InnoVault.GameSystem
         }
 
         public static bool OnPreUsesPartyHatHook(On_NPCDelegate2 orig, NPC npc) {
-            if (npc.type == NPCID.None || !npc.active) {
+            if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc);
             }
 
@@ -995,7 +1191,7 @@ namespace InnoVault.GameSystem
         }
 
         public static bool OnUsesPartyHatHook(On_NPCDelegate2 orig, NPC npc) {
-            if (npc.type == NPCID.None || !npc.active) {
+            if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc);
             }
 
@@ -1019,7 +1215,7 @@ namespace InnoVault.GameSystem
 
         public static void OnDrawNPCHeadBossHook(On_Main.orig_DrawNPCHeadBoss orig, Entity theNPC, byte alpha
             , float headScale, float rotation, SpriteEffects effects, int bossHeadId, float x, float y) {
-            if (!theNPC.active || theNPC is not NPC npc) {
+            if (!hasAnyOverrides || !theNPC.active || theNPC is not NPC npc) {
                 orig.Invoke(theNPC, alpha, headScale, rotation, effects, bossHeadId, x, y);
                 return;
             }
@@ -1064,7 +1260,7 @@ namespace InnoVault.GameSystem
         }
 
         public static int OnGetBossHeadTextureIndexHook(On_NPC.orig_GetBossHeadTextureIndex orig, NPC npc) {
-            if (Main.gameMenu || !npc.active) {//不需要判定ID
+            if (!hasAnyOverrides || Main.gameMenu || !npc.active) {//不需要判定ID
                 return orig.Invoke(npc);
             }
 
@@ -1099,7 +1295,7 @@ namespace InnoVault.GameSystem
         }
 
         public static float OnGetBossHeadRotationHook(On_NPC.orig_GetBossHeadRotation orig, NPC npc) {
-            if (Main.gameMenu || !npc.active) {//不需要判定ID
+            if (!hasAnyOverrides || Main.gameMenu || !npc.active) {//不需要判定ID
                 return orig.Invoke(npc);
             }
 
@@ -1133,7 +1329,7 @@ namespace InnoVault.GameSystem
         }
 
         public static SpriteEffects OnGetBossHeadSpriteEffectsHook(On_NPC.orig_GetBossHeadSpriteEffects orig, NPC npc) {
-            if (Main.gameMenu || !npc.active) {//不需要判定ID
+            if (!hasAnyOverrides || Main.gameMenu || !npc.active) {//不需要判定ID
                 return orig.Invoke(npc);
             }
 

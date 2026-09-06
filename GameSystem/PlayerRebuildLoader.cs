@@ -103,6 +103,41 @@ namespace InnoVault.GameSystem
         private static PlayerOverride[] SnapshotOverrides(Dictionary<Type, PlayerOverride> dict)
             => dict == null || dict.Count == 0 ? [] : [.. dict.Values];
 
+        /// <summary>
+        /// 过滤掉 ModPlayer 列表尚未构建完成的玩家实例，返回一份稳定的绘制快照<br/>
+        /// 原版在处理玩家进服包(packet 14)时会直接以 <c>Main.player[i] = new Player()</c> 重建玩家实例，
+        /// 若该重建与绘制发生交叠(例如第三方服务端令客户端在网络线程上处理网络包)，
+        /// 绘制侧就可能拿到一个 <c>modPlayers</c> 仍为空数组的半构造实例，
+        /// 使 tML 的 PlayerLoader 钩子在按索引枚举 ModPlayer 时越界崩溃 (github issue #11)<br/>
+        /// 这里借助 <see cref="Player.TryGetModPlayer{T}(out T)"/> 自带的边界检查来判定实例是否可安全绘制，
+        /// 未就绪的玩家跳过本帧绘制，待其构建完成后自然恢复
+        /// </summary>
+        /// <param name="players">原定要绘制的玩家集合</param>
+        /// <returns>仅包含可安全绘制玩家的列表</returns>
+        internal static List<Player> FilterReadyPlayers(IEnumerable<Player> players) {
+            List<Player> result = [];
+            if (players == null) {
+                return result;
+            }
+
+            foreach (var player in players) {
+                if (player == null) {
+                    continue;
+                }
+
+                if (!player.TryGetModPlayer<PlayerRebuildLoader>(out _)) {
+                    VaultMod.LoggerError("PlayerRebuildLoader:FilterReadyPlayers"
+                        , $"Skipped drawing player #{player.whoAmI} '{player.name}': " +
+                        "its ModPlayer list is not ready yet (mid-construction player instance)");
+                    continue;
+                }
+
+                result.Add(player);
+            }
+
+            return result;
+        }
+
         void IVaultLoader.LoadData() {
             foreach (var playerOverride in VaultUtils.GetDerivedInstances<PlayerOverride>()) {
                 VaultTypeRegistry<PlayerOverride>.Register(playerOverride);
@@ -528,7 +563,8 @@ namespace InnoVault.GameSystem
                     return;
                 }
             }
-            orig.Invoke(self, camera, players);
+            //在交还给原版绘制前剔除半构造的玩家实例，防止 tML 的 ModPlayer 钩子枚举越界
+            orig.Invoke(self, camera, FilterReadyPlayers(players));
         }
 
         public override void ResetEffects() {

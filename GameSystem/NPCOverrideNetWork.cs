@@ -41,6 +41,7 @@ namespace InnoVault.GameSystem
             _eventBudgetTick.Clear();
             _eventBudgetCount.Clear();
             _deltaBaselines.Clear();
+            _deltaCandidates.Clear();
             _deltaStream.SetLength(0);
             _lastDeltaTick = -1;
         }
@@ -322,6 +323,8 @@ namespace InnoVault.GameSystem
 
         //client -> (key:(npcIndex << 16) | overrideID) -> baseline
         private static readonly Dictionary<int, Dictionary<int, DeltaBaseline>> _deltaBaselines = [];
+        //每次批处理前重建的流式同步候选缓存，避免按客户端数量重复全表扫描
+        private static readonly List<(NPC npc, NPCOverride ov)> _deltaCandidates = [];
         private static readonly MemoryStream _deltaStream = new();
         private static readonly BinaryWriter _deltaWriter = new(_deltaStream);
         private static long _lastDeltaTick = -1;
@@ -340,10 +343,28 @@ namespace InnoVault.GameSystem
             }
             _lastDeltaTick = tick;
 
+            //先单遍扫描收集启用流式同步的 (npc, override) 候选，空集时后续只做离线基线清理
+            _deltaCandidates.Clear();
+            for (int n = 0; n < Main.maxNPCs; n++) {
+                NPC npc = Main.npc[n];
+                if (!npc.Alives() || !npc.TryGetOverride(out var values)) {
+                    continue;
+                }
+                foreach (NPCOverride ov in values.Values) {
+                    if (ov.StreamNetDelta) {
+                        _deltaCandidates.Add((npc, ov));
+                    }
+                }
+            }
+
             for (int client = 0; client < Main.maxPlayers; client++) {
                 Player plr = Main.player[client];
                 if (plr == null || !plr.active) {
                     _deltaBaselines.Remove(client);
+                    continue;
+                }
+
+                if (_deltaCandidates.Count == 0) {
                     continue;
                 }
 
@@ -356,54 +377,42 @@ namespace InnoVault.GameSystem
                 _deltaStream.SetLength(0);
                 int count = 0;
 
-                for (int n = 0; n < Main.maxNPCs; n++) {
-                    NPC npc = Main.npc[n];
-                    if (!npc.Alives() || !npc.TryGetOverride(out var values)) {
+                foreach ((NPC npc, NPCOverride ov) in _deltaCandidates) {
+                    int key = (npc.whoAmI << 16) | ov.OverrideID;
+                    if (Vector2.DistanceSquared(npc.Center, center) > DeltaStreamRangeSq) {
+                        //离开范围：丢弃基线，下次进入范围自然全量补发
+                        baseForClient.Remove(key);
                         continue;
                     }
 
-                    bool inRange = Vector2.DistanceSquared(npc.Center, center) <= DeltaStreamRangeSq;
-                    foreach (NPCOverride ov in values.Values) {
-                        if (!ov.StreamNetDelta) {
-                            continue;
-                        }
+                    bool hasBase = baseForClient.TryGetValue(key, out DeltaBaseline entry);
+                    bool full = !hasBase || tick - entry.LastFullTick >= DeltaHeartbeatTicks;
+                    entry.Ai ??= new float[NPCOverride.MaxAISlot];
 
-                        int key = (n << 16) | ov.OverrideID;
-                        if (!inRange) {
-                            //离开范围：丢弃基线，下次进入范围自然全量补发
-                            baseForClient.Remove(key);
-                            continue;
+                    ushort mask = 0;
+                    for (int i = 0; i < NPCOverride.MaxAISlot; i++) {
+                        if (full || entry.Ai[i] != ov.ai[i]) {
+                            mask |= (ushort)(1 << i);
                         }
-
-                        bool hasBase = baseForClient.TryGetValue(key, out DeltaBaseline entry);
-                        bool full = !hasBase || tick - entry.LastFullTick >= DeltaHeartbeatTicks;
-                        entry.Ai ??= new float[NPCOverride.MaxAISlot];
-
-                        ushort mask = 0;
-                        for (int i = 0; i < NPCOverride.MaxAISlot; i++) {
-                            if (full || entry.Ai[i] != ov.ai[i]) {
-                                mask |= (ushort)(1 << i);
-                            }
-                        }
-                        if (mask == 0) {
-                            continue;
-                        }
-
-                        _deltaWriter.Write((short)n);
-                        _deltaWriter.Write(ov.OverrideID);
-                        _deltaWriter.Write(mask);
-                        for (int i = 0; i < NPCOverride.MaxAISlot; i++) {
-                            if ((mask & (1 << i)) != 0) {
-                                _deltaWriter.Write(ov.ai[i]);
-                                entry.Ai[i] = ov.ai[i];
-                            }
-                        }
-                        if (full) {
-                            entry.LastFullTick = tick;
-                        }
-                        baseForClient[key] = entry;
-                        count++;
                     }
+                    if (mask == 0) {
+                        continue;
+                    }
+
+                    _deltaWriter.Write((short)npc.whoAmI);
+                    _deltaWriter.Write(ov.OverrideID);
+                    _deltaWriter.Write(mask);
+                    for (int i = 0; i < NPCOverride.MaxAISlot; i++) {
+                        if ((mask & (1 << i)) != 0) {
+                            _deltaWriter.Write(ov.ai[i]);
+                            entry.Ai[i] = ov.ai[i];
+                        }
+                    }
+                    if (full) {
+                        entry.LastFullTick = tick;
+                    }
+                    baseForClient[key] = entry;
+                    count++;
                 }
 
                 if (count > 0) {
