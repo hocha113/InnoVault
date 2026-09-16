@@ -60,5 +60,9 @@ UI: {
 		BehaviorTreeOverlayText: Superposition arbre de comportement
 		TPForceSerialText: Forcer la mise à jour séquentielle
 		ActorForceSerialText: Forcer la mise à jour séquentielle
+		// Rig2DTabText: Rig2D
+		// Rig2DOverlayText: Skeleton Overlay
+		// Rig2DHotReloadText: Hot Reload .rig.json
+		// Rig2DReloadNowText: Reload All Rigs Now
 	}
 }

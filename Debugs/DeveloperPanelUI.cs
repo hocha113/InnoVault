@@ -110,6 +110,35 @@ namespace InnoVault.Debugs
         }
     }
 
+    internal class Rig2DDebugTab : DebugTab
+    {
+        public override string TabName => DeveloperPanelUI.Rig2DTabText?.Value ?? "Rig2D";
+        public override string TabIcon => "RG";
+
+        public override void Initialize() {
+            Checkboxes.Clear();
+            Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.Rig2DOverlayText?.Value ?? "Skeleton Overlay",
+                () => DebugSettings.Rig2DShowOverlay,
+                v => DebugSettings.Rig2DShowOverlay = v));
+            Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.Rig2DHotReloadText?.Value ?? "Hot Reload .rig.json",
+                () => DebugSettings.Rig2DHotReload,
+                v => DebugSettings.Rig2DHotReload = v));
+            //一次性动作：勾上即立刻重读全部有源文件的骨架资产，随后自动弹回
+            Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.Rig2DReloadNowText?.Value ?? "Reload All Rigs Now",
+                () => false,
+                v => {
+                    if (v) {
+                        int n = Rigs2D.Runtime.Rig2DSystem.ReloadAll();
+                        Main.NewText($"[Rig2D] reloaded {n} / {Rigs2D.Runtime.Rig2DSystem.WatchedCount}", 150, 220, 255);
+                    }
+                }));
+        }
+
+        public override void Reset() {
+            DebugSettings.ResetRig2D();
+        }
+    }
+
     internal class DebugCheckbox
     {
         public string Label;
@@ -222,7 +251,8 @@ namespace InnoVault.Debugs
 
     internal class DeveloperPanelUI : UIHandle, ILocalizedModType
     {
-        private const float PanelWidth = 400f;
+        //四页标签并排：宽度按最长页名（StateMachine）留足
+        private const float PanelWidth = 470f;
         private const float PanelHeight = 380f;
         private const float TabHeight = 35f;
         private const float TitleHeight = 45f;
@@ -280,6 +310,10 @@ namespace InnoVault.Debugs
         protected internal static LocalizedText StateMachineTabText;
         protected internal static LocalizedText StateMachineOverlayText;
         protected internal static LocalizedText BehaviorTreeOverlayText;
+        protected internal static LocalizedText Rig2DTabText;
+        protected internal static LocalizedText Rig2DOverlayText;
+        protected internal static LocalizedText Rig2DHotReloadText;
+        protected internal static LocalizedText Rig2DReloadNowText;
         protected internal static LocalizedText ResetText;
         protected internal static LocalizedText ResetAllText;
         protected internal static LocalizedText CloseText;
@@ -304,6 +338,10 @@ namespace InnoVault.Debugs
             StateMachineTabText = this.GetLocalization(nameof(StateMachineTabText), () => "StateMachine");
             StateMachineOverlayText = this.GetLocalization(nameof(StateMachineOverlayText), () => "FSM Overlay");
             BehaviorTreeOverlayText = this.GetLocalization(nameof(BehaviorTreeOverlayText), () => "BT Overlay");
+            Rig2DTabText = this.GetLocalization(nameof(Rig2DTabText), () => "Rig2D");
+            Rig2DOverlayText = this.GetLocalization(nameof(Rig2DOverlayText), () => "Skeleton Overlay");
+            Rig2DHotReloadText = this.GetLocalization(nameof(Rig2DHotReloadText), () => "Hot Reload .rig.json");
+            Rig2DReloadNowText = this.GetLocalization(nameof(Rig2DReloadNowText), () => "Reload All Rigs Now");
             ResetText = this.GetLocalization(nameof(ResetText), () => "Reset");
             ResetAllText = this.GetLocalization(nameof(ResetAllText), () => "Reset All");
             CloseText = this.GetLocalization(nameof(CloseText), () => "Close");
@@ -318,6 +356,7 @@ namespace InnoVault.Debugs
             tabs.Add(new TileProcessorDebugTab());
             tabs.Add(new ActorDebugTab());
             tabs.Add(new StateMachineDebugTab());
+            tabs.Add(new Rig2DDebugTab());
 
             foreach (var tab in tabs) {
                 tab.Initialize();

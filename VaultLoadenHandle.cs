@@ -6,48 +6,57 @@ using Terraria.ModLoader;
 namespace InnoVault
 {
     /// <summary>
-    /// ×Ô¶¨Òå×ÊÔ´¼ÓÔØÆ÷µÄ³éÏó»ùÀà
-    /// <br/>¼Ì³Ğ´ËÀà¿ÉÒÔÀ©Õ¹<see cref="VaultLoadenAttribute"/>±êÇ©ÏµÍ³Ö§³ÖµÄ×ÊÔ´ÀàĞÍ
-    /// <br/>ÏµÍ³»á×Ô¶¯É¨Ãè²¢×¢²áËùÓĞ¼Ì³Ğ´ËÀàµÄÊµÏÖ
+    /// è‡ªåŠ¨èµ„æºåŠ è½½å¤„ç†å™¨çš„æŠ½è±¡åŸºç±»
+    /// <br/>ç»§æ‰¿æ­¤ç±»ä»¥æ‰©å±•<see cref="VaultLoadenAttribute"/>æ ‡ç­¾ç³»ç»Ÿæ”¯æŒçš„èµ„æºç±»å‹
+    /// <br/>ç³»ç»Ÿä¼šè‡ªåŠ¨æ‰«æå¹¶æ³¨å†Œæ‰€æœ‰ç»§æ‰¿æ­¤ç±»çš„å®ä¾‹
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <b>ÉúÃüÖÜÆÚ</b>
+    /// <b>å·¥ä½œæµç¨‹</b>
     /// <list type="bullet">
-    ///   <item>¼ÓÔØÆ÷ÊµÀıÔÚÄ£×é¼ÓÔØÊ±×Ô¶¯´´½¨²¢×¢²áµ½<see cref="VaultLoadenHandleManager"/></item>
-    ///   <item>ÔÚ×ÊÔ´¼ÓÔØ½×¶Î£¬ÏµÍ³»á¸ù¾İ³ÉÔ±ÀàĞÍ²éÕÒÆ¥ÅäµÄ¼ÓÔØÆ÷</item>
-    ///   <item>Ä£×éĞ¶ÔØÊ±¼ÓÔØÆ÷»á±»×Ô¶¯ÇåÀí</item>
+    ///   <item>åŠ è½½å™¨å®ä¾‹åœ¨æ¨¡å—å¯åŠ¨æ—¶è‡ªåŠ¨åˆ›å»ºå¹¶æ³¨å†Œåˆ°<see cref="VaultLoadenHandleManager"/></item>
+    ///   <item>åœ¨èµ„æºåŠ è½½é˜¶æ®µï¼Œç³»ç»Ÿæ ¹æ®æˆå‘˜ç±»å‹å’Œæ ‡ç­¾åŒ¹é…åŠ è½½å™¨</item>
+    ///   <item>æ¨¡å—å¸è½½æ—¶ï¼ŒåŠ è½½å™¨ä¼šè¢«è‡ªåŠ¨æ¸…ç†</item>
     /// </list>
     /// </para>
     /// </remarks>
     public abstract class VaultLoadenHandle
     {
         /// <summary>
-        /// ´Ë¼ÓÔØÆ÷ËùÊôµÄÄ£×éÊµÀı£¬ÓÉÏµÍ³×Ô¶¯ÉèÖÃ
+        /// æ­¤åŠ è½½å™¨æ‰€å±çš„æ¨¡å—å®ä¾‹ï¼Œç”±ç³»ç»Ÿè‡ªåŠ¨è®¾ç½®
         /// </summary>
         public Mod Mod { get; internal set; }
         /// <summary>
-        /// ´Ë¼ÓÔØÆ÷Ö§³ÖµÄÄ¿±êÀàĞÍ
-        /// <br/>ÏµÍ³»á¸ù¾İ´ËÀàĞÍÀ´Æ¥ÅäĞèÒª¼ÓÔØµÄ³ÉÔ±
+        /// æ­¤åŠ è½½å™¨æ”¯æŒçš„ç›®æ ‡ç±»å‹
+        /// <br/>ç³»ç»Ÿæ ¹æ®æ­¤ç±»å‹åŒ¹é…éœ€è¦åŠ è½½çš„æˆå‘˜
         /// </summary>
         public abstract Type TargetType { get; }
         /// <summary>
-        /// ¼ÓÔØÆ÷µÄÓÅÏÈ¼¶£¬ÊıÖµÔ½´óÓÅÏÈ¼¶Ô½¸ß
-        /// <br/>µ±¶à¸ö¼ÓÔØÆ÷¿ÉÒÔ´¦ÀíÍ¬Ò»ÀàĞÍÊ±£¬ÓÅÏÈÊ¹ÓÃ¸ßÓÅÏÈ¼¶µÄ¼ÓÔØÆ÷
-        /// <br/>ÄÚÖÃ¼ÓÔØÆ÷µÄÓÅÏÈ¼¶Îª0£¬×Ô¶¨Òå¼ÓÔØÆ÷½¨ÒéÊ¹ÓÃÕıÊı
+        /// åŠ è½½å™¨çš„ä¼˜å…ˆçº§ï¼Œæ•°å€¼è¶Šå¤§ä¼˜å…ˆçº§è¶Šé«˜
+        /// <br/>å½“å¤šä¸ªåŠ è½½å™¨æ”¯æŒåŒä¸€ç±»å‹æ—¶ï¼Œå°†ä¼˜å…ˆä½¿ç”¨é«˜ä¼˜å…ˆçº§çš„åŠ è½½å™¨
+        /// <br/>æœªè®¾ç½®æ—¶ï¼Œé»˜è®¤ä¼˜å…ˆçº§ä¸º0ï¼Œè‡ªåŠ¨åŠ è½½å™¨é€šå¸¸ä½¿ç”¨æ­¤å€¼
         /// </summary>
         public virtual int Priority => 0;
         /// <summary>
-        /// ÊÇ·ñÖ§³ÖÊı×é»òÁĞ±íĞÎÊ½µÄÅúÁ¿¼ÓÔØ
-        /// <br/>Èç¹û·µ»Ø<see langword="true"/>£¬ÏµÍ³»á×Ô¶¯´¦Àí¸ÃÀàĞÍµÄÊı×éºÍÁĞ±í¼ÓÔØ
+        /// æ˜¯å¦æ”¯æŒä»¥æ•°ç»„åˆ—è¡¨çš„å½¢å¼æ‰¹é‡åŠ è½½
+        /// <br/>è‹¥è¿”å›<see langword="true"/>ï¼Œç³»ç»Ÿä¼šè‡ªåŠ¨å°†æ•°ç»„ç±»å‹çš„æˆå‘˜åˆ—è¡¨åŠ è½½
         /// </summary>
         public virtual bool SupportArrayLoading => true;
         /// <summary>
-        /// ¼ì²é´Ë¼ÓÔØÆ÷ÊÇ·ñ¿ÉÒÔ´¦ÀíÖ¸¶¨µÄÀàĞÍ
-        /// <br/>Ä¬ÈÏÊµÏÖ»á¼ì²éÀàĞÍÊÇ·ñÓë<see cref="TargetType"/>ÍêÈ«Æ¥Åä»òÊÇÆä×ÓÀà
+        /// æ˜¯å¦åœ¨ä¸“ç”¨æœåŠ¡å™¨ä¸Šä¹Ÿæ‰§è¡ŒåŠ è½½
+        /// <br/>é»˜è®¤<see langword="false"/>ï¼šå¦‚å›¾åƒã€ç‰¹æ•ˆã€å£°éŸ³ç­‰ä¸€èˆ¬åªæœ‰å®¢æˆ·ç«¯éœ€è¦çš„èµ„æºï¼Œåœ¨æœåŠ¡å™¨ä¸Šä¸å­˜åœ¨
+        /// <br/>å¦‚æœ"æœåŠ¡å™¨å…±ç”¨çš„èµ„æº"ï¼ˆåŠ è½½å™¨æ˜¯æ¶æ„ç±»ã€é…ç½®è¡¨æˆ–è€…å¯æ§æ•°æ®ç­‰ï¼‰ï¼Œè¯·å†™ä¸º<see langword="true"/>ã€‚
+        /// è¿™æ ·åœ¨ <c>PostSetupContent</c> è¿›è¡ŒåŒä¸€è½® <see cref="VaultLoadenAttribute"/> æ‰«æï¼Œ
+        /// ä½†åªä¼šè·³è¿‡æ ‡è®°äº†æœåŠ¡å™¨çš„æˆå‘˜ï¼Œè®©è¿™äº›æˆå‘˜åœ¨æœåŠ¡å™¨ä¸Šä¿æŒé»˜è®¤å€¼
+        /// <br/>è‹¥å†™ä¸ºçœŸï¼šå®ç°æ—¶è¯·è‡ªå·±ä¿è¯ <see cref="HandleLoad"/> åœ¨ <c>Main.dedServ</c> ä¸‹ä¸è°ƒç”¨ GPU èµ„æºæˆ– <c>Assets.Request</c>
         /// </summary>
-        /// <param name="type">Òª¼ì²éµÄÀàĞÍ</param>
-        /// <returns>Èç¹û¿ÉÒÔ´¦Àí·µ»Ø<see langword="true"/></returns>
+        public virtual bool LoadOnServer => false;
+        /// <summary>
+        /// åˆ¤æ–­æ­¤åŠ è½½å™¨æ˜¯å¦èƒ½å¤„ç†æŒ‡å®šçš„ç±»å‹
+        /// <br/>é»˜è®¤å®ç°ä¼šæ£€æŸ¥ç±»å‹æ˜¯å¦æ˜¯<see cref="TargetType"/>çš„å®Œå…¨åŒ¹é…æˆ–æ´¾ç”Ÿç±»
+        /// </summary>
+        /// <param name="type">è¦æ£€æŸ¥çš„ç±»å‹</param>
+        /// <returns>å¦‚æœèƒ½å¤„ç†åˆ™è¿”å›<see langword="true"/></returns>
         public virtual bool CanHandle(Type type) {
             if (type == null || TargetType == null) {
                 return false;
@@ -55,27 +64,27 @@ namespace InnoVault
             return TargetType.IsAssignableFrom(type) || type == TargetType;
         }
         /// <summary>
-        /// ¼ì²é´Ë¼ÓÔØÆ÷ÊÇ·ñ¿ÉÒÔ´¦ÀíÖ¸¶¨ÀàĞÍµÄÊı×é»òÁĞ±íÔªËØ
-        /// <br/>ÓÃÓÚÊı×éÅúÁ¿¼ÓÔØÊ±µÄÀàĞÍÆ¥Åä
+        /// åˆ¤æ–­æ­¤åŠ è½½å™¨æ˜¯å¦èƒ½å¤„ç†æŒ‡å®šç±»å‹çš„æ•°ç»„åˆ—è¡¨å…ƒç´ 
+        /// <br/>ç”¨äºå¤„ç†æ•°ç»„æˆå‘˜æ—¶çš„ç±»å‹åŒ¹é…
         /// </summary>
-        /// <param name="elementType">Êı×é»òÁĞ±íµÄÔªËØÀàĞÍ</param>
-        /// <returns>Èç¹û¿ÉÒÔ´¦Àí·µ»Ø<see langword="true"/></returns>
+        /// <param name="elementType">æ•°ç»„åˆ—è¡¨çš„å…ƒç´ ç±»å‹</param>
+        /// <returns>å¦‚æœèƒ½å¤„ç†åˆ™è¿”å›<see langword="true"/></returns>
         public virtual bool CanHandleArrayElement(Type elementType) {
             return SupportArrayLoading && CanHandle(elementType);
         }
         /// <summary>
-        /// ¼ÓÔØ×ÊÔ´µÄºËĞÄ·½·¨
+        /// åŠ è½½èµ„æºçš„æ ¸å¿ƒæ–¹æ³•
         /// </summary>
-        /// <param name="member">Òª¼ÓÔØ×ÊÔ´µÄ³ÉÔ±(×Ö¶Î»òÊôĞÔ)</param>
-        /// <param name="attribute">³ÉÔ±ÉÏµÄ<see cref="VaultLoadenAttribute"/>±êÇ©</param>
-        /// <returns>¼ÓÔØºóµÄ×ÊÔ´¶ÔÏó</returns>
+        /// <param name="member">è¦åŠ è½½èµ„æºçš„æˆå‘˜(å­—æ®µæˆ–å±æ€§)</param>
+        /// <param name="attribute">æˆå‘˜ä¸Šçš„<see cref="VaultLoadenAttribute"/>æ ‡ç­¾</param>
+        /// <returns>è¿”å›åŠ è½½çš„èµ„æºå¯¹è±¡</returns>
         public abstract object HandleLoad(MemberInfo member, VaultLoadenAttribute attribute);
         /// <summary>
-        /// »ñÈ¡´ËÀàĞÍµÄÄ¬ÈÏÖµ£¬ÓÃÓÚµ±×ÊÔ´¼ÓÔØÊ§°Ü»òÄ£×éÎ´ÆôÓÃÊ±
-        /// <br/>Ä¬ÈÏ·µ»Ø<see langword="null"/>£¬¶ÔÓÚÖµÀàĞÍ»á·µ»ØÆäÄ¬ÈÏÖµ
+        /// è·å–è¯¥ç±»å‹çš„é»˜è®¤å€¼ï¼Œç”¨äºå½“èµ„æºåŠ è½½å¤±è´¥æˆ–æ¨¡å—æœªåŠ è½½æ—¶
+        /// <br/>é»˜è®¤è¿”å›<see langword="null"/>ï¼Œå€¼ç±»å‹ä¼šè¿”å›å…¶é»˜è®¤å€¼
         /// </summary>
-        /// <param name="type">Ä¿±êÀàĞÍ</param>
-        /// <returns>¸ÃÀàĞÍµÄÄ¬ÈÏÖµ</returns>
+        /// <param name="type">ç›®æ ‡ç±»å‹</param>
+        /// <returns>è¯¥ç±»å‹çš„é»˜è®¤å€¼</returns>
         public virtual object GetDefaultValue(Type type) {
             if (type.IsValueType) {
                 return Activator.CreateInstance(type);
@@ -83,62 +92,62 @@ namespace InnoVault
             return null;
         }
         /// <summary>
-        /// Ğ¶ÔØ×ÊÔ´Ê±µÄÇåÀíÂß¼­
-        /// <br/>Ä¬ÈÏ²»Ö´ĞĞÈÎºÎ²Ù×÷£¬×ÓÀà¿ÉÒÔÖØĞ´ÒÔÊµÏÖ×Ô¶¨ÒåÇåÀí
+        /// å¸è½½èµ„æºæ—¶çš„æ¸…ç†é€»è¾‘
+        /// <br/>é»˜è®¤ä¸æ‰§è¡Œä»»ä½•æ“ä½œï¼Œå­ç±»å¯ä»¥é‡å†™å®ç°è‡ªå®šä¹‰æ¸…ç†
         /// </summary>
-        /// <param name="member">ÒªĞ¶ÔØ×ÊÔ´µÄ³ÉÔ±</param>
-        /// <param name="currentValue">µ±Ç°µÄÖµ</param>
+        /// <param name="member">è¦å¸è½½èµ„æºçš„æˆå‘˜</param>
+        /// <param name="currentValue">å½“å‰çš„å€¼</param>
         public virtual void HandleUnload(MemberInfo member, object currentValue) {
-            //Ä¬ÈÏ²»Ö´ĞĞÈÎºÎ²Ù×÷£¬×ÓÀà¿ÉÒÔÖØĞ´ÒÔÊµÏÖ×Ô¶¨ÒåÇåÀí
+            //é»˜è®¤ä¸æ‰§è¡Œä»»ä½•æ“ä½œï¼Œå­ç±»å¯ä»¥é‡å†™å®ç°è‡ªå®šä¹‰æ¸…ç†
         }
         /// <summary>
-        /// ¼ÓÔØÆ÷³õÊ¼»¯Ê±µ÷ÓÃ
-        /// <br/>¿ÉÒÔÔÚ´Ë·½·¨ÖĞ½øĞĞÒ»Ğ©³õÊ¼»¯²Ù×÷
+        /// åŠ è½½å™¨åˆå§‹åŒ–æ—¶è°ƒç”¨
+        /// <br/>å¯ä»¥åœ¨æ­¤æ–¹æ³•ä¸­è¿›è¡Œä¸€äº›åˆå§‹åŒ–å·¥ä½œ
         /// </summary>
         public virtual void OnInitialize() {
         }
         /// <summary>
-        /// ¼ÓÔØÆ÷±»Ğ¶ÔØÊ±µ÷ÓÃ
-        /// <br/>¿ÉÒÔÔÚ´Ë·½·¨ÖĞ½øĞĞÒ»Ğ©ÇåÀí²Ù×÷
+        /// åŠ è½½å™¨å¸è½½æ—¶è°ƒç”¨
+        /// <br/>å¯ä»¥åœ¨æ­¤æ–¹æ³•ä¸­è¿›è¡Œä¸€äº›æ¸…ç†å·¥ä½œ
         /// </summary>
         public virtual void OnDispose() {
         }
     }
 
     /// <summary>
-    /// ¹ÜÀíËùÓĞ×Ô¶¨Òå×ÊÔ´¼ÓÔØÆ÷µÄ¾²Ì¬Àà
-    /// <br/>¸ºÔğ¼ÓÔØÆ÷µÄ×¢²á¡¢²éÕÒºÍÉúÃüÖÜÆÚ¹ÜÀí
+    /// ç®¡ç†æ‰€æœ‰è‡ªåŠ¨èµ„æºåŠ è½½å¤„ç†å™¨çš„é™æ€ç±»
+    /// <br/>è´Ÿè´£åŠ è½½å™¨çš„æ³¨å†Œã€æŸ¥æ‰¾å’Œç”Ÿå‘½å‘¨æœŸç®¡ç†
     /// </summary>
     public static class VaultLoadenHandleManager
     {
         private static readonly List<VaultLoadenHandle> _loaders = [];
         private static bool _initialized = false;
         /// <summary>
-        /// ËùÓĞÒÑ×¢²áµÄ¼ÓÔØÆ÷ÊµÀı(Ö»¶Á)
+        /// æ‰€æœ‰å·²æ³¨å†Œçš„åŠ è½½å™¨å®ä¾‹(åªè¯»)
         /// </summary>
         public static IReadOnlyList<VaultLoadenHandle> Loaders => _loaders;
         /// <summary>
-        /// ×¢²áÒ»¸ö×Ô¶¨Òå¼ÓÔØÆ÷
+        /// æ³¨å†Œä¸€ä¸ªè‡ªå®šä¹‰åŠ è½½å™¨
         /// </summary>
-        /// <param name="loader">Òª×¢²áµÄ¼ÓÔØÆ÷ÊµÀı</param>
+        /// <param name="loader">è¦æ³¨å†Œçš„åŠ è½½å™¨å®ä¾‹</param>
         public static void Register(VaultLoadenHandle loader) {
             if (loader == null) {
                 return;
             }
-            //¼ì²éÊÇ·ñÒÑ´æÔÚÏàÍ¬ÀàĞÍµÄ¼ÓÔØÆ÷
+            //æ£€æŸ¥æ˜¯å¦å·²å­˜åœ¨ç›¸åŒç±»å‹çš„åŠ è½½å™¨
             for (int i = 0; i < _loaders.Count; i++) {
                 if (_loaders[i].GetType() == loader.GetType()) {
-                    return;//ÒÑ´æÔÚ£¬²»ÖØ¸´×¢²á
+                    return;//å·²å­˜åœ¨ï¼Œä¸é‡å¤æ³¨å†Œ
                 }
             }
             _loaders.Add(loader);
-            //°´ÓÅÏÈ¼¶ÅÅĞò£¬¸ßÓÅÏÈ¼¶ÔÚÇ°
+            //æŒ‰ä¼˜å…ˆçº§æ’åºï¼Œé«˜ä¼˜å…ˆçº§åœ¨å‰
             _loaders.Sort((a, b) => b.Priority.CompareTo(a.Priority));
         }
         /// <summary>
-        /// ×¢ÏúÒ»¸ö×Ô¶¨Òå¼ÓÔØÆ÷
+        /// æ³¨é”€ä¸€ä¸ªè‡ªå®šä¹‰åŠ è½½å™¨
         /// </summary>
-        /// <param name="loader">Òª×¢ÏúµÄ¼ÓÔØÆ÷ÊµÀı</param>
+        /// <param name="loader">è¦æ³¨é”€çš„åŠ è½½å™¨å®ä¾‹</param>
         public static void Unregister(VaultLoadenHandle loader) {
             if (loader == null) {
                 return;
@@ -146,10 +155,10 @@ namespace InnoVault
             _loaders.Remove(loader);
         }
         /// <summary>
-        /// ²éÕÒ¿ÉÒÔ´¦ÀíÖ¸¶¨ÀàĞÍµÄ¼ÓÔØÆ÷
+        /// æŸ¥æ‰¾å¯ä»¥å¤„ç†æŒ‡å®šç±»å‹çš„åŠ è½½å™¨
         /// </summary>
-        /// <param name="type">Òª´¦ÀíµÄÀàĞÍ</param>
-        /// <returns>ÕÒµ½µÄ¼ÓÔØÆ÷£¬Èç¹ûÃ»ÓĞÔò·µ»Ø<see langword="null"/></returns>
+        /// <param name="type">è¦å¤„ç†çš„ç±»å‹</param>
+        /// <returns>æ‰¾åˆ°çš„åŠ è½½å™¨ï¼Œå¦‚æœæ²¡æœ‰åˆ™è¿”å›<see langword="null"/></returns>
         public static VaultLoadenHandle FindLoader(Type type) {
             foreach (var loader in _loaders) {
                 if (loader.CanHandle(type)) {
@@ -159,10 +168,10 @@ namespace InnoVault
             return null;
         }
         /// <summary>
-        /// ²éÕÒ¿ÉÒÔ´¦ÀíÖ¸¶¨Êı×éÔªËØÀàĞÍµÄ¼ÓÔØÆ÷
+        /// æŸ¥æ‰¾å¯ä»¥å¤„ç†æŒ‡å®šæ•°ç»„å…ƒç´ ç±»å‹çš„åŠ è½½å™¨
         /// </summary>
-        /// <param name="elementType">Êı×é»òÁĞ±íµÄÔªËØÀàĞÍ</param>
-        /// <returns>ÕÒµ½µÄ¼ÓÔØÆ÷£¬Èç¹ûÃ»ÓĞÔò·µ»Ø<see langword="null"/></returns>
+        /// <param name="elementType">æ•°ç»„åˆ—è¡¨çš„å…ƒç´ ç±»å‹</param>
+        /// <returns>æ‰¾åˆ°çš„åŠ è½½å™¨ï¼Œå¦‚æœæ²¡æœ‰åˆ™è¿”å›<see langword="null"/></returns>
         public static VaultLoadenHandle FindArrayElementLoader(Type elementType) {
             foreach (var loader in _loaders) {
                 if (loader.CanHandleArrayElement(elementType)) {
@@ -172,14 +181,35 @@ namespace InnoVault
             return null;
         }
         /// <summary>
-        /// ³õÊ¼»¯¼ÓÔØÆ÷¹ÜÀíÆ÷£¬É¨Ãè²¢×¢²áËùÓĞ×Ô¶¨Òå¼ÓÔØÆ÷
+        /// æŸæˆå‘˜ç±»å‹ï¼ˆæœ¬ä½“ç±»å‹ / åˆ—è¡¨ç±»å‹ï¼‰æ˜¯å¦ç”±å¸¦æœ‰ <see cref="VaultLoadenHandle.LoadOnServer"/> çš„åŠ è½½å™¨å¤„ç†
+        /// <br/>ä¸“ç”¨æœåŠ¡å™¨ä¸Šçš„ <see cref="VaultLoadenAttribute"/> æ‰«æä¾æ­¤å†³å®šè·³è¿‡å“ªäº›æˆå‘˜
+        /// </summary>
+        /// <param name="type">æˆå‘˜æœ¬èº«çš„ç±»å‹</param>
+        /// <returns>åŠ è½½å™¨æ˜¯å¦åº”å½“åŠ è½½</returns>
+        public static bool IsServerLoadable(Type type) {
+            if (type == null) {
+                return false;
+            }
+            VaultLoadenHandle loader = FindLoader(type);
+            if (loader != null) {
+                return loader.LoadOnServer;
+            }
+            Type elementType = VaultLoad.GetArrayElementType(type);
+            if (elementType != null) {
+                VaultLoadenHandle arrayLoader = FindArrayElementLoader(elementType);
+                return arrayLoader != null && arrayLoader.LoadOnServer;
+            }
+            return false;
+        }
+        /// <summary>
+        /// åˆå§‹åŒ–ç®¡ç†å™¨ï¼šæ‰«æå¹¶æ³¨å†Œæ‰€æœ‰è‡ªå®šä¹‰åŠ è½½å™¨
         /// </summary>
         internal static void Initialize() {
             if (_initialized) {
                 return;
             }
             _initialized = true;
-            //É¨ÃèËùÓĞÄ£×éÖĞ¼Ì³ĞVaultAssetLoaderµÄÀàĞÍ²¢´´½¨ÊµÀı
+            //æ‰«ææ‰€æœ‰æ¨¡å—ä¸­ç»§æ‰¿VaultAssetLoaderçš„ç±»å‹å¹¶åˆ›å»ºå®ä¾‹
             foreach (var type in VaultUtils.GetDerivedTypes<VaultLoadenHandle>()) {
                 try {
                     var loader = (VaultLoadenHandle)Activator.CreateInstance(type);
@@ -193,7 +223,7 @@ namespace InnoVault
             }
         }
         /// <summary>
-        /// ÇåÀíËùÓĞÒÑ×¢²áµÄ¼ÓÔØÆ÷
+        /// æ¸…ç†æ‰€æœ‰å·²æ³¨å†Œçš„åŠ è½½å™¨
         /// </summary>
         internal static void Unload() {
             foreach (var loader in _loaders) {

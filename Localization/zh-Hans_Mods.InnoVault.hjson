@@ -60,5 +60,9 @@ UI: {
 		BehaviorTreeOverlayText: 行为树叠层
 		TPForceSerialText: 强制串行更新
 		ActorForceSerialText: 强制串行更新
+		// Rig2DTabText: Rig2D
+		// Rig2DOverlayText: Skeleton Overlay
+		// Rig2DHotReloadText: Hot Reload .rig.json
+		// Rig2DReloadNowText: Reload All Rigs Now
 	}
 }

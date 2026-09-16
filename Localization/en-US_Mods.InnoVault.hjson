@@ -60,5 +60,9 @@ UI: {
 		BehaviorTreeOverlayText: BT Overlay
 		TPForceSerialText: Force Serial Update
 		ActorForceSerialText: Force Serial Update
+		Rig2DTabText: Rig2D
+		Rig2DOverlayText: Skeleton Overlay
+		Rig2DHotReloadText: Hot Reload .rig.json
+		Rig2DReloadNowText: Reload All Rigs Now
 	}
 }

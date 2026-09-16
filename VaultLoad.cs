@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
+using Terraria;
 using Terraria.Audio;
 using Terraria.Graphics.Effects;
 using Terraria.Graphics.Shaders;
@@ -90,6 +91,11 @@ namespace InnoVault
             LoadenContent = true;
         }
 
+        /// <summary>
+        /// 扫描全部模组程序集并加载 <see cref="VaultLoadenAttribute"/> 标记的成员
+        /// <br/>两端都会调用：专用服务器上只放行由声明了 <see cref="VaultLoadenHandle.LoadOnServer"/> 的
+        /// 自定义加载器负责的成员（两端共用的数据资产），贴图 / 音效 / 着色器与其余成员静默跳过、保持默认值
+        /// </summary>
         internal static void LoadAsset() {
             //初始化自定义加载器管理器
             VaultLoadenHandleManager.Initialize();
@@ -99,6 +105,23 @@ namespace InnoVault
                 ProcessTypeAssets(t, load: true);
             }
             ProcessedTypes.Clear();
+        }
+
+        /// <summary>
+        /// 当前环境下该成员是否应当真正执行加载：客户端一律放行；专用服务器只放行服务端可加载的自定义类型
+        /// </summary>
+        internal static bool ShouldLoadHere(Type valueType, AssetMode declaredMode) {
+            if (!Main.dedServ) {
+                return true;
+            }
+            AssetMode mode = declaredMode;
+            if (mode == AssetMode.None) {
+                mode = GetAttributeAssetMode(valueType);
+            }
+            if (mode != AssetMode.Custom && mode != AssetMode.CustomArray) {
+                return false;
+            }
+            return VaultLoadenHandleManager.IsServerLoadable(valueType);
         }
 
         internal static void UnLoadAsset() {
@@ -488,6 +511,11 @@ namespace InnoVault
 
             if (member is PropertyInfo prop && (!prop.CanWrite || prop.GetSetMethod(true) == null)) {//对于属性需要检测其是否可写
                 VaultMod.Instance.Logger.Error($"Property {member.Name} is marked with VaultLoadenAttribute but has no setter.");
+                return;
+            }
+
+            //专用服务器：只有服务端可加载的自定义类型往下走，其余成员保持默认值（不取占位贴图，服务器上没有 GPU 资源）
+            if (!ShouldLoadHere(valueType, attribute.AssetMode)) {
                 return;
             }
 

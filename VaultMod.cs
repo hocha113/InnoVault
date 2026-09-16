@@ -53,8 +53,10 @@ namespace InnoVault
             foreach (var loader in Loaders) {
                 loader.SetupData();
             }
+            //标签扫描两端都跑：服务器只放行声明了 LoadOnServer 的自定义加载器（骨架定义一类两端共用的数据），
+            //贴图 / 音效 / 着色器仍只在客户端加载；IVaultLoader.LoadAsset 保持客户端专属
+            VaultLoad.LoadAsset();
             if (!Main.dedServ) {
-                VaultLoad.LoadAsset();
                 foreach (var loader in Loaders) {
                     loader.LoadAsset();
                 }

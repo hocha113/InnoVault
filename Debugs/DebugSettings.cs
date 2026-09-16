@@ -69,13 +69,25 @@
         public static bool BehaviorTreeShowOverlay { get; set; }
         #endregion
 
+        #region Rig2D调试选项
+        /// <summary>
+        /// 是否叠加显示本帧步进过的所有 2D 骨架：骨线、关节、贴图锚点、各求解器的目标与可达圈
+        /// </summary>
+        public static bool Rig2DShowOverlay { get; set; }
+
+        /// <summary>
+        /// 是否轮询 ModSources 里的 <c>.rig.json</c> 源文件并在修改后原地热重载（仅开发机有源文件时有效）
+        /// </summary>
+        public static bool Rig2DHotReload { get; set; }
+        #endregion
+
         /// <summary>
         /// 检查是否有任何调试选项被启用
         /// </summary>
         public static bool AnyDebugEnabled =>
             TileProcessorBoxSizeDraw || TileProcessorShowName || TileProcessorShowPosition || TileProcessorShowID ||
             ActorBoxSizeDraw || ActorShowName || ActorShowPosition || ActorShowID || ActorShowVelocity ||
-            StateMachineShowOverlay || BehaviorTreeShowOverlay;
+            StateMachineShowOverlay || BehaviorTreeShowOverlay || Rig2DShowOverlay || Rig2DHotReload;
 
         /// <summary>
         /// 获取当前启用的调试选项数量
@@ -94,6 +106,8 @@
                 if (ActorShowVelocity) count++;
                 if (StateMachineShowOverlay) count++;
                 if (BehaviorTreeShowOverlay) count++;
+                if (Rig2DShowOverlay) count++;
+                if (Rig2DHotReload) count++;
                 return count;
             }
         }
@@ -128,12 +142,21 @@
         }
 
         /// <summary>
+        /// 重置 Rig2D 调试设置
+        /// </summary>
+        public static void ResetRig2D() {
+            Rig2DShowOverlay = false;
+            Rig2DHotReload = false;
+        }
+
+        /// <summary>
         /// 重置所有调试设置为默认值
         /// </summary>
         public static void ResetAll() {
             ResetTileProcessor();
             ResetActor();
             ResetStateMachine();
+            ResetRig2D();
         }
     }
 }
