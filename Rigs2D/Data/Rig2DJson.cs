@@ -23,7 +23,10 @@ namespace InnoVault.Rigs2D.Data
     ///   "clips":   [ { "name", "duration", "loop", "tracks": [ { "bone", "interp": "linear|step", "rotation": [[t, v]], "offset": [[t, [x, y]]], "length": [[t, v]] } ] } ]
     /// }
     /// </code>
-    /// 读取遵循框架约定：格式错误不抛异常，记日志并返回 <see langword="null"/>
+    /// 模板层（读取前由 <see cref="Rig2DJsonTemplate"/> 展开）：根级 <c>"vars": { … }</c> 常量；任意数组里的
+    /// <c>{ "repeat": N, "var": "i", "values": { … }, "items": [ … ] }</c> 块按序号克隆并原地拼接；值里的 <c>{expr}</c> 占位符
+    /// 整串时替换成带类型的值（<c>"targetIndex": "{i}"</c> 得到整数）、混在文字里做文本替换（<c>"coxa{i}"</c>）。
+    /// <br/>读取遵循框架约定：格式错误不抛异常，记日志并返回 <see langword="null"/>
     /// </summary>
     public static class Rig2DJson
     {
@@ -50,6 +53,11 @@ namespace InnoVault.Rigs2D.Data
         /// </summary>
         public static Rig2DDefinition Parse(JObject root, string sourceHint = null) {
             if (root == null) {
+                return null;
+            }
+            //模板层：vars / repeat / {表达式} 原地展开成平铺 JSON（root 会被改写）
+            if (!Rig2DJsonTemplate.Expand(root, out string templateError)) {
+                VaultMod.LoggerError($"[Rig2DJson:{sourceHint}]", $"template expansion failed: {templateError}");
                 return null;
             }
             try {
