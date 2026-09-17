@@ -3,6 +3,7 @@ using InnoVault.Rigs2D.Data;
 using InnoVault.Rigs2D.Solvers;
 using Microsoft.Xna.Framework;
 using System;
+using System.Collections.Generic;
 using Terraria;
 
 namespace InnoVault.Rigs2D.Runtime
@@ -81,7 +82,19 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         public uint LastStepTick { get; private set; }
 
+        /// <summary>
+        /// 声明式句柄是否全部就位：<see cref="Bind"/> 过且定义有效、每个标记成员都命中；未 <see cref="Bind"/> 时为假
+        /// </summary>
+        public bool Bound { get; private set; }
+        /// <summary>
+        /// 最近一次绑定的问题清单（成功为空）
+        /// </summary>
+        public IReadOnlyList<string> BindErrors => bindErrors;
+
         private int boundVersion;
+        private object bindTarget;
+        private Action<Rig2DInstance> bindCallback;
+        private readonly List<string> bindErrors = [];
         private bool[] externalDriven = [];
         private bool[] solverDriven = [];
         private float[] localRotation = [];
@@ -97,12 +110,12 @@ namespace InnoVault.Rigs2D.Runtime
             Asset = asset;
             Seed = seed;
             Animation = new Rig2DClipPlayer(this);
-            Bind(asset.Definition, asset.Version);
+            BindDefinition(asset.Definition, asset.Version);
         }
 
         //==================== 绑定 ====================
 
-        private void Bind(Rig2DDefinition def, int version) {
+        private void BindDefinition(Rig2DDefinition def, int version) {
             Definition = def;
             boundVersion = version;
             int n = def?.BoneCount ?? 0;
@@ -182,9 +195,53 @@ namespace InnoVault.Rigs2D.Runtime
                     //层序键跟着新定义走，其余运行时状态是消费方逐帧写的，保留
                     Pieces[i].SortKey = def.Pieces[i].Layer;
                 }
+                ApplyBinding();
                 return;
             }
-            Bind(def, version);
+            BindDefinition(def, version);
+            ApplyBinding();
+        }
+
+        /// <summary>
+        /// 声明式句柄绑定：把 <paramref name="target"/> 上标了 <see cref="Rig2DBoneAttribute"/> /
+        /// <see cref="Rig2DPieceAttribute"/> / <see cref="Rig2DSolverAttribute"/> 的实例成员按名填好，
+        /// 之后每次热重载重绑（<see cref="Step"/> 内发现定义版本变化）自动重填
+        /// <br/>全部命中且定义有效时 <see cref="Bound"/> 为真并回调 <paramref name="onBound"/>——一次性配置
+        /// （求解器开关、事件回调、贴图覆写）放在回调里，重绑后会再跑一遍
+        /// <br/>缺名 / 类型不符不抛：下标写 <c>-1</c>、引用写 <see langword="null"/>，<see cref="Bound"/> 为假，
+        /// 问题汇总进 <see cref="BindErrors"/> 并合并记一条日志；定义为空（资产未加载）时静默为假
+        /// </summary>
+        /// <param name="target">持有标记成员的对象（通常就是消费方自己）</param>
+        /// <param name="onBound">每次成功绑定后的回调</param>
+        /// <returns>本次是否全部就位</returns>
+        public bool Bind(object target, Action<Rig2DInstance> onBound = null) {
+            bindTarget = target;
+            bindCallback = onBound;
+            ApplyBinding();
+            return Bound;
+        }
+
+        private void ApplyBinding() {
+            if (bindTarget == null) {
+                return;
+            }
+            bindErrors.Clear();
+            if (Definition == null || Bones.Length == 0) {
+                Bound = false;
+                bindErrors.Add("definition is empty");
+                return;
+            }
+            Bound = Rig2DBinder.Apply(this, bindTarget, bindErrors);
+            if (!Bound) {
+                VaultMod.LoggerError($"[Rig2D:{Name}:bind:{bindTarget.GetType().Name}]",
+                    $"binding {bindTarget.GetType().Name} to rig '{Name}' has {bindErrors.Count} problem(s): {string.Join("; ", bindErrors)}");
+                return;
+            }
+            try {
+                bindCallback?.Invoke(this);
+            } catch (Exception ex) {
+                VaultMod.LoggerError($"[Rig2D:{Name}:bind:{bindTarget.GetType().Name}]", $"onBound callback threw: {ex}");
+            }
         }
 
         //==================== 查询 ====================

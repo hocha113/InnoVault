@@ -193,6 +193,7 @@ namespace InnoVault.Rigs2D.Runtime
             pollTimer = 0;
             modSourcesRoot = null;
             Rig2DSolverRegistry.ResetForUnload();
+            Rig2DBinder.ClearCache();
         }
     }
 }
