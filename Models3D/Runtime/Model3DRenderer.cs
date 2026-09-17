@@ -401,38 +401,23 @@ namespace InnoVault.Models3D.Runtime
             }
 
             SavedState saved = SaveState(graphicsDevice);
-            RenderTargetBinding[] savedRTs = graphicsDevice.GetRenderTargets();
 
             //Main.screenTarget 这类 DiscardContents 用法的 RT 在解绑后重新绑定时内容会被丢弃
             //（D3D11 后端上表现为整帧已绘制内容变黑，只剩本层 3D 与其后阶段的内容）；
-            //切走之前先把当前画面备份到 ScreenSwap，切回后由 restoreSource 铺回
-            RenderTarget2D restoreSource = null;
-            if (savedRTs != null && savedRTs.Length > 0
-                && savedRTs[0].RenderTarget is RenderTarget2D boundRT
-                && boundRT.RenderTargetUsage == RenderTargetUsage.DiscardContents) {
-                RenderHandleLoader.EnsureScreenSwap();
-                RenderTarget2D swap = RenderHandleLoader.ScreenSwap;
-                if (swap != null && !swap.IsDisposed) {
-                    try {
-                        graphicsDevice.SetRenderTarget(swap);
-                        SpriteBatch backupBatch = Main.spriteBatch;
-                        backupBatch.Begin(SpriteSortMode.Immediate, BlendState.Opaque, SamplerState.PointClamp
-                            , DepthStencilState.None, RasterizerState.CullNone);
-                        backupBatch.Draw(boundRT, Vector2.Zero, Color.White);
-                        backupBatch.End();
-                        restoreSource = swap;
-                    } catch (Exception ex) {
-                        VaultMod.LoggerError($"[Model3DRenderer:{layer}]"
-                            , $"Failed to back up screen target before 3D pass: {ex.Message}");
-                        restoreSource = null;
-                    }
-                }
+            //RenderTargetScope 负责切走前备份到 ScreenSwap、切回后铺回，这里只管把自己的 RT 用完归还
+            RenderTargetScope scope;
+            try {
+                scope = RenderHandleLoader.PushRenderTarget(graphicsDevice, _model3DRT);
+            } catch (Exception ex) {
+                VaultMod.LoggerError($"[Model3DRenderer:{layer}]"
+                    , $"Failed to bind 3D render target on layer {layer}: {ex.Message}");
+                RestoreState(graphicsDevice, saved);
+                _opaqueScratch.Clear();
+                _transparentScratch.Clear();
+                return;
             }
 
-            bool rtBound = false;
             try {
-                graphicsDevice.SetRenderTarget(_model3DRT);
-                rtBound = true;
                 //关键：必须同时清颜色和深度。颜色清成透明，合成时不影响下层；深度清为最远值 1
                 graphicsDevice.Clear(ClearOptions.Target | ClearOptions.DepthBuffer, Color.Transparent, 1f, 0);
 
@@ -461,29 +446,8 @@ namespace InnoVault.Models3D.Runtime
                 VaultMod.LoggerError($"[Model3DRenderer:{layer}]"
                     , $"Failed to draw 3D models on layer {layer}: {ex.Message}");
             } finally {
-                if (rtBound) {
-                    if (savedRTs == null || savedRTs.Length == 0) {
-                        graphicsDevice.SetRenderTarget(null);
-                    }
-                    else {
-                        graphicsDevice.SetRenderTargets(savedRTs);
-                    }
-                }
-
-                //重新绑定后立刻铺回备份，保证即使 3D 绘制抛出异常屏幕内容也不丢失
-                if (restoreSource != null) {
-                    try {
-                        SpriteBatch restoreBatch = Main.spriteBatch;
-                        restoreBatch.Begin(SpriteSortMode.Immediate, BlendState.Opaque, SamplerState.PointClamp
-                            , DepthStencilState.None, RasterizerState.CullNone);
-                        restoreBatch.Draw(restoreSource, Vector2.Zero, Color.White);
-                        restoreBatch.End();
-                    } catch (Exception ex) {
-                        VaultMod.LoggerError($"[Model3DRenderer:{layer}]"
-                            , $"Failed to restore screen target after 3D pass: {ex.Message}");
-                    }
-                }
-
+                //还原原绑定并铺回备份，保证即使 3D 绘制抛出异常屏幕内容也不丢失
+                scope.Dispose();
                 RestoreState(graphicsDevice, saved);
                 _opaqueScratch.Clear();
                 _transparentScratch.Clear();

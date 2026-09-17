@@ -1,4 +1,4 @@
-﻿using InnoVault.GameSystem;
+using InnoVault.GameSystem;
 using InnoVault.TileProcessors;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
@@ -4692,6 +4692,36 @@ namespace InnoVault
             Matrix projection = Matrix.CreateOrthographicOffCenter(0, screenWidth ?? Main.screenWidth, screenHeight ?? Main.screenHeight, 0, -1, 1);
             return world * view * projection;
         }
+
+        /// <summary>
+        /// 世界坐标转屏幕像素坐标，经过 <see cref="Main.GameViewMatrix"/> 的完整变换（缩放、反重力翻转、半像素修正），
+        /// 与拷屏得到的 <see cref="Main.screenTarget"/> 画面逐像素对齐
+        /// 只减 <see cref="Main.screenPosition"/> 的写法在游戏缩放不为 1 时会偏，全屏后处理定位请用本方法
+        /// </summary>
+        /// <param name="worldPosition">世界坐标</param>
+        /// <returns>屏幕像素坐标，左上角为原点</returns>
+        public static Vector2 WorldToScreen(Vector2 worldPosition)
+            => Vector2.Transform(worldPosition - Main.screenPosition, Main.GameViewMatrix.TransformationMatrix);
+
+        /// <summary>
+        /// 世界坐标转归一化屏幕 UV（0~1，左上角为原点），供全屏着色器的中心点、光源位置等参数使用
+        /// 缩放与翻转处理同 <see cref="WorldToScreen"/>
+        /// </summary>
+        /// <param name="worldPosition">世界坐标</param>
+        /// <returns>归一化屏幕坐标，屏幕外的点会落在 0~1 之外</returns>
+        public static Vector2 WorldToScreenUV(Vector2 worldPosition) {
+            Vector2 screen = WorldToScreen(worldPosition);
+            return new Vector2(screen.X / Main.screenWidth, screen.Y / Main.screenHeight);
+        }
+
+        /// <summary>
+        /// 屏幕像素坐标转世界坐标，<see cref="WorldToScreen"/> 的逆运算，
+        /// 用于把拷屏画面上的一点（或鼠标屏幕位置）还原到世界
+        /// </summary>
+        /// <param name="screenPosition">屏幕像素坐标，左上角为原点</param>
+        /// <returns>世界坐标</returns>
+        public static Vector2 ScreenToWorld(Vector2 screenPosition)
+            => Vector2.Transform(screenPosition, Matrix.Invert(Main.GameViewMatrix.TransformationMatrix)) + Main.screenPosition;
         /// <summary>
         /// 绘制具有旋转边框效果的纹理
         /// 该方法通过两层旋转光圈模拟出一种动态发光的边缘效果
