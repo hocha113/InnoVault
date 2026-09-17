@@ -101,7 +101,9 @@ namespace InnoVault.Rigs2D.Animation
                     anchor = d.AtParentTip ? p.Tip : p.Pos;
                     parDir = p.Dir;
                 }
-                float rot = d.InheritRotation ? MathHelper.WrapAngle(bone.Dir - parDir) : bone.Dir;
+                //镜像中录制：把局部量折回未镜像的设计系，片段在任一朝向下回放都对
+                float mirror = rig.MirrorSign;
+                float rot = d.InheritRotation ? MathHelper.WrapAngle(bone.Dir - parDir) * mirror : bone.Dir;
                 tracks[i].Rotation.Add(new Rig2DKey<float>(t, rot));
                 if (recordOffset) {
                     Vector2 world = bone.Pos - anchor;
@@ -109,6 +111,7 @@ namespace InnoVault.Rigs2D.Animation
                     float sin = MathF.Sin(parDir);
                     //世界差向量转回父骨骼局部系（x 沿父轴、y 沿父 Side），再除掉 Scale
                     Vector2 local = new Vector2(world.X * cos + world.Y * sin, -world.X * sin + world.Y * cos) * invScale;
+                    local.Y *= mirror;
                     tracks[i].Offset.Add(new Rig2DKey<Vector2>(t, local));
                 }
                 if (recordLength) {

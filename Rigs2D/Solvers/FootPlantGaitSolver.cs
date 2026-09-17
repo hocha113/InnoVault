@@ -130,6 +130,10 @@ namespace InnoVault.Rigs2D.Solvers
             /// </summary>
             public float DragHeat;
             /// <summary>
+            /// 已落地的步数（每次摆越落地自增；确定性哈希的盐，各端一致）
+            /// </summary>
+            public int StepCount;
+            /// <summary>
             /// 本帧生效的模式
             /// </summary>
             public LegMode Mode;
@@ -257,6 +261,11 @@ namespace InnoVault.Rigs2D.Solvers
         /// 滑刹回调 (腿号, 落点锚, 滑刹量 0..1)，每帧滑刹中都会调
         /// </summary>
         public Action<int, Vector2, float> OnDrag { get; set; }
+        /// <summary>
+        /// 落点过滤 (腿号, 已落地步数, 规划落点) → 实际落点：常规换步选好落点、探地之前调用，
+        /// 用来做踉跄落短、逐腿落点偏置一类确定性修饰（返回值会再投到地面）；<see langword="null"/> 不过滤
+        /// </summary>
+        public Func<int, int, Vector2, Vector2> StepTargetFilter { get; set; }
 
         /// <summary>
         /// 腿数
@@ -669,6 +678,9 @@ namespace InnoVault.Rigs2D.Solvers
                 Vector2 target = rest + travel * (0.5f * strideI) + Velocity * 2f;
                 Vector2 hipFuture = leg.Hip + Velocity * 3f;
                 target = ClampToEnvelope(hipFuture, leg.Normal, target);
+                if (StepTargetFilter != null) {
+                    target = StepTargetFilter(i, leg.StepCount, target);
+                }
                 target = ProjectToGround(target);
 
                 float dur;
@@ -762,8 +774,29 @@ namespace InnoVault.Rigs2D.Solvers
                 leg.Grounded = true;
                 leg.PlantPos = leg.SwingTo;
                 leg.Foot = leg.SwingTo;
+                leg.StepCount++;
+                //回调里允许 RequestStep 立刻接一步（踉跄补步）：它直接改 legs[i]，与这里的 ref 同一块内存
                 OnPlant?.Invoke(i, leg.Foot, (i & 1) == 0 ? 1f : 0.7f);
             }
+        }
+
+        /// <summary>
+        /// 让某腿立刻起一步摆越到 <paramref name="target"/>（会投到地面），无视节律窗；
+        /// 典型用法是在 <see cref="OnPlant"/> 里给落短的脚接一记快速补步。腿不可见或不在步行 / 外部目标模式时忽略
+        /// </summary>
+        /// <param name="index">腿号</param>
+        /// <param name="target">落点（世界）</param>
+        /// <param name="frames">摆越时长（帧）</param>
+        /// <param name="clearance">离地余隙（像素，Scale 为 1 的量）</param>
+        public void RequestStep(int index, Vector2 target, float frames = 6f, float clearance = 9f) {
+            if (index < 0 || index >= legs.Length) {
+                return;
+            }
+            ref LegState leg = ref legs[index];
+            if (!leg.Visible || !leg.Inited || leg.Mode is LegMode.Air or LegMode.Tuck or LegMode.Collapse) {
+                return;
+            }
+            BeginSwing(ref leg, ProjectToGround(target), Math.Max(frames, 1f), clearance * Scale);
         }
 
         /// <summary>

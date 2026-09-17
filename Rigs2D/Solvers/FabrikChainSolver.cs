@@ -160,7 +160,8 @@ namespace InnoVault.Rigs2D.Solvers
             }
             float tension = float.IsNaN(Tension) ? paramTension : Tension;
             float side = BowSide != 0f ? Math.Sign(BowSide) : bowSide;
-            float bow = tension * bowPx * Scale * side;
+            //弓向是局部左右选择，骨架镜像时跟着翻
+            float bow = tension * bowPx * Scale * side * MirrorSign;
 
             for (int it = 0; it < iterations; it++) {
                 //后向：尖端钉在目标，逐节向根收

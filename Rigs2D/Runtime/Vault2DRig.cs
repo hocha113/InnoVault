@@ -44,6 +44,10 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         public Asset<Texture2D>[] PieceTextures { get; private set; } = [];
         /// <summary>
+        /// 各带状件的贴图，下标同 <see cref="Rig2DDefinition.Ribbons"/>；服务器上为空数组
+        /// </summary>
+        public Asset<Texture2D>[] RibbonTextures { get; private set; } = [];
+        /// <summary>
         /// 定义版本号，热重载每次自增
         /// </summary>
         public int Version { get; private set; }
@@ -134,6 +138,7 @@ namespace InnoVault.Rigs2D.Runtime
                 Name = def.Name;
             }
             PieceTextures = ResolveTextures(Mod, def);
+            RibbonTextures = ResolveRibbonTextures(Mod, def);
             Version++;
             LastError = string.Empty;
             return true;
@@ -204,6 +209,17 @@ namespace InnoVault.Rigs2D.Runtime
             Asset<Texture2D>[] result = new Asset<Texture2D>[def.Pieces.Count];
             for (int i = 0; i < result.Length; i++) {
                 result[i] = ResolveTexture(mod, def.Pieces[i].Texture, def.Name);
+            }
+            return result;
+        }
+
+        private static Asset<Texture2D>[] ResolveRibbonTextures(Mod mod, Rig2DDefinition def) {
+            if (Main.dedServ) {
+                return [];
+            }
+            Asset<Texture2D>[] result = new Asset<Texture2D>[def.Ribbons.Count];
+            for (int i = 0; i < result.Length; i++) {
+                result[i] = ResolveTexture(mod, def.Ribbons[i].Texture, def.Name);
             }
             return result;
         }

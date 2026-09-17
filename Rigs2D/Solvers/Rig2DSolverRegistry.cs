@@ -78,6 +78,9 @@ namespace InnoVault.Rigs2D.Solvers
             factories["PointAt"] = () => new PointAtSolver();
             factories["VerletStrand"] = () => new VerletStrandSolver();
             factories["FootPlantGait"] = () => new FootPlantGaitSolver();
+            factories["ArcChain"] = () => new ArcChainSolver();
+            factories["HangChain"] = () => new HangChainSolver();
+            factories["BezierChain"] = () => new BezierChainSolver();
         }
     }
 }

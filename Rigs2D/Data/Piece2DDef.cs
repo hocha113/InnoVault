@@ -100,6 +100,11 @@ namespace InnoVault.Rigs2D.Data
         /// 每帧底部隔帧留白像素（多帧竖排时从帧高里扣除）
         /// </summary>
         public int FramePad { get; set; }
+        /// <summary>
+        /// <see cref="Proximal"/> 是否按帧尺寸的比例给（0..1）：贴图尺寸在定义期未知（原版贴图、运行时覆写）时用它，
+        /// <c>(0.5, 0.5)</c> = 帧中心、<c>(0.5, 1)</c> = 底边中点。镜像规则同像素锚（x 取 1 − x）
+        /// </summary>
+        public bool ProximalNormalized { get; set; }
 
         /// <summary>
         /// 所挂骨骼索引，由 <see cref="Rig2DDefinition.Resolve"/> 填充

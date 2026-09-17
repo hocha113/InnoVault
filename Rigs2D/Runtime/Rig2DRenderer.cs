@@ -11,9 +11,63 @@ namespace InnoVault.Rigs2D.Runtime
     /// 骨架的 SpriteBatch 渲染器：按层序把每件贴图钉在骨骼近端、转到骨骼轴向
     /// <br/>核心公式：<c>rotation = 骨骼世界轴向 − 贴图轴角 + 附加旋转</c>；镜像时轴角取 π − a、锚点 x 取 宽 − x、贴图水平翻转
     /// <br/>不做 End / Begin，不设 shader：加色层、洗色层、shader 层由消费方在本体前后自行处理，坐标系从 <see cref="Rig2DDrawContext"/> 取
+    /// <br/>实例开了 <see cref="Rig2DInstance.Mirrored"/> 时每件沿骨轴镜像（与件自身 <see cref="Piece2DState.Mirror"/> 异或），附加旋转跟着变号
+    /// <br/>带状件（<see cref="Rig2DRibbonRenderer"/>）需要换批次，不在 <see cref="Draw(SpriteBatch, Rig2DInstance, in Rig2DDrawContext)"/> 里画；
+    /// 要件与带按层序交错，用 <see cref="DrawAll(SpriteBatch, Rig2DInstance, in Rig2DDrawContext)"/>
     /// </summary>
     public static class Rig2DRenderer
     {
+        /// <summary>
+        /// 件与带按 <c>SortKey</c> 合并排序一起画：连续的带成组交给 <see cref="Rig2DRibbonRenderer.DrawIndices"/>（每组切一轮批次），
+        /// 件在两组之间照常走当前批次。同键时件先于带。调用方必须处于一个已 <c>Begin</c> 的 Deferred 批次内
+        /// </summary>
+        public static void DrawAll(SpriteBatch sb, Rig2DInstance rig, in Rig2DDrawContext ctx) {
+            if (rig == null || rig.Definition == null) {
+                return;
+            }
+            DrawAll(sb, rig, rig.Bones, in ctx);
+        }
+
+        /// <summary>
+        /// 用另一套骨骼位姿绘制件与带（残影快照）
+        /// </summary>
+        public static void DrawAll(SpriteBatch sb, Rig2DInstance rig, Bone2D[] bones, in Rig2DDrawContext ctx) {
+            if (rig == null || rig.Definition == null || bones == null || ctx.Alpha <= 0.001f) {
+                return;
+            }
+            if (rig.Ribbons.Length == 0) {
+                Draw(sb, rig, bones, in ctx);
+                return;
+            }
+            ReadOnlySpan<int> pieces = rig.SortedPieces();
+            ReadOnlySpan<int> ribbons = rig.SortedRibbons();
+            int p = 0;
+            int r = 0;
+            while (p < pieces.Length || r < ribbons.Length) {
+                bool ribbonFirst = r < ribbons.Length
+                    && (p >= pieces.Length || rig.Ribbons[ribbons[r]].SortKey < rig.Pieces[pieces[p]].SortKey);
+                if (ribbonFirst) {
+                    int start = r;
+                    while (r < ribbons.Length
+                        && (p >= pieces.Length || rig.Ribbons[ribbons[r]].SortKey < rig.Pieces[pieces[p]].SortKey)) {
+                        r++;
+                    }
+                    Rig2DRibbonRenderer.DrawIndices(sb, rig, bones, in ctx, ribbons.Slice(start, r - start));
+                    continue;
+                }
+                int i = pieces[p++];
+                ref Piece2DState st = ref rig.Pieces[i];
+                if (!st.Visible || st.SortKey < ctx.LayerMin || st.SortKey > ctx.LayerMax) {
+                    continue;
+                }
+                int b = rig.Definition.Pieces[i].BoneIndex;
+                if (b < 0 || b >= bones.Length) {
+                    continue;
+                }
+                DrawPiece(sb, rig, i, in bones[b], in ctx);
+            }
+        }
+
         /// <summary>
         /// 绘制实例的全部可见件（按 <see cref="Piece2DState.SortKey"/> 升序，受 <see cref="Rig2DDrawContext.LayerMin"/> / <see cref="Rig2DDrawContext.LayerMax"/> 过滤）
         /// </summary>
@@ -63,8 +117,15 @@ namespace InnoVault.Rigs2D.Runtime
             if (color.A == 0 && color.R == 0 && color.G == 0 && color.B == 0) {
                 return;
             }
-            DrawPiece(sb, tex, frame, def.Proximal, def.Axis, bone.Pos + st.PositionOffset, bone.Dir, scale,
-                st.Mirror, color, st.ExtraRotation, ctx.ViewOffset);
+            ctx.BeforePiece?.Invoke(rig, pieceIndex, tex, frame);
+            Vector2 proximal = def.ProximalNormalized
+                ? new Vector2(def.Proximal.X * frame.Width, def.Proximal.Y * frame.Height)
+                : def.Proximal;
+            //骨架级镜像：件沿骨轴翻面（与件自身镜像异或），绕近端的附加旋转是局部量，跟着变号
+            bool mirror = st.Mirror ^ rig.Mirrored;
+            float extraRotation = st.ExtraRotation * rig.MirrorSign;
+            DrawPiece(sb, tex, frame, proximal, def.Axis, bone.Pos + st.PositionOffset, bone.Dir, scale,
+                mirror, color, extraRotation, ctx.ViewOffset);
         }
 
         /// <summary>

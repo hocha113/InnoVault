@@ -13,6 +13,8 @@ namespace InnoVault.Rigs2D.Solvers
     /// <br/>骨骼：<c>[基节, 腿节, 胫节]</c>，髋 = 基节静息传播出的近端；静息方向 = 基节静息轴向（或 <see cref="Normal"/> 覆盖）
     /// <br/>参数：<c>coxaSwingMax</c> 0.8、<c>kneeSpanMin</c> 0.12、<c>kneeSpanMax</c> 0.94、<c>kneeHysteresis</c> 0.12、
     /// <c>maxReachFactor</c> 0.995、<c>slack</c> 12、<c>reachTrim</c> 6、<c>targetSolver</c> / <c>targetIndex</c>
+    /// <br/>活塞胫：<c>tibiaWorldDir</c>（世界弧度，缺省关；给 π/2 即"胫节永远竖直"的机械腿画法：膝在腿节圆与胫向垂线的交点，
+    /// 足端顺胫向推出，误差由足端沿垂线滑动吃掉；此模式下膝极性 / 跨距窗不参与）
     /// </summary>
     public sealed class ThreeBoneLegSolver : Rig2DSolver
     {
@@ -23,6 +25,7 @@ namespace InnoVault.Rigs2D.Solvers
         private float maxReachFactor;
         private float slack;
         private float reachTrim;
+        private float tibiaWorldDir;
         private IRig2DTargetSource targetSource;
         private int targetIndex;
         private int kneeSign;
@@ -58,6 +61,15 @@ namespace InnoVault.Rigs2D.Solvers
         /// 失力度 0..1：基节松脱向重力向垂
         /// </summary>
         public float Limp { get; set; }
+        /// <summary>
+        /// 目标偏移（世界像素）：加在解析出的足端目标上。给胫节末端再接一段脚掌 / 爪时，
+        /// 消费方把目标退回一掌长（<c>-padDir * padLen</c>），本求解器只解到踝，脚掌骨由消费方从 <see cref="FootPos"/> 铺到真实足端
+        /// </summary>
+        public Vector2 TargetOffset { get; set; }
+        /// <summary>
+        /// 痉挛微颤振幅（像素，Scale 为 1 的量）：解算后给膝与足端各叠一组错相高频小抖（髋与目标不抖）；0 关闭
+        /// </summary>
+        public float Jitter { get; set; }
 
         /// <summary>
         /// 髋位置（本帧）
@@ -97,6 +109,7 @@ namespace InnoVault.Rigs2D.Solvers
             maxReachFactor = def.GetFloat("maxReachFactor", 0.995f);
             slack = def.GetFloat("slack", 12f);
             reachTrim = def.GetFloat("reachTrim", 6f);
+            tibiaWorldDir = def.GetAngle("tibiaWorldDir", float.NaN);
             targetIndex = def.GetInt("targetIndex", 0);
         }
 
@@ -121,6 +134,12 @@ namespace InnoVault.Rigs2D.Solvers
         }
 
         /// <inheritdoc/>
+        protected internal override void OnMirrorChanged() {
+            //膝侧迟滞按旧朝向选的，翻身后第一帧按偏好重新选
+            kneeSign = 0;
+        }
+
+        /// <inheritdoc/>
         public override void Step(float dt) {
             if (valid) {
                 Solve();
@@ -129,9 +148,9 @@ namespace InnoVault.Rigs2D.Solvers
 
         private Vector2 ResolveFoot() {
             if (targetSource != null && targetSource.TryGetTarget(targetIndex, out Vector2 t)) {
-                return t;
+                return t + TargetOffset;
             }
-            return Foot;
+            return Foot + TargetOffset;
         }
 
         private void Solve() {
@@ -174,41 +193,80 @@ namespace InnoVault.Rigs2D.Solvers
             }
             Vector2 coxaTip = hip + new Vector2(MathF.Cos(coxaAng), MathF.Sin(coxaAng)) * coxaLen;
 
-            //腿节 + 胫节双骨：有效跨距钳窗
-            Vector2 e = foot - coxaTip;
-            float span = femurLen + tibiaLen;
-            float eLen = MathHelper.Clamp(e.Length(), span * kneeSpanMin, span * kneeSpanMax);
-            float eAng = MathF.Atan2(e.Y, e.X);
-            float cosA = MathHelper.Clamp((femurLen * femurLen + eLen * eLen - tibiaLen * tibiaLen) / (2f * femurLen * eLen), -1f, 1f);
-            float phi = MathF.Acos(cosA);
-
-            Vector2 pref = KneePreference;
-            if (pref.LengthSquared() < 0.0001f) {
-                pref = -Vector2.UnitY;
+            Vector2 knee;
+            Vector2 footPos;
+            float kneeAng;
+            if (!float.IsNaN(tibiaWorldDir)) {
+                //活塞胫：胫节锁定世界方向，膝落在"名义膝点所在、垂直于胫向的直线"与腿节圆的交点上（取离名义膝点近的一支），
+                //足端顺着胫向从膝重新推出——胫节始终笔直，足端沿垂线滑动吃掉误差；腿节圆够不到该直线时整肢沿胫向伸直
+                Vector2 tdir = new(MathF.Cos(tibiaWorldDir), MathF.Sin(tibiaWorldDir));
+                Vector2 perp = new(-tdir.Y, tdir.X);
+                Vector2 rel = foot - tdir * tibiaLen - coxaTip;
+                float along = Vector2.Dot(rel, tdir);
+                float across = Vector2.Dot(rel, perp);
+                float disc = femurLen * femurLen - along * along;
+                if (disc >= 0f) {
+                    float root = MathF.Sqrt(disc);
+                    float s = Math.Abs(root - across) <= Math.Abs(-root - across) ? root : -root;
+                    knee = coxaTip + tdir * along + perp * s;
+                }
+                else {
+                    knee = coxaTip + tdir * (along >= 0f ? femurLen : -femurLen);
+                }
+                footPos = knee + tdir * tibiaLen;
+                Vector2 th = knee - coxaTip;
+                kneeAng = th.LengthSquared() > 0.0001f ? MathF.Atan2(th.Y, th.X) : coxaAng;
             }
             else {
-                pref.Normalize();
+                //腿节 + 胫节双骨：有效跨距钳窗
+                Vector2 e = foot - coxaTip;
+                float span = femurLen + tibiaLen;
+                float eLen = MathHelper.Clamp(e.Length(), span * kneeSpanMin, span * kneeSpanMax);
+                float eAng = MathF.Atan2(e.Y, e.X);
+                float cosA = MathHelper.Clamp((femurLen * femurLen + eLen * eLen - tibiaLen * tibiaLen) / (2f * femurLen * eLen), -1f, 1f);
+                float phi = MathF.Acos(cosA);
+
+                Vector2 pref = KneePreference;
+                if (pref.LengthSquared() < 0.0001f) {
+                    pref = -Vector2.UnitY;
+                }
+                else {
+                    pref.Normalize();
+                }
+                float dotP = Vector2.Dot(new Vector2(MathF.Cos(eAng + phi), MathF.Sin(eAng + phi)), pref);
+                float dotM = Vector2.Dot(new Vector2(MathF.Cos(eAng - phi), MathF.Sin(eAng - phi)), pref);
+                int want = dotP >= dotM ? 1 : -1;
+                if (kneeSign == 0 || want != kneeSign && Math.Abs(dotP - dotM) > kneeHysteresis) {
+                    kneeSign = want;
+                }
+                kneeAng = eAng + kneeSign * phi;
+                knee = coxaTip + new Vector2(MathF.Cos(kneeAng), MathF.Sin(kneeAng)) * femurLen;
+                footPos = coxaTip + new Vector2(MathF.Cos(eAng), MathF.Sin(eAng)) * eLen;
             }
-            float dotP = Vector2.Dot(new Vector2(MathF.Cos(eAng + phi), MathF.Sin(eAng + phi)), pref);
-            float dotM = Vector2.Dot(new Vector2(MathF.Cos(eAng - phi), MathF.Sin(eAng - phi)), pref);
-            int want = dotP >= dotM ? 1 : -1;
-            if (kneeSign == 0 || want != kneeSign && Math.Abs(dotP - dotM) > kneeHysteresis) {
-                kneeSign = want;
+
+            if (Jitter > 0.0001f) {
+                //痉挛微颤：膝与足端错相高频小抖，骨长随之微变（贴图按 Axis 拉伸吸收）
+                float t = Rig.Time * Spring2D.FrameSeconds;
+                float salt = Rig.Seed + (Rig.Definition?.SolverIndex(Name) ?? 0) * 2.9f;
+                float amp = Jitter * Scale;
+                Vector2 tw = new(MathF.Sin(t * 9.3f + salt), MathF.Sin(t * 11.7f + salt * 0.45f));
+                knee += tw * amp;
+                const float c = 0.2675f;//cos 1.3
+                const float s = 0.9636f;//sin 1.3
+                footPos += new Vector2(tw.X * c - tw.Y * s, tw.X * s + tw.Y * c) * (amp * 0.8f);
             }
-            float kneeAng = eAng + kneeSign * phi;
-            Vector2 knee = coxaTip + new Vector2(MathF.Cos(kneeAng), MathF.Sin(kneeAng)) * femurLen;
-            Vector2 footPos = coxaTip + new Vector2(MathF.Cos(eAng), MathF.Sin(eAng)) * eLen;
+            Vector2 thigh = knee - coxaTip;
             Vector2 shin = footPos - knee;
 
             coxa.Pos = hip;
             coxa.Dir = coxaAng;
             coxa.Length = coxaLen;
             femur.Pos = coxaTip;
-            femur.Dir = kneeAng;
-            femur.Length = femurLen;
+            femur.Dir = thigh.LengthSquared() > 0.0001f ? MathF.Atan2(thigh.Y, thigh.X) : kneeAng;
+            femur.Length = thigh.Length();
             tibia.Pos = knee;
             tibia.Dir = shin.LengthSquared() > 0.0001f ? MathF.Atan2(shin.Y, shin.X) : kneeAng;
-            tibia.Length = tibiaLen;
+            tibia.Length = shin.Length();
 
             Hip = hip;
             CoxaTip = coxaTip;

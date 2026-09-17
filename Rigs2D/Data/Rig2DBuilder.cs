@@ -26,6 +26,7 @@ namespace InnoVault.Rigs2D.Data
         private readonly Rig2DDefinition def = new();
         private Solver2DDef currentSolver;
         private Piece2DDef currentPiece;
+        private Ribbon2DDef currentRibbon;
 
         /// <summary>
         /// 新建构建器
@@ -153,6 +154,75 @@ namespace InnoVault.Rigs2D.Data
         }
 
         /// <summary>
+        /// 把最近一件贴图的近端改成按帧尺寸比例给（贴图尺寸定义期未知时用：<c>(0.5, 0.5)</c> 帧中心、<c>(0.5, 1)</c> 底边中点）
+        /// </summary>
+        public Rig2DBuilder ProximalNormalized(Vector2 uv) {
+            Piece2DDef p = RequirePiece();
+            p.Proximal = uv;
+            p.ProximalNormalized = true;
+            return this;
+        }
+
+        /// <summary>
+        /// 声明一条带状件（沿骨链铺的纹理条带），之后的 <see cref="RibbonStyle"/> / <see cref="RibbonLook"/> / <see cref="RibbonTaper"/> / <see cref="RibbonProfile"/> 都改它
+        /// </summary>
+        /// <param name="name">件名（缺省用首骨名）</param>
+        /// <param name="texture">贴图路径（模组相对，无扩展名；u 沿链、v 横跨）</param>
+        /// <param name="width">根端整宽（像素）</param>
+        /// <param name="bones">骨链，根 → 尖</param>
+        public Rig2DBuilder Ribbon(string name, string texture, float width, params string[] bones) {
+            currentRibbon = new Ribbon2DDef {
+                Name = name,
+                Texture = texture,
+                Width = width,
+            };
+            currentRibbon.Bones.AddRange(bones);
+            def.Ribbons.Add(currentRibbon);
+            return this;
+        }
+
+        /// <summary>
+        /// 设置最近一条带状件的尖端宽度（线性收窄）
+        /// </summary>
+        public Rig2DBuilder RibbonTaper(float widthEnd) {
+            RequireRibbon().WidthEnd = widthEnd;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置最近一条带状件的宽度剖面（按沿链进度 0..1 线性采样）
+        /// </summary>
+        public Rig2DBuilder RibbonProfile(params float[] widths) {
+            RequireRibbon().WidthProfile = widths ?? [];
+            return this;
+        }
+
+        /// <summary>
+        /// 设置最近一条带状件的纹理映射、细分与尖端延伸
+        /// </summary>
+        public Rig2DBuilder RibbonStyle(Ribbon2DUv uv, float tileLength = 64f, int smooth = 0, bool includeTip = true) {
+            Ribbon2DDef r = RequireRibbon();
+            r.Uv = uv;
+            r.TileLength = tileLength;
+            r.Smooth = Math.Max(0, smooth);
+            r.IncludeTip = includeTip;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置最近一条带状件的层序 / 着色 / 压暗 / 不透明度 / 加色
+        /// </summary>
+        public Rig2DBuilder RibbonLook(int layer = 0, Color? tint = null, float dark = 1f, float alpha = 1f, bool additive = false) {
+            Ribbon2DDef r = RequireRibbon();
+            r.Layer = layer;
+            r.Tint = tint ?? Color.White;
+            r.Dark = dark;
+            r.Alpha = alpha;
+            r.Additive = additive;
+            return this;
+        }
+
+        /// <summary>
         /// 声明一个求解器，之后的 <see cref="Param(string, float)"/> 系列都写进它
         /// </summary>
         /// <param name="type">类型名（注册表键）</param>
@@ -261,5 +331,8 @@ namespace InnoVault.Rigs2D.Data
 
         private Piece2DDef RequirePiece()
             => currentPiece ?? throw new InvalidOperationException("Rig2DBuilder: call Piece(...) before piece modifiers");
+
+        private Ribbon2DDef RequireRibbon()
+            => currentRibbon ?? throw new InvalidOperationException("Rig2DBuilder: call Ribbon(...) before ribbon modifiers");
     }
 }

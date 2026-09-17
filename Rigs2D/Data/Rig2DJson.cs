@@ -16,8 +16,10 @@ namespace InnoVault.Rigs2D.Data
     ///   "name": "SeaShrimp", "snapDistance": 340,
     ///   "bones":  [ { "name", "parent", "offset": [x, y], "atTip", "rotation" | "rotationDeg", "inheritRotation", "length" } ],
     ///   "pieces": [ { "name", "bone", "texture", "proximal": [x, y], "axis" | "axisDeg" | "distal": [x, y], "axisLength",
-    ///                 "stretch": "none|axis|uniform", "stretchMin", "stretchMax", "layer", "mirror", "scale", "dark", "tint", "alpha", "visible", "frames", "framePad" } ],
+    ///                 "stretch": "none|axis|uniform", "stretchMin", "stretchMax", "layer", "mirror", "scale", "dark", "tint", "alpha", "visible", "frames", "framePad", "proximalNormalized" } ],
     ///   "solvers": [ { "name", "type", "bones": [ ... ], ...其余键都是该求解器的参数 } ],
+    ///   "ribbons": [ { "name", "bones": [ ... ], "texture", "width", "widthEnd", "widthProfile": [ ... ], "uv": "stretch|tile", "tileLength",
+    ///                 "includeTip", "smooth", "layer", "tint", "dark", "alpha", "additive", "visible" } ],
     ///   "clips":   [ { "name", "duration", "loop", "tracks": [ { "bone", "interp": "linear|step", "rotation": [[t, v]], "offset": [[t, [x, y]]], "length": [[t, v]] } ] } ]
     /// }
     /// </code>
@@ -77,6 +79,13 @@ namespace InnoVault.Rigs2D.Data
                         }
                     }
                 }
+                if (root["ribbons"] is JArray ribbons) {
+                    foreach (JToken t in ribbons) {
+                        if (t is JObject o) {
+                            def.Ribbons.Add(ReadRibbon(o));
+                        }
+                    }
+                }
                 if (root["clips"] is JArray clips) {
                     foreach (JToken t in clips) {
                         if (t is JObject o) {
@@ -120,6 +129,7 @@ namespace InnoVault.Rigs2D.Data
                 Visible = Bool(o, "visible", true),
                 Frames = Math.Max(1, (int)Num(o, "frames", 1f)),
                 FramePad = (int)Num(o, "framePad", 0f),
+                ProximalNormalized = Bool(o, "proximalNormalized", false),
                 Tint = ReadColor(o["tint"], Color.White),
             };
             if (o["distal"] != null) {
@@ -171,6 +181,45 @@ namespace InnoVault.Rigs2D.Data
                 s.Params[prop.Name] = prop.Value.DeepClone();
             }
             return s;
+        }
+
+        private static Ribbon2DDef ReadRibbon(JObject o) {
+            Ribbon2DDef r = new() {
+                Name = Str(o, "name", null),
+                Texture = Str(o, "texture", string.Empty),
+                Width = Num(o, "width", 16f),
+                WidthEnd = Num(o, "widthEnd", float.NaN),
+                TileLength = Num(o, "tileLength", 64f),
+                IncludeTip = Bool(o, "includeTip", true),
+                Smooth = Math.Max(0, (int)Num(o, "smooth", 0f)),
+                Layer = (int)Num(o, "layer", 0f),
+                Tint = ReadColor(o["tint"], Color.White),
+                Dark = Num(o, "dark", 1f),
+                Alpha = Num(o, "alpha", 1f),
+                Additive = Bool(o, "additive", false),
+                Visible = Bool(o, "visible", true),
+            };
+            if (o["bones"] is JArray arr) {
+                foreach (JToken t in arr) {
+                    if (t.Type == JTokenType.String) {
+                        r.Bones.Add((string)t);
+                    }
+                }
+            }
+            else if (o["bones"]?.Type == JTokenType.String) {
+                r.Bones.Add((string)o["bones"]);
+            }
+            if (o["widthProfile"] is JArray profile) {
+                List<float> values = [];
+                foreach (JToken t in profile) {
+                    if (IsNum(t)) {
+                        values.Add((float)t);
+                    }
+                }
+                r.WidthProfile = values.ToArray();
+            }
+            r.Uv = Str(o, "uv", "stretch").ToLowerInvariant() == "tile" ? Ribbon2DUv.Tile : Ribbon2DUv.Stretch;
+            return r;
         }
 
         private static Rig2DClip ReadClip(JObject o) {
@@ -311,6 +360,9 @@ namespace InnoVault.Rigs2D.Data
                 if (p.FramePad != 0) {
                     o["framePad"] = p.FramePad;
                 }
+                if (p.ProximalNormalized) {
+                    o["proximalNormalized"] = true;
+                }
                 pieces.Add(o);
             }
             root["pieces"] = pieces;
@@ -332,6 +384,57 @@ namespace InnoVault.Rigs2D.Data
                 solvers.Add(o);
             }
             root["solvers"] = solvers;
+
+            if (def.Ribbons.Count > 0) {
+                JArray ribbons = [];
+                foreach (Ribbon2DDef r in def.Ribbons) {
+                    JObject o = new();
+                    if (!string.IsNullOrEmpty(r.Name)) {
+                        o["name"] = r.Name;
+                    }
+                    o["bones"] = new JArray(r.Bones);
+                    o["texture"] = r.Texture;
+                    o["width"] = r.Width;
+                    if (!float.IsNaN(r.WidthEnd)) {
+                        o["widthEnd"] = r.WidthEnd;
+                    }
+                    if (r.WidthProfile != null && r.WidthProfile.Length > 0) {
+                        o["widthProfile"] = new JArray(r.WidthProfile);
+                    }
+                    if (r.Uv != Ribbon2DUv.Stretch) {
+                        o["uv"] = r.Uv.ToString().ToLowerInvariant();
+                    }
+                    if (r.TileLength != 64f) {
+                        o["tileLength"] = r.TileLength;
+                    }
+                    if (!r.IncludeTip) {
+                        o["includeTip"] = false;
+                    }
+                    if (r.Smooth != 0) {
+                        o["smooth"] = r.Smooth;
+                    }
+                    if (r.Layer != 0) {
+                        o["layer"] = r.Layer;
+                    }
+                    if (r.Tint != Color.White) {
+                        o["tint"] = new JArray(r.Tint.R, r.Tint.G, r.Tint.B, r.Tint.A);
+                    }
+                    if (r.Dark != 1f) {
+                        o["dark"] = r.Dark;
+                    }
+                    if (r.Alpha != 1f) {
+                        o["alpha"] = r.Alpha;
+                    }
+                    if (r.Additive) {
+                        o["additive"] = true;
+                    }
+                    if (!r.Visible) {
+                        o["visible"] = false;
+                    }
+                    ribbons.Add(o);
+                }
+                root["ribbons"] = ribbons;
+            }
 
             if (def.Clips.Count > 0) {
                 JArray clips = [];

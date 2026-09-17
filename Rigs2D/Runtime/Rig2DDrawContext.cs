@@ -6,6 +6,16 @@ using Terraria;
 namespace InnoVault.Rigs2D.Runtime
 {
     /// <summary>
+    /// 逐件绘制前回调：件即将以 <paramref name="texture"/> 的 <paramref name="frame"/> 矩形绘制。
+    /// 用于 Immediate 批次里逐件设置 shader 参数（材质种子、UV 矩形一类）；Deferred 批次下设置不会按件生效，那是调用方的批次责任
+    /// </summary>
+    /// <param name="rig">正在绘制的实例</param>
+    /// <param name="pieceIndex">件索引（同 <see cref="Rig2DInstance.Pieces"/>）</param>
+    /// <param name="texture">实际使用的贴图（含覆写）</param>
+    /// <param name="frame">帧源矩形</param>
+    public delegate void Rig2DPieceDrawHook(Rig2DInstance rig, int pieceIndex, Texture2D texture, Rectangle frame);
+
+    /// <summary>
     /// 一次骨架绘制的环境：视口偏移、光照来源、整体着色、批次参数
     /// <br/>把"画在世界里"与"画在图鉴舞台上"的差异收进一个结构体，渲染器本身不碰 <see cref="Main.screenPosition"/>；
     /// 需要中途 End / Begin 的消费方（加色层、shader 层）从这里取批次矩阵与光栅态，保证与本体同一坐标系
@@ -56,6 +66,10 @@ namespace InnoVault.Rigs2D.Runtime
         /// 只画层序键不大于此值的件（默认不限）
         /// </summary>
         public float LayerMax;
+        /// <summary>
+        /// 逐件绘制前回调（可空）；见 <see cref="Rig2DPieceDrawHook"/>
+        /// </summary>
+        public Rig2DPieceDrawHook BeforePiece;
 
         /// <summary>
         /// 世界绘制环境：视口 = 屏幕位置，物块光照，默认批次参数
@@ -132,6 +146,15 @@ namespace InnoVault.Rigs2D.Runtime
             Rig2DDrawContext c = this;
             c.Tint = tint;
             c.Alpha = alpha;
+            return c;
+        }
+
+        /// <summary>
+        /// 复制一份带逐件回调的环境
+        /// </summary>
+        public readonly Rig2DDrawContext WithPieceHook(Rig2DPieceDrawHook hook) {
+            Rig2DDrawContext c = this;
+            c.BeforePiece = hook;
             return c;
         }
 

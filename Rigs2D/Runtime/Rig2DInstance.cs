@@ -37,6 +37,10 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         public Piece2DState[] Pieces { get; private set; } = [];
         /// <summary>
+        /// 全部带状件的运行时状态，下标同 <see cref="Rig2DDefinition.Ribbons"/>
+        /// </summary>
+        public Ribbon2DState[] Ribbons { get; private set; } = [];
+        /// <summary>
         /// 求解器实例，下标同 <see cref="Rig2DDefinition.Solvers"/>；创建失败的槽位为 <see langword="null"/>
         /// </summary>
         public Rig2DSolver[] Solvers { get; private set; } = [];
@@ -57,6 +61,30 @@ namespace InnoVault.Rigs2D.Runtime
         /// 累计帧时间（由 <see cref="Step"/> 推进）
         /// </summary>
         public float Time { get; set; }
+        /// <summary>
+        /// 骨架级镜像（朝向翻转）：沿根朝向轴反射整副骨架——每根继承旋转的骨骼其局部偏移的侧向分量与局部旋转取反，
+        /// 全部贴图件沿骨轴镜像，求解器的局部极性参数（肘向 / 卷向 / 弓向）跟着翻；
+        /// <c>InheritRotation = false</c> 的世界绝对角骨骼不受影响（重力向的骨骼翻身后仍朝下）
+        /// <br/>侧视生物的惯例：<c>SetRoot(pos, dir &gt; 0 ? rot : rot + π)</c> 再 <c>Mirrored = dir &lt; 0</c>。
+        /// 值变化时下一次 <see cref="Step"/> 默认整副 <see cref="Snap"/>（见 <see cref="SnapOnMirrorChange"/>）
+        /// </summary>
+        public bool Mirrored {
+            get => mirrored;
+            set {
+                if (mirrored != value) {
+                    mirrored = value;
+                    mirrorDirty = true;
+                }
+            }
+        }
+        /// <summary>
+        /// 镜像符号：<see cref="Mirrored"/> 为 +1 / −1，求解器把局部极性乘上它
+        /// </summary>
+        public float MirrorSign => mirrored ? -1f : 1f;
+        /// <summary>
+        /// <see cref="Mirrored"/> 变化时是否在下一次 <see cref="Step"/> 硬重建（默认开；关掉则各求解器从翻转后的静息姿态自行收敛）
+        /// </summary>
+        public bool SnapOnMirrorChange { get; set; } = true;
         /// <summary>
         /// 根位置（世界）
         /// </summary>
@@ -102,9 +130,12 @@ namespace InnoVault.Rigs2D.Runtime
         private bool[] hasLocalOffset = [];
         private float[] localLength = [];
         private int[] pieceOrder = [];
+        private int[] ribbonOrder = [];
         private int[] walkStack = [];
         private Vector2 lastRootPos;
         private bool hasLastRoot;
+        private bool mirrored;
+        private bool mirrorDirty;
 
         internal Rig2DInstance(Vault2DRig asset, float seed) {
             Asset = asset;
@@ -136,6 +167,14 @@ namespace InnoVault.Rigs2D.Runtime
             for (int i = 0; i < pc; i++) {
                 Pieces[i] = Piece2DState.FromDef(def.Pieces[i]);
                 pieceOrder[i] = i;
+            }
+
+            int rc = def?.Ribbons.Count ?? 0;
+            Ribbons = new Ribbon2DState[rc];
+            ribbonOrder = new int[rc];
+            for (int i = 0; i < rc; i++) {
+                Ribbons[i] = Ribbon2DState.FromDef(def.Ribbons[i]);
+                ribbonOrder[i] = i;
             }
 
             int sc = def?.Solvers.Count ?? 0;
@@ -194,6 +233,9 @@ namespace InnoVault.Rigs2D.Runtime
                 for (int i = 0; i < Pieces.Length; i++) {
                     //层序键跟着新定义走，其余运行时状态是消费方逐帧写的，保留
                     Pieces[i].SortKey = def.Pieces[i].Layer;
+                }
+                for (int i = 0; i < Ribbons.Length; i++) {
+                    Ribbons[i].SortKey = def.Ribbons[i].Layer;
                 }
                 ApplyBinding();
                 return;
@@ -290,11 +332,13 @@ namespace InnoVault.Rigs2D.Runtime
                 parDir = p.Dir;
             }
             Vector2 off = hasLocalOffset[bone] ? localOffset[bone] : d.Offset;
+            //镜像：侧向分量取反（局部系 y 沿父骨骼 Side）
+            float offY = off.Y * MirrorSign;
             float cos = (float)Math.Cos(parDir);
             float sin = (float)Math.Sin(parDir);
             return new Vector2(
-                anchor.X + (cos * off.X - sin * off.Y) * Scale,
-                anchor.Y + (sin * off.X + cos * off.Y) * Scale);
+                anchor.X + (cos * off.X - sin * offY) * Scale,
+                anchor.Y + (sin * off.X + cos * offY) * Scale);
         }
 
         /// <summary>
@@ -304,7 +348,8 @@ namespace InnoVault.Rigs2D.Runtime
             Bone2DDef d = Definition.Bones[bone];
             float parDir = d.ParentIndex < 0 ? RootRotation : Bones[d.ParentIndex].Dir;
             float rot = float.IsNaN(localRotation[bone]) ? d.Rotation : localRotation[bone];
-            return d.InheritRotation ? parDir + rot : rot;
+            //镜像只翻继承旋转的骨骼；世界绝对角骨骼保持原角
+            return d.InheritRotation ? parDir + rot * MirrorSign : rot;
         }
 
         /// <summary>
@@ -359,6 +404,36 @@ namespace InnoVault.Rigs2D.Runtime
         public void ResetPieceStates() {
             for (int i = 0; i < Pieces.Length; i++) {
                 Pieces[i] = Piece2DState.FromDef(Definition.Pieces[i]);
+            }
+        }
+
+        /// <summary>
+        /// 按名查带状件索引（件名或其首骨名），缺失 <c>-1</c>
+        /// </summary>
+        public int Ribbon(string name) => Definition?.RibbonIndex(name) ?? -1;
+
+        /// <summary>
+        /// 取带状件状态引用
+        /// </summary>
+        public ref Ribbon2DState RibbonRef(int index) => ref Ribbons[index];
+
+        /// <summary>
+        /// 按名取带状件状态引用；缺失时抛出（件名在开发期就该对上）
+        /// </summary>
+        public ref Ribbon2DState RibbonRef(string name) {
+            int i = Ribbon(name);
+            if (i < 0) {
+                throw new ArgumentException($"Rig2D '{Name}' has no ribbon '{name}'");
+            }
+            return ref Ribbons[i];
+        }
+
+        /// <summary>
+        /// 把全部带状件状态重置为设计值
+        /// </summary>
+        public void ResetRibbonStates() {
+            for (int i = 0; i < Ribbons.Length; i++) {
+                Ribbons[i] = Ribbon2DState.FromDef(Definition.Ribbons[i]);
             }
         }
 
@@ -451,9 +526,19 @@ namespace InnoVault.Rigs2D.Runtime
             Animation.Apply();
             RefreshSolverDriven();
 
+            //镜像切换：先让求解器清掉带极性的迟滞量，再按需整副硬重建
+            bool mirrorSnap = false;
+            if (mirrorDirty) {
+                mirrorDirty = false;
+                for (int i = 0; i < Solvers.Length; i++) {
+                    Solvers[i]?.OnMirrorChanged();
+                }
+                mirrorSnap = SnapOnMirrorChange;
+            }
+
             float snapDist = SnapDistance * Math.Max(Scale, 0.01f);
             bool teleport = hasLastRoot && Vector2.DistanceSquared(lastRootPos, RootPosition) > snapDist * snapDist;
-            if (!Built || teleport) {
+            if (!Built || teleport || mirrorSnap) {
                 SnapCore();
             }
             else {
@@ -474,6 +559,12 @@ namespace InnoVault.Rigs2D.Runtime
         public void Snap() {
             if (Definition == null || Bones.Length == 0) {
                 return;
+            }
+            if (mirrorDirty) {
+                mirrorDirty = false;
+                for (int i = 0; i < Solvers.Length; i++) {
+                    Solvers[i]?.OnMirrorChanged();
+                }
             }
             RefreshSolverDriven();
             SnapCore();
@@ -582,13 +673,16 @@ namespace InnoVault.Rigs2D.Runtime
             Vector2 off = hasLocalOffset[b] ? localOffset[b] : d.Offset;
             float rot = float.IsNaN(localRotation[b]) ? d.Rotation : localRotation[b];
             float len = float.IsNaN(localLength[b]) ? d.Length : localLength[b];
+            //镜像：侧向偏移与继承旋转取反，世界绝对角骨骼不动（与 RestPosition / RestDirection 同一套规则）
+            float sign = MirrorSign;
+            float offY = off.Y * sign;
             float cos = (float)Math.Cos(parDir);
             float sin = (float)Math.Sin(parDir);
             ref Bone2D me = ref Bones[b];
             me.Pos = new Vector2(
-                anchor.X + (cos * off.X - sin * off.Y) * Scale,
-                anchor.Y + (sin * off.X + cos * off.Y) * Scale);
-            me.Dir = d.InheritRotation ? parDir + rot : rot;
+                anchor.X + (cos * off.X - sin * offY) * Scale,
+                anchor.Y + (sin * off.X + cos * offY) * Scale);
+            me.Dir = d.InheritRotation ? parDir + rot * sign : rot;
             me.Length = len * Scale;
         }
 
@@ -610,6 +704,24 @@ namespace InnoVault.Rigs2D.Runtime
                 pieceOrder[j + 1] = cur;
             }
             return pieceOrder;
+        }
+
+        /// <summary>
+        /// 按 <see cref="Ribbon2DState.SortKey"/> 升序排好的带状件索引
+        /// </summary>
+        public ReadOnlySpan<int> SortedRibbons() {
+            int n = ribbonOrder.Length;
+            for (int i = 1; i < n; i++) {
+                int cur = ribbonOrder[i];
+                float key = Ribbons[cur].SortKey;
+                int j = i - 1;
+                while (j >= 0 && Ribbons[ribbonOrder[j]].SortKey > key) {
+                    ribbonOrder[j + 1] = ribbonOrder[j];
+                    j--;
+                }
+                ribbonOrder[j + 1] = cur;
+            }
+            return ribbonOrder;
         }
     }
 }

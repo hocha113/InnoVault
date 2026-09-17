@@ -114,8 +114,10 @@ namespace InnoVault.Rigs2D.Solvers
                 Vector2 toFront = frontPos - node.Pos;
                 float natural = toFront.LengthSquared() < 0.01f ? frontDir : MathF.Atan2(toFront.Y, toFront.X);
 
-                float curlOff = curl * curlPerJoint * downSign;
-                float waveOff = MathF.Sin(WavePhase - (i + 1) * waveStep) * waveAmp * WaveGain * speedFactor;
+                //卷曲与行波都是相对链身的侧向量，骨架镜像时整体翻边
+                float side = downSign * MirrorSign;
+                float curlOff = curl * curlPerJoint * side;
+                float waveOff = MathF.Sin(WavePhase - (i + 1) * waveStep) * waveAmp * WaveGain * speedFactor * side;
                 float posed = frontDir + curlOff + waveOff;
 
                 float blended = natural + MathHelper.WrapAngle(posed - natural) * poseWeight;

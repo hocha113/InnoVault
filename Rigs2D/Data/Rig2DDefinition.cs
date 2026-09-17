@@ -32,6 +32,10 @@ namespace InnoVault.Rigs2D.Data
         /// </summary>
         public List<Solver2DDef> Solvers { get; } = [];
         /// <summary>
+        /// 带状件定义表（可选）：沿骨链铺的纹理条带，与整图件共用层序键
+        /// </summary>
+        public List<Ribbon2DDef> Ribbons { get; } = [];
+        /// <summary>
         /// 关键帧片段表（可选），运行时由 <c>Rig2DClipPlayer</c> 播放
         /// </summary>
         public List<Animation.Rig2DClip> Clips { get; } = [];
@@ -52,6 +56,7 @@ namespace InnoVault.Rigs2D.Data
         private readonly Dictionary<string, int> boneLookup = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> pieceLookup = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> solverLookup = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> ribbonLookup = new(StringComparer.Ordinal);
 
         /// <summary>
         /// 按名查骨骼索引，缺失返回 <c>-1</c>
@@ -84,6 +89,16 @@ namespace InnoVault.Rigs2D.Data
         }
 
         /// <summary>
+        /// 按名查带状件索引（件名或其首骨名），缺失返回 <c>-1</c>
+        /// </summary>
+        public int RibbonIndex(string name) {
+            if (string.IsNullOrEmpty(name)) {
+                return -1;
+            }
+            return ribbonLookup.TryGetValue(name, out int i) ? i : -1;
+        }
+
+        /// <summary>
         /// 骨骼数量
         /// </summary>
         public int BoneCount => Bones.Count;
@@ -104,6 +119,7 @@ namespace InnoVault.Rigs2D.Data
             boneLookup.Clear();
             pieceLookup.Clear();
             solverLookup.Clear();
+            ribbonLookup.Clear();
 
             if (Bones.Count == 0) {
                 Fail("no bones");
@@ -189,6 +205,26 @@ namespace InnoVault.Rigs2D.Data
                     }
                 }
                 s.BoneIndices = idx;
+            }
+
+            for (int i = 0; i < Ribbons.Count; i++) {
+                Ribbon2DDef r = Ribbons[i];
+                r.Index = i;
+                if (r.Bones.Count == 0) {
+                    Fail($"ribbon '{r.DisplayName}' has no bones");
+                }
+                int[] idx = new int[r.Bones.Count];
+                for (int k = 0; k < idx.Length; k++) {
+                    idx[k] = BoneIndex(r.Bones[k]);
+                    if (idx[k] < 0) {
+                        Fail($"ribbon '{r.DisplayName}' bone '{r.Bones[k]}' not found");
+                    }
+                }
+                r.BoneIndices = idx;
+                string key = r.DisplayName;
+                if (!string.IsNullOrEmpty(key)) {
+                    ribbonLookup.TryAdd(key, i);
+                }
             }
 
             for (int i = 0; i < Clips.Count; i++) {
@@ -282,6 +318,9 @@ namespace InnoVault.Rigs2D.Data
             foreach (Solver2DDef s in Solvers) {
                 c.Solvers.Add(s.Clone());
             }
+            foreach (Ribbon2DDef r in Ribbons) {
+                c.Ribbons.Add(r.Clone());
+            }
             foreach (Animation.Rig2DClip clip in Clips) {
                 c.Clips.Add(clip);
             }
@@ -303,12 +342,17 @@ namespace InnoVault.Rigs2D.Data
                     return false;
                 }
             }
-            if (other.Pieces.Count != Pieces.Count || other.Solvers.Count != Solvers.Count) {
+            if (other.Pieces.Count != Pieces.Count || other.Solvers.Count != Solvers.Count || other.Ribbons.Count != Ribbons.Count) {
                 return false;
             }
             for (int i = 0; i < Solvers.Count; i++) {
                 if (!string.Equals(Solvers[i].Name, other.Solvers[i].Name, StringComparison.Ordinal)
                     || !string.Equals(Solvers[i].Type, other.Solvers[i].Type, StringComparison.Ordinal)) {
+                    return false;
+                }
+            }
+            for (int i = 0; i < Ribbons.Count; i++) {
+                if (!string.Equals(Ribbons[i].DisplayName, other.Ribbons[i].DisplayName, StringComparison.Ordinal)) {
                     return false;
                 }
             }

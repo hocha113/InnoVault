@@ -23,6 +23,8 @@ namespace InnoVault.Rigs2D.Debug
         private static readonly Color drivenColor = new(255, 200, 90);
         private static readonly Color jointColor = new(255, 255, 255);
         private static readonly Color pieceColor = new(255, 110, 200);
+        private static readonly Color ribbonColor = new(140, 255, 170);
+        private static readonly List<Vector2> ribbonPath = new(128);
 
         public override bool Active => DebugSettings.Rig2DShowOverlay && !Main.gameMenu;
 
@@ -85,6 +87,17 @@ namespace InnoVault.Rigs2D.Debug
                 Rig2DDebugDraw.Dot(sb, toScreen(pos), 3f, pieceColor);
             }
 
+            //带状件中心线：与渲染器同一条路径（含细分），读出条带实际走向
+            for (int r = 0; r < rig.Ribbons.Length; r++) {
+                if (!rig.Ribbons[r].Visible) {
+                    continue;
+                }
+                int count = Rig2DRibbonRenderer.BuildPath(rig, def.Ribbons[r], rig.Bones, ribbonPath);
+                for (int k = 1; k < count; k++) {
+                    Rig2DDebugDraw.Line(sb, toScreen(ribbonPath[k - 1]), toScreen(ribbonPath[k]), ribbonColor * 0.9f, 1f);
+                }
+            }
+
             for (int s = 0; s < rig.Solvers.Length; s++) {
                 Rig2DSolver solver = rig.Solvers[s];
                 if (solver == null || !solver.Enabled) {
@@ -94,7 +107,8 @@ namespace InnoVault.Rigs2D.Debug
             }
 
             Vector2 label = toScreen(rig.RootPosition) + new Vector2(8f, -22f);
-            Rig2DDebugDraw.Text(sb, $"{rig.Name}  bones {rig.Bones.Length}  x{rig.Scale:F2}", label, new Color(200, 235, 255), 0.6f);
+            string mirrorTag = rig.Mirrored ? "  mirrored" : string.Empty;
+            Rig2DDebugDraw.Text(sb, $"{rig.Name}  bones {rig.Bones.Length}  x{rig.Scale:F2}{mirrorTag}", label, new Color(200, 235, 255), 0.6f);
             if (rig.BindErrors.Count > 0) {
                 //声明式绑定没对上：把第一条问题贴在标签下面，其余条数提示去看日志
                 string first = rig.BindErrors[0];

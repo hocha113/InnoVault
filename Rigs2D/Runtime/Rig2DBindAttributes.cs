@@ -54,6 +54,14 @@ namespace InnoVault.Rigs2D.Runtime
     }
 
     /// <summary>
+    /// 带状件下标绑定（件名或其首骨名）：成员为 <see cref="int"/>、<c>int[]</c> 或 <c>int[,]</c>
+    /// <br/><c>[Rig2DRibbon("tail")] int tailRibbon;</c>
+    /// </summary>
+    public sealed class Rig2DRibbonAttribute(params string[] names) : Rig2DBindAttribute(names)
+    {
+    }
+
+    /// <summary>
     /// 求解器引用绑定：成员为 <see cref="Solvers.Rig2DSolver"/> 的具体子类或其一维 / 二维数组；类型不符视为缺失
     /// <br/><c>[Rig2DSolver("armR", "armL")] TwoBoneIKSolver[] arms;</c>　<c>[Rig2DSolver] FootPlantGaitSolver gait;</c>
     /// </summary>

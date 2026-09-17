@@ -67,6 +67,13 @@ namespace InnoVault.Rigs2D.Solvers
         protected float Scale => Rig?.Scale ?? 1f;
 
         /// <summary>
+        /// 骨架镜像符号（+1 / −1，见 <see cref="Rig2DInstance.Mirrored"/>）：
+        /// 凡是"在父骨骼局部系里选左右"的极性参数（肘向、卷向、弓向、提示向量的侧向分量）都要乘它；
+        /// 世界系的偏好向量（重力向、膝朝上）不乘
+        /// </summary>
+        protected float MirrorSign => Rig?.MirrorSign ?? 1f;
+
+        /// <summary>
         /// 取第 i 个参与骨骼的引用
         /// </summary>
         protected ref Bone2D B(int i) => ref Rig.Bones[bones[i]];
@@ -132,6 +139,12 @@ namespace InnoVault.Rigs2D.Solvers
         /// 全部求解器创建完毕后调用一次，用于解析对其他求解器的引用
         /// </summary>
         protected internal virtual void PostBind() { }
+
+        /// <summary>
+        /// 实例 <see cref="Rig2DInstance.Mirrored"/> 变化后、本帧求解之前调用一次：清掉带左右极性的迟滞量（肘侧、膝侧），
+        /// 让新极性下的第一帧重新选边；默认空实现
+        /// </summary>
+        protected internal virtual void OnMirrorChanged() { }
 
         /// <summary>
         /// 硬重建：从当前静息传播结果直接摆好姿态，清空一切平滑量

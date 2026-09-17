@@ -148,7 +148,7 @@ namespace InnoVault.Rigs2D.Solvers
         /// <summary>
         /// 当前肘极性 ±1
         /// </summary>
-        public float Side => autoBend ? desiredSide : bendSign;
+        public float Side => autoBend ? desiredSide : bendSign * MirrorSign;
         /// <summary>
         /// 当前骨段拉伸倍率（未开 stretch 恒为 1）
         /// </summary>
@@ -215,6 +215,12 @@ namespace InnoVault.Rigs2D.Solvers
             if (valid) {
                 Solve(1f, forceSnap: true);
             }
+        }
+
+        /// <inheritdoc/>
+        protected internal override void OnMirrorChanged() {
+            //肘侧迟滞是旧极性下选的，翻身后第一帧重新选边
+            desiredSide = 0f;
         }
 
         /// <inheritdoc/>
@@ -289,14 +295,16 @@ namespace InnoVault.Rigs2D.Solvers
             float cosA = (b1 * b1 + clamped * clamped - b2 * b2) / (2f * b1 * clamped);
             float bendMag = Math.Min(MathF.Acos(MathHelper.Clamp(cosA, -1f, 1f)), maxBend);
 
-            //极性
-            float sign = bendSign;
+            //极性：肘向与提示向量的侧向分量都是父骨骼局部系里的左右选择，骨架镜像时跟着翻
+            float mirror = MirrorSign;
+            float sign = bendSign * mirror;
             float sideBlend = 1f;
             if (autoBend) {
                 float parDir = ParentDir(0);
                 float cos = MathF.Cos(parDir);
                 float sin = MathF.Sin(parDir);
-                Vector2 hintWorld = new(cos * hint.X - sin * hint.Y, sin * hint.X + cos * hint.Y);
+                float hintY = hint.Y * mirror;
+                Vector2 hintWorld = new(cos * hint.X - sin * hintY, sin * hint.X + cos * hintY);
                 Vector2 n = new(-dN.Y, dN.X);
                 float wantSide = Vector2.Dot(n, hintWorld);
                 if (snapHard || desiredSide == 0f) {

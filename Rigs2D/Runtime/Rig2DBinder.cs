@@ -17,6 +17,7 @@ namespace InnoVault.Rigs2D.Runtime
         {
             Bone,
             Piece,
+            Ribbon,
             Solver,
         }
 
@@ -146,6 +147,9 @@ namespace InnoVault.Rigs2D.Runtime
                 case Rig2DPieceAttribute:
                     e.Kind = Kind.Piece;
                     break;
+                case Rig2DRibbonAttribute:
+                    e.Kind = Kind.Ribbon;
+                    break;
                 case Rig2DSolverAttribute:
                     e.Kind = Kind.Solver;
                     break;
@@ -247,6 +251,15 @@ namespace InnoVault.Rigs2D.Runtime
                     value = i;
                     if (i < 0) {
                         errors.Add($"{slot}: piece '{name}' not found");
+                        return false;
+                    }
+                    return true;
+                }
+                case Kind.Ribbon: {
+                    int i = rig.Ribbon(name);
+                    value = i;
+                    if (i < 0) {
+                        errors.Add($"{slot}: ribbon '{name}' not found");
                         return false;
                     }
                     return true;
