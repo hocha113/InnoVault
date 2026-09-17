@@ -16,10 +16,10 @@ namespace InnoVault.Rigs2D.Data
     ///   "name": "SeaShrimp", "snapDistance": 340,
     ///   "bones":  [ { "name", "parent", "offset": [x, y], "atTip", "rotation" | "rotationDeg", "inheritRotation", "length" } ],
     ///   "pieces": [ { "name", "bone", "texture", "proximal": [x, y], "axis" | "axisDeg" | "distal": [x, y], "axisLength",
-    ///                 "stretch": "none|axis|uniform", "stretchMin", "stretchMax", "layer", "mirror", "scale", "dark", "tint", "alpha", "visible", "frames", "framePad", "proximalNormalized" } ],
+    ///                 "stretch": "none|axis|uniform", "stretchMin", "stretchMax", "layer", "mirror", "scale", "dark", "tint", "alpha", "visible", "unlit", "frames", "framePad", "proximalNormalized" } ],
     ///   "solvers": [ { "name", "type", "bones": [ ... ], ...其余键都是该求解器的参数 } ],
     ///   "ribbons": [ { "name", "bones": [ ... ], "texture", "width", "widthEnd", "widthProfile": [ ... ], "uv": "stretch|tile", "tileLength",
-    ///                 "includeTip", "smooth", "layer", "tint", "dark", "alpha", "additive", "visible" } ],
+    ///                 "includeTip", "smooth", "layer", "tint", "dark", "alpha", "additive", "visible", "unlit" } ],
     ///   "clips":   [ { "name", "duration", "loop", "tracks": [ { "bone", "interp": "linear|step", "rotation": [[t, v]], "offset": [[t, [x, y]]], "length": [[t, v]] } ] } ]
     /// }
     /// </code>
@@ -135,6 +135,7 @@ namespace InnoVault.Rigs2D.Data
                 Dark = Num(o, "dark", 1f),
                 Alpha = Num(o, "alpha", 1f),
                 Visible = Bool(o, "visible", true),
+                Unlit = Bool(o, "unlit", false),
                 Frames = Math.Max(1, (int)Num(o, "frames", 1f)),
                 FramePad = (int)Num(o, "framePad", 0f),
                 ProximalNormalized = Bool(o, "proximalNormalized", false),
@@ -206,6 +207,7 @@ namespace InnoVault.Rigs2D.Data
                 Alpha = Num(o, "alpha", 1f),
                 Additive = Bool(o, "additive", false),
                 Visible = Bool(o, "visible", true),
+                Unlit = Bool(o, "unlit", false),
             };
             if (o["bones"] is JArray arr) {
                 foreach (JToken t in arr) {
@@ -362,6 +364,9 @@ namespace InnoVault.Rigs2D.Data
                 if (!p.Visible) {
                     o["visible"] = false;
                 }
+                if (p.Unlit) {
+                    o["unlit"] = true;
+                }
                 if (p.Frames > 1) {
                     o["frames"] = p.Frames;
                 }
@@ -438,6 +443,9 @@ namespace InnoVault.Rigs2D.Data
                     }
                     if (!r.Visible) {
                         o["visible"] = false;
+                    }
+                    if (r.Unlit) {
+                        o["unlit"] = true;
                     }
                     ribbons.Add(o);
                 }

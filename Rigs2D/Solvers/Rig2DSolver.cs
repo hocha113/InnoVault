@@ -147,6 +147,13 @@ namespace InnoVault.Rigs2D.Solvers
         protected internal virtual void OnMirrorChanged() { }
 
         /// <summary>
+        /// <see cref="Enabled"/> 从假翻回真之后、本帧 <see cref="Step"/> 之前调用一次（停用期间至少跳过了一次求解）：
+        /// 带内部平滑状态的求解器在这里从骨骼<b>当前</b>位姿重新播种（停用期间这些骨可能被别的求解器或外部写接管过，
+        /// 旧状态早已过期，直接续算会从陈旧姿态猛甩过去）；默认空实现
+        /// </summary>
+        protected internal virtual void OnEnabled() { }
+
+        /// <summary>
         /// 硬重建：从当前静息传播结果直接摆好姿态，清空一切平滑量
         /// </summary>
         public abstract void Snap();

@@ -16,7 +16,10 @@ namespace InnoVault.Rigs2D.Solvers
     /// <br/>骨骼：<c>[seg1 … segN]</c>（N 节 = N + 1 关节，关节 N 落在 Target）
     /// <br/>参数：<c>handleA</c> 120（起端控制柄长，像素，Scale 为 1）、<c>handleB</c> 0（末端控制柄长；0 或无 <see cref="TargetDir"/> 时退化为二次曲线，单控制点 = 锚 + 起切线 × handleA）、
     /// <c>spacing</c> "param"（<c>param</c> 参数等分 / <c>arc</c> 弧长等分）、<c>arcSamples</c> 32（弧长表采样数）、
-    /// <c>followRate</c> 1（关节向曲线采样点的逐帧追近比例，1 = 瞬时）、<c>targetSolver</c> / <c>targetIndex</c>
+    /// <c>followRate</c> 1（关节向曲线采样点的逐帧追近比例，1 = 瞬时）、
+    /// <c>followSpace</c> "world"（软跟随的参照系：<c>world</c> 关节在世界系里追曲线，宿主平移会拖出整条链的滞后；
+    /// <c>anchor</c> 先把上一帧的关节随锚点平移再追，只有形状滞后、不随宿主速度拖尾——高速飞行体的尾巴用它）、
+    /// <c>targetSolver</c> / <c>targetIndex</c>
     /// </summary>
     public sealed class BezierChainSolver : Rig2DSolver, IRig2DTargetSource
     {
@@ -25,6 +28,7 @@ namespace InnoVault.Rigs2D.Solvers
         private bool arcSpacing;
         private int arcSamples;
         private float paramFollowRate;
+        private bool paramAnchorFollow;
         private IRig2DTargetSource targetSource;
         private int targetIndex;
         private Vector2[] joints = [];
@@ -32,6 +36,8 @@ namespace InnoVault.Rigs2D.Solvers
         private float[] arcTable = [];
         private bool valid;
         private bool inited;
+        private Vector2 lastMount;
+        private bool hasLastMount;
 
         /// <summary>
         /// 链尖目标（世界）；有目标源时被目标源覆盖
@@ -67,6 +73,10 @@ namespace InnoVault.Rigs2D.Solvers
         /// 末端控制柄长覆盖（NaN 用参数）
         /// </summary>
         public float HandleB { get; set; } = float.NaN;
+        /// <summary>
+        /// 软跟随参照系覆盖（<see langword="null"/> 用参数 <c>followSpace</c>）：真 = 锚点系（关节先随锚点平移再追曲线），假 = 世界系
+        /// </summary>
+        public bool? AnchorFollow { get; set; }
 
         /// <summary>
         /// 锚位置（本帧）
@@ -110,6 +120,7 @@ namespace InnoVault.Rigs2D.Solvers
             arcSpacing = def.GetString("spacing", "param").ToLowerInvariant() == "arc";
             arcSamples = Math.Max(def.GetInt("arcSamples", 32), 4);
             paramFollowRate = MathHelper.Clamp(def.GetFloat("followRate", 1f), 0f, 1f);
+            paramAnchorFollow = def.GetString("followSpace", "world").ToLowerInvariant() == "anchor";
             targetIndex = def.GetInt("targetIndex", 0);
             if (joints.Length != n + 1) {
                 joints = new Vector2[n + 1];
@@ -158,7 +169,24 @@ namespace InnoVault.Rigs2D.Solvers
             SampleCurve();
             Array.Copy(curve, joints, curve.Length);
             inited = true;
+            lastMount = Mount;
+            hasLastMount = true;
             WriteBones();
+        }
+
+        /// <summary>
+        /// 停用期间这些骨被别的求解器（例如跟随链）接管过，旧关节早已过期：从骨骼当前位姿重新播种，软跟随从真实姿态起步
+        /// </summary>
+        protected internal override void OnEnabled() {
+            if (!valid || !inited) {
+                return;
+            }
+            int n = bones.Length;
+            for (int i = 0; i < n; i++) {
+                joints[i] = B(i).Pos;
+            }
+            joints[n] = B(n - 1).Tip;
+            hasLastMount = false;
         }
 
         /// <inheritdoc/>
@@ -176,12 +204,24 @@ namespace InnoVault.Rigs2D.Solvers
                 Array.Copy(curve, joints, curve.Length);
             }
             else {
+                //锚点系跟随：先让上一帧的关节跟着锚点整体平移，追近只吃形状差，宿主平移不产生拖尾
+                bool anchorFollow = AnchorFollow ?? paramAnchorFollow;
+                if (anchorFollow && hasLastMount) {
+                    Vector2 delta = Mount - lastMount;
+                    if (delta != Vector2.Zero) {
+                        for (int j = 1; j < joints.Length; j++) {
+                            joints[j] += delta;
+                        }
+                    }
+                }
                 float r = Spring2D.RateForDt(rate, dt);
                 joints[0] = curve[0];
                 for (int j = 1; j < joints.Length; j++) {
                     joints[j] = Vector2.Lerp(joints[j], curve[j], r);
                 }
             }
+            lastMount = Mount;
+            hasLastMount = true;
             WriteBones();
         }
 

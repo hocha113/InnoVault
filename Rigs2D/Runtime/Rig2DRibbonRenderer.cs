@@ -74,7 +74,7 @@ namespace InnoVault.Rigs2D.Runtime
                 if (!BuildMesh(rig, def, in st, bones, in ctx, out int vertexCount, out int indexCount)) {
                     continue;
                 }
-                BlendState blend = def.Additive ? BlendState.Additive : BlendState.AlphaBlend;
+                BlendState blend = ctx.RibbonBlendOverride ?? (def.Additive ? BlendState.Additive : BlendState.AlphaBlend);
                 SamplerState sampler = def.Uv == Ribbon2DUv.Tile ? WrapOf(ctx.Sampler) : ctx.Sampler;
                 if (!opened || !ReferenceEquals(blend, curBlend) || !ReferenceEquals(sampler, curSampler)) {
                     sb.End();
@@ -153,7 +153,7 @@ namespace InnoVault.Rigs2D.Runtime
         /// 带状件某点的最终着色：环境光 × 设计着色 × 运行时着色 × 压暗 × 不透明度（与整图件同一套规则）
         /// </summary>
         public static Color RibbonColor(Ribbon2DDef def, in Ribbon2DState st, Vector2 world, in Rig2DDrawContext ctx) {
-            Color c = ctx.LightAt(world);
+            Color c = def.Unlit ? ctx.UnlitAt() : ctx.LightAt(world);
             if (def.Tint != Color.White) {
                 c = c.MultiplyRGBA(def.Tint);
             }

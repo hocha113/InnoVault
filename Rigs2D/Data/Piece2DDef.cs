@@ -93,6 +93,11 @@ namespace InnoVault.Rigs2D.Data
         /// </summary>
         public bool Visible { get; set; } = true;
         /// <summary>
+        /// 不受光照（发光贴图 / glowmask）：绘制时不采样物块光照，以白色代替光照项；剪影一类的固定环境色环境仍照常生效。
+        /// 着色、压暗、不透明度与环境 <c>Tint</c> / <c>Alpha</c> 照旧相乘
+        /// </summary>
+        public bool Unlit { get; set; }
+        /// <summary>
         /// 竖排帧数（贴图为多帧竖排图集时 &gt; 1；运行时以 <c>Piece2DState.Frame</c> 选帧）
         /// </summary>
         public int Frames { get; set; } = 1;
@@ -149,8 +154,10 @@ namespace InnoVault.Rigs2D.Data
             Tint = Tint,
             Alpha = Alpha,
             Visible = Visible,
+            Unlit = Unlit,
             Frames = Frames,
             FramePad = FramePad,
+            ProximalNormalized = ProximalNormalized,
         };
     }
 }

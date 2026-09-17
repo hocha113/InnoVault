@@ -90,6 +90,10 @@ namespace InnoVault.Rigs2D.Data
         /// 默认可见
         /// </summary>
         public bool Visible { get; set; } = true;
+        /// <summary>
+        /// 不受光照（能量带 / 发光条）：顶点着色不采样物块光照，以白色代替光照项；固定环境色环境仍照常生效
+        /// </summary>
+        public bool Unlit { get; set; }
 
         /// <summary>
         /// 骨链的骨骼索引，由 <see cref="Rig2DDefinition.Resolve"/> 填充
@@ -142,6 +146,7 @@ namespace InnoVault.Rigs2D.Data
                 Alpha = Alpha,
                 Additive = Additive,
                 Visible = Visible,
+                Unlit = Unlit,
             };
             c.Bones.AddRange(Bones);
             return c;

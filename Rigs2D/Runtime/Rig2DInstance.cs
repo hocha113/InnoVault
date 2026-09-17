@@ -125,6 +125,7 @@ namespace InnoVault.Rigs2D.Runtime
         private readonly List<string> bindErrors = [];
         private bool[] externalDriven = [];
         private bool[] solverDriven = [];
+        private bool[] solverRan = [];
         private float[] localRotation = [];
         private Vector2[] localOffset = [];
         private bool[] hasLocalOffset = [];
@@ -179,6 +180,7 @@ namespace InnoVault.Rigs2D.Runtime
 
             int sc = def?.Solvers.Count ?? 0;
             Solvers = new Rig2DSolver[sc];
+            solverRan = new bool[sc];
             for (int i = 0; i < sc; i++) {
                 Solvers[i] = CreateSolver(def.Solvers[i]);
             }
@@ -577,9 +579,11 @@ namespace InnoVault.Rigs2D.Runtime
             for (int i = 0; i < Solvers.Length; i++) {
                 Rig2DSolver s = Solvers[i];
                 if (s == null || !s.Enabled) {
+                    MarkSolverRan(i, false);
                     continue;
                 }
                 s.Snap();
+                MarkSolverRan(i, true);
                 PropagateAfterSolver(s);
             }
             Built = true;
@@ -589,11 +593,24 @@ namespace InnoVault.Rigs2D.Runtime
             for (int i = 0; i < Solvers.Length; i++) {
                 Rig2DSolver s = Solvers[i];
                 if (s == null || !s.Enabled) {
+                    MarkSolverRan(i, false);
                     continue;
                 }
+                //停用后重新启用：先让它从骨骼当前位姿重新播种，再续算
+                if (i < solverRan.Length && !solverRan[i]) {
+                    s.OnEnabled();
+                }
                 s.Step(dt);
+                MarkSolverRan(i, true);
                 PropagateAfterSolver(s);
             }
+        }
+
+        private void MarkSolverRan(int i, bool ran) {
+            if (solverRan.Length != Solvers.Length) {
+                solverRan = new bool[Solvers.Length];
+            }
+            solverRan[i] = ran;
         }
 
         private void PropagateAfterSolver(Rig2DSolver s) {

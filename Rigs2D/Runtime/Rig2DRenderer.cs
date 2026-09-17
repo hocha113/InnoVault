@@ -228,7 +228,7 @@ namespace InnoVault.Rigs2D.Runtime
         /// 件的最终着色：环境光 × 设计着色 × 运行时着色 × 压暗 × 不透明度
         /// </summary>
         public static Color PieceColor(Piece2DDef def, in Piece2DState st, in Bone2D bone, in Rig2DDrawContext ctx) {
-            Color c = ctx.LightAt(bone.Pos + st.PositionOffset);
+            Color c = def.Unlit ? ctx.UnlitAt() : ctx.LightAt(bone.Pos + st.PositionOffset);
             if (def.Tint != Color.White) {
                 c = c.MultiplyRGBA(def.Tint);
             }

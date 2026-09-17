@@ -144,6 +144,14 @@ namespace InnoVault.Rigs2D.Data
         }
 
         /// <summary>
+        /// 把最近一件贴图设为不受光照（发光贴图）
+        /// </summary>
+        public Rig2DBuilder Unlit(bool unlit = true) {
+            RequirePiece().Unlit = unlit;
+            return this;
+        }
+
+        /// <summary>
         /// 设置最近一件贴图为多帧竖排图集
         /// </summary>
         public Rig2DBuilder Frames(int frames, int framePad = 0) {
@@ -219,6 +227,14 @@ namespace InnoVault.Rigs2D.Data
             r.Dark = dark;
             r.Alpha = alpha;
             r.Additive = additive;
+            return this;
+        }
+
+        /// <summary>
+        /// 把最近一条带状件设为不受光照（能量带）
+        /// </summary>
+        public Rig2DBuilder RibbonUnlit(bool unlit = true) {
+            RequireRibbon().Unlit = unlit;
             return this;
         }
 

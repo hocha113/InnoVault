@@ -70,6 +70,11 @@ namespace InnoVault.Rigs2D.Runtime
         /// 逐件绘制前回调（可空）；见 <see cref="Rig2DPieceDrawHook"/>
         /// </summary>
         public Rig2DPieceDrawHook BeforePiece;
+        /// <summary>
+        /// 带状件混合态覆盖（可空）：非空时 <see cref="Rig2DRibbonRenderer"/> 忽略定义里的 <c>additive</c>，全部带状件用它重开批次。
+        /// 整副骨架的加色 bloom / 残影通道用它把带状件也画成加色（件的混合态本来就跟着调用方开的批次走，不需要这个）
+        /// </summary>
+        public BlendState RibbonBlendOverride;
 
         /// <summary>
         /// 世界绘制环境：视口 = 屏幕位置，物块光照，默认批次参数
@@ -127,6 +132,26 @@ namespace InnoVault.Rigs2D.Runtime
                 c = c.MultiplyRGBA(Tint);
             }
             return c * Alpha;
+        }
+
+        /// <summary>
+        /// 取不受光照件在某世界位置的着色：光照项换成白色，但固定环境色（剪影 / 洗色）环境照常生效；含 <see cref="Tint"/> 与 <see cref="Alpha"/>
+        /// </summary>
+        public readonly Color UnlitAt() {
+            Color c = Light != null || WorldLighting ? Color.White : Ambient;
+            if (Tint != Color.White) {
+                c = c.MultiplyRGBA(Tint);
+            }
+            return c * Alpha;
+        }
+
+        /// <summary>
+        /// 复制一份带状件混合态覆盖的环境（<see langword="null"/> 恢复按定义）
+        /// </summary>
+        public readonly Rig2DDrawContext WithRibbonBlend(BlendState blend) {
+            Rig2DDrawContext c = this;
+            c.RibbonBlendOverride = blend;
+            return c;
         }
 
         /// <summary>
