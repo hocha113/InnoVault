@@ -194,6 +194,7 @@ namespace InnoVault.Rigs2D.Runtime
             modSourcesRoot = null;
             Rig2DSolverRegistry.ResetForUnload();
             Rig2DBinder.ClearCache();
+            Rig2DRibbonRenderer.Unload();
         }
     }
 }

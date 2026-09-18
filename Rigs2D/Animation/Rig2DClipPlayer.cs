@@ -21,7 +21,8 @@ namespace InnoVault.Rigs2D.Animation
         private float fadeT = 1f;
         private float fadeLen;
         private float[] boneWeight = [];
-        private bool[] touched = [];
+        /// <summary>上一帧本播放头写过的覆写通道（位：1 旋转 2 偏移 4 骨长），下一帧只清这些通道，消费方在同一骨上的其他覆写不受牵连</summary>
+        private byte[] touchedMask = [];
         private float[] scratchRot = [];
         private Vector2[] scratchOff = [];
         private float[] scratchLen = [];
@@ -164,7 +165,7 @@ namespace InnoVault.Rigs2D.Animation
             if (boneWeight.Length != n) {
                 boneWeight = new float[n];
                 Array.Fill(boneWeight, 1f);
-                touched = new bool[n];
+                touchedMask = new byte[n];
                 scratchRot = new float[n];
                 scratchOff = new Vector2[n];
                 scratchLen = new float[n];
@@ -191,12 +192,23 @@ namespace InnoVault.Rigs2D.Animation
         //掩码位：1 旋转 2 偏移 4 骨长
         internal void Apply() {
             EnsureArrays();
-            //先把上一帧写过的覆写清掉，本帧没有采样到的骨骼回到定义值
-            for (int b = 0; b < touched.Length; b++) {
-                if (touched[b]) {
-                    rig.ClearBoneOverrides(b);
-                    touched[b] = false;
+            //先把上一帧写过的覆写按通道清掉，本帧没有采样到的骨骼回到定义值；
+            //只清本播放头写过的通道——消费方用 SetBoneLocalOffset 一类写在同一骨上的覆写不能被 clip 顺手抹掉
+            for (int b = 0; b < touchedMask.Length; b++) {
+                byte m = touchedMask[b];
+                if (m == 0) {
+                    continue;
                 }
+                if ((m & 1) != 0) {
+                    rig.ClearBoneLocalRotation(b);
+                }
+                if ((m & 2) != 0) {
+                    rig.ClearBoneLocalOffset(b);
+                }
+                if ((m & 4) != 0) {
+                    rig.ClearBoneLocalLength(b);
+                }
+                touchedMask[b] = 0;
             }
             if (current == null && previous == null) {
                 return;
@@ -235,7 +247,7 @@ namespace InnoVault.Rigs2D.Animation
                 if ((m & 4) != 0) {
                     rig.SetBoneLocalLength(b, MathHelper.Lerp(bd.Length, scratchLen[b], w));
                 }
-                touched[b] = true;
+                touchedMask[b] = m;
             }
         }
 

@@ -15,7 +15,8 @@ namespace InnoVault.Rigs2D.Solvers
     /// <item><c>smoothing</c> → <c>"target"</c>：<c>none</c> 直接解 / <c>target</c> 腕目标挂速度弹簧（滞后 / 过冲 / 余摆）/ <c>angles</c> 弦向角与肘偏角各挂临界阻尼弹簧</item>
     /// <item><c>spring</c> 0.16、<c>damping</c> 0.74：目标弹簧刚度与阻尼（运行时可逐帧改 <see cref="Spring"/> / <see cref="Damping"/>）</item>
     /// <item><c>chordOmega</c> 13、<c>bendOmega</c> 15：角度弹簧角频率 rad/s（运行时 <see cref="Omega"/> 可整体覆盖）</item>
-    /// <item><c>hardSnapDist</c> 480：目标或肩锚单帧跳过此距离即硬重建</item>
+    /// <item><c>hardSnapDist</c> 480：肩锚单帧跳过此距离即硬重建（两种平滑口味都适用）；<c>target</c> 口味下腕目标跳过此距离也重置弹簧，
+    /// <c>angles</c> 口味下目标跳变有意不重建——弦向 / 肘偏角弹簧甩过去就是"甩鞭"读数</item>
     /// <item><c>bendSign</c> 1：肘极性（+1 顺时针侧）；<c>autoBend</c> false 时生效</item>
     /// <item><c>autoBend</c> false、<c>hint</c> [0.4, 1]、<c>sideHysteresis</c> 0.2、<c>sideBlendBand</c> 0.45：按父骨骼局部系的提示向量自动选极性，带迟滞与换侧收拢</item>
     /// <item><c>maxBend</c> π：肘偏角硬限位；<c>maxRelative</c> π：前臂相对上臂折叠限位（不许反折贴臂）</item>
@@ -253,7 +254,8 @@ namespace InnoVault.Rigs2D.Solvers
 
             Vector2 goal;
             if (smoothing == SmoothMode.Target) {
-                if (!springInit || forceSnap || Vector2.DistanceSquared(springPos, want) > snapDist * snapDist) {
+                //肩锚瞬移（snapHard）也要重置弹簧：否则腕从旧世界位置一路甩过来
+                if (!springInit || snapHard || Vector2.DistanceSquared(springPos, want) > snapDist * snapDist) {
                     springPos = want;
                     springVel = Vector2.Zero;
                     springInit = true;

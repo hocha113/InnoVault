@@ -14,8 +14,15 @@ namespace InnoVault.Rigs2D.Solvers
     /// <br/>骨骼：每条腿一根髋骨（多为该腿的第一节）；髋 = 该骨静息近端，静息方向（法线）= 该骨静息轴向，
     /// 体前向 = 该骨父骨骼轴向
     /// <br/>地面探测、落步回调、犁沙出口全部是委托，框架只拥有换步状态机（探测缺省走物块射线）
+    /// <br/>体载步面（<c>stance: "body"</c>）：没有真实地面可踩的躯体（蛇形 / 腾空 / 攀附）给每条腿一条随身体走的虚拟地面——
+    /// 过「站心（髋骨父骨骼近端）+ 朝下法线 × <c>stanceDepth</c>」、沿体轴倾斜的一条直线；休息位正好落在线上，
+    /// 身体沿自身轴前进就让足端落后并换步，爬行与腾空是同一套迈步。体轴与地面向夹角超过 <c>stanceSlopeMax</c>（近垂直爬升 / 俯冲）
+    /// 视为无地，腿退回腾空划桨。此模式完全不读 <see cref="Probe"/>；真实物块只该在消费方的表现层（沙尘、瘫软贴地）露面
     /// <br/>参数（JSON 键 → 默认值）：
     /// <list type="bullet">
+    /// <item><c>stance</c> "probe"：<c>probe</c> 走 <see cref="Probe"/>（缺省物块射线）/ <c>body</c> 体载步面；<c>stanceDepth</c> 0（像素，0 = 自动：|髋−站心 沿朝下法线| + <c>reach·restReach</c>）；
+    /// <c>stanceSlopeMax</c> / <c>stanceSlopeMaxDeg</c> 60°；运行时 <see cref="Stance"/> 可逐帧切换</item>
+    /// <item><c>teleportPx</c> 0：髋单帧位移超此值（乘 Scale）视为传送，足端 / 落点锚 / 摆越两端整体平移同一位移，不走应急摆越；0 关闭</item>
     /// <item><c>reach</c> 100：全肢触及（像素，乘 Scale）；<c>restReach</c> 0.56：休息半径占触及比例；<c>strideAccent</c> [1]：逐腿步幅性格差</item>
     /// <item><c>stride</c> 96：步幅（像素）；<c>strideLead</c> 0：休息位沿行进向的前探；<c>stepThreshold</c> 0：足-休息位偏离超此值即想换步（0 关闭，Shrimp 式）</item>
     /// <item><c>rhythm</c> "window"：<c>window</c> 节律窗（<c>stepWindow</c> 0.5、<c>stationLag</c> 1.382、<c>phaseOffsets</c>[]、同站对腿不同时抬）/ <c>group</c> 分组交替（<c>groups</c>[]，对侧组全落地才抬）</item>
@@ -55,6 +62,21 @@ namespace InnoVault.Rigs2D.Solvers
             /// 跟随外部目标（立起、抓柱等消费方自算的姿态）
             /// </summary>
             Hold,
+        }
+
+        /// <summary>
+        /// 步面来源
+        /// </summary>
+        public enum StanceMode
+        {
+            /// <summary>
+            /// 探测器：<see cref="Probe"/>（缺省 <see cref="Rig2DGround.TileProbe(Vector2, Vector2, float, out Vector2)"/> 物块射线）
+            /// </summary>
+            Probe,
+            /// <summary>
+            /// 体载步面：每条腿脚下一条随身体走、沿体轴倾斜的虚拟地面（见类说明）
+            /// </summary>
+            Body,
         }
 
         /// <summary>
@@ -156,9 +178,18 @@ namespace InnoVault.Rigs2D.Solvers
             internal LegMode? Override;
             internal Vector2 HoldTarget;
             internal bool HoldStep;
+            /// <summary>上一次步进的髋位置（传送判定用）</summary>
+            internal Vector2 PrevHip;
+            internal bool HasPrevHip;
         }
 
+        /// <summary>摆越时长下限（帧）：更短的摆越读不出抬落，<see cref="RequestStep"/> 与常规换步都按它钳</summary>
+        public const float MinSwingFrames = 4f;
+
         private LegState[] legs = [];
+        private float stanceDepth;
+        private float stanceSlopeMax;
+        private float teleportPx;
         private float reach;
         private float restReach;
         private float stride;
@@ -226,9 +257,14 @@ namespace InnoVault.Rigs2D.Solvers
         /// </summary>
         public Vector2 GroundDir { get; set; } = Vector2.UnitY;
         /// <summary>
-        /// 地面探测（<see langword="null"/> 走 <see cref="Rig2DGround.TileProbe(Vector2, Vector2, float, out Vector2)"/>）
+        /// 地面探测（<see langword="null"/> 走 <see cref="Rig2DGround.TileProbe(Vector2, Vector2, float, out Vector2)"/>）；
+        /// <see cref="Stance"/> 为 <see cref="StanceMode.Body"/> 时不读
         /// </summary>
         public Rig2DGroundProbe Probe { get; set; }
+        /// <summary>
+        /// 步面来源（逐帧可改；Configure 时重置为参数 <c>stance</c>）：战斗端体载步面、图鉴平沙线 / 瘫软贴真实沙面时切回探测器
+        /// </summary>
+        public StanceMode Stance { get; set; }
         /// <summary>
         /// 全局模式（逐腿可用 <see cref="SetLegMode"/> 覆盖）
         /// </summary>
@@ -276,9 +312,13 @@ namespace InnoVault.Rigs2D.Solvers
         /// </summary>
         public Vector2 Travel => travel;
         /// <summary>
-        /// 平滑水平朝向符号 ±1
+        /// 沿地面前向（<see cref="ForwardDir"/>；地面朝下时即世界 +X）的平滑行进符号 ±1：向前向走为 +1
         /// </summary>
         public float TravelSign => travelSign;
+        /// <summary>
+        /// 地面前向单位向量：<see cref="GroundDir"/> 逆转 90°（地面朝下 (0, 1) 时为 (1, 0)）
+        /// </summary>
+        public Vector2 ForwardDir => new(GroundDir.Y, -GroundDir.X);
         /// <summary>
         /// 全肢触及（含 Scale）
         /// </summary>
@@ -387,6 +427,10 @@ namespace InnoVault.Rigs2D.Solvers
         /// <inheritdoc/>
         protected override void Configure(Solver2DDef def) {
             int n = bones.Length;
+            Stance = def.GetString("stance", "probe").ToLowerInvariant() == "body" ? StanceMode.Body : StanceMode.Probe;
+            stanceDepth = def.GetFloat("stanceDepth", 0f);
+            stanceSlopeMax = def.GetAngle("stanceSlopeMax", MathHelper.ToRadians(60f));
+            teleportPx = def.GetFloat("teleportPx", 0f);
             reach = def.GetFloat("reach", 100f);
             restReach = def.GetFloat("restReach", 0.56f);
             stride = def.GetFloat("stride", 96f);
@@ -455,14 +499,65 @@ namespace InnoVault.Rigs2D.Solvers
             }
         }
 
-        private bool ProbeGround(Vector2 from, Vector2 dir, float maxDistance, out Vector2 hit) {
+        /// <summary>
+        /// 第 <paramref name="i"/> 条腿的地面探测：体载步面模式按该腿自家站的虚拟地面求交，否则走 <see cref="Probe"/>
+        /// </summary>
+        private bool ProbeGround(int i, Vector2 from, Vector2 dir, float maxDistance, out Vector2 hit) {
+            if (Stance == StanceMode.Body) {
+                return BodyPlaneProbe(i, from, dir, maxDistance, out hit);
+            }
             if (Probe != null) {
                 return Probe(from, dir, maxDistance, out hit);
             }
             return Rig2DGround.TileProbe(from, dir, maxDistance, out hit);
         }
 
-        private Vector2 SideDir() => new(-GroundDir.Y, GroundDir.X);
+        /// <summary>
+        /// 某腿的体载步面：过「站心 + 朝下法线 × 深度」、沿体轴倾斜的直线。体轴过陡返回假（无地）
+        /// </summary>
+        /// <param name="i">腿号</param>
+        /// <param name="anchor">直线上的锚点</param>
+        /// <param name="axis">直线方向（体轴单位向量）</param>
+        /// <param name="down">朝下法线（体轴两侧法线里与 <see cref="GroundDir"/> 同向的一支）</param>
+        private bool BodyPlane(int i, out Vector2 anchor, out Vector2 axis, out Vector2 down) {
+            float bodyDir = ParentDir(i);
+            axis = new Vector2(MathF.Cos(bodyDir), MathF.Sin(bodyDir));
+            //近垂直爬升 / 俯冲：两侧腿都朝侧，本就不该迈步
+            if (Math.Abs(Vector2.Dot(axis, GroundDir)) > MathF.Sin(stanceSlopeMax)) {
+                anchor = default;
+                down = default;
+                return false;
+            }
+            down = new Vector2(-axis.Y, axis.X);
+            if (Vector2.Dot(down, GroundDir) < 0f) {
+                down = -down;
+            }
+            Vector2 station = ParentPos(i);
+            float depth = stanceDepth > 0f
+                ? stanceDepth * Scale
+                : Math.Abs(Vector2.Dot(legs[i].Hip - station, down)) + Reach * restReach;
+            anchor = station + down * depth;
+            return true;
+        }
+
+        /// <summary>
+        /// 体载步面探测：从 <paramref name="from"/> 沿 <paramref name="dir"/> 与步面直线求交；返回约定镜像
+        /// <see cref="Rig2DGround.FromHeight"/>（交点在 <paramref name="maxDistance"/> 内即命中，负距离——步面在起点之上——也算命中）
+        /// </summary>
+        private bool BodyPlaneProbe(int i, Vector2 from, Vector2 dir, float maxDistance, out Vector2 hit) {
+            if (!BodyPlane(i, out Vector2 anchor, out _, out Vector2 down)) {
+                hit = from + dir * maxDistance;
+                return false;
+            }
+            float denom = Vector2.Dot(dir, down);
+            if (Math.Abs(denom) < 0.0001f) {
+                hit = from + dir * maxDistance;
+                return false;
+            }
+            float t = Vector2.Dot(anchor - from, down) / denom;
+            hit = from + dir * t;
+            return t <= maxDistance;
+        }
 
         /// <inheritdoc/>
         public override void Snap() {
@@ -484,7 +579,7 @@ namespace InnoVault.Rigs2D.Solvers
                 else {
                     f0 = leg.Hip + leg.Normal * (Reach * restReach * leg.StrideAccent);
                     leg.Grounded = false;
-                    if (ProbeGround(f0 - GroundDir * (probeLift * Scale), GroundDir, probeLift * Scale + Reach, out Vector2 g)) {
+                    if (ProbeGround(i, f0 - GroundDir * (probeLift * Scale), GroundDir, probeLift * Scale + Reach, out Vector2 g)) {
                         //足端不许落到地面之下
                         if (Vector2.Dot(f0 - g, GroundDir) > 0f) {
                             f0 = g;
@@ -499,6 +594,8 @@ namespace InnoVault.Rigs2D.Solvers
                 leg.Limp = 0f;
                 leg.DragHeat = 0f;
                 leg.Mode = mode;
+                leg.PrevHip = leg.Hip;
+                leg.HasPrevHip = true;
                 leg.Inited = true;
             }
         }
@@ -516,9 +613,10 @@ namespace InnoVault.Rigs2D.Solvers
                     travel = dir;
                 }
                 travel.Normalize();
-                float lateral = Vector2.Dot(Velocity, SideDir());
-                if (Math.Abs(lateral) > 1.2f) {
-                    travelSign = MathHelper.Lerp(travelSign, Math.Sign(lateral), Spring2D.RateForDt(0.08f, dt));
+                //行进符号：沿地面前向（地面朝下即 +X）为正
+                float forward = Vector2.Dot(Velocity, ForwardDir);
+                if (Math.Abs(forward) > 1.2f) {
+                    travelSign = MathHelper.Lerp(travelSign, Math.Sign(forward), Spring2D.RateForDt(0.08f, dt));
                 }
             }
             if (AutoPhase && Stride > 0.01f) {
@@ -539,8 +637,21 @@ namespace InnoVault.Rigs2D.Solvers
                 leg.Groundness = MathHelper.Clamp((Vector2.Dot(leg.Normal, GroundDir) + groundnessBand) / (2f * groundnessBand), 0f, 1f);
 
                 if (!leg.Inited) {
-                    InitLeg(ref leg);
+                    InitLeg(ref leg, i);
                 }
+                else if (teleportPx > 0f && leg.HasPrevHip) {
+                    //传送：髋单帧跳过阈值，足端 / 落点锚 / 摆越两端整体搬走，不让钉在旧世界点的脚走应急摆越拉丝
+                    Vector2 delta = leg.Hip - leg.PrevHip;
+                    float tp = teleportPx * Scale;
+                    if (delta.LengthSquared() > tp * tp) {
+                        leg.Foot += delta;
+                        leg.PlantPos += delta;
+                        leg.SwingFrom += delta;
+                        leg.SwingTo += delta;
+                    }
+                }
+                leg.PrevHip = leg.Hip;
+                leg.HasPrevHip = true;
 
                 LegMode mode = leg.Override ?? Mode;
                 if (!Attached && mode == LegMode.Walk) {
@@ -572,9 +683,9 @@ namespace InnoVault.Rigs2D.Solvers
             }
         }
 
-        private void InitLeg(ref LegState leg) {
+        private void InitLeg(ref LegState leg, int i) {
             Vector2 f0 = leg.Hip + leg.Normal * (Reach * restReach * leg.StrideAccent);
-            if (ProbeGround(f0 - GroundDir * (probeLift * Scale), GroundDir, probeLift * Scale + Reach, out Vector2 g)
+            if (ProbeGround(i, f0 - GroundDir * (probeLift * Scale), GroundDir, probeLift * Scale + Reach, out Vector2 g)
                 && Vector2.Dot(f0 - g, GroundDir) > 0f) {
                 f0 = g;
             }
@@ -583,6 +694,8 @@ namespace InnoVault.Rigs2D.Solvers
             leg.Planted = true;
             leg.Swinging = false;
             leg.Limp = 0f;
+            leg.PrevHip = leg.Hip;
+            leg.HasPrevHip = true;
             leg.Inited = true;
         }
 
@@ -604,7 +717,7 @@ namespace InnoVault.Rigs2D.Solvers
             Vector2 lead = speed > 0.4f ? travel * (strideLead * s) : Vector2.Zero;
             Vector2 restProbe = leg.Hip + leg.Normal * (reachPx * restReach * RestReachScale * leg.StrideAccent) + lead + leg.RestOffset;
             Vector2 probeFrom = restProbe - GroundDir * (probeLift * s);
-            bool hit = ProbeGround(probeFrom, GroundDir, probeLift * s + reachPx * 0.9f + 10f * s, out Vector2 ground);
+            bool hit = ProbeGround(i, probeFrom, GroundDir, probeLift * s + reachPx * 0.9f + 10f * s, out Vector2 ground);
 
             if (!hit) {
                 UpdateAir(ref leg, i, dt);
@@ -636,7 +749,7 @@ namespace InnoVault.Rigs2D.Solvers
                 //从空中 / 其他姿态回到步行：远则快摆落位（防瞬移贴地），近则就地落桩
                 if (Vector2.Distance(leg.Foot, rest) > 14f * s) {
                     Vector2 landing = ClampToEnvelope(leg.Hip, leg.Normal, rest);
-                    landing = ProjectToGround(landing);
+                    landing = ProjectToGround(i, landing);
                     BeginSwing(ref leg, landing, 7f, 14f * s);
                     return LegMode.Walk;
                 }
@@ -657,7 +770,7 @@ namespace InnoVault.Rigs2D.Solvers
 
             //地形跟随：小落差贴、大落差触发应急换步
             float groundGap = 0f;
-            if (ProbeGround(leg.PlantPos - GroundDir * (probeLift * s), GroundDir, probeLift * s + reachPx, out Vector2 plantGround)) {
+            if (ProbeGround(i, leg.PlantPos - GroundDir * (probeLift * s), GroundDir, probeLift * s + reachPx, out Vector2 plantGround)) {
                 groundGap = Math.Abs(Vector2.Dot(plantGround - leg.PlantPos, GroundDir));
                 if (groundGap < stepDown * s) {
                     leg.PlantPos = plantGround;
@@ -681,15 +794,15 @@ namespace InnoVault.Rigs2D.Solvers
                 if (StepTargetFilter != null) {
                     target = StepTargetFilter(i, leg.StepCount, target);
                 }
-                target = ProjectToGround(target);
+                target = ProjectToGround(i, target);
 
                 float dur;
                 if (stepFrames > 0f) {
-                    dur = stepFrames;
+                    dur = Math.Max(stepFrames, MinSwingFrames);
                 }
                 else {
                     float cycle = strideI / Math.Max(speed, 3f);
-                    dur = MathHelper.Clamp(cycle * swingFraction, swingMin, swingMax);
+                    dur = MathHelper.Clamp(cycle * swingFraction, Math.Max(swingMin, MinSwingFrames), Math.Max(swingMax, MinSwingFrames));
                 }
                 float clearance = stepClearance * s * (0.8f + 0.25f * leg.StrideAccent) * (1f + skate * 0.4f);
                 BeginSwing(ref leg, target, dur, clearance);
@@ -722,9 +835,9 @@ namespace InnoVault.Rigs2D.Solvers
             return ReachEnvelope.ClampSwing(hip, normal, target, reachPx * envelopeMin, reachPx * envelopeMax, envelopeSwing);
         }
 
-        private Vector2 ProjectToGround(Vector2 point) {
+        private Vector2 ProjectToGround(int i, Vector2 point) {
             float s = Scale;
-            if (ProbeGround(point - GroundDir * (probeLift * s), GroundDir, probeLift * s + Reach, out Vector2 g)) {
+            if (ProbeGround(i, point - GroundDir * (probeLift * s), GroundDir, probeLift * s + Reach, out Vector2 g)) {
                 return g;
             }
             return point;
@@ -734,7 +847,7 @@ namespace InnoVault.Rigs2D.Solvers
             leg.SwingFrom = leg.Foot;
             leg.SwingTo = target;
             leg.SwingT = 0f;
-            leg.SwingDur = dur;
+            leg.SwingDur = Math.Max(dur, MinSwingFrames);
             leg.SwingClearance = clearance;
             leg.Swinging = true;
             leg.Planted = false;
@@ -745,7 +858,7 @@ namespace InnoVault.Rigs2D.Solvers
         /// 摆越推进：预备下压 → 主摆（水平缓动 + 抛物离地）→ 落地
         /// </summary>
         private void AdvanceSwing(ref LegState leg, int i, float dt) {
-            leg.SwingT += dt / Math.Max(leg.SwingDur, 4f);
+            leg.SwingT += dt / Math.Max(leg.SwingDur, MinSwingFrames);
             float t = Math.Min(leg.SwingT, 1f);
             float s = Scale;
 
@@ -762,7 +875,7 @@ namespace InnoVault.Rigs2D.Solvers
             }
 
             //摆越途中不许穿地
-            if (ProbeGround(pos - GroundDir * (60f * s), GroundDir, 60f * s, out Vector2 g)
+            if (ProbeGround(i, pos - GroundDir * (60f * s), GroundDir, 60f * s, out Vector2 g)
                 && Vector2.Dot(pos - g, GroundDir) > 0f) {
                 pos = g;
             }
@@ -786,7 +899,7 @@ namespace InnoVault.Rigs2D.Solvers
         /// </summary>
         /// <param name="index">腿号</param>
         /// <param name="target">落点（世界）</param>
-        /// <param name="frames">摆越时长（帧）</param>
+        /// <param name="frames">摆越时长（帧，下限 <see cref="MinSwingFrames"/>）</param>
         /// <param name="clearance">离地余隙（像素，Scale 为 1 的量）</param>
         public void RequestStep(int index, Vector2 target, float frames = 6f, float clearance = 9f) {
             if (index < 0 || index >= legs.Length) {
@@ -796,7 +909,7 @@ namespace InnoVault.Rigs2D.Solvers
             if (!leg.Visible || !leg.Inited || leg.Mode is LegMode.Air or LegMode.Tuck or LegMode.Collapse) {
                 return;
             }
-            BeginSwing(ref leg, ProjectToGround(target), Math.Max(frames, 1f), clearance * Scale);
+            BeginSwing(ref leg, ProjectToGround(index, target), frames, clearance * Scale);
         }
 
         /// <summary>
@@ -838,7 +951,7 @@ namespace InnoVault.Rigs2D.Solvers
         }
 
         /// <summary>
-        /// 失力垂软：向地面方向瘫散，轻微摇晃
+        /// 失力垂软：向地面方向瘫散、拖在行进方向之后（死腿跟不上身体），轻微摇晃
         /// </summary>
         private void UpdateCollapse(ref LegState leg, int i, float dt) {
             leg.Limp = MathHelper.Clamp(leg.Limp + limpRise * ((i & 1) == 1 ? 0.9f : 1f) * dt, 0f, 1f);
@@ -847,9 +960,9 @@ namespace InnoVault.Rigs2D.Solvers
             float s = Scale;
             float sway = MathF.Sin(Rig.Time * Spring2D.FrameSeconds * 2.2f + i * 1.7f + Rig.Seed) * 6f * s;
             Vector2 dangle = leg.Hip
-                + SideDir() * (travelSign * ((i & 1) == 1 ? collapseSide * 0.8f : collapseSide) * s + sway)
+                + ForwardDir * (-travelSign * ((i & 1) == 1 ? collapseSide * 0.8f : collapseSide) * s + sway)
                 + GroundDir * (Reach * collapseDrop);
-            dangle = ClampAboveGround(dangle);
+            dangle = ClampAboveGround(i, dangle);
             leg.Foot = Vector2.Lerp(leg.Foot, dangle, Spring2D.RateForDt(collapseRate, dt));
             leg.Grounded = false;
         }
@@ -882,9 +995,9 @@ namespace InnoVault.Rigs2D.Solvers
             leg.Foot = leg.PlantPos;
         }
 
-        private Vector2 ClampAboveGround(Vector2 point) {
+        private Vector2 ClampAboveGround(int i, Vector2 point) {
             float s = Scale;
-            if (ProbeGround(point - GroundDir * (probeLift * s + Reach), GroundDir, probeLift * s + Reach, out Vector2 g)
+            if (ProbeGround(i, point - GroundDir * (probeLift * s + Reach), GroundDir, probeLift * s + Reach, out Vector2 g)
                 && Vector2.Dot(point - g, GroundDir) > 0f) {
                 return g;
             }
@@ -905,6 +1018,11 @@ namespace InnoVault.Rigs2D.Solvers
                 if (leg.Mode == LegMode.Walk) {
                     Vector2 rest = leg.Hip + leg.Normal * (Reach * restReach * leg.StrideAccent);
                     sb.Draw(px, toScreen(rest), new Rectangle(0, 0, 1, 1), Color.Cyan * 0.6f, 0f, new Vector2(0.5f), 3f, SpriteEffects.None, 0f);
+                }
+                //体载步面：画出该腿脚下那条虚拟地面（过陡时不画，腿本就在划桨）
+                if (Stance == StanceMode.Body && (i & 1) == 0 && BodyPlane(i, out Vector2 anchor, out Vector2 axis, out _)) {
+                    Vector2 half = axis * (Reach * 0.8f);
+                    Rig2DDebugDraw.Line(sb, toScreen(anchor - half), toScreen(anchor + half), Color.SandyBrown * 0.7f, 1f);
                 }
             }
             if (legs.Length > 0 && legs[0].Inited) {

@@ -24,6 +24,8 @@ namespace InnoVault.Rigs2D.Runtime
         private static readonly List<float> lengthScratch = new(128);
         private static ColoredVertex[] vertexScratch = new ColoredVertex[128];
         private static short[] indexScratch = new short[384];
+        /// <summary>条带三角形不分正反面，必须关剔除；舞台裁剪（ScissorTestEnable）却要保留，所以缓存一份"CullNone + 裁剪开"的光栅态</summary>
+        private static RasterizerState cullNoneScissor;
 
         /// <summary>
         /// 绘制实例的全部可见带状件（按 <see cref="Ribbon2DState.SortKey"/> 升序，受 <see cref="Rig2DDrawContext.LayerMin"/> / <see cref="Rig2DDrawContext.LayerMax"/> 过滤）
@@ -85,7 +87,7 @@ namespace InnoVault.Rigs2D.Runtime
                 }
                 gd.Textures[0] = tex;
                 gd.SamplerStates[0] = sampler;
-                gd.RasterizerState = RasterizerState.CullNone;
+                gd.RasterizerState = CullNoneLike(ctx.Rasterizer);
                 gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertexScratch, 0, vertexCount, indexScratch, 0, indexCount / 3);
             }
             if (opened) {
@@ -265,6 +267,30 @@ namespace InnoVault.Rigs2D.Runtime
                 return null;
             }
             return textures[ribbonIndex]?.Value;
+        }
+
+        /// <summary>
+        /// 卸载：释放自建的光栅态（GPU 资源在主线程释放）
+        /// </summary>
+        internal static void Unload() {
+            RasterizerState state = cullNoneScissor;
+            cullNoneScissor = null;
+            if (state == null || Main.dedServ) {
+                return;
+            }
+            Main.QueueMainThreadAction(state.Dispose);
+        }
+
+        //关剔除但沿用调用方光栅态的裁剪开关：Stage(..., scissor) 的条带不得画出舞台裁剪框
+        private static RasterizerState CullNoneLike(RasterizerState source) {
+            if (source == null || !source.ScissorTestEnable) {
+                return RasterizerState.CullNone;
+            }
+            cullNoneScissor ??= new RasterizerState {
+                CullMode = CullMode.None,
+                ScissorTestEnable = true,
+            };
+            return cullNoneScissor;
         }
 
         private static SamplerState WrapOf(SamplerState sampler) {

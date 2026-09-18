@@ -322,7 +322,9 @@ namespace InnoVault.Rigs2D.Data
                 c.Ribbons.Add(r.Clone());
             }
             foreach (Animation.Rig2DClip clip in Clips) {
-                c.Clips.Add(clip);
+                if (clip != null) {
+                    c.Clips.Add(clip.Clone());
+                }
             }
             return c;
         }

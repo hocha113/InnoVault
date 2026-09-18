@@ -42,6 +42,12 @@ namespace InnoVault.Rigs2D.Solvers
         /// </summary>
         public Rig2DInstance Rig { get; internal set; }
         /// <summary>
+        /// 当前绑定的定义条目（热重载后换成新对象）。参数袋里求解器不认识的键原样保留，
+        /// 消费方自己的编舞参数可以写在同一条目里、从这里读（<c>gait.Def.GetFloat("airRunStride", 0.7f)</c>），
+        /// 与求解器参数一起热重载，不必再按名查 <c>Rig2DDefinition.Solvers</c>
+        /// </summary>
+        public Solver2DDef Def { get; private set; }
+        /// <summary>
         /// 是否参与求解；关掉后其骨骼回到静息传播
         /// </summary>
         public bool Enabled { get; set; } = true;
@@ -124,6 +130,7 @@ namespace InnoVault.Rigs2D.Solvers
 
         internal void Bind(Rig2DInstance rig, Solver2DDef def) {
             Rig = rig;
+            Def = def;
             Name = def.Name;
             TypeName = def.Type;
             bones = (int[])def.BoneIndices.Clone();

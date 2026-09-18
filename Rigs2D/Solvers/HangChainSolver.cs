@@ -100,7 +100,8 @@ namespace InnoVault.Rigs2D.Solvers
                 rest *= restFactor;
             }
             float dist = Vector2.Distance(Mount, Target);
-            Sag = (sagBase + MathHelper.Clamp(rest - dist, 0f, sagMax * Scale) * sagGain) * Scale;
+            //rest 与 dist 都已是世界量（含 Scale），松弛项不再乘 Scale；只有像素常量 sagBase 需要
+            Sag = sagBase * Scale + MathHelper.Clamp(rest - dist, 0f, sagMax * Scale) * sagGain;
             Vector2 mid = (Mount + Target) * 0.5f + sagDir * Sag;
             if (Vibrate > 0.001f && dist > 0.001f) {
                 Vector2 along = (Target - Mount) / dist;

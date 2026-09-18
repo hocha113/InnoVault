@@ -474,7 +474,36 @@ namespace InnoVault.Rigs2D.Runtime
         }
 
         /// <summary>
-        /// 覆写某骨骼的局部静息旋转（持久，直到 <see cref="ClearBoneOverrides"/>）
+        /// 用两点直接给某骨骼写世界位姿：近端钉在 <paramref name="from"/>、尖端指向 <paramref name="to"/>，长度取两点距离
+        /// （消费方在 <see cref="Step"/> 之后铺放脚掌 / 爪尖一类末端骨的常用写法）
+        /// <br/>两点重合时保持当前轴向，长度写 0；<paramref name="keepRestLength"/> 为真时长度改取静息长（只借方向，不拉伸）
+        /// <br/><paramref name="syncLocal"/> 为真时把算出的轴向同步进局部静息旋转覆写（世界绝对角骨骼写世界角，继承旋转的骨骼写相对父骨骼的差角），
+        /// 这样下一次硬重建 / 传播时该骨不会退回定义角
+        /// </summary>
+        public void SetBoneWorld(int bone, Vector2 from, Vector2 to, bool keepRestLength = false, bool syncLocal = true) {
+            ref Bone2D b = ref Bones[bone];
+            Vector2 d = to - from;
+            float len = d.Length();
+            float dir = len > 0.0001f ? (float)Math.Atan2(d.Y, d.X) : b.Dir;
+            if (syncLocal) {
+                Bone2DDef def = Definition.Bones[bone];
+                if (def.InheritRotation) {
+                    float parDir = def.ParentIndex < 0 ? RootRotation : Bones[def.ParentIndex].Dir;
+                    localRotation[bone] = MathHelper.WrapAngle(dir - parDir) * MirrorSign;
+                }
+                else {
+                    localRotation[bone] = dir;
+                }
+            }
+            b.Pos = from;
+            b.Dir = dir;
+            b.Length = keepRestLength ? RestLength(bone) : len;
+            externalDriven[bone] = true;
+            PropagateDescendants(bone);
+        }
+
+        /// <summary>
+        /// 覆写某骨骼的局部静息旋转（持久，直到 <see cref="ClearBoneOverrides"/> / <see cref="ClearBoneLocalRotation"/>）
         /// </summary>
         public void SetBoneLocalRotation(int bone, float rotation) => localRotation[bone] = rotation;
 
@@ -501,6 +530,21 @@ namespace InnoVault.Rigs2D.Runtime
         }
 
         /// <summary>
+        /// 只清除某骨骼的局部旋转覆写（偏移 / 长度覆写保留）
+        /// </summary>
+        public void ClearBoneLocalRotation(int bone) => localRotation[bone] = float.NaN;
+
+        /// <summary>
+        /// 只清除某骨骼的局部偏移覆写
+        /// </summary>
+        public void ClearBoneLocalOffset(int bone) => hasLocalOffset[bone] = false;
+
+        /// <summary>
+        /// 只清除某骨骼的静息长度覆写
+        /// </summary>
+        public void ClearBoneLocalLength(int bone) => localLength[bone] = float.NaN;
+
+        /// <summary>
         /// 当前生效的局部旋转（覆写或定义值）
         /// </summary>
         public float LocalRotation(int bone) => float.IsNaN(localRotation[bone]) ? Definition.Bones[bone].Rotation : localRotation[bone];
@@ -517,11 +561,13 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         /// <param name="dt">帧步长（60fps 基准，1 = 一帧）</param>
         public void Step(float dt = 1f) {
-            if (Definition == null || Bones.Length == 0) {
-                return;
-            }
+            //版本检查必须先于空定义判定：资产首次加载失败（JSON 错 / 源文件后来才落盘）后创建的实例定义为空，
+            //热重载修好文件时也要能在这里换上新定义，否则空实例永远不会重绑
             if (Asset != null && Asset.Version != boundVersion) {
                 Rebind(Asset.Definition, Asset.Version);
+            }
+            if (Definition == null || Bones.Length == 0) {
+                return;
             }
             Time += dt;
             Animation.Advance(dt);
@@ -559,6 +605,9 @@ namespace InnoVault.Rigs2D.Runtime
         /// 硬重建：静息传播全部骨骼，再让每个求解器从静息姿态直接摆好
         /// </summary>
         public void Snap() {
+            if (Asset != null && Asset.Version != boundVersion) {
+                Rebind(Asset.Definition, Asset.Version);
+            }
             if (Definition == null || Bones.Length == 0) {
                 return;
             }

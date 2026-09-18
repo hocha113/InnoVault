@@ -79,6 +79,17 @@ namespace InnoVault.Rigs2D.Animation
         }
 
         /// <summary>
+        /// 深拷贝轨道（关键帧逐个复制；不含已解析的骨骼索引）
+        /// </summary>
+        public Rig2DTrack Clone() {
+            Rig2DTrack c = new(BoneName) { Interpolation = Interpolation };
+            c.Rotation.AddRange(Rotation);
+            c.Offset.AddRange(Offset);
+            c.Length.AddRange(Length);
+            return c;
+        }
+
+        /// <summary>
         /// 按时间升序整理关键帧（构建后调用一次即可）
         /// </summary>
         public void Sort() {
@@ -212,6 +223,17 @@ namespace InnoVault.Rigs2D.Animation
             Rig2DTrack t = new(boneName);
             Tracks.Add(t);
             return t;
+        }
+
+        /// <summary>
+        /// 深拷贝片段（轨道与关键帧全部复制；未解析，需要调用方再 <see cref="Resolve"/>）
+        /// </summary>
+        public Rig2DClip Clone() {
+            Rig2DClip c = new(Name, Duration) { Loop = Loop };
+            for (int i = 0; i < Tracks.Count; i++) {
+                c.Tracks.Add(Tracks[i].Clone());
+            }
+            return c;
         }
 
         /// <summary>
