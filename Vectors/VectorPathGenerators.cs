@@ -67,15 +67,17 @@ namespace InnoVault.Vectors
         }
 
         /// <summary>
-        /// 对点列做随机偏移：每个点沿其局部法线偏移 <paramref name="amplitude"/> × [-1, 1]
+        /// 对点列做随机偏移：每个点沿其局部法线偏移 <paramref name="amplitude"/> × [-1, 1]，
+        /// 再叠加一个半径不超过 <paramref name="spread"/> 的各向同性随机偏移（旧 <c>ThunderTrail.SetExpandWidth</c> 的语义，0 = 关）
         /// </summary>
         /// <param name="source">原点列</param>
         /// <param name="destination">输出，长度不小于原点列</param>
-        /// <param name="amplitude">偏移幅度</param>
+        /// <param name="amplitude">沿法线的偏移幅度</param>
         /// <param name="seed">随机种子</param>
         /// <param name="pinEnds">两端是否固定不动</param>
+        /// <param name="spread">各向同性扩散半径，让分段沿线方向也不等长</param>
         /// <returns>写入的点数</returns>
-        public static int Jitter(ReadOnlySpan<Vector2> source, Span<Vector2> destination, float amplitude, int seed, bool pinEnds = true) {
+        public static int Jitter(ReadOnlySpan<Vector2> source, Span<Vector2> destination, float amplitude, int seed, bool pinEnds = true, float spread = 0f) {
             int n = Math.Min(source.Length, destination.Length);
             for (int i = 0; i < n; i++) {
                 Vector2 p = source[i];
@@ -92,15 +94,22 @@ namespace InnoVault.Vectors
                 }
                 tangent.Normalize();
                 Vector2 nrm = new(-tangent.Y, tangent.X);
-                destination[i] = p + nrm * (Hash(i, seed) * amplitude);
+                Vector2 offset = nrm * (Hash(i, seed) * amplitude);
+                if (spread > 0f) {
+                    //圆盘内均匀分布：角度取全圆，半径开方
+                    float angle = Hash(i + 0x10000, seed) * MathHelper.Pi;
+                    float radius = MathF.Sqrt(MathF.Abs(Hash(i + 0x20000, seed))) * spread;
+                    offset += new Vector2(MathF.Cos(angle), MathF.Sin(angle)) * radius;
+                }
+                destination[i] = p + offset;
             }
             return n;
         }
 
         /// <summary>对点列做随机偏移（分配新数组）</summary>
-        public static Vector2[] Jitter(ReadOnlySpan<Vector2> source, float amplitude, int seed, bool pinEnds = true) {
+        public static Vector2[] Jitter(ReadOnlySpan<Vector2> source, float amplitude, int seed, bool pinEnds = true, float spread = 0f) {
             Vector2[] dst = new Vector2[source.Length];
-            Jitter(source, dst, amplitude, seed, pinEnds);
+            Jitter(source, dst, amplitude, seed, pinEnds, spread);
             return dst;
         }
 
