@@ -6,7 +6,7 @@ using System.Diagnostics;
 namespace InnoVault.Vectors.Tessellation
 {
     /// <summary>
-    /// 折线 → 描边三角网格：接头（平均 / 尖接 / 圆接 / 斜接）、端帽（平 / 方 / 圆 / 箭头）、弧长窗口、长段细分、虚线切片、拉伸或平铺 UV、逐点宽度与颜色（含 <see cref="VectorPaint"/>）
+    /// 折线 → 描边三角网格：接头（平均 / 尖接 / 圆接 / 斜接）、端帽（平 / 方 / 圆 / 箭头，贴图端帽只收集印章交给调用方）、弧长窗口、长段细分、虚线切片、拉伸或平铺 UV、逐点宽度与颜色（含 <see cref="VectorPaint"/>）
     /// <br/>预处理流水线：变换 → 弧长窗口裁剪 → 去重 → <see cref="StrokeStyle.MaxSegmentLength"/> 细分 → 虚线切片成若干「片」；每片各自生成条带与端帽
     /// <br/>所有暂存缓冲为静态复用，只允许在渲染线程调用，且宽度 / 颜色函数内不得再发起描边（DEBUG 下有重入断言）
     /// <br/>约定：<c>normal = (-tangent.Y, tangent.X)</c>，法线正侧 v = 0、负侧 v = 1（<see cref="StrokeStyle.FlipV"/> 交换），与旧 <c>Trail</c> 一致
@@ -51,6 +51,9 @@ namespace InnoVault.Vectors.Tessellation
         //DEBUG 重入哨兵
         private static bool busy;
 
+        //本次描边收集到的贴图端帽印章（只在 LineCap.Texture 下产生）
+        private static readonly List<CapStamp> capStamps = new(4);
+
         private struct Piece
         {
             public int Start;
@@ -58,6 +61,15 @@ namespace InnoVault.Vectors.Tessellation
             public bool Closed;
             public bool PathStart;
             public bool PathEnd;
+        }
+
+        /// <summary>一枚贴图端帽印章：端点、朝外的单位切向、输出像素尺寸、颜色</summary>
+        internal struct CapStamp
+        {
+            public Vector2 Position;
+            public Vector2 Outward;
+            public Vector2 Size;
+            public Color Color;
         }
 
         /// <summary>预处理结果</summary>
@@ -79,9 +91,26 @@ namespace InnoVault.Vectors.Tessellation
         internal static bool WorkClosed => workClosed;
         /// <summary>预处理后的片段数</summary>
         internal static int PieceCount => pieces.Count;
+        /// <summary>上一次描边收集到的贴图端帽印章数（含叠印，每枚一个四边形）</summary>
+        internal static int CapStampCount => capStamps.Count;
+
+        /// <summary>丢弃上一次收集的贴图端帽；网格后端在 <c>AppendStroke</c> 之前调一次</summary>
+        internal static void ResetCapStamps() => capStamps.Clear();
+
+        /// <summary>把收集到的贴图端帽拼成四边形（uv 0..1、+X 指向路径之外）追加到 <paramref name="mesh"/></summary>
+        internal static void AppendCapQuads(VectorMesh mesh) {
+            for (int i = 0; i < capStamps.Count; i++) {
+                CapStamp stamp = capStamps[i];
+                Vector2 ax = stamp.Outward * (stamp.Size.X * 0.5f);
+                Vector2 ay = new Vector2(-stamp.Outward.Y, stamp.Outward.X) * (stamp.Size.Y * 0.5f);
+                mesh.AppendQuad(stamp.Position - ax - ay, stamp.Position + ax - ay, stamp.Position + ax + ay, stamp.Position - ax + ay,
+                    stamp.Color, Vector2.Zero, Vector2.UnitX, Vector2.One, Vector2.UnitY);
+            }
+        }
 
         /// <summary>描边整条路径</summary>
         public static void Append(VectorMesh mesh, VectorPath path, StrokeStyle style, in VectorTransform transform) {
+            capStamps.Clear();
             if (!ResolveWindow(style, out float lo, out float hi)) {
                 return;
             }
@@ -99,6 +128,7 @@ namespace InnoVault.Vectors.Tessellation
 
         /// <summary>描一条已在输出空间的点列，t 按点列自身归一</summary>
         public static void Append(VectorMesh mesh, ReadOnlySpan<Vector2> points, bool closed, StrokeStyle style) {
+            capStamps.Clear();
             if (!ResolveWindow(style, out float lo, out float hi)) {
                 return;
             }
@@ -141,16 +171,20 @@ namespace InnoVault.Vectors.Tessellation
 
         //==================== 颜色 ====================
 
-        /// <summary>按样式求某顶点的颜色：颜色函数 &gt; Paint（路径空间时先反变换）&gt; 常量</summary>
+        /// <summary>按样式求某顶点的颜色：颜色函数 &gt; Paint（路径空间时先反变换）&gt; 常量，结果乘 <see cref="StrokeStyle.Opacity"/></summary>
         internal static Color Col(StrokeStyle style, float t, float side, Vector2 outputPos) {
+            Color color;
             if (style.ColorFunction != null) {
-                return style.ColorFunction(t, side);
+                color = style.ColorFunction(t, side);
             }
-            VectorPaint paint = style.Paint;
-            if (paint != null) {
-                return paint.Evaluate(paint.Space == PaintSpace.Path ? curTransform.ApplyInverse(outputPos) : outputPos);
+            else {
+                VectorPaint paint = style.Paint;
+                color = paint != null
+                    ? paint.Evaluate(paint.Space == PaintSpace.Path ? curTransform.ApplyInverse(outputPos) : outputPos)
+                    : style.Color;
             }
-            return style.Color;
+            float opacity = style.Opacity;
+            return opacity == 1f ? color : color * opacity;
         }
 
         //==================== 预处理 ====================
@@ -570,8 +604,8 @@ namespace InnoVault.Vectors.Tessellation
             if (!closed) {
                 Vector2 n0 = new(-tangents[0].Y, tangents[0].X);
                 Vector2 n1 = new(-tangents[n - 1].Y, tangents[n - 1].X);
-                EmitCap(mesh, style, startCap, pts[0], -tangents[0], n0, ts[0], arcs[0], firstA, firstB);
-                EmitCap(mesh, style, endCap, pts[n - 1], tangents[n - 1], n1, ts[n - 1], arcs[n - 1], lastA, lastB);
+                EmitCap(mesh, style, startCap, pts[0], -tangents[0], n0, ts[0], arcs[0], firstA, firstB, false);
+                EmitCap(mesh, style, endCap, pts[n - 1], tangents[n - 1], n1, ts[n - 1], arcs[n - 1], lastA, lastB, true);
             }
         }
 
@@ -772,8 +806,36 @@ namespace InnoVault.Vectors.Tessellation
             return true;
         }
 
-        //开放路径端帽；outward 指向路径之外，nrm 为条带在该端的法线（idxA 位于 p + nrm * 半宽）
-        private static void EmitCap(VectorMesh mesh, StrokeStyle style, LineCap cap, Vector2 p, Vector2 outward, Vector2 nrm, float t, float arc, int idxA, int idxB) {
+        //贴图端帽：只收集印章，几何按 Butt 处理，由调用方（一步式 DrawStroke / VectorBatch）另行提交
+        //叠印的每一次各占一枚印章（即一个四边形），仍落在同一块端帽网格里
+        private static void AddCapStamp(StrokeStyle style, Vector2 p, Vector2 outward, float t, bool atEnd) {
+            if (style.CapTexture == null) {
+                return;
+            }
+            float w = style.WidthAt(t);
+            if (w <= 0f) {
+                return;
+            }
+            Color color = style.CapColor ?? Col(style, t, 0.5f, p);
+            Vector2 size = new Vector2(w) * style.CapScaleAt(atEnd);
+            style.ResolveCapRepeat(out int repeat, out float scale);
+            for (int k = 0; k < repeat; k++) {
+                capStamps.Add(new CapStamp {
+                    Position = p,
+                    Outward = outward,
+                    Size = size,
+                    Color = color,
+                });
+                size *= scale;
+            }
+        }
+
+        //开放路径端帽；outward 指向路径之外，nrm 为条带在该端的法线（idxA 位于 p + nrm * 半宽），atEnd 区分这一片的起点 / 终点
+        private static void EmitCap(VectorMesh mesh, StrokeStyle style, LineCap cap, Vector2 p, Vector2 outward, Vector2 nrm, float t, float arc, int idxA, int idxB, bool atEnd) {
+            if (cap == LineCap.Texture) {
+                AddCapStamp(style, p, outward, t, atEnd);
+                return;
+            }
             if (cap == LineCap.Butt || cap == LineCap.Square || idxA < 0 || idxB < 0) {
                 return;
             }
@@ -816,6 +878,10 @@ namespace InnoVault.Vectors.Tessellation
 
         //退化为一点：圆帽画圆片，方帽画方片，其余不画
         private static void EmitDot(VectorMesh mesh, StrokeStyle style, Vector2 p, float t, LineCap startCap, LineCap endCap) {
+            //两端重合到一点，贴图端帽只印一次、朝向取 +X、尺寸取 CapScale
+            if (startCap == LineCap.Texture || endCap == LineCap.Texture) {
+                AddCapStamp(style, p, Vector2.UnitX, t, false);
+            }
             bool round = startCap == LineCap.Round || endCap == LineCap.Round;
             bool square = startCap == LineCap.Square || endCap == LineCap.Square;
             if (!round && !square) {

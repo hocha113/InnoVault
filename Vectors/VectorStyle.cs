@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System;
 
 namespace InnoVault.Vectors
@@ -94,6 +95,11 @@ namespace InnoVault.Vectors
         Round,
         /// <summary>箭头，等腰三角形，尖长由 <see cref="StrokeStyle.CapLength"/> 决定（旧 <c>ArrowheadTrailGenerator</c> 的语义）</summary>
         Arrow,
+        /// <summary>
+        /// 贴图印章：几何按 <see cref="Butt"/> 处理（不外延），另在端点绘制 <see cref="StrokeStyle.CapTexture"/>，
+        /// 尺寸按该处全宽 × <see cref="StrokeStyle.CapScale"/>、+X 轴指向路径之外；贴图为空时退化为 <see cref="Butt"/>
+        /// </summary>
+        Texture,
     }
 
     /// <summary>折线内部转角的接头形状</summary>
@@ -164,22 +170,54 @@ namespace InnoVault.Vectors
         /// <summary>默认宽度</summary>
         public const float DefaultWidth = 2f;
 
+        /// <summary>贴图端帽叠印次数的上限，防止误配把一个端点印成上百次</summary>
+        public const int MaxCapRepeat = 8;
+
         /// <summary>常量全宽，<see cref="WidthFunction"/> 为空时使用</summary>
         public float Width { get; set; } = DefaultWidth;
         /// <summary>按弧长变化的全宽，非空时覆盖 <see cref="Width"/></summary>
         public StrokeWidthFunction WidthFunction { get; set; }
+        /// <summary>
+        /// 叠在 <see cref="Width"/> / <see cref="WidthFunction"/> 结果上的全局倍率（默认 1），
+        /// 用于在同一宽度函数上派生更细的一层；按该处宽度算出来的量（圆帽 / 方帽外延、<see cref="CapLength"/> ≤ 0 的箭头长、贴图端帽尺寸）随之缩放，
+        /// 显式给定的 <see cref="CapLength"/> / <see cref="Dash"/> / <see cref="TileLength"/> 不缩放
+        /// </summary>
+        public float WidthScale { get; set; } = 1f;
         /// <summary>常量颜色，<see cref="ColorFunction"/> 与 <see cref="Paint"/> 都为空时使用</summary>
         public Color Color { get; set; } = Color.White;
         /// <summary>按弧长与横向位置变化的颜色，非空时优先级最高</summary>
         public StrokeColorFunction ColorFunction { get; set; }
         /// <summary>按位置求色的画笔（纯色 / 线性渐变 / 径向渐变），<see cref="ColorFunction"/> 为空时使用；位置空间见 <see cref="VectorPaint.Space"/></summary>
         public VectorPaint Paint { get; set; }
+        /// <summary>叠在最终颜色上的整体不透明度倍率（默认 1），按 <c>Color * float</c> 语义乘 RGBA 四通道；作用于一切取色路径（含 <see cref="Paint"/>）</summary>
+        public float Opacity { get; set; } = 1f;
         /// <summary>起点端帽（仅开放路径）</summary>
         public LineCap StartCap { get; set; } = LineCap.Butt;
         /// <summary>终点端帽（仅开放路径）。旧 <c>Trail</c> 的箭头尖端对应 <see cref="LineCap.Arrow"/></summary>
         public LineCap EndCap { get; set; } = LineCap.Butt;
         /// <summary>箭头端帽的尖长；小于等于 0 时取该处全宽</summary>
         public float CapLength { get; set; }
+        /// <summary><see cref="LineCap.Texture"/> 端帽使用的贴图；为空时该端帽退化为 <see cref="LineCap.Butt"/></summary>
+        public Texture2D CapTexture { get; set; }
+        /// <summary>贴图端帽的尺寸倍率：输出像素尺寸 = 该处全宽 × CapScale（X 沿切向、Y 沿法向），默认 (1, 1)</summary>
+        public Vector2 CapScale { get; set; } = Vector2.One;
+        /// <summary>贴图端帽的颜色；为空时取该端点处的描边色（含 <see cref="Opacity"/>）</summary>
+        public Color? CapColor { get; set; }
+        /// <summary>
+        /// 每个端点印章的叠印次数（默认 1，夹紧到 <see cref="MaxCapRepeat"/>）：第 k 次（k 从 0 起）按 <see cref="CapScale"/> × <see cref="CapRepeatScale"/> 的 k 次幂缩放，
+        /// 同色同位叠印，让印章中心更亮（旧 <c>ThunderTrail</c> 两端各印两次即 <c>CapRepeat = 2</c>）
+        /// </summary>
+        public int CapRepeat { get; set; } = 1;
+        /// <summary>叠印时逐次缩放的倍率（默认 0.75）；小于等于 0 时视为 1（每次同尺寸）</summary>
+        public float CapRepeatScale { get; set; } = 0.75f;
+        /// <summary>终点端帽印章的尺寸倍率；为空时与 <see cref="CapScale"/> 相同。两端印章尺寸不同时用（起点与退化成单点的子路径仍用 <see cref="CapScale"/>）</summary>
+        public Vector2? EndCapScale { get; set; }
+        /// <summary>
+        /// 端帽印章的混合状态，**仅网格后端**生效：非空时替换端帽那次提交的 <see cref="VectorDrawOptions.Blend"/>，其余选项不变，
+        /// 用于「本体一种混合、端帽另一种」（如本体 <see cref="BlendState.NonPremultiplied"/> + 端帽 A = 0 色配 <see cref="BlendState.AlphaBlend"/> 当纯加法）；
+        /// 像素笔后端落在调用方的批次内，改不了混合，忽略此字段
+        /// </summary>
+        public BlendState CapBlend { get; set; }
         /// <summary>转角接头</summary>
         public LineJoin Join { get; set; } = LineJoin.Averaged;
         /// <summary><see cref="LineJoin.Miter"/> 下半宽放大倍数的上限，与 SVG <c>stroke-miterlimit</c> 同义（默认 4）</summary>
@@ -224,30 +262,49 @@ namespace InnoVault.Vectors
             Color = color;
         }
 
-        /// <summary>该处的全宽</summary>
-        public float WidthAt(float t) => WidthFunction != null ? MathF.Max(WidthFunction(t), 0f) : Width;
+        /// <summary>该处的全宽（已乘 <see cref="WidthScale"/>）</summary>
+        public float WidthAt(float t) {
+            float w = WidthFunction != null ? MathF.Max(WidthFunction(t), 0f) : Width;
+            return WidthScale == 1f ? w : w * WidthScale;
+        }
 
         /// <summary>该处的颜色（忽略 <see cref="Paint"/>；需要按位置求色时用 <see cref="ColorAt(float, float, Vector2)"/>）</summary>
-        public Color ColorAt(float t, float side) => ColorFunction != null ? ColorFunction(t, side) : Color;
+        public Color ColorAt(float t, float side) {
+            Color color = ColorFunction != null ? ColorFunction(t, side) : Color;
+            return Opacity == 1f ? color : color * Opacity;
+        }
 
         /// <summary>
-        /// 该处的颜色：<see cref="ColorFunction"/> 优先，其次 <see cref="Paint"/>（在 <paramref name="paintPosition"/> 处求色），最后 <see cref="Color"/>
+        /// 该处的颜色：<see cref="ColorFunction"/> 优先，其次 <see cref="Paint"/>（在 <paramref name="paintPosition"/> 处求色），最后 <see cref="Color"/>，结果乘 <see cref="Opacity"/>
         /// </summary>
         /// <param name="t">归一弧长</param>
         /// <param name="side">横向位置 0~1</param>
         /// <param name="paintPosition">已换算到 <see cref="Paint"/> 所在空间的位置</param>
         public Color ColorAt(float t, float side, Vector2 paintPosition) {
+            Color color;
             if (ColorFunction != null) {
-                return ColorFunction(t, side);
+                color = ColorFunction(t, side);
             }
-            if (Paint != null) {
-                return Paint.Evaluate(paintPosition);
+            else if (Paint != null) {
+                color = Paint.Evaluate(paintPosition);
             }
-            return Color;
+            else {
+                color = Color;
+            }
+            return Opacity == 1f ? color : color * Opacity;
         }
 
         /// <summary>是否需要按位置求色（有 <see cref="Paint"/> 且没有更高优先级的 <see cref="ColorFunction"/>）</summary>
         public bool UsesPaint => ColorFunction == null && Paint != null;
+
+        /// <summary>夹紧后的贴图端帽叠印次数与逐次缩放倍率（两个后端共用同一套夹紧规则）</summary>
+        internal void ResolveCapRepeat(out int repeat, out float scale) {
+            repeat = Math.Clamp(CapRepeat, 1, MaxCapRepeat);
+            scale = CapRepeatScale > 0f ? CapRepeatScale : 1f;
+        }
+
+        /// <summary>该端印章的尺寸倍率：终点取 <see cref="EndCapScale"/>（为空时退回 <see cref="CapScale"/>），起点与退化单点取 <see cref="CapScale"/></summary>
+        internal Vector2 CapScaleAt(bool atEnd) => atEnd && EndCapScale.HasValue ? EndCapScale.Value : CapScale;
 
         /// <summary>是否启用虚线</summary>
         public bool IsDashed => Dash != null && Dash.Length > 0 && DashTotal > 0f;
@@ -279,12 +336,21 @@ namespace InnoVault.Vectors
             }
             Width = other.Width;
             WidthFunction = other.WidthFunction;
+            WidthScale = other.WidthScale;
             Color = other.Color;
             ColorFunction = other.ColorFunction;
             Paint = other.Paint;
+            Opacity = other.Opacity;
             StartCap = other.StartCap;
             EndCap = other.EndCap;
             CapLength = other.CapLength;
+            CapTexture = other.CapTexture;
+            CapScale = other.CapScale;
+            CapColor = other.CapColor;
+            CapRepeat = other.CapRepeat;
+            CapRepeatScale = other.CapRepeatScale;
+            EndCapScale = other.EndCapScale;
+            CapBlend = other.CapBlend;
             Join = other.Join;
             MiterLimit = other.MiterLimit;
             AveragedLimit = other.AveragedLimit;

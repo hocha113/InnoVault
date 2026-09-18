@@ -9,7 +9,7 @@ namespace InnoVault.Vectors
     /// <summary>
     /// 像素笔后端：用 1×1 白像素贴图逐段拉伸描边，在当前 <see cref="SpriteBatch"/> 批次内直接出画、不切批，
     /// 是 UI 前景细线 / 字形 / 环 / 弧的首选；宽度以当前批次坐标系的像素计
-    /// <br/>支持弧长窗口、虚线、<see cref="VectorPaint"/>（按段中点求色）；限制：接头与端帽只有方点近似（圆接、圆帽画成方点），没有贴图 UV，不能填充任意多边形；这些需求走 <see cref="VectorMesh"/> + <see cref="VectorRenderer"/>
+    /// <br/>支持弧长窗口、虚线、<see cref="VectorPaint"/>（按段中点求色）、<see cref="LineCap.Texture"/> 贴图端帽（直接落在当前批次内）；限制：接头与端帽只有方点近似（圆接、圆帽画成方点），没有贴图 UV，不能填充任意多边形；这些需求走 <see cref="VectorMesh"/> + <see cref="VectorRenderer"/>
     /// <br/>白像素永远是硬边：叠几层同心放大不会产生羽化，暗色大面积阴影请用着色器，见 <see cref="GlowStroke"/> 说明
     /// <br/>只允许在渲染线程调用
     /// </summary>
@@ -22,6 +22,9 @@ namespace InnoVault.Vectors
         private static readonly Rectangle pixelSrc = new(0, 0, 1, 1);
         private static readonly StrokeStyle scratchStyle = new();
         private static readonly StrokeStyle glowStyle = new();
+        //参数式重载专用：paramDefaults 只作全字段复位的样板，从不被赋值
+        private static readonly StrokeStyle paramDefaults = new();
+        private static readonly StrokeStyle paramStyle = new();
         //辉光层的宽度 / 颜色包装：静态委托读静态字段，不再每层分配闭包
         private static StrokeWidthFunction glowBaseWidth;
         private static StrokeColorFunction glowBaseColor;
@@ -49,6 +52,12 @@ namespace InnoVault.Vectors
 
         /// <summary>描边路径（恒等变换）</summary>
         public static void Stroke(SpriteBatch sb, VectorPath path, StrokeStyle style) => Stroke(sb, path, style, in VectorTransform.Identity);
+
+        /// <summary>
+        /// 按参数直接描路径：宽度 / 颜色 / 弧长窗口作为调用参数，不需要持有 <see cref="StrokeStyle"/>；平头端帽、默认接头，其余字段一律默认
+        /// </summary>
+        public static void Stroke(SpriteBatch sb, VectorPath path, in VectorTransform transform, float width, Color color, float from = 0f, float to = 1f)
+            => Stroke(sb, path, ResetParamStyle(width, color, from, to), in transform);
 
         /// <summary>描一条已在批次坐标系里的点列</summary>
         public static void Stroke(SpriteBatch sb, ReadOnlySpan<Vector2> points, StrokeStyle style, bool closed = false) {
@@ -102,6 +111,10 @@ namespace InnoVault.Vectors
             }
         }
 
+        /// <summary>参数式巡行亮笔，语义同 <see cref="StrokeRunner(SpriteBatch, VectorPath, StrokeStyle, in VectorTransform, float, float)"/></summary>
+        public static void StrokeRunner(SpriteBatch sb, VectorPath path, in VectorTransform transform, float width, Color color, float head, float span)
+            => StrokeRunner(sb, path, ResetParamStyle(width, color, 0f, 1f), in transform, head, span);
+
         /// <summary>
         /// 亮色细线的辉光：由外到内叠 <paramref name="layers"/> 层，宽度逐层加宽 <paramref name="spread"/>（最外层）、透明度按 <paramref name="falloff"/> 的幂衰减，最后画本体
         /// <br/>只适用于亮色描边冒充发光；白像素不能羽化，用它给暗色大面板做软阴影会得到阶梯状黑框，那种需求走着色器
@@ -115,6 +128,8 @@ namespace InnoVault.Vectors
                 glowExtra = spread * k / (layers - 1);
                 glowAlpha = MathF.Pow(falloff, k);
                 glowStyle.CopyFrom(style);
+                //辉光层不印贴图端帽，避免 N 层叠印
+                glowStyle.CapTexture = null;
                 if (style.WidthFunction != null) {
                     glowBaseWidth = style.WidthFunction;
                     glowStyle.WidthFunction = glowWidth;
@@ -130,6 +145,8 @@ namespace InnoVault.Vectors
                     //Paint 无法直接乘透明度：辉光层退回按常量色，取路径中点处的画笔色
                     glowStyle.Paint = null;
                     glowStyle.Color = StrokeTessellator.Col(style, 0.5f, 0.5f, transform.Apply(path?.PointAt(0.5f) ?? Vector2.Zero)) * glowAlpha;
+                    //Col 已经乘过 Opacity，这一层不要再乘一次
+                    glowStyle.Opacity = 1f;
                 }
                 else {
                     glowStyle.Color = style.Color * glowAlpha;
@@ -342,11 +359,15 @@ namespace InnoVault.Vectors
             //端帽
             Vector2 d0 = pts[1] - pts[0];
             Vector2 d1 = pts[n - 1] - pts[n - 2];
-            DrawCap(sb, px, style, startCap, pts[0], d0.LengthSquared() > 1e-8f ? -Vector2.Normalize(d0) : -Vector2.UnitX, ts[0]);
-            DrawCap(sb, px, style, endCap, pts[n - 1], d1.LengthSquared() > 1e-8f ? Vector2.Normalize(d1) : Vector2.UnitX, ts[n - 1]);
+            DrawCap(sb, px, style, startCap, pts[0], d0.LengthSquared() > 1e-8f ? -Vector2.Normalize(d0) : -Vector2.UnitX, ts[0], false);
+            DrawCap(sb, px, style, endCap, pts[n - 1], d1.LengthSquared() > 1e-8f ? Vector2.Normalize(d1) : Vector2.UnitX, ts[n - 1], true);
         }
 
-        private static void DrawCap(SpriteBatch sb, Texture2D px, StrokeStyle style, LineCap cap, Vector2 p, Vector2 outward, float t) {
+        private static void DrawCap(SpriteBatch sb, Texture2D px, StrokeStyle style, LineCap cap, Vector2 p, Vector2 outward, float t, bool atEnd) {
+            if (cap == LineCap.Texture) {
+                DrawTextureCap(sb, style, p, outward, t, atEnd);
+                return;
+            }
             if (cap == LineCap.Butt) {
                 return;
             }
@@ -369,7 +390,12 @@ namespace InnoVault.Vectors
         }
 
         private static void DrawDotCap(SpriteBatch sb, Texture2D px, StrokeStyle style, Vector2 p, float t, LineCap startCap, LineCap endCap) {
-            if (startCap == LineCap.Butt && endCap == LineCap.Butt) {
+            //两端重合到一点，贴图端帽只印一次、朝向取 +X、尺寸取 CapScale
+            if (startCap == LineCap.Texture || endCap == LineCap.Texture) {
+                DrawTextureCap(sb, style, p, Vector2.UnitX, t, false);
+            }
+            //Texture 的几何等同 Butt，两端都不出几何时不画方点
+            if ((startCap == LineCap.Butt || startCap == LineCap.Texture) && (endCap == LineCap.Butt || endCap == LineCap.Texture)) {
                 return;
             }
             float w = style.WidthAt(t);
@@ -377,6 +403,39 @@ namespace InnoVault.Vectors
                 return;
             }
             sb.Draw(px, p, pixelSrc, StrokeTessellator.Col(style, t, 0.5f, p), 0f, new Vector2(0.5f), new Vector2(w), SpriteEffects.None, 0f);
+        }
+
+        //贴图端帽：以端点为中心印贴图，尺寸 = 该处全宽 × 该端倍率，+X 指向路径之外；CapRepeat > 1 时同色同位逐次缩小叠印
+        //注意 CapBlend 只对网格后端有意义：这里的印章落在调用方的批次内，改不了混合
+        private static void DrawTextureCap(SpriteBatch sb, StrokeStyle style, Vector2 p, Vector2 outward, float t, bool atEnd) {
+            Texture2D tex = style.CapTexture;
+            if (tex == null || tex.Width <= 0 || tex.Height <= 0) {
+                return;
+            }
+            float w = style.WidthAt(t);
+            if (w <= 0f) {
+                return;
+            }
+            Vector2 size = new Vector2(w) * style.CapScaleAt(atEnd);
+            Color color = style.CapColor ?? StrokeTessellator.Col(style, t, 0.5f, p);
+            float rotation = MathF.Atan2(outward.Y, outward.X);
+            Vector2 origin = new Vector2(tex.Width, tex.Height) * 0.5f;
+            style.ResolveCapRepeat(out int repeat, out float capScale);
+            for (int k = 0; k < repeat; k++) {
+                sb.Draw(tex, p, null, color, rotation, origin,
+                    new Vector2(size.X / tex.Width, size.Y / tex.Height), SpriteEffects.None, 0f);
+                size *= capScale;
+            }
+        }
+
+        //参数式重载的暂存样式：先全字段复位到默认，再按参数赋值
+        private static StrokeStyle ResetParamStyle(float width, Color color, float from, float to) {
+            paramStyle.CopyFrom(paramDefaults);
+            paramStyle.Width = width;
+            paramStyle.Color = color;
+            paramStyle.From = from;
+            paramStyle.To = to;
+            return paramStyle;
         }
 
         private static void DrawSegment(SpriteBatch sb, Texture2D px, Vector2 from, Vector2 to, float width, Color color) {

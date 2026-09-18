@@ -1,3 +1,4 @@
+using InnoVault.Vectors.Tessellation;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -96,6 +97,8 @@ namespace InnoVault.Vectors
         private static BasicEffect basicEffect;
         private static RasterizerState cullNoneScissor;
         private static readonly VectorMesh scratch = new(512, 1536);
+        //贴图端帽专用暂存网格，首次用到贴图端帽才分配
+        private static VectorMesh capScratch;
 
         /// <summary>
         /// 取某个坐标空间的顶点 → 裁剪空间矩阵，供自带着色器手动赋值。正交投影按当前视口尺寸（与 SpriteBatch 同法），渲染目标内自动适配
@@ -183,11 +186,16 @@ namespace InnoVault.Vectors
             }
         }
 
-        /// <summary>一步完成：描边路径并提交（内部共享暂存网格，每次调用一次提交）</summary>
+        /// <summary>
+        /// 一步完成：描边路径并提交（内部共享暂存网格，每次调用一次提交）
+        /// <br/>样式用了 <see cref="LineCap.Texture"/> 时，描边之后再提交一次端帽四边形（同空间 / 矩阵 / 混合，内置着色器 + <see cref="StrokeStyle.CapTexture"/>）
+        /// </summary>
         public static void DrawStroke(VectorPath path, StrokeStyle style, in VectorTransform transform, in VectorDrawOptions options) {
             scratch.Clear();
+            StrokeTessellator.ResetCapStamps();
             scratch.AppendStroke(path, style, in transform);
             Draw(scratch, in options);
+            DrawCapStamps(style, in options);
         }
 
         /// <summary>一步完成：描边路径并提交（恒等变换，默认世界空间）</summary>
@@ -203,8 +211,10 @@ namespace InnoVault.Vectors
         /// </summary>
         public static void DrawStroke(ReadOnlySpan<Vector2> points, StrokeStyle style, in VectorDrawOptions options, bool closed = false) {
             scratch.Clear();
+            StrokeTessellator.ResetCapStamps();
             scratch.AppendStroke(points, style, closed);
             Draw(scratch, in options);
+            DrawCapStamps(style, in options);
         }
 
         /// <summary>一步完成：描一条输出空间点列并提交（默认世界空间）</summary>
@@ -263,6 +273,33 @@ namespace InnoVault.Vectors
 
         //==================== 内部 ====================
 
+        //贴图端帽的提交选项：沿用同一空间 / 矩阵 / 批次，强制内置着色器（忽略调用方自带着色器与 SDF 参数）+ 端帽贴图；
+        //混合优先用 StrokeStyle.CapBlend，为空才沿用本次提交的混合
+        internal static VectorDrawOptions CapStampOptions(StrokeStyle style, in VectorDrawOptions options) {
+            VectorDrawOptions capOptions = options;
+            capOptions.Effect = null;
+            capOptions.MatrixParameter = null;
+            capOptions.Texture = style.CapTexture;
+            capOptions.Blend = style.CapBlend ?? options.Blend;
+            capOptions.Sampler = options.Sampler ?? SamplerState.LinearClamp;
+            capOptions.Antialias = 0f;
+            capOptions.Glow = 0f;
+            capOptions.GlowPower = 0f;
+            return capOptions;
+        }
+
+        //把上一次描边收集到的贴图端帽单独提交一次
+        private static void DrawCapStamps(StrokeStyle style, in VectorDrawOptions options) {
+            if (style?.CapTexture == null || StrokeTessellator.CapStampCount == 0) {
+                return;
+            }
+            capScratch ??= new VectorMesh(64, 192);
+            capScratch.Clear();
+            StrokeTessellator.AppendCapQuads(capScratch);
+            VectorDrawOptions capOptions = CapStampOptions(style, in options);
+            Draw(capScratch, in capOptions);
+        }
+
         private static BasicEffect GetBasicEffect(GraphicsDevice gd) {
             if (basicEffect == null || basicEffect.IsDisposed) {
                 basicEffect = new BasicEffect(gd) {
@@ -295,6 +332,8 @@ namespace InnoVault.Vectors
             basicEffect = null;
             cullNoneScissor = null;
             scratch.Clear();
+            capScratch = null;
+            StrokeTessellator.ResetCapStamps();
             if (Main.dedServ) {
                 return;
             }

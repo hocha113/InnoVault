@@ -1,3 +1,4 @@
+using InnoVault.Vectors.Tessellation;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
@@ -99,23 +100,31 @@ namespace InnoVault.Vectors
             begun = true;
         }
 
-        /// <summary>攒一笔路径描边</summary>
+        /// <summary>攒一笔路径描边（<see cref="LineCap.Texture"/> 端帽另按端帽贴图分组，见 <see cref="Stroke(ReadOnlySpan{Vector2}, StrokeStyle, in VectorDrawOptions, bool)"/>）</summary>
         public void Stroke(VectorPath path, StrokeStyle style, in VectorTransform transform, in VectorDrawOptions options) {
             if (!begun || path == null || style == null || path.IsEmpty) {
                 return;
             }
+            StrokeTessellator.ResetCapStamps();
             Acquire(in options).AppendStroke(path, style, in transform);
+            AppendCapStamps(style, in options);
         }
 
         /// <summary>攒一笔路径描边（恒等变换）</summary>
         public void Stroke(VectorPath path, StrokeStyle style, in VectorDrawOptions options) => Stroke(path, style, in VectorTransform.Identity, in options);
 
-        /// <summary>攒一笔点列描边</summary>
+        /// <summary>
+        /// 攒一笔点列描边
+        /// <br/><see cref="LineCap.Texture"/> 的端帽四边形进入以 <see cref="StrokeStyle.CapTexture"/> 为贴图、内置着色器、混合为 <see cref="StrokeStyle.CapBlend"/> ?? 本次混合的另一组；
+        /// 组序 = 各组首次出现的顺序，所以端帽相对后续描边的层序由第一笔决定，需要严格层序时分多次 <see cref="Begin"/> / <see cref="End"/>
+        /// </summary>
         public void Stroke(ReadOnlySpan<Vector2> points, StrokeStyle style, in VectorDrawOptions options, bool closed = false) {
             if (!begun || style == null || points.Length == 0) {
                 return;
             }
+            StrokeTessellator.ResetCapStamps();
             Acquire(in options).AppendStroke(points, style, closed);
+            AppendCapStamps(style, in options);
         }
 
         /// <summary>攒一笔路径填充</summary>
@@ -163,6 +172,16 @@ namespace InnoVault.Vectors
         }
 
         //==================== 内部 ====================
+
+        //贴图端帽单独占一组：同空间 / 矩阵 / 批次，贴图换成 CapTexture、内置着色器、混合取 CapBlend ?? 本次混合
+        //分组键就是这份选项，所以 CapBlend 不同的端帽天然分到不同组，不会被合批合掉
+        private void AppendCapStamps(StrokeStyle style, in VectorDrawOptions options) {
+            if (style?.CapTexture == null || StrokeTessellator.CapStampCount == 0) {
+                return;
+            }
+            VectorDrawOptions capOptions = VectorRenderer.CapStampOptions(style, in options);
+            StrokeTessellator.AppendCapQuads(Acquire(in capOptions));
+        }
 
         private VectorMesh Acquire(in VectorDrawOptions options) {
             Key key = new(in options);

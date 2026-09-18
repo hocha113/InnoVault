@@ -12,8 +12,9 @@ namespace InnoVault.Debugs
     /// 矢量绘图模块（<c>InnoVault.Vectors</c>）的样例画廊，受 <see cref="DebugSettings.VectorsShowGallery"/> 控制，
     /// 通过 <c>/vaultdebug</c> 面板的 Vectors 页打开<br/>
     /// 世界层（围绕玩家，网格后端）：旧 Trail 迁移条带、平铺纹理双遍闪电、四种接头对比（经 <see cref="VectorBatch"/> 一次提交）、渐变填充与描边、
-    /// 「O / A」孔洞填充、动画虚线环、SDF 抗锯齿与硬边并排、<see cref="TrailHistory"/> 跟随玩家的拖尾、SVG 字形弧长揭示、整份 <see cref="VectorDocument"/><br/>
-    /// 界面层（左下角面板，像素笔 + UI 空间网格）：环 / 弧 / 扇区 / 圆角矩形 / 虚线 / 辉光笔，同一字形两种后端并排，SVG 文档缩略图；
+    /// 「O / A」孔洞填充、动画虚线环、SDF 抗锯齿与硬边并排、<see cref="TrailHistory"/> 跟随玩家的拖尾、SVG 字形弧长揭示、整份 <see cref="VectorDocument"/>、
+    /// <see cref="JitterPath"/> 定期重掷 + <see cref="LineCap.Texture"/> 贴图端帽 + <see cref="StrokeStyle.WidthScale"/> 派生层<br/>
+    /// 界面层（左下角面板，像素笔 + UI 空间网格）：环 / 弧 / 扇区 / 圆角矩形 / 虚线 / 辉光笔 / 参数式描边（含窗口揭示），同一字形两种后端并排，SVG 文档缩略图；
     /// 界面层网格提交都带 <see cref="VectorDrawOptions.SpriteBatch"/>，演示 Immediate 批次的自动恢复<br/>
     /// 网格后端自带投影矩阵，所以两种空间的样例都能在界面层批次里出画；世界样例因此叠在一切之上，画廊用途下可以接受
     /// </summary>
@@ -30,9 +31,11 @@ namespace InnoVault.Debugs
         private static readonly Vector2[] trailPoints = new Vector2[28];
         private static readonly Vector2[] boltPoints = new Vector2[14];
         private static readonly Vector2[] zigzag = new Vector2[5];
+        private static readonly Vector2[] jitterBase = new Vector2[16];
         private static readonly VectorMesh mesh = new(1024, 3072);
         private static readonly VectorBatch batch = new();
         private static readonly TrailHistory history = new(48);
+        private static readonly JitterPath jitter = new(16f, 5f);
 
         //旧 Trail 迁移样板：按点序参数化、宽度随 t 增长、颜色沿身渐变、箭头端帽
         private static readonly StrokeStyle trailStyle = new() {
@@ -115,7 +118,25 @@ namespace InnoVault.Debugs
         };
         private static readonly StrokeStyle wavePen = new(2f, new Color(255, 170, 90));
         private static readonly StrokeStyle dashPen = new(2f, new Color(160, 255, 200)) { Dash = [6f, 4f] };
+        //JitterPath 本体：沿路径平铺贴图 + 两端贴图端帽（CapTexture 在绘制时填）
+        private static readonly StrokeStyle jitterBody = new() {
+            Width = 20f,
+            Color = new Color(190, 170, 255),
+            Join = LineJoin.Round,
+            StartCap = LineCap.Texture,
+            EndCap = LineCap.Texture,
+            CapScale = new Vector2(2.4f, 1.8f),
+            //终点印章比起点小一截，演示两端尺寸不同
+            EndCapScale = new Vector2(1.4f, 1.1f),
+            CapRepeat = 2,
+            //A = 0 的端帽色 + 预乘 AlphaBlend = 纯加法：本体仍是 NonPremultiplied，只有端帽走加法（旧 ThunderTrail 光斑的画法）
+            CapColor = new Color(190, 170, 255, 0),
+            CapBlend = BlendState.AlphaBlend,
+            UvMode = StrokeUvMode.Tile,
+        };
 
+        private static StrokeStyle jitterCore;
+        private static uint jitterSlot;
         private static VectorPath starPath;
         private static VectorPath panelPath;
         private static VectorPath wavePath;
@@ -154,6 +175,15 @@ namespace InnoVault.Debugs
                 VectorPath.Polygon([new Vector2(-32f, 36f), new Vector2(-10f, -36f), new Vector2(10f, -36f), new Vector2(32f, 36f), new Vector2(18f, 36f), new Vector2(11f, 14f), new Vector2(-11f, 14f), new Vector2(-18f, 36f)]),
                 VectorPath.Polygon([new Vector2(-6f, 0f), new Vector2(6f, 0f), new Vector2(0f, -20f)]));
             sdfCurve ??= VectorPath.Cubic(new Vector2(0f, 0f), new Vector2(30f, -60f), new Vector2(70f, 60f), new Vector2(110f, 0f));
+            if (jitterCore == null) {
+                //派生层：同一份样式只改宽度倍率与整体透明度，端帽交给本体层印
+                jitterCore = jitterBody.Clone();
+                jitterCore.WidthScale = 0.25f;
+                jitterCore.Opacity = 0.9f;
+                jitterCore.Color = Color.White;
+                jitterCore.StartCap = LineCap.Butt;
+                jitterCore.EndCap = LineCap.Butt;
+            }
         }
 
         //==================== 世界层（网格后端） ====================
@@ -261,6 +291,41 @@ namespace InnoVault.Debugs
             else {
                 Label(sb, anchor + new Vector2(-440f, 300f), "VectorDocument Gallery.svg: not loaded");
             }
+
+            //11. JitterPath：基线逐帧摆动、抖动每 3 tick 重掷一次；本体平铺贴图 + 两端贴图端帽，派生层只把 WidthScale 降到 1/4 走加法
+            if (light != null) {
+                Vector2 jitterStart = anchor + new Vector2(300f, 190f);
+                Vector2 jitterEnd = anchor + new Vector2(560f, 300f);
+                for (int i = 0; i < jitterBase.Length; i++) {
+                    float f = i / (float)(jitterBase.Length - 1);
+                    jitterBase[i] = Vector2.Lerp(jitterStart, jitterEnd, f) + new Vector2(0f, MathF.Sin(time * 2f + f * 5f) * 20f);
+                }
+                jitter.SetBase(jitterBase);
+                uint slot = Main.GameUpdateCount / 3;
+                if (slot != jitterSlot) {
+                    //每 3 tick 换一次随机相位；其余帧只按新基线重算，形状跟着走但不闪
+                    jitterSlot = slot;
+                    jitter.Reroll();
+                }
+                else {
+                    jitter.Refresh();
+                }
+                jitterBody.CapTexture = light;
+                jitterBody.TileLength = light.Width;
+                jitterBody.UvOffset = -time * 2f;
+                jitterCore.TileLength = light.Width * 0.5f;
+                jitterCore.UvOffset = -time * 5f;
+                VectorRenderer.DrawStroke(jitter.Points, jitterBody, new VectorDrawOptions(VectorSpace.World, null, light) {
+                    Blend = BlendState.NonPremultiplied,
+                    Sampler = SamplerState.LinearWrap,
+                });
+                VectorRenderer.DrawStroke(jitter.Points, jitterCore, new VectorDrawOptions(VectorSpace.World, null, light) {
+                    Blend = BlendState.Additive,
+                    Sampler = SamplerState.LinearWrap,
+                });
+                Label(sb, jitterStart + new Vector2(-30f, -46f), $"JitterPath reroll / 3 ticks (seed {jitter.Seed}), LineCap.Texture both ends, CapRepeat 2");
+                Label(sb, jitterStart + new Vector2(-30f, -28f), "body NonPremultiplied, caps CapBlend = AlphaBlend with A = 0 color; derived layer Clone + WidthScale 0.25, Additive");
+            }
         }
 
         //==================== 界面层（像素笔 + 网格 UI 空间） ====================
@@ -308,6 +373,14 @@ namespace InnoVault.Debugs
                 doc.Draw(doc.Fit(new Vector2(panel.X + 560f, y + 30f), 70f), in ui);
                 Utils.DrawBorderString(sb, "Gallery.svg", new Vector2(panel.X + 525, y + 72f), new Color(160, 200, 240), 0.6f);
             }
+
+            //参数式像素笔：宽度 / 颜色 / 弧长窗口直接当调用参数，不持有 StrokeStyle；窗口逐帧揭示 + 参数式巡行亮笔
+            float reveal = 0.5f + 0.5f * MathF.Sin(time * 0.9f);
+            VectorTransform paramTf = VectorTransform.At(new Vector2(panel.X + 24f, panel.Y + 186f), 0.62f);
+            VectorPen.Stroke(sb, wavePath, in paramTf, 3f, new Color(255, 130, 200), 0f, reveal);
+            VectorPen.StrokeRunner(sb, wavePath, in paramTf, 2f, Color.White, time * 0.45f, 0.14f);
+            Utils.DrawBorderString(sb, $"VectorPen parametric Stroke / StrokeRunner (no StrokeStyle), to = {reveal:0.00}",
+                new Vector2(panel.X + 108, panel.Y + 178f), new Color(160, 200, 240), 0.6f);
 
             Utils.DrawBorderString(sb, $"glyph: {glyph.SubPathCount} subpaths, {glyph.PointCount} pts, length {glyph.TotalLength:0.00}   SpriteBatchState.Available = {SpriteBatchState.Available}",
                 new Vector2(panel.X + 12, panel.Bottom - 26f), new Color(120, 160, 200), 0.6f);
