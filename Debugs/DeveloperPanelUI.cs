@@ -139,6 +139,23 @@ namespace InnoVault.Debugs
         }
     }
 
+    internal class VectorsDebugTab : DebugTab
+    {
+        public override string TabName => DeveloperPanelUI.VectorsTabText?.Value ?? "Vectors";
+        public override string TabIcon => "VG";
+
+        public override void Initialize() {
+            Checkboxes.Clear();
+            Checkboxes.Add(new DebugCheckbox(DeveloperPanelUI.VectorsGalleryText?.Value ?? "Sample Gallery",
+                () => DebugSettings.VectorsShowGallery,
+                v => DebugSettings.VectorsShowGallery = v));
+        }
+
+        public override void Reset() {
+            DebugSettings.ResetVectors();
+        }
+    }
+
     internal class DebugCheckbox
     {
         public string Label;
@@ -251,8 +268,8 @@ namespace InnoVault.Debugs
 
     internal class DeveloperPanelUI : UIHandle, ILocalizedModType
     {
-        //四页标签并排：宽度按最长页名（StateMachine）留足
-        private const float PanelWidth = 470f;
+        //五页标签并排：宽度按最长页名（StateMachine）留足
+        private const float PanelWidth = 560f;
         private const float PanelHeight = 380f;
         private const float TabHeight = 35f;
         private const float TitleHeight = 45f;
@@ -314,6 +331,8 @@ namespace InnoVault.Debugs
         protected internal static LocalizedText Rig2DOverlayText;
         protected internal static LocalizedText Rig2DHotReloadText;
         protected internal static LocalizedText Rig2DReloadNowText;
+        protected internal static LocalizedText VectorsTabText;
+        protected internal static LocalizedText VectorsGalleryText;
         protected internal static LocalizedText ResetText;
         protected internal static LocalizedText ResetAllText;
         protected internal static LocalizedText CloseText;
@@ -342,6 +361,8 @@ namespace InnoVault.Debugs
             Rig2DOverlayText = this.GetLocalization(nameof(Rig2DOverlayText), () => "Skeleton Overlay");
             Rig2DHotReloadText = this.GetLocalization(nameof(Rig2DHotReloadText), () => "Hot Reload .rig.json");
             Rig2DReloadNowText = this.GetLocalization(nameof(Rig2DReloadNowText), () => "Reload All Rigs Now");
+            VectorsTabText = this.GetLocalization(nameof(VectorsTabText), () => "Vectors");
+            VectorsGalleryText = this.GetLocalization(nameof(VectorsGalleryText), () => "Sample Gallery");
             ResetText = this.GetLocalization(nameof(ResetText), () => "Reset");
             ResetAllText = this.GetLocalization(nameof(ResetAllText), () => "Reset All");
             CloseText = this.GetLocalization(nameof(CloseText), () => "Close");
@@ -357,6 +378,7 @@ namespace InnoVault.Debugs
             tabs.Add(new ActorDebugTab());
             tabs.Add(new StateMachineDebugTab());
             tabs.Add(new Rig2DDebugTab());
+            tabs.Add(new VectorsDebugTab());
 
             foreach (var tab in tabs) {
                 tab.Initialize();

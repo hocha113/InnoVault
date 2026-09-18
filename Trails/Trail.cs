@@ -15,6 +15,7 @@ namespace InnoVault.Trails
     /// <param name="totalPoints"></param>
     /// <param name="rotations"></param>
     /// <returns></returns>
+    [Obsolete("已过时：路径采样请改用 InnoVault.Vectors 的 VectorPath.CatmullRom / Cubic / Quadratic 或 VectorPathBuilder，Trails 保留为兼容实现")]
     public delegate List<Vector2> PathPointRetrievalDelegation(IEnumerable<Vector2> controlPoints
             , Vector2 offset, int totalPoints, IEnumerable<float> rotations = null);
     /// <summary>
@@ -23,11 +24,13 @@ namespace InnoVault.Trails
     /// <param name="t"></param>
     /// <param name="leftTexCoord"></param>
     /// <param name="rightTexCoord"></param>
+    [Obsolete("已过时：贴图坐标由 InnoVault.Vectors.StrokeStyle 的 UvMode / TileLength / UvOffset / FlipV 描述，Trails 保留为兼容实现")]
     public delegate void HandlerTexturePossDelegation(float t, out Vector2 leftTexCoord, out Vector2 rightTexCoord);
 
     /// <summary>
     /// 路径网格生成器接口，用于定义生成路径网格数据的行为。任何实现此接口的类都需要提供生成路径网格顶点和索引的逻辑
     /// </summary>
+    [Obsolete("已过时：尖端形状改用 InnoVault.Vectors.StrokeStyle.EndCap = LineCap.Arrow（尖长 CapLength），Trails 保留为兼容实现")]
     public interface IMeshTrailGenerator
     {
         /// <summary>
@@ -63,6 +66,7 @@ namespace InnoVault.Trails
     /// <returns>
     /// 返回路径在指定进度位置的厚度
     /// </returns>
+    [Obsolete("已过时：改用 InnoVault.Vectors.StrokeWidthFunction（返回全宽，本委托返回的是半宽，迁移时乘 2），Trails 保留为兼容实现")]
     public delegate float TrailThicknessCalculator(float progressAlongPath);
 
     /// <summary>
@@ -75,6 +79,7 @@ namespace InnoVault.Trails
     /// <returns>
     /// 返回路径在指定纹理坐标上的颜色值
     /// </returns>
+    [Obsolete("已过时：改用 InnoVault.Vectors.StrokeColorFunction(t, side)，迁移写法 (t, side) => old(new Vector2(t, side))，Trails 保留为兼容实现")]
     public delegate Color TrailColorEvaluator(Vector2 textureCoordinates);
 
     /// <summary>
@@ -85,6 +90,12 @@ namespace InnoVault.Trails
     /// 它通过一组顶点和索引构建网格，并使用指定的宽度和颜色计算委托来动态调整轨迹外观
     /// 同时也支持基于贝塞尔曲线的路径效果绘制，以及自定义纹理坐标映射等高级功能
     /// </remarks>
+    [Obsolete("已过时：请迁移到 InnoVault.Vectors。new Trail(positions, width, color) + DrawTrail(effect) 对应 " +
+        "VectorRenderer.DrawStroke(positions, new StrokeStyle { Parameterization = StrokeParameterization.PointIndex, WidthFunction = t => width(t) * 2f, " +
+        "ColorFunction = (t, side) => color(new Vector2(t, side)), EndCap = LineCap.Arrow }, " +
+        "new VectorDrawOptions(VectorSpace.World, effect) { Blend = BlendState.Additive, MatrixParameter = \"transformMatrix\" })，" +
+        "世界坐标由 VectorSpace.World 自动投影，混合状态请显式给（不再靠手设 GraphicsDevice.BlendState）；" +
+        "静态助手对应 VectorPath.Cubic / CatmullRom、VectorRenderer.GetMatrix、VectorMesh、VectorRenderer.DrawUserMesh。Trail 保留为兼容实现，已有代码无需修改即可继续工作")]
     public class Trail : IDisposable
     {
         /// <summary>
@@ -431,6 +442,7 @@ namespace InnoVault.Trails
     /// <summary>
     /// 生成一个箭头形状的尾迹尖端尾迹尖端的形状为一个朝向尾迹方向的箭头形三角形
     /// </summary>
+    [Obsolete("已过时：改用 InnoVault.Vectors.StrokeStyle.EndCap = LineCap.Arrow 并设置 CapLength，Trails 保留为兼容实现")]
     public class ArrowheadTrailGenerator : IMeshTrailGenerator
     {
         /// <summary>
@@ -504,6 +516,7 @@ namespace InnoVault.Trails
     /// <summary>
     /// 一个空的路径网格生成器实现，作为默认实现，不生成任何顶点和索引。该类可以用于作为占位符，或在不需要生成网格时使用
     /// </summary>
+    [Obsolete("已过时：InnoVault.Vectors.StrokeStyle 的端帽默认即 LineCap.Butt，无需占位生成器，Trails 保留为兼容实现")]
     public class EmptyMeshGenerator : IMeshTrailGenerator
     {
         /// <summary>
@@ -537,6 +550,7 @@ namespace InnoVault.Trails
     /// 用于渲染网格的类，支持动态更新顶点和索引缓冲区，并在渲染时将数据提交给显卡进行绘制
     /// 该类负责管理和处理网格渲染所需的顶点和索引数据缓冲区，并能够高效地更新这些数据
     /// </summary>
+    [Obsolete("已过时：改用 InnoVault.Vectors.VectorMesh + VectorRenderer.Draw（CPU 侧缓冲直接提交，无需持有与释放 GPU 缓冲），Trails 保留为兼容实现")]
     public class MeshRenderer : IDisposable
     {
         /// <summary>

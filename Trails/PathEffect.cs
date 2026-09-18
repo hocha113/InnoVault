@@ -12,7 +12,7 @@ namespace InnoVault.Trails
     /// <para>该类的核心功能已迁移至 <see cref="Trail"/>，此类作为向下兼容的包装保留，
     /// 已有的使用代码无需修改即可继续工作</para>
     /// </summary>
-    [Obsolete("已经过时，请直接使用 Trail 类来实现路径效果，PathEffect 作为向下兼容的包装保留，已有代码无需修改即可继续工作")]
+    [Obsolete("已过时：Trail 本身也已过时，请迁移到 InnoVault.Vectors（VectorPath.Cubic / CatmullRom 采样 + VectorRenderer.DrawStroke 描边，内置 BasicEffect 无需自备着色器）。PathEffect 作为向下兼容的包装保留，已有代码无需修改即可继续工作")]
     public class PathEffect
     {
         #region Data

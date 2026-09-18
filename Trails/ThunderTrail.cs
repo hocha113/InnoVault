@@ -16,6 +16,10 @@ namespace InnoVault.Trails
     /// <param name="widthFunc">计算闪电轨迹宽度的函数，参数为插值因子</param>
     /// <param name="colorFunc">计算闪电轨迹颜色的函数，参数为插值因子</param>
     /// <param name="alphaFunc">计算闪电轨迹透明度的函数，参数为插值因子</param>
+    [Obsolete("已过时：请迁移到 InnoVault.Vectors。闪电形状由消费者自持（对 BasePositions 做随机偏移得到点列），" +
+        "再用 VectorRenderer.DrawStroke 描两遍：本体 StrokeStyle { UvMode = StrokeUvMode.Tile, TileLength = 贴图宽度, Join = LineJoin.Round }，" +
+        "VectorDrawOptions { Texture = 闪电贴图, Sampler = SamplerState.PointWrap, Blend = NonPremultiplied }；再以 1/4 宽度、Blend = Additive 描一遍流光；" +
+        "两端光斑用 SpriteBatch 自绘。ThunderTrail 保留为兼容实现，已有代码无需修改即可继续工作")]
     public class ThunderTrail(Asset<Texture2D> thunderTex, Func<float, float> widthFunc, Func<float, Color> colorFunc, Func<float, float> alphaFunc)
     {
         /// <summary>

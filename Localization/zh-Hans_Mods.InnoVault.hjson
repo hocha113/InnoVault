@@ -64,5 +64,7 @@ UI: {
 		// Rig2DOverlayText: Skeleton Overlay
 		// Rig2DHotReloadText: Hot Reload .rig.json
 		// Rig2DReloadNowText: Reload All Rigs Now
+		VectorsTabText: 矢量绘图
+		VectorsGalleryText: 样例画廊
 	}
 }

@@ -81,13 +81,20 @@
         public static bool Rig2DHotReload { get; set; }
         #endregion
 
+        #region Vectors调试选项
+        /// <summary>
+        /// 是否显示矢量绘图模块的样例画廊：世界层围绕玩家画网格后端样例，界面层左下角画像素笔样例
+        /// </summary>
+        public static bool VectorsShowGallery { get; set; }
+        #endregion
+
         /// <summary>
         /// 检查是否有任何调试选项被启用
         /// </summary>
         public static bool AnyDebugEnabled =>
             TileProcessorBoxSizeDraw || TileProcessorShowName || TileProcessorShowPosition || TileProcessorShowID ||
             ActorBoxSizeDraw || ActorShowName || ActorShowPosition || ActorShowID || ActorShowVelocity ||
-            StateMachineShowOverlay || BehaviorTreeShowOverlay || Rig2DShowOverlay || Rig2DHotReload;
+            StateMachineShowOverlay || BehaviorTreeShowOverlay || Rig2DShowOverlay || Rig2DHotReload || VectorsShowGallery;
 
         /// <summary>
         /// 获取当前启用的调试选项数量
@@ -108,6 +115,7 @@
                 if (BehaviorTreeShowOverlay) count++;
                 if (Rig2DShowOverlay) count++;
                 if (Rig2DHotReload) count++;
+                if (VectorsShowGallery) count++;
                 return count;
             }
         }
@@ -150,6 +158,13 @@
         }
 
         /// <summary>
+        /// 重置 Vectors 调试设置
+        /// </summary>
+        public static void ResetVectors() {
+            VectorsShowGallery = false;
+        }
+
+        /// <summary>
         /// 重置所有调试设置为默认值
         /// </summary>
         public static void ResetAll() {
@@ -157,6 +172,7 @@
             ResetActor();
             ResetStateMachine();
             ResetRig2D();
+            ResetVectors();
         }
     }
 }
