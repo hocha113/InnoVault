@@ -1505,8 +1505,8 @@ namespace InnoVault
                 return false;
             }
 
-            //复制并清空箱子物品
-            for (int i = 0; i < Chest.maxItems; i++) {
+            //复制并清空箱子物品，1.4.5 起容量是箱子实例字段
+            for (int i = 0; i < chest.maxItems; i++) {
                 if (chest.item[i].IsAir) {
                     continue;
                 }
@@ -1526,7 +1526,7 @@ namespace InnoVault
 
             //同步更新
             if (netUpdate && isSinglePlayer) {
-                for (int i = 0; i < Chest.maxItems; i++) {
+                for (int i = 0; i < chest.maxItems; i++) {
                     NetMessage.SendData(MessageID.SyncChestItem, -1, -1, null, chestIndex, i);
                 }
 
@@ -1701,8 +1701,12 @@ namespace InnoVault
             else if (obj is Player player) {
                 return player.GetSource_FromAI();
             }
+            else if (obj is WorldItem worldItem) {
+                return worldItem.GetSource_FromAI();
+            }
             else if (obj is Item item) {
-                return item.GetSource_FromAI();
+                //1.4.5 起 Item 不再是 Entity，但仍实现 IEntitySourceTarget，可直接作为父级源
+                return new EntitySource_Parent(item);
             }
             else if (obj is TileProcessor tp) {
                 return new EntitySource_WorldEvent($"{tp.Position.X}:{tp.Position.Y}");
@@ -1806,14 +1810,14 @@ namespace InnoVault
                     }
                     finalTime = player.buffTime[i];
                     if (netUpdate) {
-                        NetMessage.SendData(MessageID.AddPlayerBuff, -1, -1, null, player.whoAmI, buffID, player.buffTime[i]);
+                        NetMessage.SendData(MessageID.AddPlayerBuffPvP, -1, -1, null, player.whoAmI, buffID, player.buffTime[i]);
                     }
                     break;//找到对应Buff后即可退出循环
                 }
             }
             else {
                 //玩家尚未拥有该Buff就添加新Buff
-                player.AddBuff(buffID, addBuffTime, netUpdate);
+                player.AddBuff(buffID, addBuffTime);
                 //新增Buff的时间即为最终时间
                 finalTime = addBuffTime;
             }
@@ -2619,12 +2623,22 @@ namespace InnoVault
             => SetMouseOverByTile(player, ModContent.ItemType<T>());
 
         /// <summary>
-        /// 利用<see cref="Projectile.identity"/>搜索对应的弹幕实例
+        /// 利用 <see cref="Projectile.key"/> 的整数形式搜索对应的弹幕实例<br/>
+        /// 1.4.5 用 <see cref="ProjectileKey"/>（生成者 / 槽位 / 代数打包成 32 位）取代了 <c>identity</c>，
+        /// 跨端标识请传 <c>(int)proj.key</c>；只需查表时优先用 <see cref="Projectile.TryLookup"/>
         /// </summary>
         /// <param name="projectiles"></param>
-        /// <param name="identity"></param>
+        /// <param name="identity">目标弹幕 <c>(int)key</c></param>
         /// <returns></returns>
-        public static Projectile FindByIdentity(this Projectile[] projectiles, int identity) => projectiles.FirstOrDefault(x => x.identity == identity);
+        public static Projectile FindByIdentity(this Projectile[] projectiles, int identity) => projectiles.FirstOrDefault(x => (int)x.key == identity);
+
+        /// <summary>
+        /// 利用 <see cref="Projectile.key"/> 搜索对应的弹幕实例
+        /// </summary>
+        /// <param name="projectiles"></param>
+        /// <param name="key">目标弹幕的 <see cref="Projectile.key"/></param>
+        /// <returns></returns>
+        public static Projectile FindByIdentity(this Projectile[] projectiles, ProjectileKey key) => projectiles.FirstOrDefault(x => x.key.Equals(key));
 
         /// <summary>
         /// 实时计算当前所有激活弹幕中，指定ID的弹幕数量
@@ -2926,14 +2940,15 @@ namespace InnoVault
             => SpwanItem(source, spwanPos, spwanItem, netUpdate);
 
         /// <summary>
-        /// 在指定中心位置生成一个物品，其生成区域大小为该物品尺寸的一半
+        /// 在世界物品自身所在位置生成一份它的副本，其生成区域大小为该物品尺寸的一半<br/>
+        /// 1.4.5 起位置信息只存在于 <see cref="WorldItem"/> 上，裸 <see cref="Item"/> 请改用带 <c>spwanPos</c> 的重载
         /// </summary>
         /// <param name="source">生成源</param>
-        /// <param name="spwanItem">要生成的物品实例</param>
+        /// <param name="spwanItem">世界中的物品实例</param>
         /// <param name="netUpdate">是否网络同步</param>
         /// <returns>生成物品的索引 ID</returns>
-        public static int SpwanItem(IEntitySource source, Item spwanItem, bool netUpdate = true) {
-            int whoAmi = Item.NewItem(source, spwanItem.position.GetRectangle(spwanItem.Size / 2), spwanItem.Clone());
+        public static int SpwanItem(IEntitySource source, WorldItem spwanItem, bool netUpdate = true) {
+            int whoAmi = Item.NewItem(source, spwanItem.position.GetRectangle(spwanItem.Size / 2), spwanItem.inner.Clone());
             if (!isSinglePlayer && netUpdate) {
                 NetMessage.SendData(MessageID.SyncItem, -1, -1, null, whoAmi, 0f, 0f, 0f, 0, 0, 0);
             }
@@ -2941,13 +2956,13 @@ namespace InnoVault
         }
 
         /// <summary>
-        /// 在指定位置生成物品，区域大小为物品尺寸一半
+        /// 在世界物品自身所在位置生成一份它的副本，区域大小为物品尺寸一半
         /// </summary>
-        /// <param name="spwanItem">要生成的物品</param>
+        /// <param name="spwanItem">世界中的物品实例</param>
         /// <param name="source">生成源</param>
         /// <param name="netUpdate">是否网络同步</param>
         /// <returns>生成物品的索引 ID</returns>
-        public static int SpwanItem(this Item spwanItem, IEntitySource source, bool netUpdate = true)
+        public static int SpwanItem(this WorldItem spwanItem, IEntitySource source, bool netUpdate = true)
             => SpwanItem(source, spwanItem, netUpdate);
 
         /// <summary>

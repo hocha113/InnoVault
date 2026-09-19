@@ -78,8 +78,9 @@ namespace InnoVault.GameSystem
         public delegate bool On_AltFunctionUse_Delegate(Item item, Player player);
         public delegate void On_ModifyTooltips_Dalegate(Item item, List<TooltipLine> tooltips);
         public delegate void On_ModItem_ModifyTooltips_Delegate(object obj, List<TooltipLine> list);
+        //签名必须与 ItemLoader.ModifyTooltips 逐字一致，1.4.5 把 modifier/badModifier/overrideColor 三组数组合并成了 lineColors
         public delegate List<TooltipLine> On_ModifyTooltips_Delegate(Item item, ref int numTooltips, string[] names, ref string[] text
-            , ref bool[] modifier, ref bool[] badModifier, ref int oneDropLogo, out Color?[] overrideColor, int prefixlineIndex);
+            , ref Color[] lineColors, ref int oneDropLogo, int prefixlineIndex);
         public delegate string On_GetItemNameValue_Delegate(int id);
         public delegate string On_GetItemName_get_Delegate(Item item);
         public delegate void On_ItemCheckShoot_Delegate(Player player, int i, Item sItem, int weaponDamage);
@@ -316,13 +317,12 @@ namespace InnoVault.GameSystem
         }
 
         public static List<TooltipLine> On_ModifyTooltips_Hook(On_ModifyTooltips_Delegate orig, Item item, ref int numTooltips, string[] names, ref string[] text
-            , ref bool[] modifier, ref bool[] badModifier, ref int oneDropLogo, out Color?[] overrideColor, int prefixlineIndex) {
+            , ref Color[] lineColors, ref int oneDropLogo, int prefixlineIndex) {
             List<TooltipLine> tooltips = [];
             for (int k = 0; k < numTooltips; k++) {
                 TooltipLine tooltip = new TooltipLine(VaultMod.Instance, names[k], text[k]);
                 TooltipLine_ModName_Field.SetValue(tooltip, "Terraria");
-                tooltip.IsModifier = modifier[k];
-                tooltip.IsModifierBad = badModifier[k];
+                tooltip.Color = lineColors[k];
                 if (k == oneDropLogo) {
                     //tooltip.OneDropLogo = true;
                     TooltipLine_OneDropLogo_Field.SetValue(tooltip, true);
@@ -362,18 +362,14 @@ namespace InnoVault.GameSystem
             tooltips.RemoveAll((x) => !x.Visible);
             numTooltips = tooltips.Count;
             text = new string[numTooltips];
-            modifier = new bool[numTooltips];
-            badModifier = new bool[numTooltips];
+            lineColors = new Color[numTooltips];
             oneDropLogo = -1;
-            overrideColor = new Color?[numTooltips];
             for (int k = 0; k < numTooltips; k++) {
                 text[k] = tooltips[k].Text;
-                modifier[k] = tooltips[k].IsModifier;
-                badModifier[k] = tooltips[k].IsModifierBad;
                 if ((bool)TooltipLine_OneDropLogo_Field.GetValue(tooltips[k])) {//tooltips[k].OneDropLogo
                     oneDropLogo = k;
                 }
-                overrideColor[k] = tooltips[k].OverrideColor;
+                lineColors[k] = tooltips[k].Color;
             }
             return tooltips;
         }
@@ -1199,6 +1195,28 @@ namespace InnoVault.GameSystem
             return result;
         }
 
+        //1.4.5 起在世界中的物品是 WorldItem，按其 type 分发即可，覆写实例若需底层数据自行取 item.inner
+        public static void ProcessRemakeAction(WorldItem item, Action<ItemOverride> action) {
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
+                foreach (var overrideInstance in itemOverrides.Values) {
+                    action(overrideInstance);
+                }
+            }
+        }
+
+        public static bool? ProcessRemakeAction(WorldItem item, Func<ItemOverride, bool?> action) {
+            bool? result = null;
+            if (TryFetchByID(item.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
+                foreach (var overrideInstance in itemOverrides.Values) {
+                    bool? newResult = action(overrideInstance);
+                    if (newResult.HasValue) {
+                        result = newResult;
+                    }
+                }
+            }
+            return result;
+        }
+
         public override void SetDefaults(Item item) {
             if (item.type > ItemID.None) {
                 PreSetDefaultsEvent?.Invoke(item);
@@ -1268,7 +1286,7 @@ namespace InnoVault.GameSystem
             return rest ?? base.CanMeleeAttackCollideWithNPC(item, meleeAttackHitbox, player, target);
         }
 
-        public override bool CanPickup(Item item, Player player) {
+        public override bool CanPickup(WorldItem item, Player player) {
             bool? rest = ProcessRemakeAction(item, (inds) => inds.CanPickup(item, player));
             return rest ?? base.CanPickup(item, player);
         }
@@ -1298,7 +1316,7 @@ namespace InnoVault.GameSystem
             return rest ?? base.CanStack(destination, source);
         }
 
-        public override bool CanStackInWorld(Item destination, Item source) {
+        public override bool CanStackInWorld(WorldItem destination, WorldItem source) {
             bool? rest = ProcessRemakeAction(destination, (inds) => inds.CanStackInWorld(destination, source));
             return rest ?? base.CanStackInWorld(destination, source);
         }
@@ -1442,12 +1460,12 @@ namespace InnoVault.GameSystem
             ProcessRemakeAction(item, (inds) => inds.OnMissingMana(item, player, neededMana));
         }
 
-        public override bool OnPickup(Item item, Player player) {
+        public override bool OnPickup(WorldItem item, Player player) {
             bool? rest = ProcessRemakeAction(item, (inds) => inds.OnPickup(item, player));
             return rest ?? base.OnPickup(item, player);
         }
 
-        public override void OnSpawn(Item item, IEntitySource source) {
+        public override void OnSpawn(WorldItem item, IEntitySource source) {
             ProcessRemakeAction(item, (inds) => inds.OnSpawn(item, source));
         }
 
@@ -1493,7 +1511,7 @@ namespace InnoVault.GameSystem
             ProcessRemakeAction(destination, (inds) => inds.SplitStack(destination, source, numToTransfer));
         }
 
-        public override void Update(Item item, ref float gravity, ref float maxFallSpeed) {
+        public override void Update(WorldItem item, ref float gravity, ref float maxFallSpeed) {
             float safeGravity = gravity;
             float safeMaxFallSpeed = maxFallSpeed;
             ProcessRemakeAction(item, (inds) => inds.Update(item, ref safeGravity, ref safeMaxFallSpeed));

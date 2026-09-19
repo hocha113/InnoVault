@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq.Expressions;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.Graphics.Renderers;
 using Terraria.ID;
 using Terraria.ModLoader;
@@ -434,7 +435,7 @@ namespace InnoVault.GameSystem
         /// <param name="rotation">头像绘制的旋转角度</param>
         /// <param name="effects">绘制时使用的精灵翻转效果</param>
         /// <returns>返回true继续执行原版逻辑 返回false阻止原版Boss头像绘制</returns>
-        public virtual bool PreDrawNPCHeadBoss(NPCHeadRenderer renderer, Vector2 drawPos, int bossHeadId
+        public virtual bool PreDrawNPCHeadBoss(OutlinedTextureRenderer renderer, Vector2 drawPos, int bossHeadId
             , byte alpha, float headScale, float rotation, SpriteEffects effects) { return true; }
         /// <summary>
         /// 编辑此NPC的血条绘制状态，返回<see langword="false"/>可以阻止后续逻辑运行
@@ -476,13 +477,14 @@ namespace InnoVault.GameSystem
         /// <param name="chat"></param>
         public virtual void GetChat(ref string chat) { }
         /// <summary>
-        /// 允许修改NPC聊天栏中按钮的名称，在 <see cref="Player.talkNPC"/>不为 -1 时调用<br/>
-        /// 不建议在这里使用硬编码字符，应当使用本地化
+        /// 在模组加载阶段为该NPC注册聊天栏按钮，取代 1.4.4 时代按帧改名的 <c>SetChatButtons</c><br/>
+        /// tML 已预先注册关闭 / 好感度 / 住房按钮（城镇宠物另有宠物按钮），
+        /// 可用 <see cref="NPCInteractionDatabase.CloseButton"/> 等作为 <see cref="NPCInteractionList.InsertBefore"/> 的锚点；
+        /// 商店按钮用 <see cref="NPCInteractions.Shop(string, string)"/> 创建，自定义按钮继承 <see cref="NPCInteraction"/><br/>
+        /// 该钩子运行在按ID注册的原型实例上，此时 <see cref="npc"/> 为 tML 的内容样本而非世界中的实例
         /// </summary>
-        /// <param name="button"></param>
-        /// <param name="button2"></param>
-        /// <returns></returns>
-        public virtual bool SetChatButtons(ref string button, ref string button2) { return true; }
+        /// <param name="interactions">该NPC类型的按钮列表</param>
+        public virtual void RegisterChatButtons(NPCInteractionList interactions) { }
         /// <summary>
         /// 在派对期间，这个友好NPC是否应该戴上派对帽<br/>
         /// 运行在 <see cref="UsesPartyHat"/> 与 <see cref="NPC.UsesPartyHat()"/> 之前<br/>
@@ -499,13 +501,13 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 在NPC聊天栏中点击按钮时调用，运行在 <see cref="OnChatButtonClicked"/> 之前，返回<see langword="false"/>可以阻止其运行
         /// </summary>
-        /// <param name="firstButton">是否是第一个按钮</param>
-        public virtual bool PreChatButtonClicked(bool firstButton) { return true; }
+        /// <param name="interaction">被点击的按钮，按类型区分（如 <see cref="NPCInteractions.Actions.OpenShop"/>）</param>
+        public virtual bool PreChatButtonClicked(NPCInteraction interaction) { return true; }
         /// <summary>
         /// 在NPC聊天栏中点击按钮时调用
         /// </summary>
-        /// <param name="firstButton">是否是第一个按钮</param>
-        public virtual void OnChatButtonClicked(bool firstButton) { }
+        /// <param name="interaction">被点击的按钮</param>
+        public virtual void OnChatButtonClicked(NPCInteraction interaction) { }
         /// <summary>
         /// 修改被物品击中的伤害
         /// </summary>

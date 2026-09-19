@@ -417,10 +417,10 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 决定这个项目是否可以被玩家拾取
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">世界中的物品实体，底层物品数据见 <see cref="WorldItem.inner"/></param>
         /// <param name="player"></param>
         /// <returns>返回默认值<see langword="null"/>会继续执行该物品的原默认方法</returns>
-        public virtual bool? CanPickup(Item item, Player player) {
+        public virtual bool? CanPickup(WorldItem item, Player player) {
             return null;
         }
         /// <summary>
@@ -464,8 +464,10 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 当物品试图互相堆叠合并时会调用这个方法，在世界中时会调用，返回<see langword="false"/>阻止该物品进行堆叠
         /// </summary>
+        /// <param name="destination">世界中的目标物品实体，底层物品数据见 <see cref="WorldItem.inner"/></param>
+        /// <param name="source">世界中的来源物品实体</param>
         /// <returns>返回默认值<see langword="null"/>会继续执行该物品的原默认方法</returns>
-        public virtual bool? CanStackInWorld(Item destination, Item source) {
+        public virtual bool? CanStackInWorld(WorldItem destination, WorldItem source) {
             return null;
         }
         /// <summary>
@@ -855,18 +857,18 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 允许这个物品在被玩家拾取时做出一些特殊的事情
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">世界中的物品实体，底层物品数据见 <see cref="WorldItem.inner"/></param>
         /// <param name="player"></param>
         /// <returns>返回默认值<see langword="null"/>会继续执行该物品的原默认方法</returns>
-        public virtual bool? OnPickup(Item item, Player player) {
+        public virtual bool? OnPickup(WorldItem item, Player player) {
             return null;
         }
         /// <summary>
         /// 当这个物品出现在世界中时让一些事情发生
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">世界中的物品实体，底层物品数据见 <see cref="WorldItem.inner"/></param>
         /// <param name="source"></param>
-        public virtual void OnSpawn(Item item, IEntitySource source) {
+        public virtual void OnSpawn(WorldItem item, IEntitySource source) {
 
         }
         /// <summary>
@@ -965,12 +967,12 @@ namespace InnoVault.GameSystem
 
         }
         /// <summary>
-        /// 这个物品在玩家库存中会执行的函数
+        /// 这个物品掉落在世界中时每帧会执行的函数
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">世界中的物品实体，位置、速度等字段在此对象上，底层物品数据见 <see cref="WorldItem.inner"/></param>
         /// <param name="gravity"></param>
         /// <param name="maxFallSpeed"></param>
-        public virtual void Update(Item item, ref float gravity, ref float maxFallSpeed) {
+        public virtual void Update(WorldItem item, ref float gravity, ref float maxFallSpeed) {
 
         }
         /// <summary>

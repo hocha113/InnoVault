@@ -24,7 +24,7 @@ namespace InnoVault.RenderHandles
 
         /// <summary>
         /// 本帧主画面是否已被捕获进 <see cref="Main.screenTarget"/><br/>
-        /// 原版只在任一场景滤镜激活（或 <see cref="FilterManager.OnPostDraw"/> 有订阅者）时才捕获，
+        /// 原版只在任一场景滤镜激活（或任一 <c>ModSystem.RequiresScreenTarget</c> 返回真）时才捕获，
         /// 未捕获的帧里世界直接画在后备缓冲上，拷屏与回写都拿不到画面。
         /// 每帧 <see cref="Main.OnPreDraw"/> 复位，<c>FilterManager.BeginCapture</c> 之后按实际绑定置位；
         /// 相机模式截图等非主帧捕获不会置位
@@ -70,9 +70,13 @@ namespace InnoVault.RenderHandles
 
         //PostSetupContent 时汇总的自动捕获需求
         private static bool anyInstanceRequiresCapture;
-        private static bool captureKeepAliveSubscribed;
-        //空委托：只要挂在 Filters.Scene.OnPostDraw 上，FilterManager.CanCapture 就恒为真，这是原版为 Chroma 调试留下的口子
-        private static readonly Action KeepCaptureAlive = static () => { };
+        /// <summary>
+        /// 本帧是否要求原版把主画面捕获进 <see cref="Main.screenTarget"/>，
+        /// 由 <see cref="RenderHandleSystem.RequiresScreenTarget"/> 转交给 tML 的 <c>ModSystem.RequiresScreenTarget</c><br/>
+        /// 1.4.4 时代靠往 <c>Filters.Scene.OnPostDraw</c> 挂空委托让 <c>FilterManager.CanCapture</c> 恒真，
+        /// 1.4.5 移除了该事件，改走 tML 官方口子
+        /// </summary>
+        internal static bool CaptureKeepAlive { get; private set; }
 
         //阶段名常量，日志用，避免每帧拼字符串
         private const string StageEndCaptureDraw = "EndCaptureDraw";
@@ -91,7 +95,8 @@ namespace InnoVault.RenderHandles
         #region 加载与卸载
         void IVaultLoader.LoadData() {
             On_FilterManager.BeginCapture += FilterManager_BeginCapture;
-            On_FilterManager.EndCapture += FilterManager_EndCapture;
+            //1.4.5 拆出了两个 EndCapture 重载，三参版内部转调六参版，挂六参版即可同时覆盖主帧与相机模式截图
+            On_FilterManager.EndCapture_RenderTarget2D_RenderTarget2D_RenderTarget2D_Vector2_Vector2_Vector2 += FilterManager_EndCapture;
             Main.OnResolutionChanged += Main_OnResolutionChanged;
             Main.OnPreDraw += Main_OnPreDraw;
             On_Main.DrawDust += DrawDustHook;
@@ -125,7 +130,7 @@ namespace InnoVault.RenderHandles
 
         void IVaultLoader.UnLoadData() {
             On_FilterManager.BeginCapture -= FilterManager_BeginCapture;
-            On_FilterManager.EndCapture -= FilterManager_EndCapture;
+            On_FilterManager.EndCapture_RenderTarget2D_RenderTarget2D_RenderTarget2D_Vector2_Vector2_Vector2 -= FilterManager_EndCapture;
             Main.OnResolutionChanged -= Main_OnResolutionChanged;
             Main.OnPreDraw -= Main_OnPreDraw;
             On_Main.DrawDust -= DrawDustHook;
@@ -136,14 +141,10 @@ namespace InnoVault.RenderHandles
             On_LegacyPlayerRenderer.DrawPlayers -= DrawPlayersHook;
             On_Main.DrawInfernoRings -= DrawInfernoRingsHook;
 
-            //Filters.Scene 跨模组重载存活，订阅必须成对撤销，否则会留下指向已卸载程序集的委托
             anyInstanceRequiresCapture = false;
             forceScreenCapture = false;
             autoScreenCapture = true;
-            if (captureKeepAliveSubscribed) {
-                Filters.Scene.OnPostDraw -= KeepCaptureAlive;
-                captureKeepAliveSubscribed = false;
-            }
+            CaptureKeepAlive = false;
             IsScreenCaptured = false;
             CurrentPlayerDrawPass = PlayerDrawPass.None;
 
@@ -166,18 +167,7 @@ namespace InnoVault.RenderHandles
                 return;
             }
 
-            bool want = forceScreenCapture || (autoScreenCapture && anyInstanceRequiresCapture);
-            if (want == captureKeepAliveSubscribed) {
-                return;
-            }
-
-            if (want) {
-                Filters.Scene.OnPostDraw += KeepCaptureAlive;
-            }
-            else {
-                Filters.Scene.OnPostDraw -= KeepCaptureAlive;
-            }
-            captureKeepAliveSubscribed = want;
+            CaptureKeepAlive = forceScreenCapture || (autoScreenCapture && anyInstanceRequiresCapture);
         }
 
         private void Main_OnResolutionChanged(Vector2 screenSize) {
@@ -220,8 +210,8 @@ namespace InnoVault.RenderHandles
 
         #region EndCapture 阶段
         private static void FilterManager_BeginCapture(On_FilterManager.orig_BeginCapture orig
-            , FilterManager filterManager, RenderTarget2D screenTarget1, Color clearColor) {
-            orig.Invoke(filterManager, screenTarget1, clearColor);
+            , FilterManager filterManager, RenderTarget2D screenTarget1) {
+            orig.Invoke(filterManager, screenTarget1);
 
             //只认主帧：相机模式截图把自己的缓冲传进来，不算
             if (screenTarget1 != Main.screenTarget) {
@@ -230,19 +220,21 @@ namespace InnoVault.RenderHandles
             IsScreenCaptured = IsBound(Main.instance.GraphicsDevice, screenTarget1);
         }
 
-        private static void FilterManager_EndCapture(On_FilterManager.orig_EndCapture orig
+        private static void FilterManager_EndCapture(On_FilterManager.orig_EndCapture_RenderTarget2D_RenderTarget2D_RenderTarget2D_Vector2_Vector2_Vector2 orig
             , FilterManager filterManager
             , RenderTarget2D finalTexture
             , RenderTarget2D screenTarget1
             , RenderTarget2D screenTarget2
-            , Color clearColor) {
+            , Vector2 screenSize
+            , Vector2 sceneSize
+            , Vector2 sceneOffset) {
 
             //相机模式截图与他模组的手工捕获也会走到这里，只在主帧、且本帧确实捕获了画面时分发
             //BeginCapture 已置位的帧即便被前面别的钩子换了绑定也照常分发，消费者会自行重绑 screenTarget
             bool mainFrame = RenderHandle.Instances.Count > 0 && screenTarget1 == Main.screenTarget
                 && (IsScreenCaptured || IsBound(Main.instance.GraphicsDevice, screenTarget1));
             if (!mainFrame) {
-                orig.Invoke(filterManager, finalTexture, screenTarget1, screenTarget2, clearColor);
+                orig.Invoke(filterManager, finalTexture, screenTarget1, screenTarget2, screenSize, sceneSize, sceneOffset);
                 return;
             }
 
@@ -264,7 +256,7 @@ namespace InnoVault.RenderHandles
             DrawBatch(StagePostEndCaptureDraw, false
                 , static render => render.PostEndCaptureDraw(Main.spriteBatch, Main.instance.GraphicsDevice, ScreenSwap));
 
-            orig.Invoke(filterManager, finalTexture, screenTarget1, screenTarget2, clearColor);
+            orig.Invoke(filterManager, finalTexture, screenTarget1, screenTarget2, screenSize, sceneSize, sceneOffset);
         }
         #endregion
 

@@ -10,6 +10,9 @@ namespace InnoVault.RenderHandles
         //tML 的 OnWorldUnload 只在 SaveAndQuit / 断线时触发，子世界切换只走 ClearWorld，两条路都要覆盖且只发一次
         private static bool worldUnloadPending;
 
+        //tML 1.4.5 官方口子：返回真时原版每帧把主画面捕获进 Main.screenTarget 并走 FilterManager.EndCapture
+        public override bool RequiresScreenTarget() => RenderHandleLoader.CaptureKeepAlive;
+
         public override void PostUpdateEverything() {
             if (VaultUtils.isServer) {
                 return;

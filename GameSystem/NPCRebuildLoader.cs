@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq.Expressions;
 using System.Reflection;
 using Terraria;
+using Terraria.GameContent;
 using Terraria.ID;
 using Terraria.ModLoader;
 using Terraria.ModLoader.IO;
@@ -56,7 +57,6 @@ namespace InnoVault.GameSystem
         public delegate void On_OnHitByProjectileDelegate(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone);
         public delegate void On_ModifyIncomingHitDelegate(NPC npc, ref NPC.HitModifiers modifiers);
         public delegate void On_FindFrameDelegate(NPC npc, int frameHeight);
-        public delegate void On_SetChatButtonsDelegate(ref string button, ref string button2);
         public delegate void On_NPCSetDefaultDelegate();
         public delegate bool DelegateOn_OnHitByItem(Player player, Item item, in NPC.HitInfo hit, int damageDone);
         public delegate bool? DelegateOn_OnHitByProjectile(NPC npc, Projectile projectile, in NPC.HitInfo hit, int damageDone);
@@ -70,7 +70,6 @@ namespace InnoVault.GameSystem
         public static MethodInfo onHitByProjectile_Method;
         public static MethodInfo modifyIncomingHit_Method;
         public static MethodInfo onFindFrame_Method;
-        public static MethodInfo onSetChatButtons_Method;
         public static MethodInfo onNPCUsesPartyHat_Method;
         public static MethodInfo onUsesPartyHat_Method;
         public static MethodInfo onNPCAI_Method;
@@ -229,7 +228,6 @@ namespace InnoVault.GameSystem
             onHitByProjectile_Method = null;
             modifyIncomingHit_Method = null;
             onFindFrame_Method = null;
-            onSetChatButtons_Method = null;
             onNPCUsesPartyHat_Method = null;
             onUsesPartyHat_Method = null;
             onNPCAI_Method = null;
@@ -600,11 +598,26 @@ namespace InnoVault.GameSystem
             }
         }
 
-        public override bool PreChatButtonClicked(NPC npc, bool firstButton) {
+        //加载期由 NPCInteractionDatabase.Populate 对每个可对话 NPC 类型调用一次，传入的是内容样本；
+        //实例化的重制节点此时尚不存在，只能分发到按ID注册的原型与通用实例
+        public override void RegisterChatButtons(NPC npc, NPCInteractionList interactions) {
+            if (ByID.TryGetValue(npc.type, out var prototypes)) {
+                foreach (var prototype in prototypes.Values) {
+                    prototype.UniversalSetNPCInstance(npc);
+                    prototype.RegisterChatButtons(interactions);
+                }
+            }
+            foreach (var inds in UniversalInstances) {
+                inds.UniversalSetNPCInstance(npc);
+                inds.RegisterChatButtons(interactions);
+            }
+        }
+
+        public override bool PreChatButtonClicked(NPC npc, NPCInteraction interaction) {
             if (npc.TryGetOverride(out var values)) {
                 bool reset = true;
                 foreach (var value in values.Values) {
-                    if (!value.PreChatButtonClicked(firstButton)) {
+                    if (!value.PreChatButtonClicked(interaction)) {
                         reset = false;
                     }
                 }
@@ -615,10 +628,10 @@ namespace InnoVault.GameSystem
             return true;
         }
 
-        public override void OnChatButtonClicked(NPC npc, bool firstButton) {
+        public override void OnChatButtonClicked(NPC npc, NPCInteraction interaction) {
             if (npc.TryGetOverride(out var values)) {
                 foreach (var value in values.Values) {
-                    value.OnChatButtonClicked(firstButton);
+                    value.OnChatButtonClicked(interaction);
                 }
             }
         }
@@ -764,15 +777,6 @@ namespace InnoVault.GameSystem
                 }
                 else {
                     DompLog("onFindFrame_Method");
-                }
-            }
-            {
-                onSetChatButtons_Method = GetMethodInfo("SetChatButtons");
-                if (onSetChatButtons_Method != null) {
-                    VaultHook.Add(onSetChatButtons_Method, OnSetChatButtonsHook);
-                }
-                else {
-                    DompLog("onSetChatButtons_Method");
                 }
             }
             {
@@ -1145,28 +1149,6 @@ namespace InnoVault.GameSystem
             orig.Invoke(npc, frameHeight);
         }
 
-        public static void OnSetChatButtonsHook(On_SetChatButtonsDelegate orig, ref string button, ref string button2) {
-            NPC npc = hasAnyOverrides ? Main.LocalPlayer.TalkNPC : null;
-            if (npc == null) {
-                orig.Invoke(ref button, ref button2);
-                return;
-            }
-
-            if (npc.TryGetOverride(out var npcOverrides)) {
-                bool reset = true;
-                foreach (var npcOverrideInstance in npcOverrides.Values) {
-                    if (!npcOverrideInstance.SetChatButtons(ref button, ref button2)) {
-                        reset = false;
-                    }
-                }
-                if (!reset) {
-                    return;
-                }
-            }
-
-            orig.Invoke(ref button, ref button2);
-        }
-
         public static bool OnPreUsesPartyHatHook(On_NPCDelegate2 orig, NPC npc) {
             if (!hasAnyOverrides || npc.type == NPCID.None || !npc.active) {
                 return orig.Invoke(npc);
@@ -1215,7 +1197,8 @@ namespace InnoVault.GameSystem
 
         public static void OnDrawNPCHeadBossHook(On_Main.orig_DrawNPCHeadBoss orig, Entity theNPC, byte alpha
             , float headScale, float rotation, SpriteEffects effects, int bossHeadId, float x, float y) {
-            if (!hasAnyOverrides || !theNPC.active || theNPC is not NPC npc) {
+            //1.4.5 把 active 从 Entity 下放到了各子类，先模式匹配再读
+            if (!hasAnyOverrides || theNPC is not NPC npc || !npc.active) {
                 orig.Invoke(theNPC, alpha, headScale, rotation, effects, bossHeadId, x, y);
                 return;
             }

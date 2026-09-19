@@ -1,7 +1,9 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
 	<!-- Import tModLoader mod properties -->
-	<Import Project="..\tModLoader.targets" />
+	<!-- tML 1.4.5: set tMLTargets (MSBuild property or environment variable) to a 1.4.5 install's tMLMod.targets to build against it; otherwise the shared ModSources targets are used -->
+	<Import Project="$(tMLTargets)" Condition="'$(tMLTargets)' != ''" />
+	<Import Project="..\tModLoader.targets" Condition="'$(tMLTargets)' == ''" />
 
 	<!-- General -->
 	<PropertyGroup>
