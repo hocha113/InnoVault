@@ -32,8 +32,12 @@ namespace InnoVault.GameSystem
         public delegate double On_Hurt_Dalegate(Player player, PlayerDeathReason damageSource, int Damage, int hitDirection, out HurtInfo info, bool pvp = false, bool quiet = false
             , int cooldownCounter = -1, bool dodgeable = true, float armorPenetration = 0f, float scalingArmorPenetration = 0f, float knockback = 4.5f);
         public delegate bool On_PreKill_Dalegate(Player player, double damage, int hitDirection, bool pvp, ref bool playSound, ref bool genGore, ref PlayerDeathReason damageSource);
-        public delegate Rectangle On_ItemCheck_EmitUseVisuals_Delegate(Player player, Item sItem, Rectangle itemRectangle);
+        //1.4.5 起 Player.ItemCheck_EmitUseVisuals 不再返回矩形，签名必须逐字一致
+        public delegate void On_ItemCheck_EmitUseVisuals_Delegate(Player player, Item sItem, Rectangle itemRectangle);
+        //1.4.5 的快捷栏选择统一经由 Player.SelectedItemState.Select 提交，结构体实例方法的 this 以引用形式传入
+        public delegate void On_SelectedItemState_Select_Delegate(ref Player.SelectedItemState self, int item);
         public static Type playerLoaderType;
+        private static FieldInfo selectedItemStatePlayerField;
         public static MethodBase onModifyHitNPCWithItemMethod;
         public static MethodBase onModifyHitNPCWithProjMethod;
         public static MethodBase onCanHitNPCMethod;
@@ -208,6 +212,17 @@ namespace InnoVault.GameSystem
             }
 
             VaultHook.Add(typeof(Player).GetMethod("ItemCheck_EmitUseVisuals", BindingFlags.Instance | BindingFlags.NonPublic), On_ItemCheck_EmitUseVisuals_Hook);
+
+            //1.4.5 把数字键 / 滚轮 / 轮盘 / 背包点选等所有切换请求都收敛到了 SelectedItemState.Select，
+            //在这里统一拦截本地玩家的切换请求，替代 1.4.4 时对 Player.Update 中快捷栏分支的 IL 注入
+            selectedItemStatePlayerField = typeof(Player.SelectedItemState).GetField("player", BindingFlags.Instance | BindingFlags.NonPublic);
+            MethodInfo selectedItemStateSelect = typeof(Player.SelectedItemState).GetMethod("Select", BindingFlags.Instance | BindingFlags.Public, [typeof(int)]);
+            if (selectedItemStatePlayerField != null && selectedItemStateSelect != null) {
+                VaultHook.Add(selectedItemStateSelect, On_SelectedItemState_Select_Hook);
+            }
+            else {
+                VaultMod.Instance.Logger.Warn($"{nameof(PlayerRebuildLoader)}: Player.SelectedItemState.Select or its player field was not found, CanSwitchWeapon will not block hotbar selection");
+            }
         }
 
         void IVaultLoader.UnLoadData() {
@@ -217,6 +232,7 @@ namespace InnoVault.GameSystem
 
             IL_Player.Update -= Player_Update_Hook;
             On_LegacyPlayerRenderer.DrawPlayers -= On_DrawPlayersHook;
+            selectedItemStatePlayerField = null;
             playerLoaderType = null;
             onModifyHitNPCWithItemMethod = null;
             onModifyHitNPCWithProjMethod = null;
@@ -243,12 +259,8 @@ namespace InnoVault.GameSystem
             FieldInfo defaultGravity = playerType.GetField("defaultGravity", BindingFlags.Static | BindingFlags.Public);
             FieldInfo gravity = playerType.GetField("gravity", BindingFlags.Instance | BindingFlags.Public);
 
-            Type mainType = typeof(Main);
-            FieldInfo drawingPlayerChat = mainType.GetField("drawingPlayerChat", BindingFlags.Static | BindingFlags.Public);
-            FieldInfo selectedItem = playerType.GetField("selectedItem", BindingFlags.Instance | BindingFlags.Public);
-            FieldInfo editSign = mainType.GetField("editSign", BindingFlags.Static | BindingFlags.Public);
-            FieldInfo editChest = mainType.GetField("editChest", BindingFlags.Static | BindingFlags.Public);
-
+            //1.4.4 时这个条件包着整段快捷栏切换逻辑，1.4.5 只剩 dropItemCheck()，切换逻辑已迁到 SelectedItemState 并由 Select 钩子接管
+            //这里继续门控丢弃物品的分支，保持 CanSwitchWeapon 返回假时“不能切换也不能丢出手持物品”的旧行为
             if (!c.TryGotoNext(
                     MoveType.After,
                     x => x.MatchLdarg(0),
@@ -261,34 +273,13 @@ namespace InnoVault.GameSystem
                     x => x.MatchLdfld(reuseDelay),
                     x => x.MatchBrtrue(out LabelKey)
                     )) {
-                return;
+                VaultMod.Instance.Logger.Warn($"{nameof(PlayerRebuildLoader)}: IL patch for Player.Update drop-item guard failed to match, CanSwitchWeapon will not block item dropping");
             }
-
-            c.Emit(OpCodes.Ldarg_0);
-            c.EmitDelegate(static (Player self) => CanSwitchWeaponHook(self));
-            c.Emit(OpCodes.Brfalse, LabelKey);
-
-            if (!c.TryGotoNext(
-                MoveType.After,
-                x => x.MatchLdcI4(0),
-                x => x.MatchStloc(49),
-                x => x.MatchLdsfld(drawingPlayerChat),
-                x => x.MatchBrtrue(out LabelKey),
-                x => x.MatchLdarg(0),
-                x => x.MatchLdfld(selectedItem),
-                x => x.MatchLdcI4(58),
-                x => x.MatchBeq(out LabelKey),
-                x => x.MatchLdsfld(editSign),
-                x => x.MatchBrtrue(out LabelKey),
-                x => x.MatchLdsfld(editChest),
-                x => x.MatchBrtrue(out LabelKey)
-                )) {
-                return;
+            else {
+                c.Emit(OpCodes.Ldarg_0);
+                c.EmitDelegate(static (Player self) => CanSwitchWeaponHook(self));
+                c.Emit(OpCodes.Brfalse, LabelKey);
             }
-
-            c.Emit(OpCodes.Ldarg_0);
-            c.EmitDelegate(static (Player self) => CanSwitchWeaponHook(self));
-            c.Emit(OpCodes.Brfalse, LabelKey);
 
             c = new ILCursor(il);
             if (!c.TryGotoNext(
@@ -297,11 +288,21 @@ namespace InnoVault.GameSystem
                 x => x.MatchLdsfld(defaultGravity),
                 x => x.MatchStfld(gravity)
                 )) {
+                VaultMod.Instance.Logger.Warn($"{nameof(PlayerRebuildLoader)}: IL patch for Player.Update gravity reset failed to match, ModifyGravity will not be invoked");
                 return;
             }
 
             c.Emit(OpCodes.Ldarg_0);
             c.EmitDelegate(static (Player self) => ModifyGravity(self));
+        }
+
+        //本地玩家的每一次选中槽位变更（数字键、滚轮、轮盘、背包点选）都会经过这里，CanSwitchWeapon 返回假时直接忽略本次请求
+        //远程玩家的 Select 只是同步服务端下发的选中槽位，不做拦截
+        private static void On_SelectedItemState_Select_Hook(On_SelectedItemState_Select_Delegate orig, ref Player.SelectedItemState self, int item) {
+            if (selectedItemStatePlayerField?.GetValue(self) is Player player && player == Main.LocalPlayer && !CanSwitchWeaponHook(player)) {
+                return;
+            }
+            orig.Invoke(ref self, item);
         }
 
         public static bool CanSwitchWeaponHook(Player player) {
@@ -481,7 +482,8 @@ namespace InnoVault.GameSystem
             return orig.Invoke(player, proj);
         }
 
-        private static Rectangle On_ItemCheck_EmitUseVisuals_Hook(On_ItemCheck_EmitUseVisuals_Delegate orig, Player player, Item sItem, Rectangle itemRectangle) {
+        //1.4.5 起原版不再回写矩形，Pre 阶段对 itemRectangle 的修改只影响传给原方法的视觉效果范围，Post 阶段的修改不会传回原版逻辑
+        private static void On_ItemCheck_EmitUseVisuals_Hook(On_ItemCheck_EmitUseVisuals_Delegate orig, Player player, Item sItem, Rectangle itemRectangle) {
             bool origResult = true;
 
             bool hasPlayer = TryFetchByPlayer(player, out var values);
@@ -525,7 +527,7 @@ namespace InnoVault.GameSystem
             }
 
             if (origResult) {//全部通过才执行原函数
-                itemRectangle = orig.Invoke(player, sItem, itemRectangle);
+                orig.Invoke(player, sItem, itemRectangle);
             }
 
             //下面执行Post操作，按优先级倒序执行
@@ -546,8 +548,6 @@ namespace InnoVault.GameSystem
                     value.On_PostEmitUseVisuals(sItem, ref itemRectangle);
                 }
             }
-
-            return itemRectangle;
         }
 
         private static void On_DrawPlayersHook(On_LegacyPlayerRenderer.orig_DrawPlayers orig

@@ -1560,6 +1560,12 @@ namespace InnoVault
         /// <returns>返回 <see langword="true"/> 表示活跃，返回 <see langword="false"/> 表示为空或者已经死亡的非活跃状态</returns>
         public static bool Alives(this Item item) => item != null && item.type > ItemID.None && item.stack > 0;
 
+        /// <summary>
+        /// 检测世界中的物品实体是否有效且正常存活，1.4.5 起掉落在世界中的物品是 <see cref="WorldItem"/>，底层物品数据见 <see cref="WorldItem.inner"/>
+        /// </summary>
+        /// <returns>返回 <see langword="true"/> 表示活跃，返回 <see langword="false"/> 表示为空或者已经死亡的非活跃状态</returns>
+        public static bool Alives(this WorldItem worldItem) => worldItem != null && worldItem.active && worldItem.type > ItemID.None && worldItem.stack > 0;
+
         #endregion
 
         #region Game
@@ -4545,7 +4551,7 @@ namespace InnoVault
         /// <param name="point">要检查的 tile 坐标，以 <see cref="Point16"/> 形式表示</param>
         /// <returns>如果点位于世界范围内，则返回<see langword="true"/>，否则返回<see langword="false"/></returns>
         /// <remarks>
-        /// 本方法是对 <see cref="WorldGen.InWorld"/> 方法的封装，以支持 <see cref="Point16"/> 类型的参数
+        /// 本方法是对 <see cref="WorldGen.InWorld(int, int, int)"/> 方法的封装，以支持 <see cref="Point16"/> 类型的参数
         /// 适用于 tile 级别的世界范围判断，而非像素级别的坐标检查
         /// </remarks>
         public static bool InWorld(Point16 point) => WorldGen.InWorld(point.X, point.Y);

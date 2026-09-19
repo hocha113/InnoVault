@@ -38,10 +38,11 @@ namespace InnoVault.RenderHandles
         public static PlayerDrawPass CurrentPlayerDrawPass { get; private set; }
 
         /// <summary>
-        /// <see cref="Main.screenTarget"/> 管线在技术上是否可用：复古 / 迷幻光照下原版直绘屏幕并释放 RT，此时为 <see langword="false"/><br/>
+        /// <see cref="Main.screenTarget"/> 管线在技术上是否可用<br/>
+        /// tML 1.4.5 起 <c>Main.drawToScreen</c> 恒为假（复古 / 迷幻光照也走 RT），只需检查 RT 是否存在且未释放；
         /// 这只说明 RT 存在，本帧是否真的捕获了画面看 <see cref="IsScreenCaptured"/>
         /// </summary>
-        public static bool ScreenTargetAvailable => !Main.drawToScreen && Main.screenTarget != null && !Main.screenTarget.IsDisposed;
+        public static bool ScreenTargetAvailable => Main.screenTarget != null && !Main.screenTarget.IsDisposed;
 
         private static bool forceScreenCapture;
         /// <summary>

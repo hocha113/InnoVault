@@ -258,26 +258,28 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 运行在物品微光转化之前，返回 <see langword="false"/> 可以阻止后续逻辑运行<br/>
         /// 该钩子会在物品被浸泡在微光液体中时每帧调用，用于修改在物品转化为微光物品之前的行为<br/>
-        /// 如果需要修改物品最终转化为什么物品，请使用 <see cref="PreGetShimmered(Item)"/>
-        /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子
+        /// 如果需要修改物品最终转化为什么物品，请使用 <see cref="PreGetShimmered(WorldItem)"/>
+        /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子<br/>
+        /// 1.4.5 起微光浸泡逻辑位于 <c>WorldItem.UpdateShimmer</c>，此处传入的是世界中的物品实体，底层物品数据见 <see cref="WorldItem.inner"/>
         /// </summary>
-        /// <param name="item">物品实例，位于世界之中</param>
+        /// <param name="item">世界中的物品实体</param>
         /// <returns></returns>
-        public virtual bool PreShimmering(Item item) => true;
+        public virtual bool PreShimmering(WorldItem item) => true;
         /// <summary>
         /// 运行在物品即将进行微光转化时，返回 <see langword="false"/> 可以阻止后续逻辑运行<br/>
-        /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子
+        /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子<br/>
+        /// 1.4.5 起微光转化逻辑位于 <see cref="WorldItem.GetShimmered"/>，转化会就地重设 <see cref="WorldItem.inner"/> 的数据
         /// </summary>
-        /// <param name="item"></param>
+        /// <param name="item">世界中的物品实体</param>
         /// <returns></returns>
-        public virtual bool PreGetShimmered(Item item) => true;
+        public virtual bool PreGetShimmered(WorldItem item) => true;
         /// <summary>
         /// 运行在物品微光浸泡更新之后<br/>
         /// 无论 <see cref="PreShimmering"/> 返回什么值，只要物品未被销毁，此钩子都会被调用<br/>
         /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子
         /// </summary>
-        /// <param name="item">物品实例，位于世界之中</param>
-        public virtual void PostShimmering(Item item) { }
+        /// <param name="item">世界中的物品实体</param>
+        public virtual void PostShimmering(WorldItem item) { }
         /// <summary>
         /// 运行在物品微光转化之后，通常用于进行一些额外的效果处理，或者二次修改转化结果<br/>
         /// 无论 <see cref="PreGetShimmered"/> 返回什么值，只要物品未被销毁，此钩子都会被调用<br/>
@@ -285,9 +287,9 @@ namespace InnoVault.GameSystem
         /// 如果物品在这之前已经被销毁或者为空物品，则不会调用这个钩子<br/>
         /// </summary>
         /// <param name="originalType">转化前的物品类型 ID</param>
-        /// <param name="item">物品实例，位于世界之中，如果转化发生则为转化后的物品</param>
+        /// <param name="item">世界中的物品实体，如果转化发生则其 <see cref="WorldItem.inner"/> 已是转化后的物品</param>
         /// <param name="shimmerOccurred">指示微光转化是否实际发生，若为 <see langword="false"/> 表示转化被阻止</param>
-        public virtual void PostGetShimmered(int originalType, Item item, bool shimmerOccurred) { }
+        public virtual void PostGetShimmered(int originalType, WorldItem item, bool shimmerOccurred) { }
         /// <summary>
         /// 进行背包中的物品绘制，这个函数会执行在Draw之后
         /// </summary>
@@ -533,7 +535,9 @@ namespace InnoVault.GameSystem
 
         }
         /// <summary>
-        /// 运行在玩家使用物品的视觉效果被决定之前，返回 <see langword="false"/> 可以阻止后续逻辑运行
+        /// 运行在玩家使用物品的视觉效果被决定之前，返回 <see langword="false"/> 可以阻止后续逻辑运行<br/>
+        /// 1.4.5 起原版的 <c>Player.ItemCheck_EmitUseVisuals</c> 不再回写矩形，对 <paramref name="itemRectangle"/> 的修改只影响本次视觉效果的生成范围，
+        /// 需要修改近战判定框请改用 <see cref="GlobalItem.UseItemHitbox"/> 一类的官方钩子
         /// </summary>
         /// <param name="item"></param>
         /// <param name="player"></param>
@@ -543,7 +547,8 @@ namespace InnoVault.GameSystem
             return true;
         }
         /// <summary>
-        /// 运行在玩家使用物品的视觉效果被决定之后
+        /// 运行在玩家使用物品的视觉效果被决定之后<br/>
+        /// 1.4.5 起对 <paramref name="itemRectangle"/> 的修改不会传回原版逻辑
         /// </summary>
         /// <param name="item"></param>
         /// <param name="player"></param>

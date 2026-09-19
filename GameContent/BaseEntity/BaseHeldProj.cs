@@ -247,6 +247,7 @@ namespace InnoVault.GameContent.BaseEntity
         /// <summary>
         /// 注意，该方法用于调用原物品的射击行为，会正常出发附加效果，比如饰品效果，所以在使用该函数时注意其他机制的运行避免效果重叠
         /// </summary>
-        public virtual void OrigItemShoot() => ItemCheck_Shoot_Method.Invoke(Owner, [Owner.whoAmI, Item, Owner.GetWeaponDamage(Item)]);
+        public virtual void OrigItemShoot()//1.4.5 的 ItemCheck_Shoot 多出 withAudioVisualFeedback 参数，反射调用时必须显式传入，此处保持原版默认值 true
+            => ItemCheck_Shoot_Method.Invoke(Owner, [Owner.whoAmI, Item, Owner.GetWeaponDamage(Item), true]);
     }
 }

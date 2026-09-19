@@ -218,7 +218,8 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 运行在玩家使用物品的视觉效果被决定之前，返回 <see langword="false"/> 可以阻止后续逻辑运行
+        /// 运行在玩家使用物品的视觉效果被决定之前，返回 <see langword="false"/> 可以阻止后续逻辑运行<br/>
+        /// 1.4.5 起原版的 <c>Player.ItemCheck_EmitUseVisuals</c> 不再回写矩形，对 <paramref name="itemRectangle"/> 的修改只影响本次视觉效果的生成范围
         /// </summary>
         /// <param name="item"></param>
         /// <param name="itemRectangle"></param>
@@ -228,7 +229,8 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
-        /// 运行在玩家使用物品的视觉效果被决定之后
+        /// 运行在玩家使用物品的视觉效果被决定之后<br/>
+        /// 1.4.5 起对 <paramref name="itemRectangle"/> 的修改不会传回原版逻辑
         /// </summary>
         /// <param name="item"></param>
         /// <param name="itemRectangle"></param>

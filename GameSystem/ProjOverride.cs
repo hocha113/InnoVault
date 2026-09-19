@@ -210,14 +210,14 @@ namespace InnoVault.GameSystem
         public virtual void OnKill(int timeLeft) { }
         /// <summary>
         /// 弹幕的绘制逻辑，返回有效值可以阻断后续所有绘制逻辑的运行，默认返回<see langword="null"/>
-        /// 不能影响<see cref="ProjectileLoader.PostDraw(Projectile, Color)"/>
+        /// 不能影响<see cref="ProjectileLoader.PostDraw(Projectile, Player, Color)"/>
         /// </summary>
         /// <param name="lightColor"></param>
         /// <returns></returns>
         public virtual bool? Draw(ref Color lightColor) => null;
         /// <summary>
         /// 弹幕的后层绘制逻辑，返回<see langword="false"/>可以阻断后续
-        /// <see cref="ProjectileLoader.PostDraw(Projectile, Color)"/>逻辑的运行，默认返回<see langword="true"/>
+        /// <see cref="ProjectileLoader.PostDraw(Projectile, Player, Color)"/>逻辑的运行，默认返回<see langword="true"/>
         /// </summary>
         /// <param name="lightColor"></param>
         /// <returns></returns>

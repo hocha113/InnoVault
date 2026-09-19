@@ -213,7 +213,9 @@ namespace InnoVault.Collisions
         #endregion
 
         #region 底层钩子挂载
-        private delegate Vector2 Orig_TileCollision(Vector2 pos, Vector2 vel, int w, int h, bool fallThrough, bool fall2, int gravDir);
+        //1.4.5 给 Collision.TileCollision 追加了 ignoreDoors / ignoreAetheriumPlatforms / hoik 三个参数，签名必须逐字一致
+        private delegate Vector2 Orig_TileCollision(Vector2 pos, Vector2 vel, int w, int h, bool fallThrough, bool fall2, int gravDir
+            , bool ignoreDoors, bool ignoreAetheriumPlatforms, bool hoik);
         private delegate bool Orig_SolidCollision3(Vector2 pos, int w, int h);
         private delegate bool Orig_SolidCollision4(Vector2 pos, int w, int h, bool acceptTopSurfaces);
         private delegate bool Orig_SolidTiles3(Vector2 pos, int w, int h);
@@ -223,7 +225,7 @@ namespace InnoVault.Collisions
             const BindingFlags flags = BindingFlags.Public | BindingFlags.Static;
 
             MethodInfo tileCollision = typeof(Collision).GetMethod(nameof(Collision.TileCollision), flags, null,
-                [typeof(Vector2), typeof(Vector2), typeof(int), typeof(int), typeof(bool), typeof(bool), typeof(int)], null);
+                [typeof(Vector2), typeof(Vector2), typeof(int), typeof(int), typeof(bool), typeof(bool), typeof(int), typeof(bool), typeof(bool), typeof(bool)], null);
             MethodInfo solid3 = typeof(Collision).GetMethod(nameof(Collision.SolidCollision), flags, null,
                 [typeof(Vector2), typeof(int), typeof(int)], null);
             MethodInfo solid4 = typeof(Collision).GetMethod(nameof(Collision.SolidCollision), flags, null,
@@ -260,8 +262,9 @@ namespace InnoVault.Collisions
         #endregion
 
         #region 钩子分发
-        private static Vector2 On_TileCollision(Orig_TileCollision orig, Vector2 pos, Vector2 vel, int w, int h, bool fallThrough, bool fall2, int gravDir) {
-            Vector2 result = orig(pos, vel, w, h, fallThrough, fall2, gravDir);
+        private static Vector2 On_TileCollision(Orig_TileCollision orig, Vector2 pos, Vector2 vel, int w, int h, bool fallThrough, bool fall2, int gravDir
+            , bool ignoreDoors, bool ignoreAetheriumPlatforms, bool hoik) {
+            Vector2 result = orig(pos, vel, w, h, fallThrough, fall2, gravDir, ignoreDoors, ignoreAetheriumPlatforms, hoik);
 
             TileCollisionHandler[] handlers = tileSnapshot;
             if (handlers.Length == 0) {

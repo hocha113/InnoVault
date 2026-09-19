@@ -17,8 +17,9 @@ namespace InnoVault.GameSystem
     {
 #pragma warning disable CS1591 //缺少对公共可见类型或成员的 XML 注释
         public delegate void On_Projectile_Void_Delegate(Projectile proj);
-        public delegate bool On_PreDraw_Delegate(Projectile projectile, ref Color lightColor);
-        public delegate void On_PostDraw_Delegate(Projectile projectile, Color lightColor);
+        //1.4.5 给 ProjectileLoader.PreDraw / PostDraw 插入了 player 参数（与绘制关联的玩家，人偶等情况下不一定是 owner），签名必须逐字一致
+        public delegate bool On_PreDraw_Delegate(Projectile projectile, Player player, ref Color lightColor);
+        public delegate void On_PostDraw_Delegate(Projectile projectile, Player player, Color lightColor);
         public delegate bool? On_GrappleCanLatchOnTo_Delegate(Projectile projectile, Player player, int x, int y);
         public static event On_Projectile_Void_Delegate PreSetDefaultsEvent;
         public static event On_Projectile_Void_Delegate PostSetDefaultsEvent;
@@ -232,7 +233,7 @@ namespace InnoVault.GameSystem
             UniversalForEach(proj, inds => inds.PostAI());
         }
 
-        public static bool OnPreDrawHook(On_PreDraw_Delegate orig, Projectile proj, ref Color lightColor) {
+        public static bool OnPreDrawHook(On_PreDraw_Delegate orig, Projectile proj, Player player, ref Color lightColor) {
             if (proj.TryGetGlobalProjectile(out ProjRebuildLoader gProj)) {
                 bool? result = null;
                 foreach (var value in gProj.DrawOverrides) {
@@ -245,10 +246,10 @@ namespace InnoVault.GameSystem
                     return result.Value;
                 }
             }
-            return orig.Invoke(proj, ref lightColor);
+            return orig.Invoke(proj, player, ref lightColor);
         }
 
-        public static void OnPostDrawHook(On_PostDraw_Delegate orig, Projectile proj, Color lightColor) {
+        public static void OnPostDrawHook(On_PostDraw_Delegate orig, Projectile proj, Player player, Color lightColor) {
             if (proj.TryGetGlobalProjectile(out ProjRebuildLoader gProj)) {
                 bool result = true;
                 foreach (var value in gProj.PostDrawOverrides) {
@@ -261,7 +262,7 @@ namespace InnoVault.GameSystem
                 }
             }
 
-            orig.Invoke(proj, lightColor);
+            orig.Invoke(proj, player, lightColor);
         }
 
         public static bool? OnGrappleCanLatchOnToHook(On_GrappleCanLatchOnTo_Delegate orig, Projectile proj, Player player, int x, int y) {

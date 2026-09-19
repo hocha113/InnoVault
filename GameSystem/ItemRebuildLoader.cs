@@ -83,7 +83,10 @@ namespace InnoVault.GameSystem
             , ref Color[] lineColors, ref int oneDropLogo, int prefixlineIndex);
         public delegate string On_GetItemNameValue_Delegate(int id);
         public delegate string On_GetItemName_get_Delegate(Item item);
-        public delegate void On_ItemCheckShoot_Delegate(Player player, int i, Item sItem, int weaponDamage);
+        //1.4.5 给 Player.ItemCheck_Shoot 追加了 withAudioVisualFeedback 参数，签名必须逐字一致
+        public delegate void On_ItemCheckShoot_Delegate(Player player, int i, Item sItem, int weaponDamage, bool withAudioVisualFeedback);
+        //1.4.5 起微光浸泡逻辑位于 WorldItem.UpdateShimmer(ref float gravity)，转化逻辑位于 WorldItem.GetShimmered()
+        public delegate void On_UpdateShimmer_Delegate(WorldItem item, ref float gravity);
         public static event On_Shoot_Dalegate PreShootEvent;
         public static event On_Item_Void_Dalegate PreSetDefaultsEvent;
         public static event On_Item_Void_Dalegate PostSetDefaultsEvent;
@@ -170,8 +173,9 @@ namespace InnoVault.GameSystem
             onGetItemNameValueMethod = typeof(Lang).GetMethod("GetItemNameValue", BindingFlags.Public | BindingFlags.Static);
             onItemNamePropertyGetMethod = typeof(Item).GetProperty("Name", BindingFlags.Instance | BindingFlags.Public).GetGetMethod();
             onAffixNameMethod = typeof(Item).GetMethod("AffixName", BindingFlags.Instance | BindingFlags.Public);
-            onShimmeringMethod = typeof(Item).GetMethod("Shimmering", BindingFlags.Instance | BindingFlags.NonPublic);
-            onGetShimmeredMethod = typeof(Item).GetMethod("GetShimmered", BindingFlags.Instance | BindingFlags.NonPublic);
+            //1.4.5 起 Item 不再是世界实体，微光相关逻辑随之迁移到了 WorldItem
+            onShimmeringMethod = typeof(WorldItem).GetMethod("UpdateShimmer", BindingFlags.Instance | BindingFlags.NonPublic);
+            onGetShimmeredMethod = typeof(WorldItem).GetMethod("GetShimmered", BindingFlags.Instance | BindingFlags.Public);
 
             if (onShootMethod != null) {
                 VaultHook.Add(onShootMethod, OnShootHook);
@@ -495,9 +499,9 @@ namespace InnoVault.GameSystem
             return orig.Invoke(item);
         }
 
-        public static void OnShimmeringHook(Action<Item> orig, Item item) {
+        public static void OnShimmeringHook(On_UpdateShimmer_Delegate orig, WorldItem item, ref float gravity) {
             if (!VaultLoad.LoadenContent) {
-                orig.Invoke(item);
+                orig.Invoke(item, ref gravity);
                 return;
             }
             bool result = UniversalForEach(inds => inds.PreShimmering(item));
@@ -519,7 +523,7 @@ namespace InnoVault.GameSystem
             }
 
             if (result) {
-                orig.Invoke(item);
+                orig.Invoke(item, ref gravity);
             }
 
             if (!item.Alives()) {
@@ -535,7 +539,7 @@ namespace InnoVault.GameSystem
             UniversalForEach(inds => inds.PostShimmering(item));
         }
 
-        public static void OnGetShimmeredHook(Action<Item> orig, Item item) {
+        public static void OnGetShimmeredHook(Action<WorldItem> orig, WorldItem item) {
             if (!VaultLoad.LoadenContent) {
                 orig.Invoke(item);
                 return;
@@ -951,8 +955,8 @@ namespace InnoVault.GameSystem
             return orig.Invoke(item, player, source, position, velocity, type, damage, knockback);
         }
         //钩住这里达到运行在所有射击函数之后的效果
-        public static void OnItemCheckShootHook(On_ItemCheckShoot_Delegate orig, Player player, int i, Item sItem, int weaponDamage) {
-            orig.Invoke(player, i, sItem, weaponDamage);
+        public static void OnItemCheckShootHook(On_ItemCheckShoot_Delegate orig, Player player, int i, Item sItem, int weaponDamage, bool withAudioVisualFeedback) {
+            orig.Invoke(player, i, sItem, weaponDamage, withAudioVisualFeedback);
 
             if (TryFetchByID(sItem.type, out Dictionary<Type, ItemOverride> itemOverrides)) {
                 foreach (var overrideInstance in itemOverrides.Values) {

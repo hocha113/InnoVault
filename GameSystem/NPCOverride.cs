@@ -479,7 +479,7 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 在模组加载阶段为该NPC注册聊天栏按钮，取代 1.4.4 时代按帧改名的 <c>SetChatButtons</c><br/>
         /// tML 已预先注册关闭 / 好感度 / 住房按钮（城镇宠物另有宠物按钮），
-        /// 可用 <see cref="NPCInteractionDatabase.CloseButton"/> 等作为 <see cref="NPCInteractionList.InsertBefore"/> 的锚点；
+        /// 可用 <see cref="NPCInteractionDatabase.CloseButton"/> 等作为 <see cref="NPCInteractionList.InsertBefore(NPCInteraction, NPCInteraction)"/> 的锚点；
         /// 商店按钮用 <see cref="NPCInteractions.Shop(string, string)"/> 创建，自定义按钮继承 <see cref="NPCInteraction"/><br/>
         /// 该钩子运行在按ID注册的原型实例上，此时 <see cref="npc"/> 为 tML 的内容样本而非世界中的实例
         /// </summary>
