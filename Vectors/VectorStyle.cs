@@ -236,7 +236,7 @@ namespace InnoVault.Vectors
         public float TileLength { get; set; } = 64f;
         /// <summary>加在 u 上的偏移，递增即可让贴图沿路径流动</summary>
         public float UvOffset { get; set; }
-        /// <summary>交换两侧的 v（0↔1），与旧 <c>Trail.SetFlipState</c> 同义</summary>
+        /// <summary>交换两侧的 v（0↔1），<see cref="ColorFunction"/> 收到的 <c>side</c> 随之交换；与旧 <c>Trail.SetFlipState</c> 同义（旧实现把翻转后的 uv 一并交给颜色函数）</summary>
         public bool FlipV { get; set; }
         /// <summary>
         /// 虚线模式：交替的「实 / 空」弧长（输出空间单位），与 SVG <c>stroke-dasharray</c> 同义，奇数个元素自动首尾拼接成偶数周期；

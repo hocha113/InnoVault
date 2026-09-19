@@ -193,7 +193,7 @@ namespace InnoVault.Vectors.Svg
             }
             VectorPath docPath = total == Matrix.Identity ? userPath : userPath.Transform(in total);
             float widthScale = MathF.Sqrt(MathF.Abs(total.M11 * total.M22 - total.M12 * total.M21));
-            FillStyle fill = fillable ? BuildFill(st, userPath, in total) : null;
+            FillStyle fill = fillable ? BuildFill(st, userPath, docPath, in total) : null;
             StrokeStyle stroke = BuildStroke(st, userPath, in total, widthScale);
             if (fill == null && stroke == null) {
                 return;
@@ -344,14 +344,15 @@ namespace InnoVault.Vectors.Svg
             return st;
         }
 
-        private FillStyle BuildFill(Style st, VectorPath userPath, in Matrix total) {
+        private FillStyle BuildFill(Style st, VectorPath userPath, VectorPath docPath, in Matrix total) {
             if (!ResolvePaint(st.Fill, st, st.Opacity * st.FillOpacity, userPath, in total, out Color color, out VectorPaint paint)) {
                 return null;
             }
             FillStyle fill = new() { Color = color, Paint = paint, Rule = st.Rule };
             if (paint != null) {
-                //渐变填充逐顶点插值，内部需要采样点：按形状对角线的 1/6 细分（文档单位，绘制时随缩放）
-                Vector2 size = userPath.BoundsSize;
+                //渐变填充逐顶点插值，内部需要采样点：按形状对角线的 1/6 细分
+                //阈值与形状同在文档空间（VectorShape.Path 存的是 docPath，绘制时两者一起随缩放），所以按 docPath 的包围盒算，元素自身的 scale() 才不会把阈值放错倍数
+                Vector2 size = docPath.BoundsSize;
                 float diag = MathF.Sqrt(size.X * size.X + size.Y * size.Y);
                 fill.MaxTriangleEdge = MathF.Max(diag / 6f, 0.5f);
             }

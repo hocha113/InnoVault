@@ -38,7 +38,8 @@ namespace InnoVault.Vectors.Svg
         /// <summary>空文档</summary>
         public static readonly VectorDocument Empty = new([], Vector2.Zero, Vector2.Zero, Vector2.Zero, []);
 
-        private static readonly VectorMesh scratchMesh = new(1024, 3072);
+        //一步式绘制走私有合批：同一组选项、按加入顺序、顶点过 3/4 预算自动开新网格，大文档不会撞 32767 顶点上限
+        private static readonly VectorBatch scratchBatch = new();
         private static readonly FillStyle scratchFill = new();
         private static readonly StrokeStyle scratchStroke = new();
         private static readonly TintedPaint scratchFillPaint = new();
@@ -180,14 +181,8 @@ namespace InnoVault.Vectors.Svg
         /// <param name="alpha">整体不透明度</param>
         /// <param name="tint">整体乘色（可空）</param>
         public void Draw(VectorMesh mesh, in VectorTransform transform, float alpha = 1f, Color? tint = null) {
-            if (mesh == null || Shapes.Count == 0 || alpha <= 0.001f) {
+            if (mesh == null || !BeginDraw(in transform, alpha, tint, out float widthScale, out bool plain, out Color mul)) {
                 return;
-            }
-            float widthScale = transform.MeanScale;
-            bool plain = alpha >= 0.999f && (!tint.HasValue || tint.Value == Color.White);
-            Color mul = tint ?? Color.White;
-            if (alpha < 0.999f) {
-                mul *= alpha;
             }
             for (int i = 0; i < Shapes.Count; i++) {
                 VectorShape shape = Shapes[i];
@@ -195,53 +190,89 @@ namespace InnoVault.Vectors.Svg
                     continue;
                 }
                 if (shape.Fill != null) {
-                    FillStyle fill = shape.Fill;
-                    bool scaleEdge = fill.MaxTriangleEdge > 0f && MathF.Abs(widthScale - 1f) > 1e-4f;
-                    if (!plain || scaleEdge) {
-                        scratchFill.CopyFrom(fill);
-                        if (scaleEdge) {
-                            scratchFill.MaxTriangleEdge = fill.MaxTriangleEdge * widthScale;
-                        }
-                        if (!plain) {
-                            Tint(scratchFill, mul);
-                        }
-                        fill = scratchFill;
-                    }
-                    mesh.AppendFill(shape.Path, fill, in transform);
+                    mesh.AppendFill(shape.Path, ResolveFill(shape.Fill, widthScale, plain, mul), in transform);
                 }
                 if (shape.Stroke != null) {
-                    StrokeStyle stroke = shape.Stroke;
-                    if (!plain || MathF.Abs(widthScale - 1f) > 1e-4f) {
-                        scratchStroke.CopyFrom(stroke);
-                        scratchStroke.Width = stroke.Width * widthScale;
-                        scratchStroke.DashOffset = stroke.DashOffset * widthScale;
-                        scratchStroke.CapLength = stroke.CapLength * widthScale;
-                        if (stroke.Dash != null && stroke.Dash.Length > 0) {
-                            //Dash 数组按引用共享且长度即模式长度：按长度取一份暂存数组填缩放值
-                            if (!dashScratch.TryGetValue(stroke.Dash.Length, out float[] scaled)) {
-                                scaled = new float[stroke.Dash.Length];
-                                dashScratch[stroke.Dash.Length] = scaled;
-                            }
-                            for (int k = 0; k < stroke.Dash.Length; k++) {
-                                scaled[k] = stroke.Dash[k] * widthScale;
-                            }
-                            scratchStroke.Dash = scaled;
-                        }
-                        if (!plain) {
-                            Tint(scratchStroke, mul);
-                        }
-                        stroke = scratchStroke;
-                    }
-                    mesh.AppendStroke(shape.Path, stroke, in transform);
+                    mesh.AppendStroke(shape.Path, ResolveStroke(shape.Stroke, widthScale, plain, mul), in transform);
                 }
             }
         }
 
-        /// <summary>一步完成：整份文档追加到暂存网格并提交</summary>
+        /// <summary>
+        /// 一步完成：整份文档按文档顺序提交。内部走私有合批，顶点过 3/4 预算时自动开新网格接着攒，所以大文档不会因 32767 顶点上限被静默截断
+        /// （代价是多一次提交）；往自己的网格里画请用 <see cref="Draw(VectorMesh, in VectorTransform, float, Color?)"/> 并自行分片
+        /// </summary>
         public void Draw(in VectorTransform transform, in VectorDrawOptions options, float alpha = 1f, Color? tint = null) {
-            scratchMesh.Clear();
-            Draw(scratchMesh, in transform, alpha, tint);
-            VectorRenderer.Draw(scratchMesh, in options);
+            if (!BeginDraw(in transform, alpha, tint, out float widthScale, out bool plain, out Color mul)) {
+                return;
+            }
+            scratchBatch.Begin();
+            for (int i = 0; i < Shapes.Count; i++) {
+                VectorShape shape = Shapes[i];
+                if (shape.Path == null || shape.Path.IsEmpty) {
+                    continue;
+                }
+                if (shape.Fill != null) {
+                    scratchBatch.Fill(shape.Path, ResolveFill(shape.Fill, widthScale, plain, mul), in transform, in options);
+                }
+                if (shape.Stroke != null) {
+                    scratchBatch.Stroke(shape.Path, ResolveStroke(shape.Stroke, widthScale, plain, mul), in transform, in options);
+                }
+            }
+            scratchBatch.End();
+        }
+
+        //两种绘制入口共用的前置计算：整体倍率、是否原样直画、乘色
+        private bool BeginDraw(in VectorTransform transform, float alpha, Color? tint, out float widthScale, out bool plain, out Color mul) {
+            widthScale = transform.MeanScale;
+            plain = alpha >= 0.999f && (!tint.HasValue || tint.Value == Color.White);
+            mul = tint ?? Color.White;
+            if (alpha < 0.999f) {
+                mul *= alpha;
+            }
+            return Shapes.Count > 0 && alpha > 0.001f;
+        }
+
+        //形状的填充样式按本次绘制解析：细分阈值随缩放、乘色；不需要改动时直接返回原样式，否则返回暂存样式（下一形状前用完）
+        private static FillStyle ResolveFill(FillStyle fill, float widthScale, bool plain, Color mul) {
+            bool scaleEdge = fill.MaxTriangleEdge > 0f && MathF.Abs(widthScale - 1f) > 1e-4f;
+            if (plain && !scaleEdge) {
+                return fill;
+            }
+            scratchFill.CopyFrom(fill);
+            if (scaleEdge) {
+                scratchFill.MaxTriangleEdge = fill.MaxTriangleEdge * widthScale;
+            }
+            if (!plain) {
+                Tint(scratchFill, mul);
+            }
+            return scratchFill;
+        }
+
+        //形状的描边样式按本次绘制解析：宽度 / 虚线 / 端帽长随缩放（SVG 语义）、乘色
+        private static StrokeStyle ResolveStroke(StrokeStyle stroke, float widthScale, bool plain, Color mul) {
+            if (plain && MathF.Abs(widthScale - 1f) <= 1e-4f) {
+                return stroke;
+            }
+            scratchStroke.CopyFrom(stroke);
+            scratchStroke.Width = stroke.Width * widthScale;
+            scratchStroke.DashOffset = stroke.DashOffset * widthScale;
+            scratchStroke.CapLength = stroke.CapLength * widthScale;
+            if (stroke.Dash != null && stroke.Dash.Length > 0) {
+                //Dash 数组按引用共享且长度即模式长度：按长度取一份暂存数组填缩放值
+                if (!dashScratch.TryGetValue(stroke.Dash.Length, out float[] scaled)) {
+                    scaled = new float[stroke.Dash.Length];
+                    dashScratch[stroke.Dash.Length] = scaled;
+                }
+                for (int k = 0; k < stroke.Dash.Length; k++) {
+                    scaled[k] = stroke.Dash[k] * widthScale;
+                }
+                scratchStroke.Dash = scaled;
+            }
+            if (!plain) {
+                Tint(scratchStroke, mul);
+            }
+            return scratchStroke;
         }
 
         private static void Tint(FillStyle style, Color mul) {

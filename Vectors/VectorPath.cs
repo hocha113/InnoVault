@@ -209,8 +209,9 @@ namespace InnoVault.Vectors
         public float SubPathEnd(int index) => TotalLength > 0f ? (subPathStarts[index] + subPaths[index].Length) / TotalLength : 0f;
 
         /// <summary>
-        /// 按全局归一弧长 <paramref name="t"/> 定位到具体的子路径与线段
+        /// 按全局归一弧长 <paramref name="t"/> 定位到具体的子路径与线段；单点子路径不占弧长，落在其上时退回前一条有线段的子路径末端
         /// </summary>
+        /// <returns>找不到任何有线段的子路径时返回 false（此时 <paramref name="subPathIndex"/> 仍指向定位到的单点子路径）</returns>
         public bool TryLocate(float t, out int subPathIndex, out int segmentIndex, out float segmentT) {
             subPathIndex = 0;
             segmentIndex = 0;
@@ -230,13 +231,24 @@ namespace InnoVault.Vectors
                 idx++;
             }
             subPathIndex = idx;
-            return subPaths[idx].TryLocate(distance - subPathStarts[idx], out segmentIndex, out segmentT);
+            if (subPaths[idx].TryLocate(distance - subPathStarts[idx], out segmentIndex, out segmentT)) {
+                return true;
+            }
+            //仍落在单点子路径上（例如末尾的尾随 M）：按弧长语义退回它前面最近一条有线段的子路径的末端；
+            //整条路径都是单点时保留该子路径索引并返回 false，调用方取该点本身
+            for (int back = idx - 1; back >= 0; back--) {
+                if (subPaths[back].SegmentCount > 0) {
+                    subPathIndex = back;
+                    return subPaths[back].TryLocate(subPaths[back].Length, out segmentIndex, out segmentT);
+                }
+            }
+            return false;
         }
 
-        /// <summary>全局归一弧长 <paramref name="t"/> 处的点</summary>
+        /// <summary>全局归一弧长 <paramref name="t"/> 处的点；路径只由单点子路径构成时返回定位到的那个点</summary>
         public Vector2 PointAt(float t) {
             if (!TryLocate(t, out int sp, out int seg, out float st)) {
-                return subPaths.Length > 0 ? subPaths[0].Points[0] : Vector2.Zero;
+                return subPaths.Length > 0 ? subPaths[sp].Points[0] : Vector2.Zero;
             }
             VectorSubPath sub = subPaths[sp];
             if (sub.SegmentCount == 0) {

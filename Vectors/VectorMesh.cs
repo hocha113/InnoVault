@@ -101,7 +101,8 @@ namespace InnoVault.Vectors
         }
 
         /// <summary>
-        /// 追加路径填充：每条至少三点的子路径各自作为简单多边形填充（不支持孔洞与自交），u/v 为该子路径包围盒的归一坐标
+        /// 追加路径填充：全部至少三点的子路径按 <see cref="FillStyle.Rule"/> 判定外环与孔（反向嵌套 / 奇偶嵌套的环成为孔，三角剖分缓存在路径上），
+        /// 自交的环退回扇形；u/v 为整条路径包围盒的归一坐标
         /// </summary>
         public void AppendFill(VectorPath path, FillStyle style, in VectorTransform transform) {
             if (path == null || style == null || path.IsEmpty) {

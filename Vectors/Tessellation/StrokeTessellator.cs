@@ -9,7 +9,7 @@ namespace InnoVault.Vectors.Tessellation
     /// 折线 → 描边三角网格：接头（平均 / 尖接 / 圆接 / 斜接）、端帽（平 / 方 / 圆 / 箭头，贴图端帽只收集印章交给调用方）、弧长窗口、长段细分、虚线切片、拉伸或平铺 UV、逐点宽度与颜色（含 <see cref="VectorPaint"/>）
     /// <br/>预处理流水线：变换 → 弧长窗口裁剪 → 去重 → <see cref="StrokeStyle.MaxSegmentLength"/> 细分 → 虚线切片成若干「片」；每片各自生成条带与端帽
     /// <br/>所有暂存缓冲为静态复用，只允许在渲染线程调用，且宽度 / 颜色函数内不得再发起描边（DEBUG 下有重入断言）
-    /// <br/>约定：<c>normal = (-tangent.Y, tangent.X)</c>，法线正侧 v = 0、负侧 v = 1（<see cref="StrokeStyle.FlipV"/> 交换），与旧 <c>Trail</c> 一致
+    /// <br/>约定：<c>normal = (-tangent.Y, tangent.X)</c>，法线正侧 v = 0、负侧 v = 1（<see cref="StrokeStyle.FlipV"/> 交换，颜色函数的 side 与 v 同值同翻），与旧 <c>Trail</c> 一致
     /// </summary>
     internal static class StrokeTessellator
     {
@@ -160,14 +160,16 @@ namespace InnoVault.Vectors.Tessellation
             }
         }
 
+        /// <summary>DEBUG 重入哨兵入口：像素笔与网格后端共用本类的静态缓冲，两边都要在使用前调一次（Release 下被编译掉）</summary>
         [Conditional("DEBUG")]
-        private static void Enter() {
+        internal static void Enter() {
             Debug.Assert(!busy, "[Vectors] StrokeTessellator re-entered: do not call DrawStroke / VectorPen from inside a WidthFunction / ColorFunction / Paint");
             busy = true;
         }
 
+        /// <summary>DEBUG 重入哨兵出口，与 <see cref="Enter"/> 成对放在 finally 里</summary>
         [Conditional("DEBUG")]
-        private static void Leave() => busy = false;
+        internal static void Leave() => busy = false;
 
         //==================== 颜色 ====================
 
@@ -548,13 +550,9 @@ namespace InnoVault.Vectors.Tessellation
                     }
                 }
             }
+            //路径在实段内结束时这一片才是真末端；在空段内结束则与「在空段内开始」对称，没有任何一片是路径末端
             if (open) {
                 Close(true);
-            }
-            else if (pieces.Count > 0) {
-                Piece last = pieces[^1];
-                last.PathEnd = true;
-                pieces[^1] = last;
             }
         }
 
@@ -690,8 +688,9 @@ namespace InnoVault.Vectors.Tessellation
                 Vector2 off = nrm * hw;
                 Vector2 pa = p + off;
                 Vector2 pb = p - off;
-                int a = mesh.AddVertex(pa, Col(style, t, 0f, pa), new Vector2(u, v0));
-                int b = mesh.AddVertex(pb, Col(style, t, 1f, pb), new Vector2(u, v1));
+                //side 与 v 同步翻转：旧 Trail 翻转时把翻转后的 uv 一并交给颜色函数
+                int a = mesh.AddVertex(pa, Col(style, t, v0, pa), new Vector2(u, v0));
+                int b = mesh.AddVertex(pb, Col(style, t, v1, pb), new Vector2(u, v1));
                 sideA.Add(a);
                 sideB.Add(b);
             }
@@ -736,10 +735,10 @@ namespace InnoVault.Vectors.Tessellation
                 Vector2 b0p = p0 - nrm * hw0;
                 Vector2 a1p = p1 + nrm * hw1;
                 Vector2 b1p = p1 - nrm * hw1;
-                int a0 = mesh.AddVertex(a0p, Col(style, t0, 0f, a0p), new Vector2(u0, v0));
-                int b0 = mesh.AddVertex(b0p, Col(style, t0, 1f, b0p), new Vector2(u0, v1));
-                int a1 = mesh.AddVertex(a1p, Col(style, t1, 0f, a1p), new Vector2(u1, v0));
-                int b1 = mesh.AddVertex(b1p, Col(style, t1, 1f, b1p), new Vector2(u1, v1));
+                int a0 = mesh.AddVertex(a0p, Col(style, t0, v0, a0p), new Vector2(u0, v0));
+                int b0 = mesh.AddVertex(b0p, Col(style, t0, v1, b0p), new Vector2(u0, v1));
+                int a1 = mesh.AddVertex(a1p, Col(style, t1, v0, a1p), new Vector2(u1, v0));
+                int b1 = mesh.AddVertex(b1p, Col(style, t1, v1, b1p), new Vector2(u1, v1));
                 mesh.AddTriangle(a0, b0, a1);
                 mesh.AddTriangle(a1, b0, b1);
                 if (s == 0) {
@@ -770,8 +769,9 @@ namespace InnoVault.Vectors.Tessellation
                     continue;
                 }
                 float u = U(style, t, arcs[i]);
+                //外侧顶点的 v 与颜色函数的 side 同取（都随 FlipV 翻转）
                 float vOuter = side > 0f ? v0 : v1;
-                float sideOuter = side > 0f ? 0f : 1f;
+                float sideOuter = vOuter;
                 Vector2 p = pts[i];
                 Color cCenter = Col(style, t, 0.5f, p);
                 if (style.Join == LineJoin.Bevel) {
@@ -869,7 +869,7 @@ namespace InnoVault.Vectors.Tessellation
                 Vector2 dir = Rotate(nrm, sign * MathHelper.Pi * f);
                 float v = MathHelper.Lerp(v0, v1, f);
                 Vector2 q = p + dir * hw;
-                int cur = mesh.AddVertex(q, Col(style, t, f, q), new Vector2(u, v));
+                int cur = mesh.AddVertex(q, Col(style, t, v, q), new Vector2(u, v));
                 mesh.AddTriangle(center, prev, cur);
                 prev = cur;
             }

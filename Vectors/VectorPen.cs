@@ -45,8 +45,15 @@ namespace InnoVault.Vectors
                 return;
             }
             bool full = style.IsFullWindow;
-            for (int s = 0; s < path.SubPathCount; s++) {
-                DrawPrepared(sb, px, style, StrokeTessellator.PrepareSubPath(path, s, style, in transform, full, lo, hi));
+            //与网格后端共用 StrokeTessellator 的静态缓冲，DrawPolyline 里又会回调用户的颜色函数：同样挂重入哨兵
+            StrokeTessellator.Enter();
+            try {
+                for (int s = 0; s < path.SubPathCount; s++) {
+                    DrawPrepared(sb, px, style, StrokeTessellator.PrepareSubPath(path, s, style, in transform, full, lo, hi));
+                }
+            }
+            finally {
+                StrokeTessellator.Leave();
             }
         }
 
@@ -68,7 +75,13 @@ namespace InnoVault.Vectors
             if (!StrokeTessellator.ResolveWindow(style, out float lo, out float hi)) {
                 return;
             }
-            DrawPrepared(sb, px, style, StrokeTessellator.PrepareSpan(points, closed, style, style.IsFullWindow, lo, hi));
+            StrokeTessellator.Enter();
+            try {
+                DrawPrepared(sb, px, style, StrokeTessellator.PrepareSpan(points, closed, style, style.IsFullWindow, lo, hi));
+            }
+            finally {
+                StrokeTessellator.Leave();
+            }
         }
 
         private static void DrawPrepared(SpriteBatch sb, Texture2D px, StrokeStyle style, StrokeTessellator.PrepareResult result) {
@@ -124,8 +137,11 @@ namespace InnoVault.Vectors
                 return;
             }
             layers = Math.Max(layers, 1);
+            //spread 以输出像素计：WidthAt 会再乘 WidthScale，先除回去（WidthScale ≤ 0 时整条描边宽度为 0，不必校正）
+            float widthScale = style.WidthScale;
+            float extraScale = widthScale > 0f && widthScale != 1f ? 1f / widthScale : 1f;
             for (int k = layers - 1; k >= 1; k--) {
-                glowExtra = spread * k / (layers - 1);
+                glowExtra = spread * k / (layers - 1) * extraScale;
                 glowAlpha = MathF.Pow(falloff, k);
                 glowStyle.CopyFrom(style);
                 //辉光层不印贴图端帽，避免 N 层叠印
@@ -143,9 +159,12 @@ namespace InnoVault.Vectors
                 }
                 else if (style.Paint != null) {
                     //Paint 无法直接乘透明度：辉光层退回按常量色，取路径中点处的画笔色
+                    //不走 StrokeTessellator.Col：它按静态 curTransform 反变换，此刻那是上一笔的变换；这里按画笔空间自己选位置
+                    Vector2 mid = path?.PointAt(0.5f) ?? Vector2.Zero;
+                    Vector2 paintPos = style.Paint.Space == PaintSpace.Path ? mid : transform.Apply(mid);
                     glowStyle.Paint = null;
-                    glowStyle.Color = StrokeTessellator.Col(style, 0.5f, 0.5f, transform.Apply(path?.PointAt(0.5f) ?? Vector2.Zero)) * glowAlpha;
-                    //Col 已经乘过 Opacity，这一层不要再乘一次
+                    glowStyle.Color = style.ColorAt(0.5f, 0.5f, paintPos) * glowAlpha;
+                    //ColorAt 已经乘过 Opacity，这一层不要再乘一次
                     glowStyle.Opacity = 1f;
                 }
                 else {
@@ -240,8 +259,13 @@ namespace InnoVault.Vectors
             Vector2 tl = new(rect.X, rect.Y);
             sb.Draw(px, tl, pixelSrc, color, 0f, Vector2.Zero, new Vector2(rect.Width, width), SpriteEffects.None, 0f);
             sb.Draw(px, new Vector2(rect.X, rect.Bottom - width), pixelSrc, color, 0f, Vector2.Zero, new Vector2(rect.Width, width), SpriteEffects.None, 0f);
-            sb.Draw(px, new Vector2(rect.X, rect.Y + width), pixelSrc, color, 0f, Vector2.Zero, new Vector2(width, rect.Height - width * 2f), SpriteEffects.None, 0f);
-            sb.Draw(px, new Vector2(rect.Right - width, rect.Y + width), pixelSrc, color, 0f, Vector2.Zero, new Vector2(width, rect.Height - width * 2f), SpriteEffects.None, 0f);
+            //矩形比两倍线宽还矮时上下边已经盖满，竖边高度夹到 0，别给 SpriteBatch 负缩放
+            float sideHeight = MathF.Max(rect.Height - width * 2f, 0f);
+            if (sideHeight <= 0f) {
+                return;
+            }
+            sb.Draw(px, new Vector2(rect.X, rect.Y + width), pixelSrc, color, 0f, Vector2.Zero, new Vector2(width, sideHeight), SpriteEffects.None, 0f);
+            sb.Draw(px, new Vector2(rect.Right - width, rect.Y + width), pixelSrc, color, 0f, Vector2.Zero, new Vector2(width, sideHeight), SpriteEffects.None, 0f);
         }
 
         /// <summary>圆角矩形描边（左上角 + 尺寸），线条居中于轮廓</summary>
