@@ -3,7 +3,6 @@ using InnoVault.Rigs2D.Runtime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Solvers
 {
@@ -68,6 +67,24 @@ namespace InnoVault.Rigs2D.Solvers
         /// 关节点（下标 0 = 根 … n = 尖）
         /// </summary>
         public ReadOnlySpan<Vector2> Points => points;
+
+        /// <inheritdoc/>
+        protected internal override int ChannelProperty(string prop, out bool spatial) {
+            spatial = prop == "target";
+            return prop switch {
+                "target" => 0,
+                "tension" => 1,
+                _ => -1,
+            };
+        }
+
+        /// <inheritdoc/>
+        protected internal override void SetChannel(int property, Vector2 value) {
+            switch (property) {
+                case 0: Target = value; break;
+                case 1: Tension = value.X; break;
+            }
+        }
 
         /// <inheritdoc/>
         protected override void Configure(Solver2DDef def) {
@@ -201,7 +218,10 @@ namespace InnoVault.Rigs2D.Solvers
 
         /// <inheritdoc/>
         public override void DebugDraw(SpriteBatch sb, Func<Vector2, Vector2> toScreen) {
-            Texture2D px = VaultAsset.placeholder2.Value;
+            Texture2D px = Rig2DDebugDraw.Pixel;
+            if (px == null) {
+                return;
+            }
             sb.Draw(px, toScreen(ResolveTarget()), new Rectangle(0, 0, 1, 1), Color.Violet, 0f, new Vector2(0.5f), 6f, SpriteEffects.None, 0f);
             Rig2DDebugDraw.Circle(sb, toScreen, Root, MaxReach * reachFactor, Color.Violet * 0.3f);
         }

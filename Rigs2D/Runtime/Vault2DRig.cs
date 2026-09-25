@@ -3,9 +3,6 @@ using Microsoft.Xna.Framework.Graphics;
 using ReLogic.Content;
 using System;
 using System.IO;
-using System.Text;
-using Terraria;
-using Terraria.ModLoader;
 
 namespace InnoVault.Rigs2D.Runtime
 {
@@ -13,24 +10,21 @@ namespace InnoVault.Rigs2D.Runtime
     /// 2D 骨架资产：一份已解析的 <see cref="Rig2DDefinition"/> + 各贴图件的贴图句柄
     /// <br/>资产是共享的静态数据；每个实体用 <see cref="CreateInstance"/> 拿自己的可变实例。
     /// 热重载时定义被原地替换、<see cref="Version"/> 自增，实例在下一次 <c>Step</c> 自动重绑
-    /// <br/>加载入口：<c>[VaultLoaden("Assets/Rigs/SeaShrimp")]</c> 标记 <see cref="Vault2DRig"/> 静态字段（走 <see cref="Rig2DLoadenHandle"/>，
-    /// 两端都会填值：服务器只有定义没有贴图），或代码里 <see cref="Load"/> / <see cref="FromDefinition"/>
+    /// <br/>加载入口：<c>[VaultLoaden("Assets/Rigs/SeaShrimp")]</c> 标记 <see cref="Vault2DRig"/> 静态字段（走 <c>Rig2DLoadenHandle</c>，
+    /// 两端都会填值：服务器只有定义没有贴图），或代码里 <c>Load</c> / <c>FromDefinition</c>；
+    /// 没有 tModLoader 的离线宿主用 <see cref="FromJson"/> + <see cref="UseDirectTextures"/>
     /// </summary>
-    public sealed class Vault2DRig
+    public sealed partial class Vault2DRig
     {
         /// <summary>
         /// 空资产占位：加载失败或服务器环境；<see cref="IsValid"/> 为假，实例的 <c>Step</c> / 绘制都是空操作
         /// </summary>
-        public static Vault2DRig Empty { get; } = new Vault2DRig("(empty)", null, string.Empty);
+        public static Vault2DRig Empty { get; } = new Vault2DRig("(empty)", string.Empty);
 
         /// <summary>
         /// 资产名（取定义名，缺省取文件名）
         /// </summary>
         public string Name { get; private set; }
-        /// <summary>
-        /// 来源模组（代码直建时为构造方传入的模组，可空）
-        /// </summary>
-        public Mod Mod { get; }
         /// <summary>
         /// 模组内相对路径（含扩展名）；代码直建为空
         /// </summary>
@@ -61,55 +55,85 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         public bool IsValid => Definition != null && Definition.Resolved && Definition.BoneCount > 0;
 
-        private Vault2DRig(string name, Mod mod, string sourcePath) {
+        /// <summary>
+        /// 日志里的来源标注（游戏端为「模组名/路径」）
+        /// </summary>
+        internal string SourceHint { get; private set; }
+
+        private Func<string, Texture2D> directResolver;
+        private Texture2D[] directPieceTextures = [];
+        private Texture2D[] directRibbonTextures = [];
+
+        private Vault2DRig(string name, string sourcePath) {
             Name = name ?? string.Empty;
-            Mod = mod;
             SourcePath = sourcePath ?? string.Empty;
+            SourceHint = SourcePath;
         }
 
-        //==================== 加载 ====================
+        //==================== 离线宿主 ====================
 
         /// <summary>
-        /// 从模组文件加载骨架定义
-        /// <br/>路径可省略扩展名，按 <c>.rig.json</c>、<c>.json</c> 顺序探测；文件缺失或解析失败返回带错误信息的无效资产（已记日志）
-        /// <br/>开发机上若 ModSources 里存在同名源文件，会登记进热重载监视
+        /// 直接从 JSON 文本建资产（不经模组文件系统；离线宿主与测试用）。解析失败返回带 <see cref="LastError"/> 的无效资产
         /// </summary>
-        public static Vault2DRig Load(Mod mod, string path) {
-            if (mod == null || string.IsNullOrEmpty(path)) {
-                return Empty;
+        /// <param name="json">骨架 JSON 文本</param>
+        /// <param name="sourceHint">日志来源标注（通常是文件路径）</param>
+        /// <param name="textureResolver">贴图路径 → 贴图；给了就走直接贴图（见 <see cref="UseDirectTextures"/>）</param>
+        public static Vault2DRig FromJson(string json, string sourceHint = null, Func<string, Texture2D> textureResolver = null) {
+            Vault2DRig rig = new(FileStem(sourceHint ?? string.Empty), sourceHint ?? string.Empty) {
+                directResolver = textureResolver,
+            };
+            if (!rig.ApplyText(json) && string.IsNullOrEmpty(rig.LastError)) {
+                rig.LastError = "json parse failed";
             }
-            string normalized = path.Replace('\\', '/');
-            if (!TryResolvePath(mod, normalized, out string resolved)) {
-                VaultMod.LoggerError($"[Rig2D:{mod.Name}/{path}]", $"rig file not found: '{normalized}' (tried .rig.json / .json)");
-                Vault2DRig missing = new(FileStem(normalized), mod, normalized);
-                missing.LastError = "file not found";
-                Rig2DSystem.Register(missing);
-                return missing;
-            }
+            return rig;
+        }
 
-            Vault2DRig rig = new(FileStem(resolved), mod, resolved);
-            string text = ReadModText(mod, resolved, out string readError);
-            if (text == null) {
-                rig.LastError = readError;
-                VaultMod.LoggerError($"[Rig2D:{mod.Name}/{resolved}]", readError);
+        /// <summary>
+        /// 改用直接贴图：每件贴图路径交给 <paramref name="resolver"/> 解析成 <see cref="Texture2D"/>，优先于资产句柄；
+        /// 之后每次 <see cref="Replace"/>（热重载）自动重解析。传 <see langword="null"/> 取消
+        /// </summary>
+        public void UseDirectTextures(Func<string, Texture2D> resolver) {
+            directResolver = resolver;
+            if (Definition != null) {
+                ResolveDirectTextures(Definition);
             }
             else {
-                rig.ApplyText(text);
+                directPieceTextures = [];
+                directRibbonTextures = [];
             }
-            Rig2DSystem.Register(rig);
-            return rig;
         }
 
         /// <summary>
-        /// 用代码构建的定义包装成资产（定义须已 <see cref="Rig2DDefinition.Resolve"/>；未解析会在此尝试解析）
+        /// 用 JSON 文本替换当前定义（等同热重载一次）；解析失败保留旧定义并返回 <see langword="false"/>
         /// </summary>
-        public static Vault2DRig FromDefinition(Mod mod, Rig2DDefinition def) {
-            if (def == null) {
-                return Empty;
+        public bool ReplaceText(string json) => ApplyText(json);
+
+        /// <summary>
+        /// 第 <paramref name="index"/> 件的设计贴图：直接贴图优先，否则取资产句柄的值；没有返回 <see langword="null"/>
+        /// </summary>
+        public Texture2D PieceTexture(int index) {
+            if (index >= 0 && index < directPieceTextures.Length && directPieceTextures[index] != null) {
+                return directPieceTextures[index];
             }
-            Vault2DRig rig = new(def.Name, mod, string.Empty);
-            rig.Replace(def);
-            return rig;
+            Asset<Texture2D>[] textures = PieceTextures;
+            if (textures == null || index < 0 || index >= textures.Length) {
+                return null;
+            }
+            return textures[index]?.Value;
+        }
+
+        /// <summary>
+        /// 第 <paramref name="index"/> 条带状件的设计贴图：直接贴图优先，否则取资产句柄的值
+        /// </summary>
+        public Texture2D RibbonTexture(int index) {
+            if (index >= 0 && index < directRibbonTextures.Length && directRibbonTextures[index] != null) {
+                return directRibbonTextures[index];
+            }
+            Asset<Texture2D>[] textures = RibbonTextures;
+            if (textures == null || index < 0 || index >= textures.Length) {
+                return null;
+            }
+            return textures[index]?.Value;
         }
 
         /// <summary>
@@ -130,15 +154,15 @@ namespace InnoVault.Rigs2D.Runtime
             }
             if (!def.Resolved && !def.Resolve(out string error)) {
                 LastError = error ?? "resolve failed";
-                VaultMod.LoggerError($"[Rig2D:{Name}]", $"definition invalid: {LastError}");
+                Rig2DPlatform.LogError($"[Rig2D:{Name}]", $"definition invalid: {LastError}");
                 return false;
             }
             Definition = def;
             if (!string.IsNullOrEmpty(def.Name)) {
                 Name = def.Name;
             }
-            PieceTextures = ResolveTextures(Mod, def);
-            RibbonTextures = ResolveRibbonTextures(Mod, def);
+            ResolveHostTextures(def);
+            ResolveDirectTextures(def);
             Version++;
             LastError = string.Empty;
             return true;
@@ -148,7 +172,7 @@ namespace InnoVault.Rigs2D.Runtime
         /// 用 JSON 文本替换定义（热重载用）
         /// </summary>
         internal bool ApplyText(string json) {
-            Rig2DDefinition def = Rig2DJson.Parse(json, $"{Mod?.Name}/{SourcePath}");
+            Rig2DDefinition def = Rig2DJson.Parse(json, SourceHint);
             if (def == null) {
                 LastError = "json parse failed";
                 return false;
@@ -159,40 +183,24 @@ namespace InnoVault.Rigs2D.Runtime
             return Replace(def);
         }
 
-        //==================== 内部 ====================
+        /// <summary>
+        /// 宿主取贴图句柄（游戏构建里按模组资产解析；离线构建没有实现）
+        /// </summary>
+        partial void ResolveHostTextures(Rig2DDefinition def);
 
-        private static bool TryResolvePath(Mod mod, string path, out string resolved) {
-            resolved = path;
-            if (mod.FileExists(path)) {
-                return true;
+        private void ResolveDirectTextures(Rig2DDefinition def) {
+            if (directResolver == null) {
+                directPieceTextures = [];
+                directRibbonTextures = [];
+                return;
             }
-            string a = path + ".rig.json";
-            if (mod.FileExists(a)) {
-                resolved = a;
-                return true;
+            directPieceTextures = new Texture2D[def.Pieces.Count];
+            for (int i = 0; i < directPieceTextures.Length; i++) {
+                directPieceTextures[i] = directResolver(def.Pieces[i].Texture);
             }
-            string b = path + ".json";
-            if (mod.FileExists(b)) {
-                resolved = b;
-                return true;
-            }
-            return false;
-        }
-
-        private static string ReadModText(Mod mod, string path, out string error) {
-            error = string.Empty;
-            try {
-                byte[] bytes = mod.GetFileBytes(path);
-                if (bytes == null) {
-                    error = "GetFileBytes returned null";
-                    return null;
-                }
-                //剥掉可能存在的 UTF-8 BOM
-                int offset = bytes.Length >= 3 && bytes[0] == 0xEF && bytes[1] == 0xBB && bytes[2] == 0xBF ? 3 : 0;
-                return Encoding.UTF8.GetString(bytes, offset, bytes.Length - offset);
-            } catch (Exception ex) {
-                error = $"read failed: {ex.Message}";
-                return null;
+            directRibbonTextures = new Texture2D[def.Ribbons.Count];
+            for (int i = 0; i < directRibbonTextures.Length; i++) {
+                directRibbonTextures[i] = directResolver(def.Ribbons[i].Texture);
             }
         }
 
@@ -200,63 +208,6 @@ namespace InnoVault.Rigs2D.Runtime
             string name = Path.GetFileName(path);
             int dot = name.IndexOf('.');
             return dot > 0 ? name[..dot] : name;
-        }
-
-        private static Asset<Texture2D>[] ResolveTextures(Mod mod, Rig2DDefinition def) {
-            if (Main.dedServ) {
-                return [];
-            }
-            Asset<Texture2D>[] result = new Asset<Texture2D>[def.Pieces.Count];
-            for (int i = 0; i < result.Length; i++) {
-                result[i] = ResolveTexture(mod, def.Pieces[i].Texture, def.Name);
-            }
-            return result;
-        }
-
-        private static Asset<Texture2D>[] ResolveRibbonTextures(Mod mod, Rig2DDefinition def) {
-            if (Main.dedServ) {
-                return [];
-            }
-            Asset<Texture2D>[] result = new Asset<Texture2D>[def.Ribbons.Count];
-            for (int i = 0; i < result.Length; i++) {
-                result[i] = ResolveTexture(mod, def.Ribbons[i].Texture, def.Name);
-            }
-            return result;
-        }
-
-        /// <summary>
-        /// 解析一条贴图路径：<c>@其他模组/路径</c> 跨模组，否则相对 <paramref name="mod"/>；缺失返回占位并记日志
-        /// </summary>
-        public static Asset<Texture2D> ResolveTexture(Mod mod, string texturePath, string rigName = null) {
-            if (Main.dedServ) {
-                return null;
-            }
-            if (string.IsNullOrEmpty(texturePath)) {
-                return VaultAsset.placeholder3;
-            }
-            string path = texturePath.Replace('\\', '/');
-            Mod target = mod;
-            if (path.StartsWith('@')) {
-                int slash = path.IndexOf('/');
-                string modName = slash > 0 ? path[1..slash] : path[1..];
-                path = slash > 0 ? path[(slash + 1)..] : string.Empty;
-                if (!ModLoader.TryGetMod(modName, out target)) {
-                    VaultMod.LoggerError($"[Rig2D:{rigName}]", $"texture mod '{modName}' not loaded for '{texturePath}'");
-                    return VaultAsset.placeholder3;
-                }
-            }
-            else if (target != null) {
-                //允许写成带模组名前缀的完整路径
-                string prefix = target.Name + "/";
-                if (path.StartsWith(prefix, StringComparison.Ordinal)) {
-                    path = path[prefix.Length..];
-                }
-            }
-            if (target == null || !target.HasAsset(path)) {
-                VaultMod.LoggerError($"[Rig2D:{rigName}]", $"texture not found: '{texturePath}'");
-                return VaultAsset.placeholder3;
-            }
-            return target.Assets.Request<Texture2D>(path, AssetRequestMode.AsyncLoad);
         }
     }
 }

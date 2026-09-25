@@ -1,7 +1,6 @@
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Runtime
 {
@@ -17,13 +16,14 @@ namespace InnoVault.Rigs2D.Runtime
 
     /// <summary>
     /// 一次骨架绘制的环境：视口偏移、光照来源、整体着色、批次参数
-    /// <br/>把"画在世界里"与"画在图鉴舞台上"的差异收进一个结构体，渲染器本身不碰 <see cref="Main.screenPosition"/>；
+    /// <br/>把"画在世界里"与"画在图鉴舞台上"的差异收进一个结构体，渲染器本身不碰 <c>Main.screenPosition</c>；
     /// 需要中途 End / Begin 的消费方（加色层、shader 层）从这里取批次矩阵与光栅态，保证与本体同一坐标系
+    /// <br/>世界环境 <c>World(alpha)</c> 在游戏宿主分部里（<c>Rigs2D/Tml</c>）；舞台环境 <see cref="Stage"/> 与宿主无关
     /// </summary>
-    public struct Rig2DDrawContext
+    public partial struct Rig2DDrawContext
     {
         /// <summary>
-        /// 从世界坐标减去的视口偏移（世界绘制 = <see cref="Main.screenPosition"/>；舞台坐标 = 零）
+        /// 从世界坐标减去的视口偏移（世界绘制 = <c>Main.screenPosition</c>；舞台坐标 = 零）
         /// </summary>
         public Vector2 ViewOffset;
         /// <summary>
@@ -51,7 +51,7 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         public Matrix BatchMatrix;
         /// <summary>
-        /// 当前批次的光栅态（舞台裁剪或 <see cref="Main.Rasterizer"/>）
+        /// 当前批次的光栅态（舞台裁剪或 <c>Main.Rasterizer</c>）
         /// </summary>
         public RasterizerState Rasterizer;
         /// <summary>
@@ -75,23 +75,6 @@ namespace InnoVault.Rigs2D.Runtime
         /// 整副骨架的加色 bloom / 残影通道用它把带状件也画成加色（件的混合态本来就跟着调用方开的批次走，不需要这个）
         /// </summary>
         public BlendState RibbonBlendOverride;
-
-        /// <summary>
-        /// 世界绘制环境：视口 = 屏幕位置，物块光照，默认批次参数
-        /// </summary>
-        public static Rig2DDrawContext World(float alpha = 1f) => new() {
-            ViewOffset = Main.screenPosition,
-            Light = null,
-            WorldLighting = true,
-            Ambient = Color.White,
-            Tint = Color.White,
-            Alpha = alpha,
-            BatchMatrix = Main.GameViewMatrix.TransformationMatrix,
-            Rasterizer = Main.Rasterizer,
-            Sampler = Main.DefaultSamplerState,
-            LayerMin = float.NegativeInfinity,
-            LayerMax = float.PositiveInfinity,
-        };
 
         /// <summary>
         /// 舞台绘制环境：场景坐标（视口零偏移）、固定环境色、调用方给的批次矩阵与裁剪
@@ -123,13 +106,13 @@ namespace InnoVault.Rigs2D.Runtime
                 c = Light(world);
             }
             else if (WorldLighting) {
-                c = Lighting.GetColor((int)(world.X / 16f), (int)(world.Y / 16f));
+                c = Rig2DPlatform.TileLight?.Invoke(world) ?? Color.White;
             }
             else {
                 c = Ambient;
             }
             if (Tint != Color.White) {
-                c = c.MultiplyRGBA(Tint);
+                c = Rig2DMath.MultiplyRGBA(c, Tint);
             }
             return c * Alpha;
         }
@@ -140,7 +123,7 @@ namespace InnoVault.Rigs2D.Runtime
         public readonly Color UnlitAt() {
             Color c = Light != null || WorldLighting ? Color.White : Ambient;
             if (Tint != Color.White) {
-                c = c.MultiplyRGBA(Tint);
+                c = Rig2DMath.MultiplyRGBA(c, Tint);
             }
             return c * Alpha;
         }

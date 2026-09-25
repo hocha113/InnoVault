@@ -55,6 +55,10 @@ namespace InnoVault.Rigs2D.Runtime
         /// 绘制位置附加偏移（世界像素；落步下沉等"只动画不动骨"的场合）
         /// </summary>
         public Vector2 PositionOffset;
+        /// <summary>
+        /// 按角换帧的当前桶（迟滞判定用；<c>-1</c> = 尚未判过，下一次直接取当前桶）
+        /// </summary>
+        public int FrameBucket;
 
         /// <summary>
         /// 从设计值初始化
@@ -71,6 +75,7 @@ namespace InnoVault.Rigs2D.Runtime
             Frame = 0,
             TextureOverride = null,
             PositionOffset = Vector2.Zero,
+            FrameBucket = -1,
         };
     }
 }

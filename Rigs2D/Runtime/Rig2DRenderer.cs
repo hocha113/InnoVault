@@ -1,9 +1,8 @@
 using InnoVault.Rigs2D.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using ReLogic.Content;
 using System;
-using Terraria;
+using System.Collections.Generic;
 
 namespace InnoVault.Rigs2D.Runtime
 {
@@ -60,11 +59,10 @@ namespace InnoVault.Rigs2D.Runtime
                 if (!st.Visible || st.SortKey < ctx.LayerMin || st.SortKey > ctx.LayerMax) {
                     continue;
                 }
-                int b = rig.Definition.Pieces[i].BoneIndex;
-                if (b < 0 || b >= bones.Length) {
+                if (!PieceBone(rig, i, bones, out Bone2D bone, out float bendMul)) {
                     continue;
                 }
-                DrawPiece(sb, rig, i, in bones[b], in ctx);
+                DrawPiece(sb, rig, i, in bone, in ctx, bendMul);
             }
         }
 
@@ -92,19 +90,51 @@ namespace InnoVault.Rigs2D.Runtime
                 if (!st.Visible || st.SortKey < ctx.LayerMin || st.SortKey > ctx.LayerMax) {
                     continue;
                 }
-                Piece2DDef def = rig.Definition.Pieces[i];
-                int b = def.BoneIndex;
-                if (b < 0 || b >= bones.Length) {
+                if (!PieceBone(rig, i, bones, out Bone2D bone, out float bendMul)) {
                     continue;
                 }
-                DrawPiece(sb, rig, i, in bones[b], in ctx);
+                DrawPiece(sb, rig, i, in bone, in ctx, bendMul);
             }
+        }
+
+        /// <summary>
+        /// 件实际落在的骨：普通件即所挂骨；关节盖件（<see cref="Piece2DDef.Bone2"/>）合成一根虚骨——
+        /// 位置 = 第二根骨近端，轴向 = 两骨角平分线（按 <see cref="Piece2DDef.JointWeight"/> 偏），长度随第二根骨——并给出按弯角的放大倍率
+        /// </summary>
+        public static bool PieceBone(Rig2DInstance rig, int pieceIndex, Bone2D[] bones, out Bone2D bone, out float bendMul) {
+            Piece2DDef def = rig.Definition.Pieces[pieceIndex];
+            bendMul = 1f;
+            int b = def.BoneIndex;
+            if (b < 0 || b >= bones.Length) {
+                bone = default;
+                return false;
+            }
+            int b2 = def.Bone2Index;
+            if (b2 < 0 || b2 >= bones.Length) {
+                bone = bones[b];
+                return true;
+            }
+            ref Bone2D a = ref bones[b];
+            ref Bone2D c = ref bones[b2];
+            float bend = MathHelper.WrapAngle(c.Dir - a.Dir);
+            bone = new Bone2D {
+                Pos = c.Pos,
+                Dir = a.Dir + bend * def.JointWeight,
+                Length = c.Length,
+            };
+            if (def.BendScale != 0f) {
+                bendMul = 1f + def.BendScale * MathF.Abs(bend) / MathHelper.Pi;
+            }
+            return true;
         }
 
         /// <summary>
         /// 绘制单件（骨骼位姿由调用方给，便于残影 / 局部重绘）
         /// </summary>
-        public static void DrawPiece(SpriteBatch sb, Rig2DInstance rig, int pieceIndex, in Bone2D bone, in Rig2DDrawContext ctx) {
+        public static void DrawPiece(SpriteBatch sb, Rig2DInstance rig, int pieceIndex, in Bone2D bone, in Rig2DDrawContext ctx)
+            => DrawPiece(sb, rig, pieceIndex, in bone, in ctx, 1f);
+
+        private static void DrawPiece(SpriteBatch sb, Rig2DInstance rig, int pieceIndex, in Bone2D bone, in Rig2DDrawContext ctx, float bendMul) {
             Piece2DDef def = rig.Definition.Pieces[pieceIndex];
             ref Piece2DState st = ref rig.Pieces[pieceIndex];
             Texture2D tex = ResolveTexture(rig, pieceIndex, in st);
@@ -112,7 +142,7 @@ namespace InnoVault.Rigs2D.Runtime
                 return;
             }
             Rectangle frame = FrameRect(tex, def.Frames, st.Frame, def.FramePad);
-            Vector2 scale = PieceScale(def, in st, in bone, rig.Scale, frame);
+            Vector2 scale = PieceScale(def, in st, in bone, rig.Scale, frame) * bendMul;
             Color color = PieceColor(def, in st, in bone, in ctx);
             if (color.A == 0 && color.R == 0 && color.G == 0 && color.B == 0) {
                 return;
@@ -230,10 +260,10 @@ namespace InnoVault.Rigs2D.Runtime
         public static Color PieceColor(Piece2DDef def, in Piece2DState st, in Bone2D bone, in Rig2DDrawContext ctx) {
             Color c = def.Unlit ? ctx.UnlitAt() : ctx.LightAt(bone.Pos + st.PositionOffset);
             if (def.Tint != Color.White) {
-                c = c.MultiplyRGBA(def.Tint);
+                c = Rig2DMath.MultiplyRGBA(c, def.Tint);
             }
             if (st.TintMul != Color.White) {
-                c = c.MultiplyRGBA(st.TintMul);
+                c = Rig2DMath.MultiplyRGBA(c, st.TintMul);
             }
             float dark = def.Dark * st.DarkMul;
             if (dark != 1f) {
@@ -244,15 +274,83 @@ namespace InnoVault.Rigs2D.Runtime
             return alpha != 1f ? c * alpha : c;
         }
 
+        private static readonly List<Vector2> boundsPath = new(64);
+
+        /// <summary>
+        /// 本帧可见件与带的实际外接框（件取贴图四角、带取中心线外扩半宽）；件带都没有时退回骨骼端点
+        /// </summary>
+        public static bool MeasureBounds(Rig2DInstance rig, out Vector2 min, out Vector2 max) => MeasureBounds(rig, rig?.Bones, out min, out max);
+
+        /// <summary>
+        /// 用另一套骨骼位姿量外接框（件状态取实例当前值）
+        /// </summary>
+        public static bool MeasureBounds(Rig2DInstance rig, Bone2D[] bones, out Vector2 min, out Vector2 max) {
+            min = new Vector2(float.MaxValue);
+            max = new Vector2(float.MinValue);
+            if (rig?.Definition == null || bones == null) {
+                return false;
+            }
+            bool any = false;
+            for (int i = 0; i < rig.Pieces.Length; i++) {
+                ref Piece2DState st = ref rig.Pieces[i];
+                if (!st.Visible) {
+                    continue;
+                }
+                Texture2D tex = ResolveTexture(rig, i, in st);
+                if (tex == null || !PieceBone(rig, i, bones, out Bone2D bone, out float bendMul)) {
+                    continue;
+                }
+                Piece2DDef def = rig.Definition.Pieces[i];
+                Rectangle frame = FrameRect(tex, def.Frames, st.Frame, def.FramePad);
+                Vector2 scale = PieceScale(def, in st, in bone, rig.Scale, frame) * bendMul;
+                Vector2 proximal = def.ProximalNormalized
+                    ? new Vector2(def.Proximal.X * frame.Width, def.Proximal.Y * frame.Height)
+                    : def.Proximal;
+                bool mirror = st.Mirror ^ rig.Mirrored;
+                float texAxis = mirror ? MathHelper.Pi - def.Axis : def.Axis;
+                Vector2 origin = mirror ? new Vector2(frame.Width - proximal.X, proximal.Y) : proximal;
+                float rotation = bone.Dir - texAxis + st.ExtraRotation * rig.MirrorSign;
+                float cos = MathF.Cos(rotation);
+                float sin = MathF.Sin(rotation);
+                Vector2 pos = bone.Pos + st.PositionOffset;
+                for (int k = 0; k < 4; k++) {
+                    Vector2 corner = new((k & 1) == 0 ? 0f : frame.Width, (k & 2) == 0 ? 0f : frame.Height);
+                    Vector2 l = (corner - origin) * scale;
+                    Vector2 w = pos + new Vector2(l.X * cos - l.Y * sin, l.X * sin + l.Y * cos);
+                    min = Vector2.Min(min, w);
+                    max = Vector2.Max(max, w);
+                }
+                any = true;
+            }
+            for (int r = 0; r < rig.Ribbons.Length; r++) {
+                ref Ribbon2DState st = ref rig.Ribbons[r];
+                if (!st.Visible) {
+                    continue;
+                }
+                Ribbon2DDef def = rig.Definition.Ribbons[r];
+                int n = Rig2DRibbonRenderer.BuildPath(rig, def, bones, boundsPath);
+                float half = def.MaxHalfWidth() * Math.Max(rig.Scale, 0.001f) * st.WidthMul;
+                for (int k = 0; k < n; k++) {
+                    min = Vector2.Min(min, boundsPath[k] - new Vector2(half));
+                    max = Vector2.Max(max, boundsPath[k] + new Vector2(half));
+                    any = true;
+                }
+            }
+            if (!any) {
+                for (int b = 0; b < bones.Length; b++) {
+                    min = Vector2.Min(min, Vector2.Min(bones[b].Pos, bones[b].Tip));
+                    max = Vector2.Max(max, Vector2.Max(bones[b].Pos, bones[b].Tip));
+                    any = true;
+                }
+            }
+            return any;
+        }
+
         private static Texture2D ResolveTexture(Rig2DInstance rig, int pieceIndex, in Piece2DState st) {
             if (st.TextureOverride != null) {
                 return st.TextureOverride.Value;
             }
-            Asset<Texture2D>[] textures = rig.Asset?.PieceTextures;
-            if (textures == null || pieceIndex >= textures.Length) {
-                return null;
-            }
-            return textures[pieceIndex]?.Value;
+            return rig.Asset?.PieceTexture(pieceIndex);
         }
 
         private static bool IsVertical(float axis) => Math.Abs(Math.Sin(axis)) > Math.Abs(Math.Cos(axis));

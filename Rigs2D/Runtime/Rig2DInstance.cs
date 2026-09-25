@@ -4,7 +4,6 @@ using InnoVault.Rigs2D.Solvers;
 using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Runtime
 {
@@ -48,6 +47,45 @@ namespace InnoVault.Rigs2D.Runtime
         /// 关键帧播放头（姿态层，在求解之前写入局部覆盖）
         /// </summary>
         public Rig2DClipPlayer Animation { get; }
+        /// <summary>
+        /// 通道值（定义里有 <c>channels</c> 时非空表）：消费方与动画层写这里，<see cref="Step"/> 按绑定落到骨骼 / 求解器 / 件 / 带 / 根
+        /// </summary>
+        public Rig2DChannels Channels { get; }
+        /// <summary>
+        /// 分层动画机（底姿 → 招式 / 姿态层 → 交叉淡化 → 通道）；建第一层时自动启用
+        /// </summary>
+        public Rig2DAnimator Animator { get; }
+        /// <summary>
+        /// 通道空间 <see cref="Channel2DSpace.Anchor"/> 的原点（世界）：角色脚下地面点一类「世界里钉住、骨架跟着走」的点。
+        /// 未设置时回落 <see cref="RootPosition"/>；根位置本身绑在锚点空间上时必须先设置（否则按世界原点算，免得根追着自己漂）
+        /// </summary>
+        public Vector2 Anchor {
+            get => hasAnchor ? anchor : RootPosition;
+            set {
+                anchor = value;
+                hasAnchor = true;
+            }
+        }
+        /// <summary>
+        /// 是否设置过 <see cref="Anchor"/>
+        /// </summary>
+        public bool HasAnchor => hasAnchor;
+
+        /// <summary>
+        /// 调试叠层用的显示变换（骨架空间 → 世界）：骨架在画布空间里求解、合成时才落到世界的消费方（锚点钉位 RT）挂上它，
+        /// <c>/vaultdebug</c> 叠层就能把骨线画在屏幕上合成后的位置；<see langword="null"/> = 骨架空间即世界
+        /// </summary>
+        public Func<Vector2, Vector2> DebugTransform { get; set; }
+
+        /// <summary>
+        /// 次级运动（<see cref="Rig2DSolver.IsSecondary"/> 的柔性链）的时间倍率：正常帧步长 = dt × 倍率
+        /// </summary>
+        public float SecondaryTimeScale { get; set; } = 1f;
+        /// <summary>
+        /// 顿帧时（<c>Step(0)</c>，本体定格）柔性链继续推进的速率（帧 / 帧，再乘 <see cref="SecondaryTimeScale"/>）：
+        /// 0 = 跟着定格；0.2 一类 = 刀停住了，发尾与披帛还在慢慢飘
+        /// </summary>
+        public float HoldSecondaryRate { get; set; }
 
         /// <summary>
         /// 整体倍率：骨长、偏移、贴图尺寸同乘（战斗端每帧取宿主 <c>NPC.scale</c>，图鉴端保持 1）
@@ -137,12 +175,29 @@ namespace InnoVault.Rigs2D.Runtime
         private bool hasLastRoot;
         private bool mirrored;
         private bool mirrorDirty;
+        private Vector2 anchor;
+        private bool hasAnchor;
+        //通道 → 求解器的推送表：每个求解器一张 (通道, 属性号, 是否空间量)；推送序号保证一帧只推一次
+        private SolverChannelLink[][] solverLinks = [];
+        private uint[] solverPushSerial = [];
+        private uint stepSerial;
+        //每骨最近一次被求解器解出时的求解轮次：同一轮里排在后面的求解器据此从前者的解续写
+        private uint[] solvedSerial = [];
+
+        private struct SolverChannelLink
+        {
+            public int Channel;
+            public int Property;
+            public bool Spatial;
+        }
 
         internal Rig2DInstance(Vault2DRig asset, float seed) {
             Asset = asset;
             Seed = seed;
             Animation = new Rig2DClipPlayer(this);
+            Channels = new Rig2DChannels(this);
             BindDefinition(asset.Definition, asset.Version);
+            Animator = new Rig2DAnimator(this);
         }
 
         //==================== 绑定 ====================
@@ -154,6 +209,7 @@ namespace InnoVault.Rigs2D.Runtime
             Bones = new Bone2D[n];
             externalDriven = new bool[n];
             solverDriven = new bool[n];
+            solvedSerial = new uint[n];
             localRotation = new float[n];
             localOffset = new Vector2[n];
             hasLocalOffset = new bool[n];
@@ -182,7 +238,7 @@ namespace InnoVault.Rigs2D.Runtime
             Solvers = new Rig2DSolver[sc];
             solverRan = new bool[sc];
             for (int i = 0; i < sc; i++) {
-                Solvers[i] = CreateSolver(def.Solvers[i]);
+                Solvers[i] = CreateSolver(def.Solvers[i], i);
             }
             for (int i = 0; i < sc; i++) {
                 Solvers[i]?.PostBind();
@@ -190,18 +246,22 @@ namespace InnoVault.Rigs2D.Runtime
             SnapDistance = def?.SnapDistance ?? 340f;
             Built = false;
             hasLastRoot = false;
+            Channels.Rebuild(def);
+            BuildChannelLinks();
+            Animator?.Rebuild(def);
         }
 
-        private Rig2DSolver CreateSolver(Solver2DDef sd) {
+        private Rig2DSolver CreateSolver(Solver2DDef sd, int slot) {
             Rig2DSolver s = Rig2DSolverRegistry.Create(sd.Type);
             if (s == null) {
-                VaultMod.LoggerError($"[Rig2D:{Name}]", $"unknown solver type '{sd.Type}' for '{sd.Name}'");
+                Rig2DPlatform.LogError($"[Rig2D:{Name}]", $"unknown solver type '{sd.Type}' for '{sd.Name}'");
                 return null;
             }
+            s.Slot = slot;
             try {
                 s.Bind(this, sd);
             } catch (Exception ex) {
-                VaultMod.LoggerError($"[Rig2D:{Name}/{sd.Name}]", $"solver configure failed: {ex.Message}");
+                Rig2DPlatform.LogError($"[Rig2D:{Name}/{sd.Name}]", $"solver configure failed: {ex.Message}");
                 return null;
             }
             return s;
@@ -220,13 +280,13 @@ namespace InnoVault.Rigs2D.Runtime
                 SnapDistance = def.SnapDistance;
                 for (int i = 0; i < Solvers.Length; i++) {
                     if (Solvers[i] == null) {
-                        Solvers[i] = CreateSolver(def.Solvers[i]);
+                        Solvers[i] = CreateSolver(def.Solvers[i], i);
                         continue;
                     }
                     try {
                         Solvers[i].Bind(this, def.Solvers[i]);
                     } catch (Exception ex) {
-                        VaultMod.LoggerError($"[Rig2D:{Name}/{def.Solvers[i].Name}]", $"solver reconfigure failed: {ex.Message}");
+                        Rig2DPlatform.LogError($"[Rig2D:{Name}/{def.Solvers[i].Name}]", $"solver reconfigure failed: {ex.Message}");
                     }
                 }
                 for (int i = 0; i < Solvers.Length; i++) {
@@ -239,6 +299,9 @@ namespace InnoVault.Rigs2D.Runtime
                 for (int i = 0; i < Ribbons.Length; i++) {
                     Ribbons[i].SortKey = def.Ribbons[i].Layer;
                 }
+                Channels.Rebuild(def);
+                BuildChannelLinks();
+                Animator?.Rebuild(def);
                 ApplyBinding();
                 return;
             }
@@ -277,14 +340,14 @@ namespace InnoVault.Rigs2D.Runtime
             }
             Bound = Rig2DBinder.Apply(this, bindTarget, bindErrors);
             if (!Bound) {
-                VaultMod.LoggerError($"[Rig2D:{Name}:bind:{bindTarget.GetType().Name}]",
+                Rig2DPlatform.LogError($"[Rig2D:{Name}:bind:{bindTarget.GetType().Name}]",
                     $"binding {bindTarget.GetType().Name} to rig '{Name}' has {bindErrors.Count} problem(s): {string.Join("; ", bindErrors)}");
                 return;
             }
             try {
                 bindCallback?.Invoke(this);
             } catch (Exception ex) {
-                VaultMod.LoggerError($"[Rig2D:{Name}:bind:{bindTarget.GetType().Name}]", $"onBound callback threw: {ex}");
+                Rig2DPlatform.LogError($"[Rig2D:{Name}:bind:{bindTarget.GetType().Name}]", $"onBound callback threw: {ex}");
             }
         }
 
@@ -570,8 +633,12 @@ namespace InnoVault.Rigs2D.Runtime
                 return;
             }
             Time += dt;
+            if (Animator.Enabled && !Animator.EvaluatedSinceStep) {
+                Animator.Evaluate(dt);
+            }
             Animation.Advance(dt);
             Animation.Apply();
+            ApplyChannelBindings();
             RefreshSolverDriven();
 
             //镜像切换：先让求解器清掉带极性的迟滞量，再按需整副硬重建
@@ -586,19 +653,22 @@ namespace InnoVault.Rigs2D.Runtime
 
             float snapDist = SnapDistance * Math.Max(Scale, 0.01f);
             bool teleport = hasLastRoot && Vector2.DistanceSquared(lastRootPos, RootPosition) > snapDist * snapDist;
-            if (!Built || teleport || mirrorSnap) {
+            bool snapped = !Built || teleport || mirrorSnap;
+            if (snapped) {
                 SnapCore();
             }
             else {
                 PropagateAll(skipSolverDriven: true);
             }
             RunSolvers(dt);
+            UpdateFrameBy(snapped);
 
             Array.Clear(externalDriven);
             lastRootPos = RootPosition;
             hasLastRoot = true;
-            LastStepTick = Main.GameUpdateCount;
-            Rig2DSystem.NoteStepped(this);
+            Animator.EvaluatedSinceStep = false;
+            LastStepTick = Rig2DPlatform.Tick;
+            Rig2DPlatform.Stepped?.Invoke(this);
         }
 
         /// <summary>
@@ -617,20 +687,77 @@ namespace InnoVault.Rigs2D.Runtime
                     Solvers[i]?.OnMirrorChanged();
                 }
             }
+            ApplyChannelBindings();
             RefreshSolverDriven();
             SnapCore();
+            UpdateFrameBy(true);
             lastRootPos = RootPosition;
             hasLastRoot = true;
         }
 
+        //按角换帧：求解之后按骨角 / 相对角 / 通道值分桶选帧；迟滞防止阈值附近逐帧来回跳（硬重建时直接取当前桶）
+        private void UpdateFrameBy(bool snap) {
+            Rig2DDefinition def = Definition;
+            for (int i = 0; i < Pieces.Length; i++) {
+                Piece2DFrameBy fb = def.Pieces[i].FrameBy;
+                if (fb == null || fb.Thresholds == null || fb.Thresholds.Length == 0) {
+                    continue;
+                }
+                float v;
+                switch (fb.Source) {
+                    case Piece2DFrameSource.Channel:
+                        if (fb.ChannelIndex < 0) {
+                            continue;
+                        }
+                        v = Channels.Get(fb.ChannelIndex);
+                        break;
+                    case Piece2DFrameSource.Relative: {
+                            if (fb.BoneIndex < 0) {
+                                continue;
+                            }
+                            float refDir = fb.RefIndex >= 0 ? Bones[fb.RefIndex].Dir : RootRotation;
+                            v = MathHelper.WrapAngle(Bones[fb.BoneIndex].Dir - refDir) * MirrorSign;
+                            break;
+                        }
+                    default: {
+                            if (fb.BoneIndex < 0) {
+                                continue;
+                            }
+                            float d = Bones[fb.BoneIndex].Dir;
+                            v = MathHelper.WrapAngle(mirrored ? MathHelper.Pi - d : d);
+                            break;
+                        }
+                }
+                float[] th = fb.Thresholds;
+                int bucket = 0;
+                while (bucket < th.Length && v >= th[bucket]) {
+                    bucket++;
+                }
+                ref Piece2DState st = ref Pieces[i];
+                int cur = st.FrameBucket;
+                if (!snap && cur >= 0 && cur <= th.Length && fb.Hysteresis > 0f) {
+                    if (bucket > cur && v < th[cur] + fb.Hysteresis) {
+                        bucket = cur;
+                    }
+                    else if (bucket < cur && v >= th[cur - 1] - fb.Hysteresis) {
+                        bucket = cur;
+                    }
+                }
+                st.FrameBucket = bucket;
+                st.Frame = fb.Map != null && bucket < fb.Map.Length ? fb.Map[bucket] : bucket;
+            }
+        }
+
         private void SnapCore() {
             PropagateAll(skipSolverDriven: false);
+            stepSerial++;
             for (int i = 0; i < Solvers.Length; i++) {
                 Rig2DSolver s = Solvers[i];
                 if (s == null || !s.Enabled) {
                     MarkSolverRan(i, false);
                     continue;
                 }
+                PushSolverChannels(i);
                 s.Snap();
                 MarkSolverRan(i, true);
                 PropagateAfterSolver(s);
@@ -639,6 +766,8 @@ namespace InnoVault.Rigs2D.Runtime
         }
 
         private void RunSolvers(float dt) {
+            stepSerial++;
+            float secondaryDt = (dt > 0f ? dt : HoldSecondaryRate) * SecondaryTimeScale;
             for (int i = 0; i < Solvers.Length; i++) {
                 Rig2DSolver s = Solvers[i];
                 if (s == null || !s.Enabled) {
@@ -649,9 +778,252 @@ namespace InnoVault.Rigs2D.Runtime
                 if (i < solverRan.Length && !solverRan[i]) {
                     s.OnEnabled();
                 }
-                s.Step(dt);
+                PushSolverChannels(i);
+                s.Step(s.IsSecondary ? secondaryDt : dt);
                 MarkSolverRan(i, true);
                 PropagateAfterSolver(s);
+            }
+        }
+
+        //==================== 通道 ====================
+
+        /// <summary>
+        /// 按名取姿态库条目（全体实例共享，只读；要改先复制到自己的缓冲）。缺失 <see langword="null"/>
+        /// </summary>
+        public Rig2DPose Pose(string name) => Definition?.PoseValue(Definition.PoseIndex(name));
+
+        /// <summary>
+        /// 按索引取姿态库条目
+        /// </summary>
+        public Rig2DPose Pose(int index) => Definition?.PoseValue(index);
+
+        /// <summary>
+        /// 新建一副取通道缺省值的姿态缓冲（绑在当前定义上）
+        /// </summary>
+        public Rig2DPose NewPose() => new(Definition);
+
+        //绑定到求解器的通道：建表时让求解器认领属性名，不认得的记日志
+        private void BuildChannelLinks() {
+            int sc = Solvers.Length;
+            solverLinks = new SolverChannelLink[sc][];
+            solverPushSerial = new uint[sc];
+            if (Definition == null) {
+                return;
+            }
+            List<SolverChannelLink>[] lists = new List<SolverChannelLink>[sc];
+            List<Channel2DDef> channels = Definition.Channels;
+            for (int c = 0; c < channels.Count; c++) {
+                Channel2DBind b = channels[c].Bind;
+                if (b == null || b.Target != Channel2DTarget.Solver) {
+                    continue;
+                }
+                int si = b.TargetIndex;
+                if (si < 0 || si >= sc || Solvers[si] == null) {
+                    continue;
+                }
+                int prop = Solvers[si].ChannelProperty(b.Prop, out bool spatial);
+                if (prop < 0) {
+                    Rig2DPlatform.LogError($"[Rig2D:{Name}/{Solvers[si].Name}]",
+                        $"channel '{channels[c].Name}': solver {Solvers[si].TypeName} has no channel property '{b.Prop}'");
+                    continue;
+                }
+                (lists[si] ??= []).Add(new SolverChannelLink {
+                    Channel = c,
+                    Property = prop,
+                    Spatial = spatial || b.HasSpace,
+                });
+            }
+            for (int i = 0; i < sc; i++) {
+                solverLinks[i] = lists[i]?.ToArray();
+            }
+        }
+
+        /// <summary>
+        /// 把绑定到该求解器的通道推进去（每轮求解每个求解器只推一次）。实例在求解器解算 / 硬重建前自动调用；
+        /// 作为目标源的求解器被上游询问时也应先调它，保证拿到本帧的通道值
+        /// </summary>
+        public void PushSolverChannels(Rig2DSolver solver) {
+            if (solver != null && solver.Rig == this) {
+                PushSolverChannels(solver.Slot);
+            }
+        }
+
+        private void PushSolverChannels(int i) {
+            if ((uint)i >= (uint)solverLinks.Length || solverPushSerial[i] == stepSerial) {
+                return;
+            }
+            solverPushSerial[i] = stepSerial;
+            SolverChannelLink[] links = solverLinks[i];
+            Rig2DSolver s = Solvers[i];
+            if (links == null || s == null) {
+                return;
+            }
+            List<Channel2DDef> channels = Definition.Channels;
+            for (int k = 0; k < links.Length; k++) {
+                SolverChannelLink l = links[k];
+                Channel2DBind b = channels[l.Channel].Bind;
+                Vector2 v = Channels.GetVector(l.Channel);
+                s.SetChannel(l.Property, l.Spatial ? ResolveSpatial(b, v, l.Channel, forRoot: false) : v * b.Scale);
+            }
+        }
+
+        /// <summary>
+        /// 空间量换算：原点 + (旋转(值 × 倍率 + 偏移) × Scale + 世界偏移)；世界空间不乘 Scale、不镜像
+        /// </summary>
+        private Vector2 ResolveSpatial(Channel2DBind b, Vector2 value, int channel, bool forRoot) {
+            Vector2 local = value * b.Scale + b.Offset;
+            Vector2 extra = Channels.WorldOffset(channel);
+            if (b.Space == Channel2DSpace.World) {
+                return local + extra;
+            }
+            Vector2 origin;
+            float rot;
+            switch (b.Space) {
+                case Channel2DSpace.Root:
+                    origin = RootPosition;
+                    rot = RootRotation;
+                    break;
+                case Channel2DSpace.Bone:
+                    if (b.SpaceBoneIndex >= 0 && b.SpaceBoneIndex < Bones.Length) {
+                        origin = RestPosition(b.SpaceBoneIndex);
+                        rot = RestDirection(b.SpaceBoneIndex);
+                    }
+                    else {
+                        origin = RootPosition;
+                        rot = RootRotation;
+                    }
+                    break;
+                default:
+                    origin = hasAnchor ? anchor : (forRoot ? Vector2.Zero : RootPosition);
+                    rot = RootRotation;
+                    break;
+            }
+            Vector2 d;
+            if (b.Rotate) {
+                float y = local.Y * MirrorSign;
+                float cos = (float)Math.Cos(rot);
+                float sin = (float)Math.Sin(rot);
+                d = new Vector2(cos * local.X - sin * y, sin * local.X + cos * y);
+            }
+            else {
+                d = new Vector2(local.X * MirrorSign, local.Y);
+            }
+            return origin + (d * Scale + extra);
+        }
+
+        //骨骼 / 件 / 带 / 根：每帧在静息传播之前写（根旋转先于根位置，旋转系的根位置偏移要用本帧的根朝向）
+        private void ApplyChannelBindings() {
+            List<Channel2DDef> channels = Definition.Channels;
+            if (channels.Count == 0) {
+                return;
+            }
+            for (int pass = 0; pass < 2; pass++) {
+                for (int c = 0; c < channels.Count; c++) {
+                    Channel2DBind b = channels[c].Bind;
+                    if (b == null) {
+                        continue;
+                    }
+                    bool rootRotation = b.Target == Channel2DTarget.Root && b.PropCode == 1;
+                    if (rootRotation != (pass == 0)) {
+                        continue;
+                    }
+                    Vector2 v = Channels.GetVector(c);
+                    switch (b.Target) {
+                        case Channel2DTarget.Bone:
+                            ApplyBoneChannel(b, v);
+                            break;
+                        case Channel2DTarget.Piece:
+                            ApplyPieceChannel(b, v, channels[c].IsScalar);
+                            break;
+                        case Channel2DTarget.Ribbon:
+                            ApplyRibbonChannel(b, v);
+                            break;
+                        case Channel2DTarget.Root:
+                            if (b.PropCode == 0) {
+                                RootPosition = ResolveSpatial(b, v, c, forRoot: true);
+                            }
+                            else if (b.PropCode == 1) {
+                                RootRotation = b.Mode == Channel2DMode.Add ? b.Offset.X + v.X * b.Scale : v.X * b.Scale;
+                            }
+                            break;
+                    }
+                }
+            }
+        }
+
+        private void ApplyBoneChannel(Channel2DBind b, Vector2 v) {
+            int bone = b.TargetIndex;
+            if ((uint)bone >= (uint)Bones.Length) {
+                return;
+            }
+            Bone2DDef d = Definition.Bones[bone];
+            bool add = b.Mode == Channel2DMode.Add;
+            switch (b.PropCode) {
+                case 0:
+                    localRotation[bone] = add ? d.Rotation + v.X * b.Scale : v.X * b.Scale;
+                    break;
+                case 1:
+                    localOffset[bone] = add ? d.Offset + v * b.Scale : v * b.Scale;
+                    hasLocalOffset[bone] = true;
+                    break;
+                case 2:
+                    localLength[bone] = add ? d.Length + v.X * b.Scale : v.X * b.Scale;
+                    break;
+            }
+        }
+
+        private void ApplyPieceChannel(Channel2DBind b, Vector2 v, bool scalar) {
+            int p = b.TargetIndex;
+            if ((uint)p >= (uint)Pieces.Length) {
+                return;
+            }
+            ref Piece2DState st = ref Pieces[p];
+            float x = v.X * b.Scale;
+            switch (b.PropCode) {
+                case 0:
+                    st.Frame = (int)MathF.Round(x);
+                    break;
+                case 1:
+                    st.Visible = x >= 0.5f;
+                    break;
+                case 2:
+                    st.SortKey = x;
+                    break;
+                case 3:
+                    st.ExtraRotation = x;
+                    break;
+                case 4:
+                    st.AlphaMul = x;
+                    break;
+                case 5:
+                    st.ScaleMul = scalar ? new Vector2(x) : v * b.Scale;
+                    break;
+            }
+        }
+
+        private void ApplyRibbonChannel(Channel2DBind b, Vector2 v) {
+            int r = b.TargetIndex;
+            if ((uint)r >= (uint)Ribbons.Length) {
+                return;
+            }
+            ref Ribbon2DState st = ref Ribbons[r];
+            float x = v.X * b.Scale;
+            switch (b.PropCode) {
+                case 0:
+                    st.WidthMul = x;
+                    break;
+                case 1:
+                    st.AlphaMul = x;
+                    break;
+                case 2:
+                    st.Visible = x >= 0.5f;
+                    break;
+                case 3:
+                    st.UvOffset = x;
+                    break;
+                case 4:
+                    st.SortKey = x;
+                    break;
             }
         }
 
@@ -667,10 +1039,17 @@ namespace InnoVault.Rigs2D.Runtime
             for (int k = 0; k < driven.Length; k++) {
                 int b = driven[k];
                 if (b >= 0 && b < Bones.Length) {
+                    solvedSerial[b] = stepSerial;
                     PropagateDescendants(b);
                 }
             }
         }
+
+        /// <summary>
+        /// 本轮求解里某骨是否已被排在前面的求解器解过。多个求解器串接同一段骨链（瞄准链 → 体态）时，
+        /// 后者应从这份解续写，而不是按父骨骼重算静息把前者的结果冲掉
+        /// </summary>
+        public bool SolvedThisPass(int bone) => (uint)bone < (uint)solvedSerial.Length && stepSerial != 0 && solvedSerial[bone] == stepSerial;
 
         private void RefreshSolverDriven() {
             Array.Clear(solverDriven);

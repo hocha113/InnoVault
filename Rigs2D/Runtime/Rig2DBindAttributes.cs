@@ -68,4 +68,28 @@ namespace InnoVault.Rigs2D.Runtime
     public sealed class Rig2DSolverAttribute(params string[] names) : Rig2DBindAttribute(names)
     {
     }
+
+    /// <summary>
+    /// 通道下标绑定：成员为 <see cref="int"/>、<c>int[]</c> 或 <c>int[,]</c>（下标用于 <see cref="Rig2DChannels"/> 与 <see cref="Animation.Rig2DPose"/>）
+    /// <br/><c>[Rig2DChannel("spine1", "spine2", "neck", "head")] readonly int[] spine = new int[4];</c>
+    /// </summary>
+    public sealed class Rig2DChannelAttribute(params string[] names) : Rig2DBindAttribute(names)
+    {
+    }
+
+    /// <summary>
+    /// 姿态绑定：成员为 <see cref="int"/>（姿态库下标）或 <see cref="Animation.Rig2DPose"/>（姿态库条目，只读共享），及其一维 / 二维数组
+    /// <br/><c>[Rig2DPose("guard", "crouch")] Rig2DPose[] stances;</c>　<c>[Rig2DPose] Rig2DPose guard;</c>
+    /// </summary>
+    public sealed class Rig2DPoseAttribute(params string[] names) : Rig2DBindAttribute(names)
+    {
+    }
+
+    /// <summary>
+    /// 招式绑定：成员为 <see cref="int"/>（招式表下标）或 <see cref="Animation.Rig2DMove"/>（解析后的招式，只读共享），及其一维 / 二维数组
+    /// <br/><c>[Rig2DMove("thrust", "sweep", "chop")] readonly Rig2DMove[] combo = new Rig2DMove[3];</c>
+    /// </summary>
+    public sealed class Rig2DMoveAttribute(params string[] names) : Rig2DBindAttribute(names)
+    {
+    }
 }

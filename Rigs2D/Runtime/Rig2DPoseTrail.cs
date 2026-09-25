@@ -1,5 +1,4 @@
 using System;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Runtime
 {
@@ -93,7 +92,7 @@ namespace InnoVault.Rigs2D.Runtime
             if (rig == null || strength <= MinStrength) {
                 return null;
             }
-            uint now = Main.GameUpdateCount;
+            uint now = Rig2DPlatform.Tick;
             if (now - lastCaptureTick > GapReset) {
                 Clear();
             }

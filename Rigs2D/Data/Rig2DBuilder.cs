@@ -1,6 +1,7 @@
 using Microsoft.Xna.Framework;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
 
 namespace InnoVault.Rigs2D.Data
 {
@@ -27,6 +28,8 @@ namespace InnoVault.Rigs2D.Data
         private Solver2DDef currentSolver;
         private Piece2DDef currentPiece;
         private Ribbon2DDef currentRibbon;
+        private Channel2DDef currentChannel;
+        private Pose2DDef currentPose;
 
         /// <summary>
         /// 新建构建器
@@ -162,6 +165,36 @@ namespace InnoVault.Rigs2D.Data
         }
 
         /// <summary>
+        /// 把最近一件贴图设为关节盖件：钉在 <paramref name="bone2"/> 的近端，轴向取所挂骨与它的角平分线，按弯角放大
+        /// </summary>
+        public Rig2DBuilder JointCap(string bone2, float weight = 0.5f, float bendScale = 0f) {
+            Piece2DDef p = RequirePiece();
+            p.Bone2 = bone2;
+            p.JointWeight = weight;
+            p.BendScale = bendScale;
+            return this;
+        }
+
+        /// <summary>
+        /// 给最近一件贴图挂按角换帧（阈值升序、弧度；桶号即帧号，<paramref name="map"/> 可改映射）
+        /// </summary>
+        public Rig2DBuilder FrameBy(Piece2DFrameSource source, string boneOrChannel, float hysteresis, float[] thresholds, int[] map = null, string refBone = null) {
+            Piece2DDef p = RequirePiece();
+            float[] th = (float[])thresholds?.Clone() ?? [];
+            Array.Sort(th);
+            p.FrameBy = new Piece2DFrameBy {
+                Source = source,
+                Bone = source == Piece2DFrameSource.Channel ? null : boneOrChannel,
+                Channel = source == Piece2DFrameSource.Channel ? boneOrChannel : null,
+                Ref = refBone,
+                Thresholds = th,
+                Map = map,
+                Hysteresis = hysteresis,
+            };
+            return this;
+        }
+
+        /// <summary>
         /// 把最近一件贴图的近端改成按帧尺寸比例给（贴图尺寸定义期未知时用：<c>(0.5, 0.5)</c> 帧中心、<c>(0.5, 1)</c> 底边中点）
         /// </summary>
         public Rig2DBuilder ProximalNormalized(Vector2 uv) {
@@ -235,6 +268,39 @@ namespace InnoVault.Rigs2D.Data
         /// </summary>
         public Rig2DBuilder RibbonUnlit(bool unlit = true) {
             RequireRibbon().Unlit = unlit;
+            return this;
+        }
+
+        /// <summary>
+        /// 肢体条带：逐骨锚定 u（<paramref name="uvStops"/> 为每个关节点的 u，空 = 均分），关节斜接保体积与按折角加宽
+        /// </summary>
+        public Rig2DBuilder RibbonLimb(float[] uvStops = null, bool miter = true, float jointBulge = 0f, float miterLimit = 2.5f) {
+            Ribbon2DDef r = RequireRibbon();
+            r.Uv = Ribbon2DUv.Bone;
+            r.UvStops = uvStops ?? [];
+            r.Miter = miter;
+            r.JointBulge = jointBulge;
+            r.MiterLimit = miterLimit;
+            return this;
+        }
+
+        /// <summary>
+        /// 最近一条带状件的左右偏置剖面（−1..1，正 = 法线正向一侧更厚；镜像时自动取反）
+        /// </summary>
+        public Rig2DBuilder RibbonBias(params float[] bias) {
+            RequireRibbon().BiasProfile = bias ?? [];
+            return this;
+        }
+
+        /// <summary>
+        /// 最近一条带状件的首尾端帽（长度为 Scale 1 的像素，u 为占纹理的比例；帽段不随条带拉伸）
+        /// </summary>
+        public Rig2DBuilder RibbonCaps(float startLength, float startU, float endLength, float endU) {
+            Ribbon2DDef r = RequireRibbon();
+            r.CapStart = startLength;
+            r.CapStartU = startU;
+            r.CapEnd = endLength;
+            r.CapEndU = endU;
             return this;
         }
 
@@ -322,6 +388,167 @@ namespace InnoVault.Rigs2D.Data
         }
 
         /// <summary>
+        /// 声明一个通道，之后的 <see cref="BindBone"/> / <see cref="BindSolver"/> / <see cref="BindPiece"/> / <see cref="BindRibbon"/> / <see cref="BindRoot"/> 都绑它
+        /// </summary>
+        /// <param name="name">通道名</param>
+        /// <param name="type">值形状</param>
+        /// <param name="blend">插值方式</param>
+        /// <param name="defaultValue">缺省值（标量取 X）</param>
+        public Rig2DBuilder Channel(string name, Channel2DType type = Channel2DType.Scalar, Channel2DBlend blend = Channel2DBlend.Linear,
+            Vector2 defaultValue = default) {
+            currentChannel = new Channel2DDef {
+                Name = name,
+                Type = type,
+                Blend = blend,
+                Default = defaultValue,
+            };
+            def.Channels.Add(currentChannel);
+            return this;
+        }
+
+        /// <summary>
+        /// 把最近一个通道绑到骨骼局部量（<c>rotation</c> / <c>offset</c> / <c>length</c>）
+        /// </summary>
+        public Rig2DBuilder BindBone(string bone, string prop = "rotation", Channel2DMode mode = Channel2DMode.Add, float scale = 1f) {
+            RequireChannel().Bind = new Channel2DBind {
+                Target = Channel2DTarget.Bone,
+                Name = bone,
+                Prop = prop,
+                Mode = mode,
+                Scale = scale,
+            };
+            return this;
+        }
+
+        /// <summary>
+        /// 把最近一个通道绑到求解器属性；给了 <paramref name="space"/> 或属性本身是空间量（<c>target</c> 一类）时按空间换算成世界点
+        /// </summary>
+        public Rig2DBuilder BindSolver(string solver, string prop = "target", Channel2DSpace? space = null, string spaceBone = null,
+            Vector2 offset = default, bool rotate = false, float scale = 1f) {
+            RequireChannel().Bind = new Channel2DBind {
+                Target = Channel2DTarget.Solver,
+                Name = solver,
+                Prop = prop,
+                Space = space ?? Channel2DSpace.Anchor,
+                HasSpace = space.HasValue,
+                SpaceBone = spaceBone,
+                Offset = offset,
+                Rotate = rotate,
+                Scale = scale,
+            };
+            return this;
+        }
+
+        /// <summary>
+        /// 把最近一个通道绑到贴图件状态（<c>frame</c> / <c>visible</c> / <c>layer</c> / <c>rotation</c> / <c>alpha</c> / <c>scale</c>）
+        /// </summary>
+        public Rig2DBuilder BindPiece(string piece, string prop, float scale = 1f) {
+            RequireChannel().Bind = new Channel2DBind {
+                Target = Channel2DTarget.Piece,
+                Name = piece,
+                Prop = prop,
+                Scale = scale,
+            };
+            return this;
+        }
+
+        /// <summary>
+        /// 把最近一个通道绑到带状件状态（<c>width</c> / <c>alpha</c> / <c>visible</c> / <c>uvOffset</c> / <c>layer</c>）
+        /// </summary>
+        public Rig2DBuilder BindRibbon(string ribbon, string prop, float scale = 1f) {
+            RequireChannel().Bind = new Channel2DBind {
+                Target = Channel2DTarget.Ribbon,
+                Name = ribbon,
+                Prop = prop,
+                Scale = scale,
+            };
+            return this;
+        }
+
+        /// <summary>
+        /// 把最近一个通道绑到实例根（<c>position</c> 空间量 / <c>rotation</c>）
+        /// </summary>
+        public Rig2DBuilder BindRoot(string prop = "position", Channel2DSpace? space = null, Vector2 offset = default, float scale = 1f) {
+            RequireChannel().Bind = new Channel2DBind {
+                Target = Channel2DTarget.Root,
+                Prop = prop,
+                Space = space ?? Channel2DSpace.Anchor,
+                HasSpace = space.HasValue,
+                Offset = offset,
+                Scale = scale,
+            };
+            return this;
+        }
+
+        /// <summary>
+        /// 声明一个通道组
+        /// </summary>
+        public Rig2DBuilder ChannelGroup(string name, params string[] channels) {
+            def.ChannelGroups[name] = [.. channels];
+            return this;
+        }
+
+        /// <summary>
+        /// 声明一张姿态，之后的 <see cref="Set(string, float)"/> / <see cref="Set(string, Vector2)"/> 都写进它
+        /// </summary>
+        public Rig2DBuilder Pose(string name, string inherit = null) {
+            currentPose = new Pose2DDef {
+                Name = name,
+                Inherit = inherit,
+            };
+            def.Poses.Add(currentPose);
+            return this;
+        }
+
+        /// <summary>
+        /// 加入一个招式（段式定义，字段语义同 JSON 的 <c>moves</c>）
+        /// </summary>
+        public Rig2DBuilder Move(Move2DDef move) {
+            if (move != null) {
+                def.Moves.Add(move);
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// 往受击胶囊组 <paramref name="group"/> 里加一个胶囊（沿骨 [from, to] 段，半径为 Scale 1 的像素）
+        /// </summary>
+        public Rig2DBuilder Hitbox(string group, string bone, float radius, float from = 0f, float to = 1f) {
+            if (!def.Hitboxes.TryGetValue(group, out List<Hitbox2DDef> list)) {
+                list = [];
+                def.Hitboxes[group] = list;
+            }
+            list.Add(new Hitbox2DDef { Bone = bone, Radius = radius, From = from, To = to });
+            return this;
+        }
+
+        /// <summary>
+        /// 加入一套运动层定义（字段语义同 JSON 的 <c>gaits</c>）
+        /// </summary>
+        public Rig2DBuilder Gait(Gait2DDef gait) {
+            if (gait != null) {
+                def.Gaits.Add(gait);
+            }
+            return this;
+        }
+
+        /// <summary>
+        /// 给最近一张姿态写标量通道值
+        /// </summary>
+        public Rig2DBuilder Set(string channel, float value) {
+            RequirePose().Set(channel, value);
+            return this;
+        }
+
+        /// <summary>
+        /// 给最近一张姿态写向量通道值
+        /// </summary>
+        public Rig2DBuilder Set(string channel, Vector2 value) {
+            RequirePose().Set(channel, value);
+            return this;
+        }
+
+        /// <summary>
         /// 解析并返回定义；解析失败时抛出 <see cref="InvalidOperationException"/>（代码构建的错误应当在开发期暴露）
         /// </summary>
         public Rig2DDefinition Build() {
@@ -338,7 +565,7 @@ namespace InnoVault.Rigs2D.Data
             if (def.Resolve(out string error)) {
                 return def;
             }
-            VaultMod.LoggerError($"[Rig2DBuilder:{def.Name}]", $"definition invalid: {error}");
+            Rig2DPlatform.LogError($"[Rig2DBuilder:{def.Name}]", $"definition invalid: {error}");
             return null;
         }
 
@@ -350,5 +577,11 @@ namespace InnoVault.Rigs2D.Data
 
         private Ribbon2DDef RequireRibbon()
             => currentRibbon ?? throw new InvalidOperationException("Rig2DBuilder: call Ribbon(...) before ribbon modifiers");
+
+        private Channel2DDef RequireChannel()
+            => currentChannel ?? throw new InvalidOperationException("Rig2DBuilder: call Channel(...) before Bind*(...)");
+
+        private Pose2DDef RequirePose()
+            => currentPose ?? throw new InvalidOperationException("Rig2DBuilder: call Pose(...) before Set(...)");
     }
 }

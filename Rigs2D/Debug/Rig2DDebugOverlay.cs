@@ -24,6 +24,7 @@ namespace InnoVault.Rigs2D.Debug
         private static readonly Color jointColor = new(255, 255, 255);
         private static readonly Color pieceColor = new(255, 110, 200);
         private static readonly Color ribbonColor = new(140, 255, 170);
+        private static readonly Color hitboxColor = new(255, 90, 90);
         private static readonly List<Vector2> ribbonPath = new(128);
 
         public override bool Active => DebugSettings.Rig2DShowOverlay && !Main.gameMenu;
@@ -47,7 +48,7 @@ namespace InnoVault.Rigs2D.Debug
             return screen / Main.UIScale;
         }
 
-        private static void DrawInstance(SpriteBatch sb, Rig2DInstance rig, Func<Vector2, Vector2> toScreen) {
+        private static void DrawInstance(SpriteBatch sb, Rig2DInstance rig, Func<Vector2, Vector2> worldToScreen) {
             Rig2DDefinition def = rig.Definition;
             if (def == null || rig.Bones.Length == 0) {
                 return;
@@ -56,6 +57,9 @@ namespace InnoVault.Rigs2D.Debug
             if (Main.GameUpdateCount - rig.LastStepTick > 2u) {
                 return;
             }
+            //画布空间的骨架：先按消费方给的显示变换落到世界，再换到界面
+            Func<Vector2, Vector2> display = rig.DebugTransform;
+            Func<Vector2, Vector2> toScreen = display == null ? worldToScreen : p => worldToScreen(display(p));
 
             for (int b = 0; b < rig.Bones.Length; b++) {
                 ref Bone2D bone = ref rig.Bones[b];
@@ -104,6 +108,11 @@ namespace InnoVault.Rigs2D.Debug
                     continue;
                 }
                 solver.DebugDraw(sb, toScreen);
+            }
+
+            //受击胶囊组：胶囊轮廓上的点逐个经显示变换换算，半径随落位缩放
+            if (def.Hitboxes.Count > 0) {
+                Rig2DDebugDraw.Hitboxes(sb, rig, toScreen, hitboxColor * 0.8f);
             }
 
             Vector2 label = toScreen(rig.RootPosition) + new Vector2(8f, -22f);

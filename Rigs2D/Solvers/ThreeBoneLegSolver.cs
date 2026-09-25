@@ -3,7 +3,6 @@ using InnoVault.Rigs2D.Runtime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Solvers
 {
@@ -97,10 +96,30 @@ namespace InnoVault.Rigs2D.Solvers
         public float MaxReach { get; private set; }
 
         /// <inheritdoc/>
+        protected internal override int ChannelProperty(string prop, out bool spatial) {
+            spatial = prop is "target" or "foot";
+            return prop switch {
+                "target" or "foot" => 0,
+                "limp" => 1,
+                "jitter" => 2,
+                _ => -1,
+            };
+        }
+
+        /// <inheritdoc/>
+        protected internal override void SetChannel(int property, Vector2 value) {
+            switch (property) {
+                case 0: Foot = value; break;
+                case 1: Limp = value.X; break;
+                case 2: Jitter = value.X; break;
+            }
+        }
+
+        /// <inheritdoc/>
         protected override void Configure(Solver2DDef def) {
             valid = bones.Length >= 3 && bones[0] >= 0 && bones[1] >= 0 && bones[2] >= 0;
             if (!valid) {
-                VaultMod.LoggerError($"[Rig2D:{Rig?.Name}/{Name}]", "ThreeBoneLeg needs bones [coxa, femur, tibia]");
+                Rig2DPlatform.LogError($"[Rig2D:{Rig?.Name}/{Name}]", "ThreeBoneLeg needs bones [coxa, femur, tibia]");
             }
             coxaSwingMax = def.GetAngle("coxaSwingMax", 0.8f);
             kneeSpanMin = def.GetFloat("kneeSpanMin", 0.12f);
@@ -279,7 +298,10 @@ namespace InnoVault.Rigs2D.Solvers
             if (!valid) {
                 return;
             }
-            Texture2D px = VaultAsset.placeholder2.Value;
+            Texture2D px = Rig2DDebugDraw.Pixel;
+            if (px == null) {
+                return;
+            }
             sb.Draw(px, toScreen(ResolveFoot()), new Rectangle(0, 0, 1, 1), Color.LimeGreen, 0f, new Vector2(0.5f), 6f, SpriteEffects.None, 0f);
             Rig2DDebugDraw.Circle(sb, toScreen, Hip, MaxReach, Color.LimeGreen * 0.3f);
         }

@@ -51,6 +51,10 @@ namespace InnoVault.Rigs2D.Solvers
         /// 是否参与求解；关掉后其骨骼回到静息传播
         /// </summary>
         public bool Enabled { get; set; } = true;
+        /// <summary>
+        /// 在 <see cref="Rig2DInstance.Solvers"/> 中的槽位（同定义下标）
+        /// </summary>
+        public int Slot { get; internal set; } = -1;
 
         /// <summary>
         /// 定义里列出的骨骼索引（顺序同定义）
@@ -66,6 +70,12 @@ namespace InnoVault.Rigs2D.Solvers
         /// 本求解器会写入的骨骼；默认即 <see cref="Bones"/>。只读取骨骼、不改写的求解器（如步态）应覆写为空
         /// </summary>
         public virtual ReadOnlySpan<int> DrivenBones => bones;
+
+        /// <summary>
+        /// 是否次级运动（发、袍、绳一类柔性链）：实例按 <see cref="Rig2DInstance.SecondaryTimeScale"/> / <see cref="Rig2DInstance.HoldSecondaryRate"/>
+        /// 给它单独的步长，本体顿帧（<c>Step(0)</c>）时它可以慢速继续；缺省否
+        /// </summary>
+        public virtual bool IsSecondary => false;
 
         /// <summary>
         /// 骨架整体倍率
@@ -177,6 +187,24 @@ namespace InnoVault.Rigs2D.Solvers
         public virtual void DebugDraw(SpriteBatch sb, Func<Vector2, Vector2> toScreen) { }
 
         /// <summary>
+        /// 通道绑定：本求解器认得的通道属性号，不认得返回 <c>-1</c>（实例绑定时记日志）。
+        /// <paramref name="spatial"/> 为真表示该属性是世界点，绑定按通道的空间换算成世界坐标再交进来；否则交通道值 × 倍率
+        /// </summary>
+        /// <param name="prop">JSON 里的属性名（如 <c>target</c>）</param>
+        /// <param name="spatial">是否空间量</param>
+        protected internal virtual int ChannelProperty(string prop, out bool spatial) {
+            spatial = false;
+            return -1;
+        }
+
+        /// <summary>
+        /// 接收一个通道值：实例在本求解器每次 <see cref="Step"/> / <see cref="Snap"/> 之前调用，此刻上游骨骼与求解器都已就位
+        /// </summary>
+        /// <param name="property">属性号（来自 <see cref="ChannelProperty"/>）</param>
+        /// <param name="value">世界点或通道值（标量在 X）</param>
+        protected internal virtual void SetChannel(int property, Vector2 value) { }
+
+        /// <summary>
         /// 解析 <c>targetSolver</c> / <c>targetIndex</c> 两个参数为目标源；缺失返回 <see langword="null"/>
         /// </summary>
         protected IRig2DTargetSource ResolveTargetSource(Solver2DDef def, out int index) {
@@ -190,10 +218,10 @@ namespace InnoVault.Rigs2D.Solvers
                 return src;
             }
             if (other == null) {
-                VaultMod.LoggerError($"[Rig2D:{Rig.Name}/{Name}]", $"targetSolver '{name}' not found");
+                Rig2DPlatform.LogError($"[Rig2D:{Rig.Name}/{Name}]", $"targetSolver '{name}' not found");
             }
             else {
-                VaultMod.LoggerError($"[Rig2D:{Rig.Name}/{Name}]", $"targetSolver '{name}' is not a target source");
+                Rig2DPlatform.LogError($"[Rig2D:{Rig.Name}/{Name}]", $"targetSolver '{name}' is not a target source");
             }
             return null;
         }

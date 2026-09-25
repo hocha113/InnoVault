@@ -23,8 +23,82 @@ namespace InnoVault.Rigs2D.Data
     }
 
     /// <summary>
+    /// 按角换帧的取值来源
+    /// </summary>
+    public enum Piece2DFrameSource
+    {
+        /// <summary>
+        /// 骨的世界角（朝向系：镜像时按面向折算，0 = 朝前，正 = 顺时针 / 朝下）
+        /// </summary>
+        Angle,
+        /// <summary>
+        /// 骨相对参照骨（缺省父骨）的夹角（朝向系）
+        /// </summary>
+        Relative,
+        /// <summary>
+        /// 一条通道的标量值
+        /// </summary>
+        Channel,
+    }
+
+    /// <summary>
+    /// 按角换帧：按骨世界角、相对角或通道值分桶自动选帧，带迟滞防抖（手握 / 张、脚正侧 / 透视缩短、头三分之四侧）
+    /// <br/>分桶：取值小于第 k 个阈值即第 k 桶（阈值升序；全不小于即最后一桶）；<see cref="Map"/> 把桶号映射到帧号（缺省桶号即帧号）
+    /// </summary>
+    public sealed class Piece2DFrameBy
+    {
+        /// <summary>
+        /// 取值来源
+        /// </summary>
+        public Piece2DFrameSource Source { get; set; } = Piece2DFrameSource.Angle;
+        /// <summary>
+        /// 取角的骨（缺省件自己的骨）
+        /// </summary>
+        public string Bone { get; set; }
+        /// <summary>
+        /// 相对角的参照骨（缺省取角骨的父骨）
+        /// </summary>
+        public string Ref { get; set; }
+        /// <summary>
+        /// 通道名（<see cref="Piece2DFrameSource.Channel"/>）
+        /// </summary>
+        public string Channel { get; set; }
+        /// <summary>
+        /// 升序阈值（角度来源为弧度）
+        /// </summary>
+        public float[] Thresholds { get; set; } = [];
+        /// <summary>
+        /// 桶号 → 帧号（可空）
+        /// </summary>
+        public int[] Map { get; set; }
+        /// <summary>
+        /// 迟滞：越过阈值这么多才换桶（与阈值同单位）
+        /// </summary>
+        public float Hysteresis { get; set; }
+
+        internal int BoneIndex = -1;
+        internal int RefIndex = -1;
+        internal int ChannelIndex = -1;
+
+        /// <summary>
+        /// 深拷贝（不含解析结果）
+        /// </summary>
+        public Piece2DFrameBy Clone() => new() {
+            Source = Source,
+            Bone = Bone,
+            Ref = Ref,
+            Channel = Channel,
+            Thresholds = (float[])Thresholds?.Clone() ?? [],
+            Map = (int[])Map?.Clone(),
+            Hysteresis = Hysteresis,
+        };
+    }
+
+    /// <summary>
     /// 一件贴图的静态定义：挂在哪根骨、贴图内哪一像素钉在骨骼近端、贴图内在的骨轴角，以及层序与着色
     /// <br/>绘制公式：<c>rotation = 骨骼世界轴向 − Axis + ExtraRotation</c>；镜像时轴角取 π − Axis、锚点 x 取 宽 − x
+    /// <br/>关节盖件：给了 <see cref="Bone2"/> 时件钉在 <see cref="Bone2"/> 的近端（两骨相接的关节），轴向取两骨角平分线
+    /// （<see cref="JointWeight"/> 调偏向），可按弯曲角放大（<see cref="BendScale"/>）：肩头、肘、膝、胯的补缝统一用它
     /// </summary>
     public sealed class Piece2DDef
     {
@@ -110,11 +184,31 @@ namespace InnoVault.Rigs2D.Data
         /// <c>(0.5, 0.5)</c> = 帧中心、<c>(0.5, 1)</c> = 底边中点。镜像规则同像素锚（x 取 1 − x）
         /// </summary>
         public bool ProximalNormalized { get; set; }
+        /// <summary>
+        /// 关节盖件的第二根骨（可空）：件钉在它的近端，轴向取 <see cref="Bone"/> 与它的角平分线
+        /// </summary>
+        public string Bone2 { get; set; }
+        /// <summary>
+        /// 关节盖件的轴向偏向：0 = 随 <see cref="Bone"/>，1 = 随 <see cref="Bone2"/>，缺省 0.5 取平分线
+        /// </summary>
+        public float JointWeight { get; set; } = 0.5f;
+        /// <summary>
+        /// 关节盖件按弯曲角放大：缩放 × (1 + BendScale × 弯角 / π)
+        /// </summary>
+        public float BendScale { get; set; }
+        /// <summary>
+        /// 按角换帧（可空）
+        /// </summary>
+        public Piece2DFrameBy FrameBy { get; set; }
 
         /// <summary>
         /// 所挂骨骼索引，由 <see cref="Rig2DDefinition.Resolve"/> 填充
         /// </summary>
         public int BoneIndex { get; internal set; } = -1;
+        /// <summary>
+        /// 关节盖件第二根骨的索引（没有为 <c>-1</c>），由 <see cref="Rig2DDefinition.Resolve"/> 填充
+        /// </summary>
+        public int Bone2Index { get; internal set; } = -1;
         /// <summary>
         /// 在 <see cref="Rig2DDefinition.Pieces"/> 中的索引，由 <see cref="Rig2DDefinition.Resolve"/> 填充
         /// </summary>
@@ -158,6 +252,10 @@ namespace InnoVault.Rigs2D.Data
             Frames = Frames,
             FramePad = FramePad,
             ProximalNormalized = ProximalNormalized,
+            Bone2 = Bone2,
+            JointWeight = JointWeight,
+            BendScale = BendScale,
+            FrameBy = FrameBy?.Clone(),
         };
     }
 }
