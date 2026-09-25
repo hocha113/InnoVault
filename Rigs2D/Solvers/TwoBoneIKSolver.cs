@@ -3,7 +3,6 @@ using InnoVault.Rigs2D.Runtime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Solvers
 {
@@ -154,6 +153,14 @@ namespace InnoVault.Rigs2D.Solvers
         /// 当前骨段拉伸倍率（未开 stretch 恒为 1）
         /// </summary>
         public float StretchFactor { get; private set; } = 1f;
+        /// <summary>
+        /// 本帧实际追的腕目标（目标平滑后）
+        /// </summary>
+        public Vector2 Goal { get; private set; }
+        /// <summary>
+        /// 本帧腕与目标的距离（像素）：够不到、折叠限位或弹簧滞后时大于 0，离线检查 <c>IK_UNREACHED</c> 读它
+        /// </summary>
+        public float Error { get; private set; }
 
         /// <summary>
         /// 注入一次冲量（出拳弹出 / 后坐余摆），仅目标平滑模式有效
@@ -161,10 +168,34 @@ namespace InnoVault.Rigs2D.Solvers
         public void Impulse(Vector2 impulse) => springVel += impulse;
 
         /// <inheritdoc/>
+        protected internal override int ChannelProperty(string prop, out bool spatial) {
+            spatial = prop == "target";
+            return prop switch {
+                "target" => 0,
+                "bendScale" => 1,
+                "omega" => 2,
+                "spring" => 3,
+                "damping" => 4,
+                _ => -1,
+            };
+        }
+
+        /// <inheritdoc/>
+        protected internal override void SetChannel(int property, Vector2 value) {
+            switch (property) {
+                case 0: Target = value; break;
+                case 1: BendScale = value.X; break;
+                case 2: Omega = value.X; break;
+                case 3: Spring = value.X; break;
+                case 4: Damping = value.X; break;
+            }
+        }
+
+        /// <inheritdoc/>
         protected override void Configure(Solver2DDef def) {
             valid = bones.Length >= 2 && bones[0] >= 0 && bones[1] >= 0;
             if (!valid) {
-                VaultMod.LoggerError($"[Rig2D:{Rig?.Name}/{Name}]", "TwoBoneIK needs bones [upper, fore]");
+                Rig2DPlatform.LogError($"[Rig2D:{Rig?.Name}/{Name}]", "TwoBoneIK needs bones [upper, fore]");
             }
             smoothing = def.GetString("smoothing", "target").ToLowerInvariant() switch {
                 "none" => SmoothMode.None,
@@ -375,6 +406,8 @@ namespace InnoVault.Rigs2D.Solvers
             Wrist = wrist;
             UpperDir = upperDir;
             ForeDir = foreDir;
+            Goal = goal;
+            Error = Vector2.Distance(wrist, goal);
         }
 
         /// <inheritdoc/>
@@ -382,7 +415,10 @@ namespace InnoVault.Rigs2D.Solvers
             if (!valid) {
                 return;
             }
-            Texture2D px = VaultAsset.placeholder2.Value;
+            Texture2D px = Rig2DDebugDraw.Pixel;
+            if (px == null) {
+                return;
+            }
             Vector2 t = toScreen(ResolveWant());
             sb.Draw(px, t, new Rectangle(0, 0, 1, 1), Color.OrangeRed, 0f, new Vector2(0.5f), 6f, SpriteEffects.None, 0f);
             if (smoothing == SmoothMode.Target) {

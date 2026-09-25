@@ -19,6 +19,9 @@ namespace InnoVault.Rigs2D.Runtime
             Piece,
             Ribbon,
             Solver,
+            Channel,
+            Pose,
+            Move,
         }
 
         private enum Shape
@@ -127,7 +130,7 @@ namespace InnoVault.Rigs2D.Runtime
             try {
                 attr = member.GetCustomAttribute<Rig2DBindAttribute>(true);
             } catch (Exception ex) {
-                VaultMod.LoggerError("[Rig2D:bind]", $"cannot read bind attribute on {member.DeclaringType?.Name}.{member.Name}: {ex.Message}");
+                Rig2DPlatform.LogError("[Rig2D:bind]", $"cannot read bind attribute on {member.DeclaringType?.Name}.{member.Name}: {ex.Message}");
                 return;
             }
             if (attr == null) {
@@ -152,6 +155,15 @@ namespace InnoVault.Rigs2D.Runtime
                     break;
                 case Rig2DSolverAttribute:
                     e.Kind = Kind.Solver;
+                    break;
+                case Rig2DChannelAttribute:
+                    e.Kind = Kind.Channel;
+                    break;
+                case Rig2DPoseAttribute:
+                    e.Kind = Kind.Pose;
+                    break;
+                case Rig2DMoveAttribute:
+                    e.Kind = Kind.Move;
                     break;
                 default:
                     e.Error = $"unsupported bind attribute {attr.GetType().Name}";
@@ -186,6 +198,16 @@ namespace InnoVault.Rigs2D.Runtime
                 if (e.Kind == Kind.Solver) {
                     if (!typeof(Rig2DSolver).IsAssignableFrom(e.ElementType)) {
                         e.Error = $"[Rig2DSolver] needs a Rig2DSolver-derived member (or array of it), got {memberType.Name}";
+                    }
+                }
+                else if (e.Kind == Kind.Pose) {
+                    if (e.ElementType != typeof(int) && e.ElementType != typeof(Animation.Rig2DPose)) {
+                        e.Error = $"[Rig2DPose] needs int / Rig2DPose (or arrays of them), got {memberType.Name}";
+                    }
+                }
+                else if (e.Kind == Kind.Move) {
+                    if (e.ElementType != typeof(int) && e.ElementType != typeof(Animation.Rig2DMove)) {
+                        e.Error = $"[Rig2DMove] needs int / Rig2DMove (or arrays of them), got {memberType.Name}";
                     }
                 }
                 else if (e.ElementType != typeof(int)) {
@@ -260,6 +282,33 @@ namespace InnoVault.Rigs2D.Runtime
                     value = i;
                     if (i < 0) {
                         errors.Add($"{slot}: ribbon '{name}' not found");
+                        return false;
+                    }
+                    return true;
+                }
+                case Kind.Channel: {
+                    int i = rig.Channels.Index(name);
+                    value = i;
+                    if (i < 0) {
+                        errors.Add($"{slot}: channel '{name}' not found");
+                        return false;
+                    }
+                    return true;
+                }
+                case Kind.Pose: {
+                    int i = rig.Definition?.PoseIndex(name) ?? -1;
+                    value = e.ElementType == typeof(int) ? i : rig.Pose(i);
+                    if (i < 0) {
+                        errors.Add($"{slot}: pose '{name}' not found");
+                        return false;
+                    }
+                    return true;
+                }
+                case Kind.Move: {
+                    int i = rig.Definition?.MoveIndex(name) ?? -1;
+                    value = e.ElementType == typeof(int) ? i : rig.Definition?.MoveValue(i);
+                    if (i < 0) {
+                        errors.Add($"{slot}: move '{name}' not found");
                         return false;
                     }
                     return true;

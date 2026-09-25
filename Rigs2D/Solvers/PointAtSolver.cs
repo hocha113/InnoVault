@@ -3,7 +3,6 @@ using InnoVault.Rigs2D.Runtime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Solvers
 {
@@ -64,6 +63,19 @@ namespace InnoVault.Rigs2D.Solvers
         /// 注入一次角冲量（开火后坐 / 受击甩枪），正负决定甩向
         /// </summary>
         public void Kick(float angularImpulse) => AngularVelocity += angularImpulse;
+
+        /// <inheritdoc/>
+        protected internal override int ChannelProperty(string prop, out bool spatial) {
+            spatial = prop == "target";
+            return prop == "target" ? 0 : -1;
+        }
+
+        /// <inheritdoc/>
+        protected internal override void SetChannel(int property, Vector2 value) {
+            if (property == 0) {
+                Target = value;
+            }
+        }
 
         /// <inheritdoc/>
         protected override void Configure(Solver2DDef def) {
@@ -158,7 +170,10 @@ namespace InnoVault.Rigs2D.Solvers
 
         /// <inheritdoc/>
         public override void DebugDraw(SpriteBatch sb, Func<Vector2, Vector2> toScreen) {
-            Texture2D px = VaultAsset.placeholder2.Value;
+            Texture2D px = Rig2DDebugDraw.Pixel;
+            if (px == null) {
+                return;
+            }
             sb.Draw(px, toScreen(ResolveTarget()), new Rectangle(0, 0, 1, 1), Color.DeepSkyBlue, 0f, new Vector2(0.5f), 5f, SpriteEffects.None, 0f);
         }
     }

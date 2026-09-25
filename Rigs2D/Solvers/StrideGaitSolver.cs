@@ -3,7 +3,6 @@ using InnoVault.Rigs2D.Runtime;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
 using System;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Solvers
 {
@@ -646,7 +645,10 @@ namespace InnoVault.Rigs2D.Solvers
 
         /// <inheritdoc/>
         public override void DebugDraw(SpriteBatch sb, Func<Vector2, Vector2> toScreen) {
-            Texture2D px = VaultAsset.placeholder2.Value;
+            Texture2D px = Rig2DDebugDraw.Pixel;
+            if (px == null) {
+                return;
+            }
             for (int i = 0; i < legs.Length; i++) {
                 ref LegState leg = ref legs[i];
                 if (!leg.Inited || !leg.Visible) {

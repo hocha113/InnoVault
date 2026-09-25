@@ -72,7 +72,7 @@ namespace InnoVault.Rigs2D.Animation
         public void Play(string clipName, float fadeFrames = 0f) {
             Rig2DClip clip = Find(clipName);
             if (clip == null) {
-                VaultMod.LoggerError($"[Rig2D:{rig.Name}]", $"clip '{clipName}' not found");
+                Rig2DPlatform.LogError($"[Rig2D:{rig.Name}]", $"clip '{clipName}' not found");
                 return;
             }
             Play(clip, fadeFrames);
@@ -248,6 +248,62 @@ namespace InnoVault.Rigs2D.Animation
                     rig.SetBoneLocalLength(b, MathHelper.Lerp(bd.Length, scratchLen[b], w));
                 }
                 touchedMask[b] = m;
+            }
+            ApplyChannels(def, master, fadeScale);
+        }
+
+        private Vector2[] chanScratch = [];
+        private bool[] chanHit = [];
+
+        //通道轨：上一段铺底、当前段按淡入混过去，再按主权重 × 淡出比例混进实例当前的通道值
+        private void ApplyChannels(Rig2DDefinition def, float master, float fadeScale) {
+            bool any = (previous != null && previous.ChannelTracks.Count > 0) || (current != null && current.ChannelTracks.Count > 0);
+            if (!any) {
+                return;
+            }
+            int n = def.Channels.Count;
+            if (chanScratch.Length != n) {
+                chanScratch = new Vector2[n];
+                chanHit = new bool[n];
+            }
+            Array.Clear(chanHit);
+            if (previous != null) {
+                SampleChannels(previous, previous.WrapTime(prevTime), def, blendIn: false);
+            }
+            if (current != null) {
+                SampleChannels(current, current.WrapTime(time), def, blendIn: previous != null);
+            }
+            float w = master * fadeScale;
+            Runtime.Rig2DChannels channels = rig.Channels;
+            for (int c = 0; c < n; c++) {
+                if (!chanHit[c] || w <= 0.0001f) {
+                    continue;
+                }
+                Vector2 v = w >= 1f ? chanScratch[c] : Rig2DPose.LerpValue(def.Channels[c], channels.GetVector(c), chanScratch[c], w);
+                channels.Set(c, v);
+            }
+        }
+
+        private void SampleChannels(Rig2DClip clip, float t, Rig2DDefinition def, bool blendIn) {
+            for (int i = 0; i < clip.ChannelTracks.Count; i++) {
+                Rig2DChannelTrack track = clip.ChannelTracks[i];
+                int c = track.ChannelIndex;
+                if (c < 0 || c >= chanScratch.Length) {
+                    continue;
+                }
+                if (!track.Sample(t, def.Channels[c], out Vector2 v)) {
+                    continue;
+                }
+                if (blendIn && chanHit[c]) {
+                    chanScratch[c] = Rig2DPose.LerpValue(def.Channels[c], chanScratch[c], v, fadeT);
+                }
+                else if (blendIn) {
+                    chanScratch[c] = Rig2DPose.LerpValue(def.Channels[c], rig.Channels.GetVector(c), v, fadeT);
+                }
+                else {
+                    chanScratch[c] = v;
+                }
+                chanHit[c] = true;
             }
         }
 

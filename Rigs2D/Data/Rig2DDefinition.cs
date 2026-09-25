@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.Text;
@@ -39,6 +40,36 @@ namespace InnoVault.Rigs2D.Data
         /// 关键帧片段表（可选），运行时由 <c>Rig2DClipPlayer</c> 播放
         /// </summary>
         public List<Animation.Rig2DClip> Clips { get; } = [];
+        /// <summary>
+        /// 通道表（可选）：动画层与消费方写通道，绑定把值落到骨骼 / 求解器 / 件 / 带 / 根
+        /// </summary>
+        public List<Channel2DDef> Channels { get; } = [];
+        /// <summary>
+        /// 通道组（名 → 通道名列表）：遮罩混合、招式分节错时、动画层遮罩按组取通道
+        /// </summary>
+        public Dictionary<string, List<string>> ChannelGroups { get; } = new(StringComparer.Ordinal);
+        /// <summary>
+        /// 姿态库（可选）
+        /// </summary>
+        public List<Pose2DDef> Poses { get; } = [];
+        /// <summary>
+        /// 招式表（可选）：段式写法的动作，解析后由 <see cref="MoveValue(string)"/> 取 <see cref="Animation.Rig2DMove"/> 求值
+        /// </summary>
+        public List<Move2DDef> Moves { get; } = [];
+        /// <summary>
+        /// 运动层定义（可选）：由 <see cref="Animation.Rig2DGait"/> 按名取用
+        /// </summary>
+        public List<Gait2DDef> Gaits { get; } = [];
+        /// <summary>
+        /// 受击 / 碰撞胶囊组（可选）：组名 → 胶囊表
+        /// </summary>
+        public Dictionary<string, List<Hitbox2DDef>> Hitboxes { get; } = new(StringComparer.Ordinal);
+
+        /// <summary>
+        /// 按组名取胶囊表；缺失返回 <see langword="null"/>
+        /// </summary>
+        public List<Hitbox2DDef> HitboxGroup(string name)
+            => !string.IsNullOrEmpty(name) && Hitboxes.TryGetValue(name, out List<Hitbox2DDef> g) ? g : null;
 
         /// <summary>
         /// 父先子后的骨骼求值顺序，由 <see cref="Resolve"/> 生成
@@ -57,6 +88,78 @@ namespace InnoVault.Rigs2D.Data
         private readonly Dictionary<string, int> pieceLookup = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> solverLookup = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> ribbonLookup = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> channelLookup = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> poseLookup = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int[]> groupLookup = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> moveLookup = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> gaitLookup = new(StringComparer.Ordinal);
+        private Animation.Rig2DPose[] poseValues = [];
+        private Animation.Rig2DMove[] moveValues = [];
+
+        /// <summary>
+        /// 按名取运动层定义；缺失返回 <see langword="null"/>
+        /// </summary>
+        public Gait2DDef GaitValue(string name) {
+            if (string.IsNullOrEmpty(name)) {
+                return null;
+            }
+            return gaitLookup.TryGetValue(name, out int i) ? Gaits[i] : null;
+        }
+
+        /// <summary>
+        /// 按名查招式索引，缺失返回 <c>-1</c>
+        /// </summary>
+        public int MoveIndex(string name) {
+            if (string.IsNullOrEmpty(name)) {
+                return -1;
+            }
+            return moveLookup.TryGetValue(name, out int i) ? i : -1;
+        }
+
+        /// <summary>
+        /// 解析后的招式（全体实例共享）；越界返回 <see langword="null"/>
+        /// </summary>
+        public Animation.Rig2DMove MoveValue(int index) => (uint)index < (uint)moveValues.Length ? moveValues[index] : null;
+
+        /// <summary>
+        /// 按名取解析后的招式；缺失返回 <see langword="null"/>
+        /// </summary>
+        public Animation.Rig2DMove MoveValue(string name) => MoveValue(MoveIndex(name));
+
+        /// <summary>
+        /// 按名查通道索引，缺失返回 <c>-1</c>
+        /// </summary>
+        public int ChannelIndex(string name) {
+            if (string.IsNullOrEmpty(name)) {
+                return -1;
+            }
+            return channelLookup.TryGetValue(name, out int i) ? i : -1;
+        }
+
+        /// <summary>
+        /// 按名查姿态索引，缺失返回 <c>-1</c>
+        /// </summary>
+        public int PoseIndex(string name) {
+            if (string.IsNullOrEmpty(name)) {
+                return -1;
+            }
+            return poseLookup.TryGetValue(name, out int i) ? i : -1;
+        }
+
+        /// <summary>
+        /// 通道组的通道索引；缺失返回空数组
+        /// </summary>
+        public int[] ChannelGroup(string name) {
+            if (string.IsNullOrEmpty(name)) {
+                return [];
+            }
+            return groupLookup.TryGetValue(name, out int[] g) ? g : [];
+        }
+
+        /// <summary>
+        /// 解析后的姿态值（全体实例共享，只读使用；要改先 <see cref="Animation.Rig2DPose.CopyFrom"/> 到自己的缓冲）。越界返回 <see langword="null"/>
+        /// </summary>
+        public Animation.Rig2DPose PoseValue(int index) => (uint)index < (uint)poseValues.Length ? poseValues[index] : null;
 
         /// <summary>
         /// 按名查骨骼索引，缺失返回 <c>-1</c>
@@ -120,6 +223,13 @@ namespace InnoVault.Rigs2D.Data
             pieceLookup.Clear();
             solverLookup.Clear();
             ribbonLookup.Clear();
+            channelLookup.Clear();
+            poseLookup.Clear();
+            groupLookup.Clear();
+            moveLookup.Clear();
+            gaitLookup.Clear();
+            poseValues = [];
+            moveValues = [];
 
             if (Bones.Count == 0) {
                 Fail("no bones");
@@ -180,6 +290,21 @@ namespace InnoVault.Rigs2D.Data
                 if (p.BoneIndex < 0) {
                     Fail($"piece '{p.DisplayName}' bone '{p.Bone}' not found");
                 }
+                p.Bone2Index = string.IsNullOrEmpty(p.Bone2) ? -1 : BoneIndex(p.Bone2);
+                if (!string.IsNullOrEmpty(p.Bone2) && p.Bone2Index < 0) {
+                    Fail($"piece '{p.DisplayName}' bone2 '{p.Bone2}' not found");
+                }
+                if (p.FrameBy is Piece2DFrameBy fb) {
+                    fb.BoneIndex = string.IsNullOrEmpty(fb.Bone) ? p.BoneIndex : BoneIndex(fb.Bone);
+                    if (fb.BoneIndex < 0 && fb.Source != Piece2DFrameSource.Channel) {
+                        Fail($"piece '{p.DisplayName}' frameBy bone '{fb.Bone}' not found");
+                    }
+                    fb.RefIndex = !string.IsNullOrEmpty(fb.Ref) ? BoneIndex(fb.Ref)
+                        : fb.BoneIndex >= 0 ? Bones[fb.BoneIndex].ParentIndex : -1;
+                    if (!string.IsNullOrEmpty(fb.Ref) && fb.RefIndex < 0) {
+                        Fail($"piece '{p.DisplayName}' frameBy ref '{fb.Ref}' not found");
+                    }
+                }
                 if (p.Frames < 1) {
                     p.Frames = 1;
                 }
@@ -227,6 +352,28 @@ namespace InnoVault.Rigs2D.Data
                 }
             }
 
+            ResolveChannels(Fail);
+            foreach (Piece2DDef p in Pieces) {
+                if (p.FrameBy is { Source: Piece2DFrameSource.Channel } fb) {
+                    fb.ChannelIndex = ChannelIndex(fb.Channel);
+                    if (fb.ChannelIndex < 0) {
+                        Fail($"piece '{p.DisplayName}' frameBy channel '{fb.Channel}' not found");
+                    }
+                }
+            }
+            ResolveGroups(Fail);
+            ResolvePoses(Fail);
+            ResolveMoves(Fail);
+            ResolveGaits(Fail);
+            foreach (KeyValuePair<string, List<Hitbox2DDef>> kv in Hitboxes) {
+                foreach (Hitbox2DDef h in kv.Value) {
+                    h.BoneIndex = BoneIndex(h.Bone);
+                    if (h.BoneIndex < 0) {
+                        Fail($"hitbox group '{kv.Key}': bone '{h.Bone}' not found");
+                    }
+                }
+            }
+
             for (int i = 0; i < Clips.Count; i++) {
                 Clips[i]?.Resolve(this);
             }
@@ -234,6 +381,245 @@ namespace InnoVault.Rigs2D.Data
             error = sb?.ToString();
             Resolved = sb == null;
             return Resolved;
+        }
+
+        //属性码 = 下标（运行时按码分派，见 Rig2DInstance.ApplyChannelBindings）
+        internal static readonly string[] BoneProps = ["rotation", "offset", "length"];
+        internal static readonly string[] PieceProps = ["frame", "visible", "layer", "rotation", "alpha", "scale"];
+        internal static readonly string[] RibbonProps = ["width", "alpha", "visible", "uvOffset", "layer"];
+        internal static readonly string[] RootProps = ["position", "rotation"];
+
+        //通道：名字查表 + 绑定对象名转索引 + 属性名校验（求解器属性由求解器自己认，实例绑定时校验）
+        private void ResolveChannels(Action<string> fail) {
+            for (int i = 0; i < Channels.Count; i++) {
+                Channel2DDef c = Channels[i];
+                c.Index = i;
+                if (string.IsNullOrEmpty(c.Name)) {
+                    fail($"channel #{i} has no name");
+                    continue;
+                }
+                if (!channelLookup.TryAdd(c.Name, i)) {
+                    fail($"duplicate channel name '{c.Name}'");
+                }
+                Channel2DBind b = c.Bind;
+                if (b == null || b.Target == Channel2DTarget.None) {
+                    continue;
+                }
+                b.TargetIndex = -1;
+                b.SpaceBoneIndex = -1;
+                b.PropCode = -1;
+                switch (b.Target) {
+                    case Channel2DTarget.Bone:
+                        b.TargetIndex = BoneIndex(b.Name);
+                        if (b.TargetIndex < 0) {
+                            fail($"channel '{c.Name}' bone '{b.Name}' not found");
+                        }
+                        b.PropCode = Array.IndexOf(BoneProps, b.Prop);
+                        if (b.PropCode < 0) {
+                            fail($"channel '{c.Name}' bone prop '{b.Prop}' unknown (rotation / offset / length)");
+                        }
+                        break;
+                    case Channel2DTarget.Solver:
+                        b.TargetIndex = SolverIndex(b.Name);
+                        if (b.TargetIndex < 0) {
+                            fail($"channel '{c.Name}' solver '{b.Name}' not found");
+                        }
+                        if (string.IsNullOrEmpty(b.Prop)) {
+                            fail($"channel '{c.Name}' solver binding has no prop");
+                        }
+                        break;
+                    case Channel2DTarget.Piece:
+                        b.TargetIndex = PieceIndex(b.Name);
+                        if (b.TargetIndex < 0) {
+                            fail($"channel '{c.Name}' piece '{b.Name}' not found");
+                        }
+                        b.PropCode = Array.IndexOf(PieceProps, b.Prop);
+                        if (b.PropCode < 0) {
+                            fail($"channel '{c.Name}' piece prop '{b.Prop}' unknown (frame / visible / layer / rotation / alpha / scale)");
+                        }
+                        break;
+                    case Channel2DTarget.Ribbon:
+                        b.TargetIndex = RibbonIndex(b.Name);
+                        if (b.TargetIndex < 0) {
+                            fail($"channel '{c.Name}' ribbon '{b.Name}' not found");
+                        }
+                        b.PropCode = Array.IndexOf(RibbonProps, b.Prop);
+                        if (b.PropCode < 0) {
+                            fail($"channel '{c.Name}' ribbon prop '{b.Prop}' unknown (width / alpha / visible / uvOffset / layer)");
+                        }
+                        break;
+                    case Channel2DTarget.Root:
+                        b.PropCode = Array.IndexOf(RootProps, b.Prop);
+                        if (b.PropCode < 0) {
+                            fail($"channel '{c.Name}' root prop '{b.Prop}' unknown (position / rotation)");
+                        }
+                        break;
+                }
+                if (b.Space == Channel2DSpace.Bone) {
+                    b.SpaceBoneIndex = BoneIndex(b.SpaceBone);
+                    if (b.SpaceBoneIndex < 0) {
+                        fail($"channel '{c.Name}' space bone '{b.SpaceBone}' not found");
+                    }
+                }
+            }
+        }
+
+        private void ResolveGroups(Action<string> fail) {
+            foreach (KeyValuePair<string, List<string>> kv in ChannelGroups) {
+                List<int> idx = new(kv.Value.Count);
+                foreach (string name in kv.Value) {
+                    int i = ChannelIndex(name);
+                    if (i < 0) {
+                        fail($"channel group '{kv.Key}' channel '{name}' not found");
+                        continue;
+                    }
+                    idx.Add(i);
+                }
+                groupLookup[kv.Key] = idx.ToArray();
+            }
+        }
+
+        //姿态：继承链按需递归展开（带环检测），值表 = 通道缺省 ← 继承 ← 本表
+        private void ResolvePoses(Action<string> fail) {
+            int n = Channels.Count;
+            for (int i = 0; i < Poses.Count; i++) {
+                Pose2DDef p = Poses[i];
+                p.Index = i;
+                p.Resolved = [];
+                p.Specified = [];
+                if (string.IsNullOrEmpty(p.Name)) {
+                    fail($"pose #{i} has no name");
+                    continue;
+                }
+                if (!poseLookup.TryAdd(p.Name, i)) {
+                    fail($"duplicate pose name '{p.Name}'");
+                }
+            }
+            int[] state = new int[Poses.Count];
+            for (int i = 0; i < Poses.Count; i++) {
+                ResolvePose(i, n, state, fail);
+            }
+            poseValues = new Animation.Rig2DPose[Poses.Count];
+            for (int i = 0; i < Poses.Count; i++) {
+                Animation.Rig2DPose value = new(this);
+                Vector2[] resolved = Poses[i].Resolved;
+                if (resolved.Length == n) {
+                    Array.Copy(resolved, value.Values, n);
+                }
+                poseValues[i] = value;
+            }
+        }
+
+        //state：0 未访问 / 1 展开中 / 2 已完成
+        private void ResolvePose(int i, int n, int[] state, Action<string> fail) {
+            if (state[i] == 2) {
+                return;
+            }
+            Pose2DDef p = Poses[i];
+            if (state[i] == 1) {
+                fail($"pose '{p.Name}' inherits itself through a cycle");
+                p.Resolved = Defaults(n);
+                p.Specified = new bool[n];
+                state[i] = 2;
+                return;
+            }
+            state[i] = 1;
+            Vector2[] values;
+            bool[] specified;
+            if (!string.IsNullOrEmpty(p.Inherit)) {
+                int parent = PoseIndex(p.Inherit);
+                if (parent < 0) {
+                    fail($"pose '{p.Name}' inherits unknown pose '{p.Inherit}'");
+                    values = Defaults(n);
+                    specified = new bool[n];
+                }
+                else {
+                    ResolvePose(parent, n, state, fail);
+                    values = (Vector2[])Poses[parent].Resolved.Clone();
+                    specified = (bool[])Poses[parent].Specified.Clone();
+                    if (values.Length != n) {
+                        values = Defaults(n);
+                        specified = new bool[n];
+                    }
+                }
+            }
+            else {
+                values = Defaults(n);
+                specified = new bool[n];
+            }
+            foreach (KeyValuePair<string, Vector2> kv in p.Values) {
+                int c = ChannelIndex(kv.Key);
+                if (c < 0) {
+                    fail($"pose '{p.Name}' channel '{kv.Key}' not found");
+                    continue;
+                }
+                values[c] = kv.Value;
+                specified[c] = true;
+            }
+            p.Resolved = values;
+            p.Specified = specified;
+            state[i] = 2;
+        }
+
+        private void ResolveMoves(Action<string> fail) {
+            moveValues = new Animation.Rig2DMove[Moves.Count];
+            for (int i = 0; i < Moves.Count; i++) {
+                Move2DDef m = Moves[i];
+                if (string.IsNullOrEmpty(m.Name)) {
+                    fail($"move #{i} has no name");
+                    continue;
+                }
+                if (!moveLookup.TryAdd(m.Name, i)) {
+                    fail($"duplicate move name '{m.Name}'");
+                }
+                moveValues[i] = Animation.Rig2DMove.Build(this, m, fail);
+            }
+        }
+
+        private void ResolveGaits(Action<string> fail) {
+            for (int i = 0; i < Gaits.Count; i++) {
+                Gait2DDef g = Gaits[i];
+                if (string.IsNullOrEmpty(g.Name)) {
+                    fail($"gait #{i} has no name");
+                    continue;
+                }
+                if (!gaitLookup.TryAdd(g.Name, i)) {
+                    fail($"duplicate gait name '{g.Name}'");
+                }
+                foreach (Gait2DLeg leg in g.Legs) {
+                    leg.ChannelIndex = ChannelIndex(leg.Channel);
+                    if (leg.ChannelIndex < 0) {
+                        fail($"gait '{g.Name}': leg channel '{leg.Channel}' not found");
+                    }
+                    else if (Channels[leg.ChannelIndex].IsScalar) {
+                        fail($"gait '{g.Name}': leg channel '{leg.Channel}' must be a vector channel");
+                        leg.ChannelIndex = -1;
+                    }
+                    leg.AngleIndex = string.IsNullOrEmpty(leg.Angle) ? -1 : ChannelIndex(leg.Angle);
+                    if (!string.IsNullOrEmpty(leg.Angle) && leg.AngleIndex < 0) {
+                        fail($"gait '{g.Name}': angle channel '{leg.Angle}' not found");
+                    }
+                }
+                g.HipIndex = string.IsNullOrEmpty(g.Hip) ? -1 : ChannelIndex(g.Hip);
+                if (!string.IsNullOrEmpty(g.Hip) && g.HipIndex < 0) {
+                    fail($"gait '{g.Name}': hip channel '{g.Hip}' not found");
+                }
+                g.TiltIndex = string.IsNullOrEmpty(g.Tilt) ? -1 : ChannelIndex(g.Tilt);
+                if (!string.IsNullOrEmpty(g.Tilt) && g.TiltIndex < 0) {
+                    fail($"gait '{g.Name}': tilt channel '{g.Tilt}' not found");
+                }
+                if (g.Modes.Count == 0) {
+                    fail($"gait '{g.Name}' has no modes");
+                }
+            }
+        }
+
+        private Vector2[] Defaults(int n) {
+            Vector2[] v = new Vector2[n];
+            for (int i = 0; i < n; i++) {
+                v[i] = Channels[i].Default;
+            }
+            return v;
         }
 
         //深度优先：所有根依序入栈，弹出即输出，保证父总在子之前；孤立/异常节点按自然序补齐
@@ -325,6 +711,28 @@ namespace InnoVault.Rigs2D.Data
                 if (clip != null) {
                     c.Clips.Add(clip.Clone());
                 }
+            }
+            foreach (Channel2DDef ch in Channels) {
+                c.Channels.Add(ch.Clone());
+            }
+            foreach (KeyValuePair<string, List<string>> kv in ChannelGroups) {
+                c.ChannelGroups[kv.Key] = [.. kv.Value];
+            }
+            foreach (Pose2DDef p in Poses) {
+                c.Poses.Add(p.Clone());
+            }
+            foreach (Move2DDef m in Moves) {
+                c.Moves.Add(m.Clone());
+            }
+            foreach (Gait2DDef g in Gaits) {
+                c.Gaits.Add(g.Clone());
+            }
+            foreach (KeyValuePair<string, List<Hitbox2DDef>> kv in Hitboxes) {
+                List<Hitbox2DDef> list = [];
+                foreach (Hitbox2DDef h in kv.Value) {
+                    list.Add(h.Clone());
+                }
+                c.Hitboxes[kv.Key] = list;
             }
             return c;
         }

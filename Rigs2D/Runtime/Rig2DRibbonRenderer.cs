@@ -1,10 +1,8 @@
 using InnoVault.Rigs2D.Data;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using ReLogic.Content;
 using System;
 using System.Collections.Generic;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Runtime
 {
@@ -22,7 +20,9 @@ namespace InnoVault.Rigs2D.Runtime
         private static readonly List<Vector2> jointScratch = new(32);
         private static readonly List<Vector2> pathScratch = new(128);
         private static readonly List<float> lengthScratch = new(128);
-        private static ColoredVertex[] vertexScratch = new ColoredVertex[128];
+        private static readonly List<float> jointParamScratch = new(128);
+        private static readonly List<float> uvScratch = new(128);
+        private static Rig2DVertex[] vertexScratch = new Rig2DVertex[128];
         private static short[] indexScratch = new short[384];
         /// <summary>条带三角形不分正反面，必须关剔除；舞台裁剪（ScissorTestEnable）却要保留，所以缓存一份"CullNone + 裁剪开"的光栅态</summary>
         private static RasterizerState cullNoneScissor;
@@ -55,7 +55,7 @@ namespace InnoVault.Rigs2D.Runtime
             if (sb == null || rig == null || rig.Definition == null || bones == null || ctx.Alpha <= 0.001f || indices.Length == 0) {
                 return;
             }
-            GraphicsDevice gd = Main.instance.GraphicsDevice;
+            GraphicsDevice gd = sb.GraphicsDevice;
             bool opened = false;
             BlendState curBlend = null;
             SamplerState curSampler = null;
@@ -100,8 +100,15 @@ namespace InnoVault.Rigs2D.Runtime
         /// 取一条带状件本帧的中心路径（世界坐标；关节点 + 可选尖端 + Catmull-Rom 细分），调试叠层与消费方判定复用
         /// </summary>
         /// <returns>路径点数（少于 2 表示画不出条带）</returns>
-        public static int BuildPath(Rig2DInstance rig, Ribbon2DDef def, Bone2D[] bones, List<Vector2> path) {
+        public static int BuildPath(Rig2DInstance rig, Ribbon2DDef def, Bone2D[] bones, List<Vector2> path) => BuildPath(rig, def, bones, path, null);
+
+        /// <summary>
+        /// 同 <see cref="BuildPath(Rig2DInstance, Ribbon2DDef, Bone2D[], List{Vector2})"/>，另给每个路径点的关节参数
+        /// （第 i 个关节点为 i，细分点为 i + 段内比例），逐骨锚定 u 用
+        /// </summary>
+        internal static int BuildPath(Rig2DInstance rig, Ribbon2DDef def, Bone2D[] bones, List<Vector2> path, List<float> joints) {
             path.Clear();
+            joints?.Clear();
             if (rig == null || def == null || bones == null) {
                 return 0;
             }
@@ -126,6 +133,11 @@ namespace InnoVault.Rigs2D.Runtime
             }
             if (def.Smooth <= 0 || n < 3) {
                 path.AddRange(jointScratch);
+                if (joints != null) {
+                    for (int k = 0; k < n; k++) {
+                        joints.Add(k);
+                    }
+                }
                 return path.Count;
             }
             //Catmull-Rom：端点复用自身作为虚拟控制点
@@ -136,6 +148,7 @@ namespace InnoVault.Rigs2D.Runtime
                 Vector2 p2 = jointScratch[i + 1];
                 Vector2 p3 = jointScratch[Math.Min(i + 2, n - 1)];
                 path.Add(p1);
+                joints?.Add(i);
                 for (int s = 1; s <= sub; s++) {
                     float t = s / (float)(sub + 1);
                     float t2 = t * t;
@@ -145,9 +158,11 @@ namespace InnoVault.Rigs2D.Runtime
                         + (2f * p0 - 5f * p1 + 4f * p2 - p3) * t2
                         + (-p0 + 3f * p1 - 3f * p2 + p3) * t3);
                     path.Add(q);
+                    joints?.Add(i + t);
                 }
             }
             path.Add(jointScratch[n - 1]);
+            joints?.Add(n - 1);
             return path.Count;
         }
 
@@ -157,10 +172,10 @@ namespace InnoVault.Rigs2D.Runtime
         public static Color RibbonColor(Ribbon2DDef def, in Ribbon2DState st, Vector2 world, in Rig2DDrawContext ctx) {
             Color c = def.Unlit ? ctx.UnlitAt() : ctx.LightAt(world);
             if (def.Tint != Color.White) {
-                c = c.MultiplyRGBA(def.Tint);
+                c = Rig2DMath.MultiplyRGBA(c, def.Tint);
             }
             if (st.TintMul != Color.White) {
-                c = c.MultiplyRGBA(st.TintMul);
+                c = Rig2DMath.MultiplyRGBA(c, st.TintMul);
             }
             float dark = def.Dark * st.DarkMul;
             if (dark != 1f) {
@@ -177,8 +192,9 @@ namespace InnoVault.Rigs2D.Runtime
             out int vertexCount, out int indexCount) {
             vertexCount = 0;
             indexCount = 0;
-            int m = BuildPath(rig, def, bones, pathScratch);
-            if (m < 2 || m > short.MaxValue / 2) {
+            bool boneUv = def.Uv == Ribbon2DUv.Bone;
+            int m = BuildPath(rig, def, bones, pathScratch, boneUv ? jointParamScratch : null);
+            if (m < 2 || m > short.MaxValue / 2 - 2) {
                 return false;
             }
             //累计弧长
@@ -193,30 +209,88 @@ namespace InnoVault.Rigs2D.Runtime
                 return false;
             }
 
+            float scale = Math.Max(rig.Scale, 0.001f);
+            float tileLen = Math.Max(def.TileLength * scale, 0.001f);
+            int jointCount = boneUv ? (int)MathF.Round(jointParamScratch[m - 1]) + 1 : 0;
+
+            //端帽：帽边界插一个点，帽段里 u 按定长映射，中段再把原映射压进剩下的 u 区间
+            float capS = 0f, capE = 0f;
+            if (def.Uv != Ribbon2DUv.Tile) {
+                capS = def.CapStart > 0f && def.CapStartU > 0f ? def.CapStart * scale : 0f;
+                capE = def.CapEnd > 0f && def.CapEndU > 0f ? def.CapEnd * scale : 0f;
+                float sum = capS + capE;
+                if (sum > total * 0.9f) {
+                    float k = total * 0.9f / sum;
+                    capS *= k;
+                    capE *= k;
+                }
+                if (capS > 0f) {
+                    InsertAtLength(capS, boneUv);
+                }
+                if (capE > 0f) {
+                    InsertAtLength(total - capE, boneUv);
+                }
+                m = pathScratch.Count;
+            }
+
+            uvScratch.Clear();
+            for (int k = 0; k < m; k++) {
+                float s = lengthScratch[k];
+                uvScratch.Add(def.Uv switch {
+                    Ribbon2DUv.Tile => s / tileLen,
+                    Ribbon2DUv.Bone => JointU(def, jointParamScratch[k], jointCount),
+                    _ => s / total,
+                });
+            }
+            if (capS > 0f || capE > 0f) {
+                float uA = capS > 0f ? UvAtLength(capS, m) : uvScratch[0];
+                float uB = capE > 0f ? UvAtLength(total - capE, m) : uvScratch[m - 1];
+                float lo = capS > 0f ? def.CapStartU : uA;
+                float hi = capE > 0f ? 1f - def.CapEndU : uB;
+                float span = uB - uA;
+                for (int k = 0; k < m; k++) {
+                    float s = lengthScratch[k];
+                    float u;
+                    if (capS > 0f && s <= capS + 0.001f) {
+                        u = def.CapStartU * (s / capS);
+                    }
+                    else if (capE > 0f && s >= total - capE - 0.001f) {
+                        u = 1f - def.CapEndU * ((total - s) / capE);
+                    }
+                    else {
+                        u = MathHelper.Lerp(lo, hi, MathF.Abs(span) > 1e-6f ? (uvScratch[k] - uA) / span : 0f);
+                    }
+                    uvScratch[k] = u;
+                }
+            }
+
             vertexCount = m * 2;
             indexCount = (m - 1) * 6;
             if (vertexScratch.Length < vertexCount) {
-                vertexScratch = new ColoredVertex[Math.Max(vertexCount, vertexScratch.Length * 2)];
+                vertexScratch = new Rig2DVertex[Math.Max(vertexCount, vertexScratch.Length * 2)];
             }
             if (indexScratch.Length < indexCount) {
                 indexScratch = new short[Math.Max(indexCount, indexScratch.Length * 2)];
             }
 
-            float scale = Math.Max(rig.Scale, 0.001f);
-            float tileLen = Math.Max(def.TileLength * scale, 0.001f);
+            bool shaped = def.Miter || def.JointBulge != 0f;
+            float mirror = rig.MirrorSign;
             for (int k = 0; k < m; k++) {
                 Vector2 p = pathScratch[k];
                 Vector2 tangent = Tangent(k, m);
                 Vector2 normal = new(-tangent.Y, tangent.X);
                 float t = lengthScratch[k] / total;
                 float half = def.WidthAt(t) * 0.5f * scale * st.WidthMul;
-                float u = def.Uv == Ribbon2DUv.Tile ? lengthScratch[k] / tileLen : t;
-                u += st.UvOffset;
+                if (shaped && k > 0 && k < m - 1) {
+                    half *= JointFactor(def, k);
+                }
+                float bias = def.BiasAt(t) * mirror;
+                float u = uvScratch[k] + st.UvOffset;
                 Color color = RibbonColor(def, in st, p, in ctx);
-                Vector2 left = p - normal * half - ctx.ViewOffset;
-                Vector2 right = p + normal * half - ctx.ViewOffset;
-                vertexScratch[k * 2] = new ColoredVertex(left, color, new Vector3(u, 0f, 1f));
-                vertexScratch[k * 2 + 1] = new ColoredVertex(right, color, new Vector3(u, 1f, 1f));
+                Vector2 left = p - normal * (half * (1f - bias)) - ctx.ViewOffset;
+                Vector2 right = p + normal * (half * (1f + bias)) - ctx.ViewOffset;
+                vertexScratch[k * 2] = new Rig2DVertex(left, color, new Vector3(u, 0f, 1f));
+                vertexScratch[k * 2 + 1] = new Rig2DVertex(right, color, new Vector3(u, 1f, 1f));
             }
             for (int k = 0; k < m - 1; k++) {
                 int vi = k * 2;
@@ -231,14 +305,74 @@ namespace InnoVault.Rigs2D.Runtime
             return true;
         }
 
+        //在弧长 s 处插一个路径点（已有点时不插）：端帽边界必须落在顶点上，帽段 u 才是严格定长映射
+        private static void InsertAtLength(float s, bool boneUv) {
+            for (int k = 0; k < lengthScratch.Count - 1; k++) {
+                float a = lengthScratch[k];
+                float b = lengthScratch[k + 1];
+                if (MathF.Abs(s - a) < 0.01f || MathF.Abs(s - b) < 0.01f) {
+                    return;
+                }
+                if (s > a && s < b) {
+                    float f = (s - a) / (b - a);
+                    pathScratch.Insert(k + 1, Vector2.Lerp(pathScratch[k], pathScratch[k + 1], f));
+                    lengthScratch.Insert(k + 1, s);
+                    if (boneUv) {
+                        jointParamScratch.Insert(k + 1, MathHelper.Lerp(jointParamScratch[k], jointParamScratch[k + 1], f));
+                    }
+                    return;
+                }
+            }
+        }
+
+        private static float UvAtLength(float s, int m) {
+            for (int k = 0; k < m; k++) {
+                if (MathF.Abs(lengthScratch[k] - s) < 0.02f) {
+                    return uvScratch[k];
+                }
+                if (k < m - 1 && s > lengthScratch[k] && s < lengthScratch[k + 1]) {
+                    float f = (s - lengthScratch[k]) / (lengthScratch[k + 1] - lengthScratch[k]);
+                    return MathHelper.Lerp(uvScratch[k], uvScratch[k + 1], f);
+                }
+            }
+            return uvScratch[m - 1];
+        }
+
+        //逐骨锚定：第 i 个关节点取 UvStops[i]（不够时均分），细分点在相邻两站之间线性插
+        private static float JointU(Ribbon2DDef def, float j, int count) {
+            float[] stops = def.UvStops;
+            if (stops != null && count > 0 && stops.Length >= count) {
+                int a = Math.Clamp((int)MathF.Floor(j), 0, count - 1);
+                int b = Math.Min(a + 1, count - 1);
+                return MathHelper.Lerp(stops[a], stops[b], j - a);
+            }
+            return count > 1 ? j / (count - 1) : 0f;
+        }
+
+        //转角处的半宽系数：斜接 1 / cos(折角 / 2)（封顶 MiterLimit）× 关节加宽
+        private static float JointFactor(Ribbon2DDef def, int k) {
+            Vector2 d1 = Rig2DMath.SafeNormalize(pathScratch[k] - pathScratch[k - 1], Vector2.Zero);
+            Vector2 d2 = Rig2DMath.SafeNormalize(pathScratch[k + 1] - pathScratch[k], Vector2.Zero);
+            float theta = MathF.Acos(MathHelper.Clamp(Vector2.Dot(d1, d2), -1f, 1f));
+            float f = 1f;
+            if (def.Miter) {
+                float c = MathF.Cos(theta * 0.5f);
+                f = MathF.Min(1f / MathF.Max(c, 1e-4f), MathF.Max(def.MiterLimit, 1f));
+            }
+            if (def.JointBulge != 0f) {
+                f *= 1f + def.JointBulge * theta / MathHelper.Pi;
+            }
+            return f;
+        }
+
         //关节处取相邻两段切向的平均，条带在转角处不会自交出楔口
         private static Vector2 Tangent(int k, int m) {
             Vector2 t = Vector2.Zero;
             if (k > 0) {
-                t += Utils.SafeNormalize(pathScratch[k] - pathScratch[k - 1], Vector2.Zero);
+                t += Rig2DMath.SafeNormalize(pathScratch[k] - pathScratch[k - 1], Vector2.Zero);
             }
             if (k < m - 1) {
-                t += Utils.SafeNormalize(pathScratch[k + 1] - pathScratch[k], Vector2.Zero);
+                t += Rig2DMath.SafeNormalize(pathScratch[k + 1] - pathScratch[k], Vector2.Zero);
             }
             if (t.LengthSquared() < 0.0001f) {
                 //前后两段反向折死：退回单段切向
@@ -262,11 +396,7 @@ namespace InnoVault.Rigs2D.Runtime
             if (st.TextureOverride != null) {
                 return st.TextureOverride.Value;
             }
-            Asset<Texture2D>[] textures = rig.Asset?.RibbonTextures;
-            if (textures == null || ribbonIndex >= textures.Length) {
-                return null;
-            }
-            return textures[ribbonIndex]?.Value;
+            return rig.Asset?.RibbonTexture(ribbonIndex);
         }
 
         /// <summary>
@@ -275,10 +405,10 @@ namespace InnoVault.Rigs2D.Runtime
         internal static void Unload() {
             RasterizerState state = cullNoneScissor;
             cullNoneScissor = null;
-            if (state == null || Main.dedServ) {
+            if (state == null || Rig2DPlatform.IsServer) {
                 return;
             }
-            Main.QueueMainThreadAction(state.Dispose);
+            Rig2DPlatform.QueueMainThread(state.Dispose);
         }
 
         //关剔除但沿用调用方光栅态的裁剪开关：Stage(..., scissor) 的条带不得画出舞台裁剪框

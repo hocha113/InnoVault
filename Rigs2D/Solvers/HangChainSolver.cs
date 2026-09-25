@@ -53,6 +53,24 @@ namespace InnoVault.Rigs2D.Solvers
         public Vector2 Joint(int j) => j >= 0 && j < joints.Length ? joints[j] : Mount;
 
         /// <inheritdoc/>
+        protected internal override int ChannelProperty(string prop, out bool spatial) {
+            spatial = prop == "target";
+            return prop switch {
+                "target" => 0,
+                "vibrate" => 1,
+                _ => -1,
+            };
+        }
+
+        /// <inheritdoc/>
+        protected internal override void SetChannel(int property, Vector2 value) {
+            switch (property) {
+                case 0: Target = value; break;
+                case 1: Vibrate = value.X; break;
+            }
+        }
+
+        /// <inheritdoc/>
         protected override void Configure(Solver2DDef def) {
             int n = bones.Length;
             valid = n >= 1;
@@ -60,7 +78,7 @@ namespace InnoVault.Rigs2D.Solvers
                 valid = bones[i] >= 0;
             }
             if (!valid) {
-                VaultMod.LoggerError($"[Rig2D:{Rig?.Name}/{Name}]", "HangChain needs at least one bone [link1 … linkN]");
+                Rig2DPlatform.LogError($"[Rig2D:{Rig?.Name}/{Name}]", "HangChain needs at least one bone [link1 … linkN]");
                 return;
             }
             restLength = def.GetFloat("restLength", 0f);
@@ -128,7 +146,10 @@ namespace InnoVault.Rigs2D.Solvers
             if (!valid) {
                 return;
             }
-            Texture2D px = VaultAsset.placeholder2.Value;
+            Texture2D px = Rig2DDebugDraw.Pixel;
+            if (px == null) {
+                return;
+            }
             for (int j = 0; j < joints.Length; j++) {
                 sb.Draw(px, toScreen(joints[j]), new Rectangle(0, 0, 1, 1), Color.SkyBlue, 0f, new Vector2(0.5f), 4f, SpriteEffects.None, 0f);
             }

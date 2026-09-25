@@ -128,6 +128,28 @@ namespace InnoVault.Rigs2D.Runtime
         }
 
         /// <inheritdoc/>
+        public override void Load() {
+            if (!Main.dedServ) {
+                Main.OnPreDraw += CaptureCanvases;
+            }
+        }
+
+        //画布在当帧任何绘制之前统一拍：没有中途换 RT 的备份还原开销，姿态与位置同帧
+        private static void CaptureCanvases(Microsoft.Xna.Framework.GameTime _) {
+            if (Main.gameMenu || Rig2DCanvas.LiveCount == 0) {
+                return;
+            }
+            Rig2DCanvas.CaptureAll(Main.instance.GraphicsDevice, Main.spriteBatch);
+        }
+
+        /// <inheritdoc/>
+        public override void ClearWorld() {
+            if (!Main.dedServ) {
+                Rig2DCanvas.ReleaseAll();
+            }
+        }
+
+        /// <inheritdoc/>
         public override void PreUpdateEntities() {
             stepped.Clear();
             steppedSet.Clear();
@@ -187,6 +209,10 @@ namespace InnoVault.Rigs2D.Runtime
 
         /// <inheritdoc/>
         public override void Unload() {
+            if (!Main.dedServ) {
+                Main.OnPreDraw -= CaptureCanvases;
+                Rig2DCanvas.ReleaseAll();
+            }
             watches.Clear();
             stepped.Clear();
             steppedSet.Clear();

@@ -2,7 +2,6 @@ using InnoVault.Rigs2D.Data;
 using InnoVault.Rigs2D.Runtime;
 using Microsoft.Xna.Framework;
 using System;
-using Terraria;
 
 namespace InnoVault.Rigs2D.Solvers
 {
@@ -15,9 +14,28 @@ namespace InnoVault.Rigs2D.Solvers
     /// <c>fitLength</c> false（末端钉住时每节静息长改为 锚–末端距离 × <c>fitFactor</c> 1 / 节数，绳永远刚好跨满两端）
     /// <br/>稳定性：<c>substeps</c> 1（每帧积分次数；锚点与末端在上帧值与本帧值之间插值，高速宿主下防抽长）、
     /// <c>tileCollide</c> false（质点撞实心物块时截掉进入方向的位移）
+    /// <br/>骨骼碰撞体：<c>colliders</c>（受击组名、组名数组，或 [{ <c>bone</c>, <c>radius</c>, <c>from</c>, <c>to</c> }]）：每轮约束后把质点推出胶囊
+    /// （弓步时袍片被大腿顶起、长发搭在肩上），确定性；碰撞骨须在本求解器之前解好（声明顺序在前）
+    /// <br/>锚点惯性：<c>inertia</c> 0（按锚点加速度给质点反向冲量，越靠末端越大，锚点急停急起时自动甩尾，少写手动 <see cref="Nudge"/>）、
+    /// <c>inertiaMax</c> 24（单帧加速度封顶，像素，乘 Scale）
+    /// <br/>时间：属次级运动（<see cref="IsSecondary"/>），步长取实例的次级步长；步长 ≤ 0 时定格（顿帧）；步长变化时速度项按步长比缩放
     /// </summary>
     public sealed class VerletStrandSolver : Rig2DSolver
     {
+        private struct Collider
+        {
+            public int Bone;
+            public float Radius;
+            public float From;
+            public float To;
+        }
+
+        private Collider[] colliders = [];
+        private float inertia;
+        private float inertiaMax;
+        private Vector2 prevAnchorVel;
+        private bool hasPrevVel;
+        private float lastSubDt;
         private float paramGravity;
         private float paramDamping;
         private int iterations;
@@ -71,6 +89,17 @@ namespace InnoVault.Rigs2D.Solvers
         /// </summary>
         public float LengthScale { get; set; } = 1f;
         /// <summary>
+        /// 锚点惯性覆盖（NaN 用参数）
+        /// </summary>
+        public float Inertia { get; set; } = float.NaN;
+        /// <summary>
+        /// 碰撞胶囊数
+        /// </summary>
+        public int ColliderCount => colliders.Length;
+
+        /// <inheritdoc/>
+        public override bool IsSecondary => true;
+        /// <summary>
         /// 本帧生效的末端钉住点（含 <c>pinEnd</c> 的静息尖端回落），无则 <see langword="null"/>
         /// </summary>
         public Vector2? PinnedEnd { get; private set; }
@@ -86,6 +115,32 @@ namespace InnoVault.Rigs2D.Solvers
         /// 末端质点
         /// </summary>
         public Vector2 Tip => pos.Length > 0 ? pos[^1] : Vector2.Zero;
+
+        /// <inheritdoc/>
+        protected internal override int ChannelProperty(string prop, out bool spatial) {
+            spatial = prop == "end";
+            return prop switch {
+                "end" => 0,
+                "gravity" => 1,
+                "swayGain" => 2,
+                "lengthScale" => 3,
+                "damping" => 4,
+                "inertia" => 5,
+                _ => -1,
+            };
+        }
+
+        /// <inheritdoc/>
+        protected internal override void SetChannel(int property, Vector2 value) {
+            switch (property) {
+                case 0: EndTarget = value; break;
+                case 1: Gravity = value.X; break;
+                case 2: SwayGain = value.X; break;
+                case 3: LengthScale = value.X; break;
+                case 4: Damping = value.X; break;
+                case 5: Inertia = value.X; break;
+            }
+        }
 
         /// <inheritdoc/>
         protected override void Configure(Solver2DDef def) {
@@ -113,6 +168,9 @@ namespace InnoVault.Rigs2D.Solvers
             fitFactor = def.GetFloat("fitFactor", 1f);
             substeps = Math.Max(def.GetInt("substeps", 1), 1);
             tileCollide = def.GetBool("tileCollide", false);
+            inertia = def.GetFloat("inertia", 0f);
+            inertiaMax = def.GetFloat("inertiaMax", 24f);
+            colliders = ResolveColliders(def);
             int n = bones.Length + 1;
             if (pos.Length != n) {
                 pos = new Vector2[n];
@@ -120,6 +178,48 @@ namespace InnoVault.Rigs2D.Solvers
                 warmed = false;
                 hasPrev = false;
             }
+        }
+
+        //colliders：组名 / 组名数组 / 胶囊对象，可混写
+        private Collider[] ResolveColliders(Solver2DDef def) {
+            Newtonsoft.Json.Linq.JToken token = def.Params?["colliders"];
+            if (token == null || Rig?.Definition == null) {
+                return [];
+            }
+            System.Collections.Generic.List<Collider> list = [];
+            void AddGroup(string name) {
+                System.Collections.Generic.List<Hitbox2DDef> group = Rig.Definition.HitboxGroup(name);
+                if (group == null) {
+                    Rig2DPlatform.LogError($"[Rig2D:{Rig.Name}/{Name}]", $"collider group '{name}' not found");
+                    return;
+                }
+                foreach (Hitbox2DDef h in group) {
+                    list.Add(new Collider { Bone = Rig.Definition.BoneIndex(h.Bone), Radius = h.Radius, From = h.From, To = h.To });
+                }
+            }
+            void AddToken(Newtonsoft.Json.Linq.JToken t) {
+                if (t.Type == Newtonsoft.Json.Linq.JTokenType.String) {
+                    AddGroup((string)t);
+                }
+                else if (t is Newtonsoft.Json.Linq.JObject o) {
+                    string bone = (string)o["bone"];
+                    list.Add(new Collider {
+                        Bone = string.IsNullOrEmpty(bone) ? -1 : Rig.Definition.BoneIndex(bone),
+                        Radius = o["radius"] != null ? (float)o["radius"] : 8f,
+                        From = o["from"] != null ? (float)o["from"] : 0f,
+                        To = o["to"] != null ? (float)o["to"] : 1f,
+                    });
+                }
+            }
+            if (token is Newtonsoft.Json.Linq.JArray arr) {
+                foreach (Newtonsoft.Json.Linq.JToken t in arr) {
+                    AddToken(t);
+                }
+            }
+            else {
+                AddToken(token);
+            }
+            return [.. list];
         }
 
         private Vector2 Anchor() => bones.Length > 0 ? RestPosition(0) : Rig.RootPosition;
@@ -161,6 +261,8 @@ namespace InnoVault.Rigs2D.Solvers
         public void WarmStart(Vector2 anchor, Vector2 restDir, Vector2? end) {
             RefreshFit(anchor, end);
             pos[0] = old[0] = anchor;
+            hasPrevVel = false;
+            lastSubDt = 0f;
             if (end.HasValue && pos.Length > 1) {
                 for (int i = 1; i < pos.Length; i++) {
                     pos[i] = old[i] = Vector2.Lerp(anchor, end.Value, i / (float)(pos.Length - 1));
@@ -208,6 +310,11 @@ namespace InnoVault.Rigs2D.Solvers
             if (bones.Length == 0) {
                 return;
             }
+            //顿帧：步长为零时整条定格（质点与上帧速度都原样留着，恢复后接着摆）
+            if (dt <= 0f && warmed) {
+                WriteBones();
+                return;
+            }
             Vector2 anchor = Anchor();
             Vector2 restDir = ResolveRestDir();
             Vector2? end = ResolveEnd(anchor, restDir);
@@ -216,6 +323,7 @@ namespace InnoVault.Rigs2D.Solvers
             if (!warmed || Vector2.DistanceSquared(pos[0], anchor) > warm * warm) {
                 WarmStart(anchor, restDir, end);
             }
+            ApplyInertia(anchor, end.HasValue);
 
             //子步：锚点与末端从上帧值插到本帧值，每一小步各自积分一次
             int steps = substeps;
@@ -234,6 +342,68 @@ namespace InnoVault.Rigs2D.Solvers
             WriteBones();
         }
 
+        //锚点惯性：按锚点加速度给质点反向冲量（写进旧位置），越靠末端越大；加速度封顶防瞬移
+        private void ApplyInertia(Vector2 anchor, bool pinnedEnd) {
+            float k = float.IsNaN(Inertia) ? inertia : Inertia;
+            Vector2 vel = hasPrev ? anchor - prevAnchor : Vector2.Zero;
+            Vector2 accel = hasPrevVel ? vel - prevAnchorVel : Vector2.Zero;
+            prevAnchorVel = vel;
+            hasPrevVel = hasPrev;
+            if (k == 0f || accel.LengthSquared() < 1e-6f) {
+                return;
+            }
+            float cap = inertiaMax * Scale;
+            if (cap > 0f && accel.LengthSquared() > cap * cap) {
+                accel = Rig2DMath.SafeNormalize(accel, Vector2.Zero) * cap;
+            }
+            int n = pos.Length;
+            int last = pinnedEnd ? n - 1 : n;
+            for (int i = 1; i < last; i++) {
+                old[i] += accel * (k * (i / (float)(n - 1)));
+            }
+        }
+
+        //碰撞体：把质点推出骨骼胶囊（落在轴线上时沿胶囊法线推，确定性）
+        private void PushOut(Vector2? end) {
+            if (colliders.Length == 0) {
+                return;
+            }
+            float s = Scale;
+            int n = pos.Length;
+            int last = n - 1;
+            //两遍：相邻胶囊（大腿 / 小腿）重叠处，推出一个可能落进另一个
+            for (int pass = 0; pass < 2; pass++)
+            for (int c = 0; c < colliders.Length; c++) {
+                ref Collider col = ref colliders[c];
+                if (col.Bone < 0 || col.Bone >= Rig.Bones.Length) {
+                    continue;
+                }
+                ref Bone2D b = ref Rig.Bones[col.Bone];
+                Vector2 tip = b.Tip;
+                Vector2 a = Vector2.Lerp(b.Pos, tip, col.From);
+                Vector2 e = Vector2.Lerp(b.Pos, tip, col.To);
+                Vector2 ab = e - a;
+                float len2 = ab.LengthSquared();
+                float r = col.Radius * s;
+                for (int i = 1; i < n; i++) {
+                    if (end.HasValue && i == last) {
+                        continue;
+                    }
+                    float t = len2 > 1e-4f ? MathHelper.Clamp(Vector2.Dot(pos[i] - a, ab) / len2, 0f, 1f) : 0f;
+                    Vector2 q = a + ab * t;
+                    Vector2 d = pos[i] - q;
+                    float dist2 = d.LengthSquared();
+                    if (dist2 >= r * r) {
+                        continue;
+                    }
+                    float dist = MathF.Sqrt(dist2);
+                    Vector2 nrm = dist > 1e-4f ? d / dist
+                        : len2 > 1e-4f ? Rig2DMath.SafeNormalize(new Vector2(-ab.Y, ab.X), -Vector2.UnitY) : -Vector2.UnitY;
+                    pos[i] = q + nrm * r;
+                }
+            }
+        }
+
         //一次积分 + 约束：dt 为 1 时与单步语义逐字一致（重力 / 伸展力按 dt²、阻尼按 dt 次幂、谐波位移按 dt 缩放）
         private void Integrate(Vector2 anchor, Vector2? end, Vector2 restDir, float dt) {
             RefreshFit(anchor, end);
@@ -241,6 +411,11 @@ namespace InnoVault.Rigs2D.Solvers
             float gravity = (float.IsNaN(Gravity) ? paramGravity : Gravity) * dt * dt;
             float dampingBase = float.IsNaN(Damping) ? paramDamping : Damping;
             float damping = dt == 1f ? dampingBase : MathF.Pow(Math.Max(dampingBase, 0f), dt);
+            //步长变化（慢放 / 顿帧慢速续摆）：上一步的位移按步长比缩放，速度才不失真；步长不变时比值为 1，与原式逐字一致
+            if (lastSubDt > 0f && dt != lastSubDt) {
+                damping *= dt / lastSubDt;
+            }
+            lastSubDt = dt;
             float pull = restForce * dt * dt;
             float time = Rig.Time * Spring2D.FrameSeconds;
             float phase = float.IsNaN(Phase) ? Rig.Seed : Phase;
@@ -323,6 +498,7 @@ namespace InnoVault.Rigs2D.Solvers
                         }
                     }
                 }
+                PushOut(end);
             }
             pos[0] = anchor;
             if (end.HasValue) {
@@ -330,12 +506,16 @@ namespace InnoVault.Rigs2D.Solvers
             }
         }
 
-        //物块碰撞：以质点为中心的 6×6 小盒试探位移，被物块挡住的分量归零（与经典绳索实现同法）
+        //物块碰撞：以质点为中心的 6×6 小盒试探位移，被物块挡住的分量归零（与经典绳索实现同法；试探本身由宿主给）
         private static Vector2 Collide(Vector2 position, Vector2 delta) {
             if (delta.LengthSquared() < 0.000001f) {
                 return delta;
             }
-            Vector2 allowed = Collision.noSlopeCollision(position - new Vector2(3f), delta, 6, 6, true, true);
+            Func<Vector2, Vector2, Vector2> probe = Rig2DPlatform.TileCollide;
+            if (probe == null) {
+                return delta;
+            }
+            Vector2 allowed = probe(position, delta);
             Vector2 result = delta;
             if (Math.Abs(allowed.X) < Math.Abs(delta.X)) {
                 result.X = 0f;
