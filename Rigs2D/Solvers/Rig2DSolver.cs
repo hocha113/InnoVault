@@ -18,6 +18,25 @@ namespace InnoVault.Rigs2D.Solvers
     }
 
     /// <summary>
+    /// 肢体末端报告：离线检查（着地滑步、够不着目标）按它量，两骨 IK 与趾行腿都实现
+    /// </summary>
+    public interface IRig2DLimbReport
+    {
+        /// <summary>
+        /// 着地点（世界）：两骨 IK 是腕，趾行腿是掌球
+        /// </summary>
+        Vector2 Contact { get; }
+        /// <summary>
+        /// 本帧末端到目标的距离（像素）
+        /// </summary>
+        float Error { get; }
+        /// <summary>
+        /// 目标源（代码挂的或 <c>targetSolver</c> 解析出的），没有为 <see langword="null"/>
+        /// </summary>
+        IRig2DTargetSource TargetSource { get; }
+    }
+
+    /// <summary>
     /// 求解器基类：每帧在骨骼树静息传播之后运行，把自己负责的骨骼写成求解结果
     /// <br/>契约：
     /// <list type="bullet">

@@ -978,12 +978,13 @@ namespace InnoVault.Rigs2D.Data
         }
 
         //═══════════════ 运动层 ═══════════════
-        // "gaits": { "名": { "legs": [ { "channel", "angle", "phase", "offset" } ], "hip", "hipAxis": "x|y", "tilt",
+        // "gaits": { "名": { "legs": [ { "channel", "angle", "phase", "offset", "swing", "auto" } ], "hip", "hipAxis": "x|y", "tilt",
         //   "modes": { "walk": { "stance", "stride", "cycleMin", "cycleMax", "speedSlow", "speedFast", "lift", "lifts": [],
         //     "bob", "bobOffset": 数 | "mid", "bobPow", "bobBase", "lean", "leanWave", "leanWaveOffset", "speedScaled",
-        //     "reachBias", "reach": [], "phases": [], "centered", "farOffset", "skew", "toe" } },
+        //     "reachBias", "reach": [], "phases": [], "centered", "farOffset", "skew", "toe",
+        //     "waves": [ { "channel", "amp": 数 | [x, y], "ampDeg", "offset", "cycles", "speedScaled" } ] } },
         //   "heel", "heelSpan", "toeOffStart", "toeOffSpan", "toeOff", "swingToe", "liftPow", "liftStretch", "bobSpeed", "minCycle",
-        //   "sinkLow", "raiseBoth", "raiseLow", "stepUp", "stepDown" } }
+        //   "sinkLow", "raiseBoth", "raiseLow", "stepUp", "stepDown", "lockStance", "liftDistance" } }
 
         private static void ReadGaits(JToken token, Rig2DDefinition def) {
             if (token is not JObject map) {
@@ -1014,6 +1015,8 @@ namespace InnoVault.Rigs2D.Data
                 g.RaiseLow = Num(o, "raiseLow", g.RaiseLow);
                 g.StepUp = Num(o, "stepUp", g.StepUp);
                 g.StepDown = Num(o, "stepDown", g.StepDown);
+                g.LockStance = Bool(o, "lockStance", g.LockStance);
+                g.LiftDistance = Num(o, "liftDistance", g.LiftDistance);
                 if (o["legs"] is JArray legs) {
                     foreach (JToken t in legs) {
                         if (t is JObject lo) {
@@ -1022,6 +1025,8 @@ namespace InnoVault.Rigs2D.Data
                                 Angle = Str(lo, "angle", null),
                                 Phase = Num(lo, "phase", 0f),
                                 Offset = Num(lo, "offset", 0f),
+                                Swing = Str(lo, "swing", null),
+                                Auto = Str(lo, "auto", null),
                             });
                         }
                     }
@@ -1069,6 +1074,29 @@ namespace InnoVault.Rigs2D.Data
             m.FarOffset = Num(o, "farOffset", m.FarOffset);
             m.Skew = Num(o, "skew", m.Skew);
             m.Toe = Num(o, "toe", m.Toe);
+            if (o["waves"] is JArray waves) {
+                foreach (JToken t in waves) {
+                    if (t is not JObject wo) {
+                        continue;
+                    }
+                    Gait2DWave w = new() {
+                        Channel = Str(wo, "channel", string.Empty),
+                        Offset = Num(wo, "offset", 0f),
+                        Cycles = Num(wo, "cycles", 1f),
+                        SpeedScaled = Bool(wo, "speedScaled", false),
+                    };
+                    if (wo["amp"] is JArray amp && amp.Count >= 2) {
+                        w.Amplitude = new Vector2(IsNum(amp[0]) ? (float)amp[0] : 0f, IsNum(amp[1]) ? (float)amp[1] : 0f);
+                    }
+                    else if (wo["ampDeg"] != null && IsNum(wo["ampDeg"])) {
+                        w.Amplitude = new Vector2(MathHelper.ToRadians((float)wo["ampDeg"]), 0f);
+                    }
+                    else {
+                        w.Amplitude = new Vector2(Num(wo, "amp", 0f), 0f);
+                    }
+                    m.Waves.Add(w);
+                }
+            }
             return m;
         }
 
@@ -1094,6 +1122,12 @@ namespace InnoVault.Rigs2D.Data
                 }
                 if (l.Offset != 0f) {
                     lo["offset"] = l.Offset;
+                }
+                if (!string.IsNullOrEmpty(l.Swing)) {
+                    lo["swing"] = l.Swing;
+                }
+                if (!string.IsNullOrEmpty(l.Auto)) {
+                    lo["auto"] = l.Auto;
                 }
                 legs.Add(lo);
             }
@@ -1127,6 +1161,10 @@ namespace InnoVault.Rigs2D.Data
             Opt("raiseLow", g.RaiseLow, d.RaiseLow);
             Opt("stepUp", g.StepUp, d.StepUp);
             Opt("stepDown", g.StepDown, d.StepDown);
+            if (g.LockStance) {
+                o["lockStance"] = true;
+            }
+            Opt("liftDistance", g.LiftDistance, d.LiftDistance);
             JObject modes = new();
             foreach (Gait2DMode m in g.Modes) {
                 Gait2DMode dm = new();
@@ -1173,6 +1211,24 @@ namespace InnoVault.Rigs2D.Data
                 }
                 if (m.Phases != null) {
                     mo["phases"] = new JArray(m.Phases);
+                }
+                if (m.Waves.Count > 0) {
+                    JArray waves = [];
+                    foreach (Gait2DWave w in m.Waves) {
+                        JObject wo = new() { ["channel"] = w.Channel };
+                        wo["amp"] = w.Amplitude.Y != 0f ? Vec(w.Amplitude) : w.Amplitude.X;
+                        if (w.Offset != 0f) {
+                            wo["offset"] = w.Offset;
+                        }
+                        if (w.Cycles != 1f) {
+                            wo["cycles"] = w.Cycles;
+                        }
+                        if (w.SpeedScaled) {
+                            wo["speedScaled"] = true;
+                        }
+                        waves.Add(wo);
+                    }
+                    mo["waves"] = waves;
                 }
                 modes[m.Name] = mo;
             }

@@ -599,6 +599,16 @@ namespace InnoVault.Rigs2D.Data
                     if (!string.IsNullOrEmpty(leg.Angle) && leg.AngleIndex < 0) {
                         fail($"gait '{g.Name}': angle channel '{leg.Angle}' not found");
                     }
+                    leg.SwingIndex = ScalarChannel(g.Name, "swing", leg.Swing, fail);
+                    leg.AutoIndex = ScalarChannel(g.Name, "auto", leg.Auto, fail);
+                }
+                foreach (Gait2DMode mode in g.Modes) {
+                    foreach (Gait2DWave wave in mode.Waves) {
+                        wave.ChannelIndex = ChannelIndex(wave.Channel);
+                        if (wave.ChannelIndex < 0) {
+                            fail($"gait '{g.Name}' mode '{mode.Name}': wave channel '{wave.Channel}' not found");
+                        }
+                    }
                 }
                 g.HipIndex = string.IsNullOrEmpty(g.Hip) ? -1 : ChannelIndex(g.Hip);
                 if (!string.IsNullOrEmpty(g.Hip) && g.HipIndex < 0) {
@@ -612,6 +622,23 @@ namespace InnoVault.Rigs2D.Data
                     fail($"gait '{g.Name}' has no modes");
                 }
             }
+        }
+
+        /// <summary>运动层腿上的可选标量通道：空名返回 −1；找不到或是矢量通道都记错并返回 −1</summary>
+        private int ScalarChannel(string gait, string what, string name, Action<string> fail) {
+            if (string.IsNullOrEmpty(name)) {
+                return -1;
+            }
+            int i = ChannelIndex(name);
+            if (i < 0) {
+                fail($"gait '{gait}': {what} channel '{name}' not found");
+                return -1;
+            }
+            if (!Channels[i].IsScalar) {
+                fail($"gait '{gait}': {what} channel '{name}' must be a scalar channel");
+                return -1;
+            }
+            return i;
         }
 
         private Vector2[] Defaults(int n) {

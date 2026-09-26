@@ -24,7 +24,7 @@ namespace InnoVault.Rigs2D.Solvers
     /// <item><c>targetSolver</c> / <c>targetIndex</c>：从另一个求解器取腕目标</item>
     /// </list>
     /// </summary>
-    public sealed class TwoBoneIKSolver : Rig2DSolver
+    public sealed class TwoBoneIKSolver : Rig2DSolver, IRig2DLimbReport
     {
         /// <summary>
         /// 平滑口味
@@ -161,6 +161,10 @@ namespace InnoVault.Rigs2D.Solvers
         /// 本帧腕与目标的距离（像素）：够不到、折叠限位或弹簧滞后时大于 0，离线检查 <c>IK_UNREACHED</c> 读它
         /// </summary>
         public float Error { get; private set; }
+        /// <summary>
+        /// 着地点 = 腕
+        /// </summary>
+        public Vector2 Contact => Wrist;
 
         /// <summary>
         /// 注入一次冲量（出拳弹出 / 后坐余摆），仅目标平滑模式有效

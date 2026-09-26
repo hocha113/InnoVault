@@ -1,3 +1,4 @@
+using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 
@@ -24,14 +25,59 @@ namespace InnoVault.Rigs2D.Data
         /// 乘在 <see cref="Gait2DMode.FarOffset"/> 上的错位倍率（远腿 1、近腿 0）
         /// </summary>
         public float Offset { get; set; }
+        /// <summary>
+        /// 摆越进度通道（标量，可空）：支撑期写 −1，摆越期写 0~1。趾行腿（<c>PawLeg</c>）据此在支撑时按肩髋铺掌、摆越时翻卷
+        /// </summary>
+        public string Swing { get; set; }
+        /// <summary>
+        /// 程序化权重通道（标量，可空）：运动层按权重写 1，让趾行腿的掌骨 / 趾角改由求解器现算（姿态里写 0 = 用姿态给的角）
+        /// </summary>
+        public string Auto { get; set; }
 
         internal int ChannelIndex = -1;
         internal int AngleIndex = -1;
+        internal int SwingIndex = -1;
+        internal int AutoIndex = -1;
 
         /// <summary>
         /// 深拷贝（不含解析结果）
         /// </summary>
-        public Gait2DLeg Clone() => new() { Channel = Channel, Angle = Angle, Phase = Phase, Offset = Offset };
+        public Gait2DLeg Clone() => new() { Channel = Channel, Angle = Angle, Phase = Phase, Offset = Offset, Swing = Swing, Auto = Auto };
+    }
+
+    /// <summary>
+    /// 随步态相位的通道波动：<c>amp × cos(2π × cycles × (φ − offset))</c> 按运动层权重加进某条通道。
+    /// 四足疾驰的脊柱屈伸、头颈反向稳住、尾巴与耳朵的甩动都用它写，与腿同一个相位，不会跑拍
+    /// </summary>
+    public sealed class Gait2DWave
+    {
+        /// <summary>
+        /// 目标通道（标量取 <see cref="Amplitude"/>.X，矢量两个分量都用）
+        /// </summary>
+        public string Channel { get; set; } = string.Empty;
+        /// <summary>
+        /// 幅度
+        /// </summary>
+        public Vector2 Amplitude { get; set; }
+        /// <summary>
+        /// 相位偏移（周期比例，波峰所在相位）
+        /// </summary>
+        public float Offset { get; set; }
+        /// <summary>
+        /// 每个步态周期几个波（疾驰的脊柱 1、小跑的点头 2）
+        /// </summary>
+        public float Cycles { get; set; } = 1f;
+        /// <summary>
+        /// 幅度按体速渐入（体速 / <see cref="Gait2DDef.BobSpeed"/>，封顶 1）
+        /// </summary>
+        public bool SpeedScaled { get; set; }
+
+        internal int ChannelIndex = -1;
+
+        /// <summary>
+        /// 深拷贝（不含解析结果）
+        /// </summary>
+        public Gait2DWave Clone() => new() { Channel = Channel, Amplitude = Amplitude, Offset = Offset, Cycles = Cycles, SpeedScaled = SpeedScaled };
     }
 
     /// <summary>
@@ -135,6 +181,10 @@ namespace InnoVault.Rigs2D.Data
         /// 蹬离后脚尖下压角
         /// </summary>
         public float Toe { get; set; } = 0.55f;
+        /// <summary>
+        /// 随相位的通道波动（脊柱屈伸、头颈稳定、甩尾）；多档混合时各档按混合权重分别加
+        /// </summary>
+        public List<Gait2DWave> Waves { get; set; } = [];
 
         /// <summary>
         /// 深拷贝
@@ -144,6 +194,10 @@ namespace InnoVault.Rigs2D.Data
             c.Reach = (float[])Reach?.Clone();
             c.Lifts = (float[])Lifts?.Clone();
             c.Phases = (float[])Phases?.Clone();
+            c.Waves = [];
+            foreach (Gait2DWave w in Waves) {
+                c.Waves.Add(w.Clone());
+            }
             return c;
         }
     }
@@ -240,6 +294,15 @@ namespace InnoVault.Rigs2D.Data
         /// 地形：探地下沿（骨架单位）
         /// </summary>
         public float StepDown { get; set; } = 160f;
+        /// <summary>
+        /// 支撑脚钉在世界里：支撑期足目标只按实际体速后退，摆越从离地点送到落点。
+        /// 关（缺省）时足目标按当前体速现算，匀速时两者逐位相同，但体速一变支撑脚就在地上滑（周期随体速变的档滑得最明显）
+        /// </summary>
+        public bool LockStance { get; set; }
+        /// <summary>
+        /// 抬脚按这一步的实际跨距缩（跨距小于此值时按平滑比例压低，0 = 不缩）：原地收步、小碎步不抬高脚。只在 <see cref="LockStance"/> 下生效
+        /// </summary>
+        public float LiftDistance { get; set; }
 
         internal int HipIndex = -1;
         internal int TiltIndex = -1;
