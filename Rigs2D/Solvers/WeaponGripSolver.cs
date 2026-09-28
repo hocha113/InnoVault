@@ -11,11 +11,14 @@ namespace InnoVault.Rigs2D.Solvers
     /// 手臂解完后把两只手铺向杆上握点、把武器骨从杆尾铺到杆尖
     /// <br/>骨骼：<c>[武器, 近手, 远手]</c>（手可省）。声明在两条手臂之后；手臂用 <c>targetSolver</c> 指向本求解器，<c>targetIndex</c> 0 近手 / 1 远手
     /// <br/>通道属性：<c>target</c>（近手握点，空间量）、<c>angle</c>（武器角，0 朝前、负为刃朝上；镜像时按侧视约定翻成 π − 角）、
-    /// <c>gripNear</c> / <c>gripFar</c>（近 / 远手握在杆上的位置，自杆尾占全长比）、<c>extent</c>（杆长伸展比，横扫的透视缩短）
+    /// <c>gripNear</c> / <c>gripFar</c>（近 / 远手握在杆上的位置，自杆尾占全长比）、<c>extent</c>（杆长伸展比，横扫的透视缩短）、
+    /// <c>farHold</c>（远手握持度：1 握在杆上，0 松开）、<c>farTarget</c>（远手松开时的腕目标，空间量）
     /// <br/>参数：<c>length</c> 武器全长（Scale 为 1）、<c>extentMin</c> 0.2 / <c>extentMax</c> 1、<c>gripNear</c> 0.5 / <c>gripFar</c> 0.3（无通道时的缺省）、
     /// <c>wristBack</c> 8 / <c>wristSide</c> 10（腕目标落在握点靠身一侧、略向杆尾）、<c>palmAhead</c> 6 / <c>palmSide</c> 12（手心朝向点）、
-    /// <c>armNear</c> / <c>armFar</c>（可选：手臂求解器名，给了就取其 <c>Wrist</c> 作手的近端，否则取前臂尖）
+    /// <c>armNear</c> / <c>armFar</c>（可选：手臂求解器名，给了就取其 <c>Wrist</c> 作手的近端，否则取前臂尖）、<c>farHold</c> 1
     /// <br/>靠身侧的法向：杆朝右（x ≥ 0）取顺时针法向，朝左取逆时针法向，握点因此总在杆的同一侧
+    /// <br/>单手持械（扛在肩上、拖在身侧）：<c>farHold</c> 降到 0，远臂的腕目标自杆上插到 <c>farTarget</c>，远手顺着前臂铺，武器仍只由近手定位。
+    /// 松手要有人写过 <c>farTarget</c>（通道或代码），没写过时 <c>farHold</c> 不生效、远手留在杆上
     /// </summary>
     public sealed class WeaponGripSolver : Rig2DSolver, IRig2DTargetSource
     {
@@ -30,6 +33,8 @@ namespace InnoVault.Rigs2D.Solvers
         private string armFarName;
         private Rig2DSolver armNear;
         private Rig2DSolver armFar;
+        private Vector2 farTarget;
+        private bool hasFarTarget;
 
         /// <summary>
         /// 近手握点（世界）；通道 <c>target</c> 每帧覆盖
@@ -51,6 +56,20 @@ namespace InnoVault.Rigs2D.Solvers
         /// 杆长伸展比（钳到 <c>extentMin</c> ~ <c>extentMax</c>）
         /// </summary>
         public float Extent { get; set; } = 1f;
+        /// <summary>
+        /// 远手握持度（钳到 0 ~ 1）：1 = 握在杆上，0 = 松开、腕目标取 <see cref="FarTarget"/>（从没写过 <see cref="FarTarget"/> 时不生效）
+        /// </summary>
+        public float FarHold { get; set; } = 1f;
+        /// <summary>
+        /// 远手松开时的腕目标（世界）；通道 <c>farTarget</c> 每帧覆盖
+        /// </summary>
+        public Vector2 FarTarget {
+            get => farTarget;
+            set {
+                farTarget = value;
+                hasFarTarget = true;
+            }
+        }
 
         /// <summary>
         /// 本帧武器方向（世界单位向量）
@@ -82,13 +101,15 @@ namespace InnoVault.Rigs2D.Solvers
 
         /// <inheritdoc/>
         protected internal override int ChannelProperty(string prop, out bool spatial) {
-            spatial = prop is "target" or "grip";
+            spatial = prop is "target" or "grip" or "farTarget";
             return prop switch {
                 "target" or "grip" => 0,
                 "angle" => 1,
                 "gripNear" => 2,
                 "gripFar" => 3,
                 "extent" => 4,
+                "farHold" => 5,
+                "farTarget" => 6,
                 _ => -1,
             };
         }
@@ -101,6 +122,8 @@ namespace InnoVault.Rigs2D.Solvers
                 case 2: GripNearRatio = value.X; break;
                 case 3: GripFarRatio = value.X; break;
                 case 4: Extent = value.X; break;
+                case 5: FarHold = value.X; break;
+                case 6: FarTarget = value; break;
             }
         }
 
@@ -118,6 +141,8 @@ namespace InnoVault.Rigs2D.Solvers
             palmSide = def.GetFloat("palmSide", 12f);
             GripNearRatio = def.GetFloat("gripNear", 0.5f);
             GripFarRatio = def.GetFloat("gripFar", 0.3f);
+            FarHold = def.GetFloat("farHold", 1f);
+            hasFarTarget = false;
             armNearName = def.GetString("armNear", null);
             armFarName = def.GetString("armFar", null);
         }
@@ -134,7 +159,7 @@ namespace InnoVault.Rigs2D.Solvers
         public static Vector2 BodySide(Vector2 dir) => dir.X >= 0f ? new Vector2(-dir.Y, dir.X) : new Vector2(dir.Y, -dir.X);
 
         /// <summary>
-        /// 目标源：0 近手腕目标、1 远手腕目标、2 近手握点、3 远手握点、4 杆尾、5 杆尖。
+        /// 目标源：0 近手腕目标、1 远手腕目标（松手时插向 <see cref="FarTarget"/>）、2 近手握点、3 远手握点、4 杆尾、5 杆尖。
         /// 被询问时先确保本帧通道已推入，再按此刻的上游位姿现算整根武器（手臂在本求解器之前解算时就是这样取到目标的）
         /// </summary>
         public bool TryGetTarget(int index, out Vector2 target) {
@@ -150,9 +175,12 @@ namespace InnoVault.Rigs2D.Solvers
                 case 0:
                     target = NearGrip - side * (wristSide * s) - Dir * (wristBack * s);
                     return true;
-                case 1:
-                    target = FarGrip - side * (wristSide * s) - Dir * (wristBack * s);
-                    return true;
+                case 1: {
+                        Vector2 held = FarGrip - side * (wristSide * s) - Dir * (wristBack * s);
+                        float hold = FarHoldNow;
+                        target = hold >= 1f ? held : Vector2.Lerp(farTarget, held, hold);
+                        return true;
+                    }
                 case 2:
                     target = NearGrip;
                     return true;
@@ -169,6 +197,9 @@ namespace InnoVault.Rigs2D.Solvers
             target = default;
             return false;
         }
+
+        //生效的远手握持度：没人写过远手目标就不松手
+        private float FarHoldNow => hasFarTarget ? MathHelper.Clamp(FarHold, 0f, 1f) : 1f;
 
         private void ComputeLine() {
             float s = Scale;
@@ -197,10 +228,10 @@ namespace InnoVault.Rigs2D.Solvers
             float s = Scale;
             Vector2 side = BodySide(Dir);
             if (bones.Length > 1 && bones[1] >= 0) {
-                LayHand(bones[1], armNear, NearGrip + Dir * (palmAhead * s) + side * (palmSide * s));
+                LayHand(bones[1], armNear, NearGrip + Dir * (palmAhead * s) + side * (palmSide * s), 1f);
             }
             if (bones.Length > 2 && bones[2] >= 0) {
-                LayHand(bones[2], armFar, FarGrip + Dir * (palmAhead * s) + side * (palmSide * s));
+                LayHand(bones[2], armFar, FarGrip + Dir * (palmAhead * s) + side * (palmSide * s), FarHoldNow);
             }
             //武器骨：两点式，长度与方向都取自杆尾 → 杆尖（与 SetBoneWorld 两点式同式）
             ref Bone2D w = ref Bone(bones[0]);
@@ -212,12 +243,20 @@ namespace InnoVault.Rigs2D.Solvers
             w.Length = len;
         }
 
-        //手：近端取手臂解出的腕（没给手臂求解器就取前臂尖），朝手心点
-        private void LayHand(int bone, Rig2DSolver arm, Vector2 aim) {
-            Vector2 wrist = arm is TwoBoneIKSolver ik ? ik.Wrist : Rig.RestPosition(bone);
+        //手：近端取手臂解出的腕（没给手臂求解器就取前臂尖），朝手心点；握持度不满时按最短弧转向松开的朝向（顺着前臂，没有手臂求解器取静息轴向）
+        private void LayHand(int bone, Rig2DSolver arm, Vector2 aim, float hold) {
+            TwoBoneIKSolver ik = arm as TwoBoneIKSolver;
+            Vector2 wrist = ik != null ? ik.Wrist : Rig.RestPosition(bone);
             ref Bone2D h = ref Bone(bone);
             h.Pos = wrist;
-            h.Dir = MathF.Atan2(aim.Y - wrist.Y, aim.X - wrist.X);
+            float held = MathF.Atan2(aim.Y - wrist.Y, aim.X - wrist.X);
+            if (hold >= 1f) {
+                h.Dir = held;
+            }
+            else {
+                float free = ik != null ? MathF.Atan2(ik.ForeDir.Y, ik.ForeDir.X) : Rig.RestDirection(bone);
+                h.Dir = free + MathHelper.WrapAngle(held - free) * hold;
+            }
             h.Length = Rig.RestLength(bone);
         }
 
@@ -225,7 +264,11 @@ namespace InnoVault.Rigs2D.Solvers
         public override void DebugDraw(SpriteBatch sb, Func<Vector2, Vector2> toScreen) {
             Rig2DDebugDraw.Line(sb, toScreen(Butt), toScreen(Tip), Color.Gold * 0.6f, 1f);
             Rig2DDebugDraw.Dot(sb, toScreen(NearGrip), 5f, Color.Gold);
-            Rig2DDebugDraw.Dot(sb, toScreen(FarGrip), 4f, Color.Goldenrod);
+            float hold = FarHoldNow;
+            Rig2DDebugDraw.Dot(sb, toScreen(FarGrip), 4f, Color.Goldenrod * MathHelper.Max(hold, 0.25f));
+            if (hold < 1f) {
+                Rig2DDebugDraw.Dot(sb, toScreen(farTarget), 4f, Color.LightSkyBlue);
+            }
         }
     }
 }

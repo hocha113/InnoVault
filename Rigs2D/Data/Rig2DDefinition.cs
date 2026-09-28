@@ -601,6 +601,7 @@ namespace InnoVault.Rigs2D.Data
                     }
                     leg.SwingIndex = ScalarChannel(g.Name, "swing", leg.Swing, fail);
                     leg.AutoIndex = ScalarChannel(g.Name, "auto", leg.Auto, fail);
+                    leg.LiftScaleIndex = ScalarChannel(g.Name, "liftScale", leg.LiftScale, fail);
                 }
                 foreach (Gait2DMode mode in g.Modes) {
                     foreach (Gait2DWave wave in mode.Waves) {

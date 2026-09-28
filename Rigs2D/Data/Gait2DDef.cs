@@ -33,16 +33,58 @@ namespace InnoVault.Rigs2D.Data
         /// 程序化权重通道（标量，可空）：运动层按权重写 1，让趾行腿的掌骨 / 趾角改由求解器现算（姿态里写 0 = 用姿态给的角）
         /// </summary>
         public string Auto { get; set; }
+        /// <summary>
+        /// 步幅比例通道（标量，可空）：摆越期写这一步的抬脚比例（0~1，同 <see cref="Gait2DDef.LiftDistance"/> 的折算），支撑期写 1。
+        /// 接趾行腿的 <c>flickWeight</c>，小碎步、收步时翻爪跟着抬脚一起收小
+        /// </summary>
+        public string LiftScale { get; set; }
 
         internal int ChannelIndex = -1;
         internal int AngleIndex = -1;
         internal int SwingIndex = -1;
         internal int AutoIndex = -1;
+        internal int LiftScaleIndex = -1;
 
         /// <summary>
         /// 深拷贝（不含解析结果）
         /// </summary>
-        public Gait2DLeg Clone() => new() { Channel = Channel, Angle = Angle, Phase = Phase, Offset = Offset, Swing = Swing, Auto = Auto };
+        public Gait2DLeg Clone() => new() { Channel = Channel, Angle = Angle, Phase = Phase, Offset = Offset, Swing = Swing, Auto = Auto, LiftScale = LiftScale };
+    }
+
+    /// <summary>
+    /// 起停驱动参数（<see cref="Animation.Rig2DGait.Drive"/>）：体速滞回起停、停步后收步、收齐后淡出运动层权重
+    /// </summary>
+    public sealed class Gait2DDrive
+    {
+        /// <summary>
+        /// 体速高于此值起步（滞回上沿，骨架单位 / 帧）
+        /// </summary>
+        public float StartSpeed { get; set; } = 0.9f;
+        /// <summary>
+        /// 体速低于此值停步收步（滞回下沿）
+        /// </summary>
+        public float StopSpeed { get; set; } = 0.35f;
+        /// <summary>
+        /// 收步时相位推进倍率（体速按 0 求值：摆越的脚落回站位）
+        /// </summary>
+        public float SettleRate { get; set; } = 2f;
+        /// <summary>
+        /// 收齐判定：各腿都着地、离站位不超过这么远（骨架单位）
+        /// </summary>
+        public float SettleTolerance { get; set; } = 6f;
+        /// <summary>
+        /// 权重每帧淡入量（起步）
+        /// </summary>
+        public float FadeIn { get; set; } = 0.34f;
+        /// <summary>
+        /// 权重每帧淡出量（收齐之后）
+        /// </summary>
+        public float FadeOut { get; set; } = 0.14f;
+
+        /// <summary>
+        /// 深拷贝
+        /// </summary>
+        public Gait2DDrive Clone() => (Gait2DDrive)MemberwiseClone();
     }
 
     /// <summary>
@@ -303,6 +345,30 @@ namespace InnoVault.Rigs2D.Data
         /// 抬脚按这一步的实际跨距缩（跨距小于此值时按平滑比例压低，0 = 不缩）：原地收步、小碎步不抬高脚。只在 <see cref="LockStance"/> 下生效
         /// </summary>
         public float LiftDistance { get; set; }
+        /// <summary>
+        /// 最小步长：离地那一刻算出来的跨距不到此值就不迈（脚原地钉着，等下一次离地再判），0 = 每步都迈。
+        /// 站定时已在站位的脚因此不做空步，收步一定收得齐；极慢的挪动攒够了才迈一步。只在 <see cref="LockStance"/> 下生效
+        /// </summary>
+        public float MinStep { get; set; }
+        /// <summary>
+        /// 拖脚余量：着地的脚被拖到「当前落点 − 支撑段行程 − 此值」后面就提前离地（这条腿的相位偏到离地点，偏移在之后的支撑期里慢慢收回），
+        /// 0 = 不提前。起步猛冲、体速突增、没迈的脚要补步时，按相位定时的离地来不及，脚会被拖到腿够不着的地方。只在 <see cref="LockStance"/> 下生效；
+        /// 同一时刻只提前一条（已有腿在摆越前半程时等它过半）
+        /// </summary>
+        public float LateSlack { get; set; }
+        /// <summary>
+        /// 身体波动跟着迈步走：起伏波、俯仰波与通道波（<c>cycles</c> 为 0 的常量偏移除外）乘上迈步活跃度
+        /// （摆越中各腿抬脚比例的最大值，按 <see cref="ActivityRate"/> 平滑）。没有腿在迈时身体不起伏，原地收步不颠。只在 <see cref="LockStance"/> 下生效
+        /// </summary>
+        public bool StepWaves { get; set; }
+        /// <summary>
+        /// 迈步活跃度每帧追目标的量
+        /// </summary>
+        public float ActivityRate { get; set; } = 0.12f;
+        /// <summary>
+        /// 起停驱动参数
+        /// </summary>
+        public Gait2DDrive Drive { get; set; } = new();
 
         internal int HipIndex = -1;
         internal int TiltIndex = -1;
@@ -314,6 +380,7 @@ namespace InnoVault.Rigs2D.Data
             Gait2DDef c = (Gait2DDef)MemberwiseClone();
             c.HipIndex = -1;
             c.TiltIndex = -1;
+            c.Drive = Drive?.Clone() ?? new();
             c.legs = [];
             c.modes = [];
             foreach (Gait2DLeg l in Legs) {

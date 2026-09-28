@@ -18,7 +18,8 @@ namespace InnoVault.Rigs2D.Solvers
     /// 参数：<c>bendSign</c> 1、<c>lean</c> 0.5、<c>flick</c> <c>[[w, 掌角°, 趾角°], …]</c>（按写出的度数直线插值，不走最短弧：
     /// 趾从 17° 卷到 255° 是往下往后卷，写成 −105° 就会往上翻）、<c>stanceToeDeg</c>（缺省 = 趾骨静息世界角）、
     /// <c>reachMargin</c> 2、<c>minReachMargin</c> 6、<c>maxRelative</c> π
-    /// <br/>通道属性：<c>target</c>（空间量）、<c>pastern</c>、<c>toe</c>、<c>auto</c>、<c>swing</c>
+    /// <br/>通道属性：<c>target</c>（空间量）、<c>pastern</c>、<c>toe</c>、<c>auto</c>、<c>swing</c>、<c>flickWeight</c>
+    /// （翻卷幅度 0~1，缺省 1：从支撑规则往关键帧插多少。脚抬得低的小碎步整套翻卷会把腕压进地里，运动层的 <c>liftScale</c> 接到这里）
     /// </summary>
     public sealed class PawLegSolver : Rig2DSolver, IRig2DLimbReport
     {
@@ -71,6 +72,10 @@ namespace InnoVault.Rigs2D.Solvers
         /// </summary>
         public float Swing { get; set; } = -1f;
         /// <summary>
+        /// 摆越翻卷幅度 0~1：0 = 摆越时仍按支撑规则铺掌，1 = 整套按 <c>flick</c> 关键帧翻卷
+        /// </summary>
+        public float FlickWeight { get; set; } = 1f;
+        /// <summary>
         /// 目标源（接到另一个求解器的输出上）
         /// </summary>
         public IRig2DTargetSource TargetSource {
@@ -105,6 +110,9 @@ namespace InnoVault.Rigs2D.Solvers
         /// 本帧实际用的掌骨 / 趾角（朝向系）
         /// </summary>
         public float PasternUsed { get; private set; }
+        /// <summary>
+        /// 已使用
+        /// </summary>
         public float ToeUsed { get; private set; }
         /// <inheritdoc/>
         public Vector2 Contact => Ball;
@@ -120,6 +128,7 @@ namespace InnoVault.Rigs2D.Solvers
                 "toe" => 2,
                 "auto" => 3,
                 "swing" => 4,
+                "flickWeight" => 5,
                 _ => -1,
             };
         }
@@ -132,6 +141,7 @@ namespace InnoVault.Rigs2D.Solvers
                 case 2: Toe = value.X; break;
                 case 3: Auto = value.X; break;
                 case 4: Swing = value.X; break;
+                case 5: FlickWeight = value.X; break;
             }
         }
 
@@ -253,6 +263,7 @@ namespace InnoVault.Rigs2D.Solvers
                 return;
             }
             w = MathHelper.Clamp(w, 0f, 1f);
+            float fw = MathHelper.Clamp(FlickWeight, 0f, 1f);
             float w0 = 0f, p0 = stancePastern, t0 = stanceToe;
             for (int i = 0; i <= flick.Length; i++) {
                 float w1 = i < flick.Length ? flick[i].W : 1f;
@@ -260,8 +271,8 @@ namespace InnoVault.Rigs2D.Solvers
                 float t1 = i < flick.Length ? flick[i].Toe : stanceToe;
                 if (w <= w1) {
                     float k = Spring2D.SmoothStep01((w - w0) / MathF.Max(w1 - w0, 0.0001f));
-                    pastern = MathHelper.Lerp(p0, p1, k);
-                    toe = MathHelper.Lerp(t0, t1, k);
+                    pastern = MathHelper.Lerp(stancePastern, MathHelper.Lerp(p0, p1, k), fw);
+                    toe = MathHelper.Lerp(stanceToe, MathHelper.Lerp(t0, t1, k), fw);
                     return;
                 }
                 w0 = w1;

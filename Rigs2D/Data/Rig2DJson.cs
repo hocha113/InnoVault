@@ -978,13 +978,14 @@ namespace InnoVault.Rigs2D.Data
         }
 
         //═══════════════ 运动层 ═══════════════
-        // "gaits": { "名": { "legs": [ { "channel", "angle", "phase", "offset", "swing", "auto" } ], "hip", "hipAxis": "x|y", "tilt",
+        // "gaits": { "名": { "legs": [ { "channel", "angle", "phase", "offset", "swing", "auto", "liftScale" } ], "hip", "hipAxis": "x|y", "tilt",
         //   "modes": { "walk": { "stance", "stride", "cycleMin", "cycleMax", "speedSlow", "speedFast", "lift", "lifts": [],
         //     "bob", "bobOffset": 数 | "mid", "bobPow", "bobBase", "lean", "leanWave", "leanWaveOffset", "speedScaled",
         //     "reachBias", "reach": [], "phases": [], "centered", "farOffset", "skew", "toe",
         //     "waves": [ { "channel", "amp": 数 | [x, y], "ampDeg", "offset", "cycles", "speedScaled" } ] } },
         //   "heel", "heelSpan", "toeOffStart", "toeOffSpan", "toeOff", "swingToe", "liftPow", "liftStretch", "bobSpeed", "minCycle",
-        //   "sinkLow", "raiseBoth", "raiseLow", "stepUp", "stepDown", "lockStance", "liftDistance" } }
+        //   "sinkLow", "raiseBoth", "raiseLow", "stepUp", "stepDown", "lockStance", "liftDistance", "minStep", "lateSlack", "stepWaves", "activityRate",
+        //   "drive": { "start", "stop", "settleRate", "settleTolerance", "fadeIn", "fadeOut" } } }
 
         private static void ReadGaits(JToken token, Rig2DDefinition def) {
             if (token is not JObject map) {
@@ -1017,6 +1018,19 @@ namespace InnoVault.Rigs2D.Data
                 g.StepDown = Num(o, "stepDown", g.StepDown);
                 g.LockStance = Bool(o, "lockStance", g.LockStance);
                 g.LiftDistance = Num(o, "liftDistance", g.LiftDistance);
+                g.MinStep = Num(o, "minStep", g.MinStep);
+                g.LateSlack = Num(o, "lateSlack", g.LateSlack);
+                g.StepWaves = Bool(o, "stepWaves", g.StepWaves);
+                g.ActivityRate = Num(o, "activityRate", g.ActivityRate);
+                if (o["drive"] is JObject dr) {
+                    Gait2DDrive d = g.Drive;
+                    d.StartSpeed = Num(dr, "start", d.StartSpeed);
+                    d.StopSpeed = Num(dr, "stop", d.StopSpeed);
+                    d.SettleRate = Num(dr, "settleRate", d.SettleRate);
+                    d.SettleTolerance = Num(dr, "settleTolerance", d.SettleTolerance);
+                    d.FadeIn = Num(dr, "fadeIn", d.FadeIn);
+                    d.FadeOut = Num(dr, "fadeOut", d.FadeOut);
+                }
                 if (o["legs"] is JArray legs) {
                     foreach (JToken t in legs) {
                         if (t is JObject lo) {
@@ -1027,6 +1041,7 @@ namespace InnoVault.Rigs2D.Data
                                 Offset = Num(lo, "offset", 0f),
                                 Swing = Str(lo, "swing", null),
                                 Auto = Str(lo, "auto", null),
+                                LiftScale = Str(lo, "liftScale", null),
                             });
                         }
                     }
@@ -1129,6 +1144,9 @@ namespace InnoVault.Rigs2D.Data
                 if (!string.IsNullOrEmpty(l.Auto)) {
                     lo["auto"] = l.Auto;
                 }
+                if (!string.IsNullOrEmpty(l.LiftScale)) {
+                    lo["liftScale"] = l.LiftScale;
+                }
                 legs.Add(lo);
             }
             o["legs"] = legs;
@@ -1165,6 +1183,28 @@ namespace InnoVault.Rigs2D.Data
                 o["lockStance"] = true;
             }
             Opt("liftDistance", g.LiftDistance, d.LiftDistance);
+            Opt("minStep", g.MinStep, d.MinStep);
+            Opt("lateSlack", g.LateSlack, d.LateSlack);
+            if (g.StepWaves) {
+                o["stepWaves"] = true;
+            }
+            Opt("activityRate", g.ActivityRate, d.ActivityRate);
+            Gait2DDrive gd = g.Drive ?? new(), dd = d.Drive;
+            JObject drive = new();
+            void D(string key, float v, float dv) {
+                if (v != dv) {
+                    drive[key] = v;
+                }
+            }
+            D("start", gd.StartSpeed, dd.StartSpeed);
+            D("stop", gd.StopSpeed, dd.StopSpeed);
+            D("settleRate", gd.SettleRate, dd.SettleRate);
+            D("settleTolerance", gd.SettleTolerance, dd.SettleTolerance);
+            D("fadeIn", gd.FadeIn, dd.FadeIn);
+            D("fadeOut", gd.FadeOut, dd.FadeOut);
+            if (drive.Count > 0) {
+                o["drive"] = drive;
+            }
             JObject modes = new();
             foreach (Gait2DMode m in g.Modes) {
                 Gait2DMode dm = new();
