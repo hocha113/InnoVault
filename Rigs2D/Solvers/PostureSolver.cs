@@ -201,7 +201,8 @@ namespace InnoVault.Rigs2D.Solvers
                 if (i > 0) {
                     chain.Lay(Rig, extraWorld, Vector2.Zero);
                 }
-                float l = Rig2DChainLayout.Lean(B(lim.Chain).Dir, sign);
+                //只钳作者姿态：受击反应的附加角剔出去，反应照样叠在钳过的姿态上
+                float l = Rig2DChainLayout.Lean(B(lim.Chain).Dir - Rig.FrameRotation - Rig.ReactionWorldAngle(bones[lim.Chain]), sign);
                 float c = MathHelper.Clamp(l, lim.Min, lim.Max);
                 if (c != l) {
                     extraWorld[lim.Chain] += (c - l) * sign;
@@ -230,14 +231,24 @@ namespace InnoVault.Rigs2D.Solvers
             }
             if (balance && legs.Length > 0) {
                 GatherLegs();
+                //沿角色系的水平轴量（整身转过去时仍是"两脚之间"）；FrameRotation 为 0 时就是世界 x
+                Vector2 ex = Rig.FrameRotation == 0f ? Vector2.UnitX : new Vector2(MathF.Cos(Rig.FrameRotation), MathF.Sin(Rig.FrameRotation));
                 float lo = float.MaxValue, hi = float.MinValue;
                 for (int i = 0; i < legs.Length; i++) {
-                    lo = Math.Min(lo, legGoal[i].X);
-                    hi = Math.Max(hi, legGoal[i].X);
+                    float x = Rig.FrameRotation == 0f ? legGoal[i].X : Vector2.Dot(legGoal[i], ex);
+                    lo = Math.Min(lo, x);
+                    hi = Math.Max(hi, x);
                 }
                 float margin = balanceMargin * Scale;
-                float px = chain.Origin.X + offset.X;
-                offset.X += MathHelper.Clamp(px, lo - margin, hi + margin) - px;
+                Vector2 pelvis = chain.Origin + offset;
+                float px = Rig.FrameRotation == 0f ? pelvis.X : Vector2.Dot(pelvis, ex);
+                float shift = MathHelper.Clamp(px, lo - margin, hi + margin) - px;
+                if (Rig.FrameRotation == 0f) {
+                    offset.X += shift;
+                }
+                else {
+                    offset += ex * shift;
+                }
             }
             float w = MathHelper.Clamp(Weight, 0f, 1f);
             if (w < 1f) {
@@ -250,7 +261,7 @@ namespace InnoVault.Rigs2D.Solvers
             Compensation = alpha;
             PelvisOffset = offset;
             for (int k = 0; k < n; k++) {
-                lean[k] = bones[k] >= 0 ? Rig2DChainLayout.Lean(B(k).Dir, sign) : 0f;
+                lean[k] = bones[k] >= 0 ? Rig2DChainLayout.Lean(B(k).Dir - Rig.FrameRotation, sign) : 0f;
             }
         }
 

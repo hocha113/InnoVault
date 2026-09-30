@@ -37,6 +37,30 @@ namespace InnoVault.Rigs2D.Solvers
     }
 
     /// <summary>
+    /// 能接受受击反应的肢体求解器：反应层（<see cref="Physics.Rig2DReactions"/>）按"末端相对肢根的滞后"给它一个会弹回零的目标偏移。
+    /// 两骨 IK、三骨腿、趾行腿、指向、持械都实现；目标取自别的求解器的（握在枪杆上的手、踩在步态脚印上的腿）跟着源走，不单独受力
+    /// </summary>
+    public interface IRig2DReactive
+    {
+        /// <summary>
+        /// 反应层每帧写的目标偏移（世界像素），求解器把它加在解析出的目标上
+        /// </summary>
+        Vector2 ReactionOffset { get; set; }
+        /// <summary>
+        /// 肢根（肩 / 髋 / 枢轴，世界）：推力场在这里的速度代表身体被推走的量
+        /// </summary>
+        Vector2 ReactionBase { get; }
+        /// <summary>
+        /// 末端（腕 / 足 / 握点，世界）
+        /// </summary>
+        Vector2 ReactionEffector { get; }
+        /// <summary>
+        /// 目标是否跟随另一个求解器（是则反应层跳过它）
+        /// </summary>
+        bool ReactionFollows { get; }
+    }
+
+    /// <summary>
     /// 求解器基类：每帧在骨骼树静息传播之后运行，把自己负责的骨骼写成求解结果
     /// <br/>契约：
     /// <list type="bullet">

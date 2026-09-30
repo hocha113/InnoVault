@@ -1,5 +1,7 @@
 ﻿using Microsoft.Xna.Framework;
 using System;
+using System.Collections.Generic;
+using System.Runtime.InteropServices;
 
 namespace InnoVault.Cinematics
 {
@@ -237,6 +239,130 @@ namespace InnoVault.Cinematics
         /// <inheritdoc/>
         protected override void Update(CutsceneContext context, float progress) {
             context.RequestInputLock(flags);
+        }
+    }
+
+    /// <summary>
+    /// 等待门（<see cref="CutsceneTimeline.AddWait"/>）：内部时钟走到 <see cref="CutsceneTrack.StartTick"/> 停住，
+    /// 直到条件为真或等满超时帧数
+    /// </summary>
+    public sealed class WaitTrack : CutsceneTrack
+    {
+        private readonly Func<CutsceneContext, bool> until;
+        private readonly int timeout;
+        private readonly Action<CutsceneContext> onTimeout;
+        private bool released;
+
+        /// <summary>
+        /// 创建一道等待门
+        /// </summary>
+        /// <param name="tick">停在哪一帧</param>
+        /// <param name="until">放行条件</param>
+        /// <param name="timeout">最多等多少帧（≤ 0 = 不限，慎用：条件永远不成立时演出会卡死）</param>
+        /// <param name="onTimeout">超时回调</param>
+        public WaitTrack(int tick, Func<CutsceneContext, bool> until, int timeout, Action<CutsceneContext> onTimeout = null)
+            : base(tick, 0) {
+            this.until = until ?? throw new ArgumentNullException(nameof(until));
+            this.timeout = timeout;
+            this.onTimeout = onTimeout;
+        }
+
+        /// <summary>本次播放里已经等了多少帧</summary>
+        public int Waited { get; private set; }
+        /// <summary>本次播放里是否因超时放行</summary>
+        public bool TimedOut { get; private set; }
+
+        internal override void OnTimelineStart(CutsceneContext context) {
+            released = false;
+            Waited = 0;
+            TimedOut = false;
+        }
+
+        internal override void UpdateTrack(CutsceneContext context) { }
+
+        internal bool Blocks(CutsceneContext context) {
+            if (released || context.Tick != StartTick) {
+                return false;
+            }
+            bool done;
+            try {
+                done = until(context);
+            } catch (Exception ex) {
+                VaultMod.LoggerError("[CutsceneWait]", $"wait condition threw, releasing: {ex.Message}");
+                done = true;
+            }
+            if (done) {
+                released = true;
+                context.WaitTicks = 0;
+                return false;
+            }
+            Waited++;
+            context.WaitTicks = Waited;
+            if (timeout > 0 && Waited >= timeout) {
+                released = true;
+                TimedOut = true;
+                context.WaitTicks = 0;
+                context.LastWaitTimedOut = true;
+                onTimeout?.Invoke(context);
+                return false;
+            }
+            return true;
+        }
+
+        /// <inheritdoc/>
+        protected override void Update(CutsceneContext context, float progress) { }
+    }
+
+    /// <summary>
+    /// 多主体构图轨道：每帧收集主体、按 <see cref="CameraFraming.Fit"/> 求焦点与缩放（缩放下限内装不下时保证必需主体在画面里），
+    /// 交给演出摄像机平滑追过去。对峙镜头、双巨人同框一类
+    /// </summary>
+    public sealed class CameraFrameTrack : CutsceneTrack
+    {
+        private readonly Action<CutsceneContext, List<CameraSubject>> gather;
+        private readonly List<CameraSubject> subjects = [];
+        private readonly float margin;
+        private readonly float minZoom;
+        private readonly float maxZoom;
+        private readonly float lerpSpeed;
+        private readonly float zoomLerpSpeed;
+        private readonly Vector2 bias;
+
+        /// <summary>
+        /// 创建一条构图轨道
+        /// </summary>
+        /// <param name="startTick">开始帧</param>
+        /// <param name="duration">持续帧数</param>
+        /// <param name="gather">每帧往列表里放主体</param>
+        /// <param name="margin">主体外留白（世界像素）</param>
+        /// <param name="minZoom">缩放下限</param>
+        /// <param name="maxZoom">缩放上限</param>
+        /// <param name="lerpSpeed">焦点追近比例</param>
+        /// <param name="zoomLerpSpeed">缩放追近比例</param>
+        /// <param name="bias">画面偏移（占可见尺寸比例）</param>
+        public CameraFrameTrack(int startTick, int duration, Action<CutsceneContext, List<CameraSubject>> gather, float margin = 96f,
+            float minZoom = 1f, float maxZoom = 1.6f, float lerpSpeed = 0.08f, float zoomLerpSpeed = 0.05f, Vector2 bias = default)
+            : base(startTick, duration) {
+            this.gather = gather ?? throw new ArgumentNullException(nameof(gather));
+            this.margin = margin;
+            this.minZoom = minZoom;
+            this.maxZoom = maxZoom;
+            this.lerpSpeed = lerpSpeed;
+            this.zoomLerpSpeed = zoomLerpSpeed;
+            this.bias = bias;
+        }
+
+        /// <inheritdoc/>
+        protected override void Update(CutsceneContext context, float progress) {
+            subjects.Clear();
+            gather(context, subjects);
+            if (subjects.Count == 0) {
+                return;
+            }
+            CameraState s = CameraFraming.Fit(CollectionsMarshal.AsSpan(subjects), VaultCamera.ScreenSize, margin, minZoom, maxZoom,
+                VaultCamera.ForcedMinimumZoom, bias);
+            context.SetCameraFocus(s.Center, lerpSpeed);
+            context.SetCameraZoom(s.Zoom, zoomLerpSpeed);
         }
     }
 

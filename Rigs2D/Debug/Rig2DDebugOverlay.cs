@@ -115,6 +115,9 @@ namespace InnoVault.Rigs2D.Debug
                 Rig2DDebugDraw.Hitboxes(sb, rig, toScreen, hitboxColor * 0.8f);
             }
 
+            //整身刚体活在世界里：直接按世界坐标画（不经画布显示变换）
+            rig.Body?.DebugDraw(sb, worldToScreen);
+
             Vector2 label = toScreen(rig.RootPosition) + new Vector2(8f, -22f);
             string mirrorTag = rig.Mirrored ? "  mirrored" : string.Empty;
             Rig2DDebugDraw.Text(sb, $"{rig.Name}  bones {rig.Bones.Length}  x{rig.Scale:F2}{mirrorTag}", label, new Color(200, 235, 255), 0.6f);

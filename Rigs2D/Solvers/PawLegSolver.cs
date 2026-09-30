@@ -21,8 +21,16 @@ namespace InnoVault.Rigs2D.Solvers
     /// <br/>通道属性：<c>target</c>（空间量）、<c>pastern</c>、<c>toe</c>、<c>auto</c>、<c>swing</c>、<c>flickWeight</c>
     /// （翻卷幅度 0~1，缺省 1：从支撑规则往关键帧插多少。脚抬得低的小碎步整套翻卷会把腕压进地里，运动层的 <c>liftScale</c> 接到这里）
     /// </summary>
-    public sealed class PawLegSolver : Rig2DSolver, IRig2DLimbReport
+    public sealed class PawLegSolver : Rig2DSolver, IRig2DLimbReport, IRig2DReactive
     {
+        /// <inheritdoc/>
+        public Vector2 ReactionOffset { get; set; }
+        /// <inheritdoc/>
+        public bool ReactionFollows => targetSource != null;
+        /// <inheritdoc/>
+        public Vector2 ReactionBase => Hip;
+        /// <inheritdoc/>
+        public Vector2 ReactionEffector => Ball;
         private readonly struct FlickKey
         {
             public readonly float W;
@@ -240,15 +248,19 @@ namespace InnoVault.Rigs2D.Solvers
 
         private Vector2 ResolveTarget() {
             if (targetSource != null && targetSource.TryGetTarget(targetIndex, out Vector2 t)) {
-                return t;
+                return t + ReactionOffset;
             }
-            return Target;
+            return Target + ReactionOffset;
         }
 
         //朝向系 ↔ 世界：朝左镜像时关于竖直轴对称
-        private float ToWorld(float facing) => Rig.Mirrored ? MathHelper.Pi - facing : facing;
+        //角色系转角（整身翻滚）先叠上 / 先减掉，再做左右镜像
+        private float ToWorld(float facing) => (Rig.Mirrored ? MathHelper.Pi - facing : facing) + Rig.FrameRotation;
 
-        private float ToFacing(float world) => Rig.Mirrored ? MathHelper.Pi - world : world;
+        private float ToFacing(float world) {
+            world -= Rig.FrameRotation;
+            return Rig.Mirrored ? MathHelper.Pi - world : world;
+        }
 
         /// <summary>程序化掌骨 / 趾角：支撑按肩髋偏、摆越按关键帧翻卷（首尾接支撑规则）</summary>
         private void Procedural(Vector2 hip, Vector2 ball, out float pastern, out float toe) {

@@ -130,6 +130,12 @@ namespace InnoVault.Rigs2D.Data
                 ReadMoves(root["moves"], def);
                 ReadGaits(root["gaits"], def);
                 ReadHitboxes(root["hitboxes"], def);
+                if (root["body"] is JObject body) {
+                    def.BodyParams = new Solver2DDef { Name = "body", Type = "Body", Params = (JObject)body.DeepClone() };
+                }
+                if (root["reactions"] is JObject reactions) {
+                    def.ReactionParams = new Solver2DDef { Name = "reactions", Type = "Reactions", Params = (JObject)reactions.DeepClone() };
+                }
                 return def;
             } catch (Exception ex) {
                 Rig2DPlatform.LogError($"[Rig2DJson:{sourceHint}]", $"definition read failed: {ex.Message}");
@@ -949,6 +955,12 @@ namespace InnoVault.Rigs2D.Data
                     groups[kv.Key] = arr;
                 }
                 root["hitboxes"] = groups;
+            }
+            if (def.BodyParams?.Params != null) {
+                root["body"] = def.BodyParams.Params.DeepClone();
+            }
+            if (def.ReactionParams?.Params != null) {
+                root["reactions"] = def.ReactionParams.Params.DeepClone();
             }
             return root;
         }

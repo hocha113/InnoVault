@@ -14,8 +14,16 @@ namespace InnoVault.Rigs2D.Solvers
     /// <c>deviationRef</c> "rest"（<c>rest</c> 以本骨静息轴向为参考 / <c>world</c> 以 <c>refDir</c> 世界角为参考）、<c>refDir</c> 0（世界弧度，<c>world</c> 模式用）
     /// <br/>后坐：<see cref="Kick"/> 注入角速度，每帧加进朝向后按 <c>angularDamping</c> 0.96 衰减；后坐加在限位之后，允许瞬时越出限位（枪口被顶开的那一下）
     /// </summary>
-    public sealed class PointAtSolver : Rig2DSolver
+    public sealed class PointAtSolver : Rig2DSolver, IRig2DReactive
     {
+        /// <inheritdoc/>
+        public Vector2 ReactionOffset { get; set; }
+        /// <inheritdoc/>
+        public bool ReactionFollows => targetSource != null;
+        /// <inheritdoc/>
+        public Vector2 ReactionBase => bones.Length > 0 && bones[0] >= 0 ? Rig.Bones[bones[0]].Pos : Rig.RootPosition;
+        /// <inheritdoc/>
+        public Vector2 ReactionEffector => bones.Length > 0 && bones[0] >= 0 ? Rig.Bones[bones[0]].Tip : Rig.RootPosition;
         private float minLength;
         private float maxLength;
         private bool rotateOnly;
@@ -104,9 +112,9 @@ namespace InnoVault.Rigs2D.Solvers
 
         private Vector2 ResolveTarget() {
             if (targetSource != null && targetSource.TryGetTarget(targetIndex, out Vector2 t)) {
-                return t;
+                return t + ReactionOffset;
             }
-            return Target;
+            return Target + ReactionOffset;
         }
 
         /// <inheritdoc/>

@@ -15,8 +15,16 @@ namespace InnoVault.Rigs2D.Solvers
     /// <br/>活塞胫：<c>tibiaWorldDir</c>（世界弧度，缺省关；给 π/2 即"胫节永远竖直"的机械腿画法：膝在腿节圆与胫向垂线的交点，
     /// 足端顺胫向推出，误差由足端沿垂线滑动吃掉；此模式下膝极性 / 跨距窗不参与）
     /// </summary>
-    public sealed class ThreeBoneLegSolver : Rig2DSolver
+    public sealed class ThreeBoneLegSolver : Rig2DSolver, IRig2DReactive
     {
+        /// <inheritdoc/>
+        public Vector2 ReactionOffset { get; set; }
+        /// <inheritdoc/>
+        public bool ReactionFollows => targetSource != null;
+        /// <inheritdoc/>
+        public Vector2 ReactionBase => Hip;
+        /// <inheritdoc/>
+        public Vector2 ReactionEffector => FootPos;
         private float coxaSwingMax;
         private float kneeSpanMin;
         private float kneeSpanMax;
@@ -167,9 +175,9 @@ namespace InnoVault.Rigs2D.Solvers
 
         private Vector2 ResolveFoot() {
             if (targetSource != null && targetSource.TryGetTarget(targetIndex, out Vector2 t)) {
-                return t + TargetOffset;
+                return t + TargetOffset + ReactionOffset;
             }
-            return Foot + TargetOffset;
+            return Foot + TargetOffset + ReactionOffset;
         }
 
         private void Solve() {
@@ -218,7 +226,9 @@ namespace InnoVault.Rigs2D.Solvers
             if (!float.IsNaN(tibiaWorldDir)) {
                 //活塞胫：胫节锁定世界方向，膝落在"名义膝点所在、垂直于胫向的直线"与腿节圆的交点上（取离名义膝点近的一支），
                 //足端顺着胫向从膝重新推出——胫节始终笔直，足端沿垂线滑动吃掉误差；腿节圆够不到该直线时整肢沿胫向伸直
-                Vector2 tdir = new(MathF.Cos(tibiaWorldDir), MathF.Sin(tibiaWorldDir));
+                //胫向跟着角色系转（整身翻滚时活塞胫仍相对身体竖直）；FrameRotation 为 0 时即世界角
+                float tibiaDir = tibiaWorldDir + Rig.FrameRotation;
+                Vector2 tdir = new(MathF.Cos(tibiaDir), MathF.Sin(tibiaDir));
                 Vector2 perp = new(-tdir.Y, tdir.X);
                 Vector2 rel = foot - tdir * tibiaLen - coxaTip;
                 float along = Vector2.Dot(rel, tdir);
@@ -251,6 +261,11 @@ namespace InnoVault.Rigs2D.Solvers
                 }
                 else {
                     pref.Normalize();
+                }
+                //膝偏好是角色系里的"上"：整身转过去时跟着转
+                if (Rig.FrameRotation != 0f) {
+                    float fc = MathF.Cos(Rig.FrameRotation), fs = MathF.Sin(Rig.FrameRotation);
+                    pref = new Vector2(fc * pref.X - fs * pref.Y, fs * pref.X + fc * pref.Y);
                 }
                 float dotP = Vector2.Dot(new Vector2(MathF.Cos(eAng + phi), MathF.Sin(eAng + phi)), pref);
                 float dotM = Vector2.Dot(new Vector2(MathF.Cos(eAng - phi), MathF.Sin(eAng - phi)), pref);

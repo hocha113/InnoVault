@@ -24,8 +24,16 @@ namespace InnoVault.Rigs2D.Solvers
     /// <item><c>targetSolver</c> / <c>targetIndex</c>：从另一个求解器取腕目标</item>
     /// </list>
     /// </summary>
-    public sealed class TwoBoneIKSolver : Rig2DSolver, IRig2DLimbReport
+    public sealed class TwoBoneIKSolver : Rig2DSolver, IRig2DLimbReport, IRig2DReactive
     {
+        /// <inheritdoc/>
+        public Vector2 ReactionOffset { get; set; }
+        /// <inheritdoc/>
+        public bool ReactionFollows => targetSource != null;
+        /// <inheritdoc/>
+        public Vector2 ReactionBase => Shoulder;
+        /// <inheritdoc/>
+        public Vector2 ReactionEffector => Wrist;
         /// <summary>
         /// 平滑口味
         /// </summary>
@@ -268,9 +276,9 @@ namespace InnoVault.Rigs2D.Solvers
 
         private Vector2 ResolveWant() {
             if (targetSource != null && targetSource.TryGetTarget(targetIndex, out Vector2 t)) {
-                return t;
+                return t + ReactionOffset;
             }
-            return Target;
+            return Target + ReactionOffset;
         }
 
         private void Solve(float dt, bool forceSnap) {

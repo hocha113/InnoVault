@@ -6,7 +6,7 @@ using System.Collections.Generic;
 namespace InnoVault.Rigs2D.Runtime
 {
     /// <summary>
-    /// 画布合成落位：锚点落在哪（屏幕或世界，由消费方定）、每个骨架像素对应多少目标像素、是否水平翻转
+    /// 画布合成落位：锚点落在哪（屏幕或世界，由消费方定）、每个骨架像素对应多少目标像素、是否水平翻转、绕锚点转多少
     /// </summary>
     public readonly struct Rig2DPlacement
     {
@@ -22,6 +22,10 @@ namespace InnoVault.Rigs2D.Runtime
         /// 水平翻转（面向左）
         /// </summary>
         public readonly bool Flip;
+        /// <summary>
+        /// 合成时绕锚点的转角（弧度，翻转之后再转）：整身刚体的转角放在合成时做的写法，骨架本身保持直立
+        /// </summary>
+        public readonly float Rotation;
 
         /// <summary>
         /// 建一个落位
@@ -30,6 +34,17 @@ namespace InnoVault.Rigs2D.Runtime
             Anchor = anchor;
             UnitScale = unitScale;
             Flip = flip;
+            Rotation = 0f;
+        }
+
+        /// <summary>
+        /// 建一个带转角的落位
+        /// </summary>
+        public Rig2DPlacement(Vector2 anchor, float unitScale, bool flip, float rotation) {
+            Anchor = anchor;
+            UnitScale = unitScale;
+            Flip = flip;
+            Rotation = rotation;
         }
     }
 
@@ -82,6 +97,7 @@ namespace InnoVault.Rigs2D.Runtime
             Width = Math.Max(width, 1);
             Height = Math.Max(height, 1);
             RootPixel = rootPixel;
+            AnchorPixel = rootPixel;
         }
 
         /// <summary>
@@ -104,6 +120,20 @@ namespace InnoVault.Rigs2D.Runtime
         /// 内容框外扩（骨架单位，乘 Scale）：给描边、血光这类向外长的合成留地方
         /// </summary>
         public float Margin { get; set; } = 4f;
+        /// <summary>
+        /// 跟随外接框拍摄：不再把锚点钉在 <see cref="RootPixel"/>，而是每次按件的实际外接框把内容居中放进画布
+        /// （整身翻滚、躺地时头会落到锚点以下，钉位画布装不下）。合成映射（<see cref="Map"/> / <see cref="Origin"/>）自动按本次的实际偏移算，
+        /// 消费方的落位写法不变
+        /// </summary>
+        public bool FollowBounds { get; set; }
+        /// <summary>
+        /// 本次拍摄的平移（骨架空间 → 画布像素）：钉位时 = <see cref="RootPixel"/> − 锚点；跟随外接框时让内容居中
+        /// </summary>
+        public Vector2 CaptureShift { get; private set; }
+        /// <summary>
+        /// 本次拍摄里锚点落在画布的哪个像素（钉位时即 <see cref="RootPixel"/>）
+        /// </summary>
+        public Vector2 AnchorPixel { get; private set; }
         /// <summary>
         /// 拍摄环境色（舞台光；缺省白 = 贴图本色）
         /// </summary>
@@ -251,6 +281,16 @@ namespace InnoVault.Rigs2D.Runtime
 
             Vector2 anchor = r.Anchor;
             Vector2 shift = RootPixel - anchor;
+            bool measured = false;
+            Vector2 min = anchor, max = anchor;
+            if (FollowBounds) {
+                measured = Rig2DRenderer.MeasureBounds(r, out min, out max);
+                if (measured) {
+                    shift = new Vector2(MathF.Round(Width * 0.5f - (min.X + max.X) * 0.5f), MathF.Round(Height * 0.5f - (min.Y + max.Y) * 0.5f));
+                }
+            }
+            CaptureShift = shift;
+            AnchorPixel = measured ? anchor + shift : RootPixel;
             Matrix m = Matrix.CreateTranslation(shift.X, shift.Y, 0f);
             CaptureMatrix = m;
             Rig2DDrawContext ctx = Rig2DDrawContext.Stage(m, Environment);
@@ -282,7 +322,7 @@ namespace InnoVault.Rigs2D.Runtime
             }
 
             AnchorAtCapture = anchor;
-            if (!Rig2DRenderer.MeasureBounds(r, out Vector2 min, out Vector2 max)) {
+            if (!measured && !Rig2DRenderer.MeasureBounds(r, out min, out max)) {
                 min = max = anchor;
             }
             BoundsMin = min;
@@ -302,7 +342,7 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         public bool Clipped {
             get {
-                Vector2 shift = RootPixel - AnchorAtCapture;
+                Vector2 shift = CaptureShift;
                 return BoundsMin.X + shift.X < 0f || BoundsMin.Y + shift.Y < 0f
                     || BoundsMax.X + shift.X > Width || BoundsMax.Y + shift.Y > Height;
             }
@@ -318,20 +358,44 @@ namespace InnoVault.Rigs2D.Runtime
             if (place.Flip) {
                 rel.X = -rel.X;
             }
+            if (place.Rotation != 0f) {
+                rel = RotateVector(rel, place.Rotation);
+            }
             return place.Anchor + rel;
+        }
+
+        /// <summary>
+        /// 目标空间点 → 骨架空间（<see cref="Map"/> 的逆）：世界里的打击点换进画布空间骨架，喂给 <see cref="Rig2DInstance.Reactions"/>
+        /// </summary>
+        public Vector2 Unmap(Vector2 point, in Rig2DPlacement place) => AnchorAtCapture + UnmapVector(point - place.Anchor, place);
+
+        /// <summary>
+        /// 目标空间向量（速度、冲量）→ 骨架空间
+        /// </summary>
+        public static Vector2 UnmapVector(Vector2 vector, in Rig2DPlacement place) {
+            Vector2 rel = place.Rotation != 0f ? RotateVector(vector, -place.Rotation) : vector;
+            if (place.Flip) {
+                rel.X = -rel.X;
+            }
+            return rel / MathF.Max(place.UnitScale, 0.0001f);
         }
 
         /// <summary>
         /// 骨架空间方向（弧度）→ 目标空间方向
         /// </summary>
-        public static float MapAngle(float rigAngle, in Rig2DPlacement place) => place.Flip ? MathHelper.Pi - rigAngle : rigAngle;
+        public static float MapAngle(float rigAngle, in Rig2DPlacement place) => (place.Flip ? MathHelper.Pi - rigAngle : rigAngle) + place.Rotation;
+
+        private static Vector2 RotateVector(Vector2 v, float angle) {
+            float c = MathF.Cos(angle), s = MathF.Sin(angle);
+            return new Vector2(c * v.X - s * v.Y, s * v.X + c * v.Y);
+        }
 
         /// <summary>
         /// 合成时 <see cref="SourceRect"/> 的原点（锚点在源矩形里的位置，翻转时取镜像）
         /// </summary>
         public Vector2 Origin(bool flip) {
             Rectangle src = SourceRect;
-            Vector2 local = RootPixel - new Vector2(src.X, src.Y);
+            Vector2 local = AnchorPixel - new Vector2(src.X, src.Y);
             if (flip) {
                 local.X = src.Width - local.X;
             }
@@ -345,7 +409,7 @@ namespace InnoVault.Rigs2D.Runtime
             if (!HasImage || Target == null || Target.IsDisposed) {
                 return;
             }
-            sb.Draw(Target, place.Anchor, SourceRect, color, 0f, Origin(place.Flip), place.UnitScale,
+            sb.Draw(Target, place.Anchor, SourceRect, color, place.Rotation, Origin(place.Flip), place.UnitScale,
                 place.Flip ? SpriteEffects.FlipHorizontally : SpriteEffects.None, 0f);
         }
     }

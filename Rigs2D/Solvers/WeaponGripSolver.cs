@@ -19,8 +19,12 @@ namespace InnoVault.Rigs2D.Solvers
     /// <br/>靠身侧的法向：杆朝右（x ≥ 0）取顺时针法向，朝左取逆时针法向，握点因此总在杆的同一侧
     /// <br/>单手持械（扛在肩上、拖在身侧）：<c>farHold</c> 降到 0，远臂的腕目标自杆上插到 <c>farTarget</c>，远手顺着前臂铺，武器仍只由近手定位。
     /// 松手要有人写过 <c>farTarget</c>（通道或代码），没写过时 <c>farHold</c> 不生效、远手留在杆上
+    /// <br/>世界来源（拾起 / 接住世界里的武器）：<c>worldWeight</c> 1 时整根武器取世界线（<see cref="SetWorldLine"/> 或通道
+    /// <c>worldButt</c> / <c>worldAngle</c> / <c>worldLength</c>），两手的腕目标落到那根武器的握点上（手臂 IK 伸过去够）；
+    /// 抓住那一刻把 <c>worldWeight</c> 在若干帧内降到 0，武器从地上的世界位姿平滑混进作者握法。缺省 0 = 旧行为
+    /// <br/>角色系：武器角按 <see cref="Rig2DInstance.FrameRotation"/> 转（整身翻滚时枪跟着身子转）；世界来源的角是世界角
     /// </summary>
-    public sealed class WeaponGripSolver : Rig2DSolver, IRig2DTargetSource
+    public sealed class WeaponGripSolver : Rig2DSolver, IRig2DTargetSource, IRig2DReactive
     {
         private float length;
         private float extentMin;
@@ -72,6 +76,45 @@ namespace InnoVault.Rigs2D.Solvers
         }
 
         /// <summary>
+        /// 世界来源权重（钳到 0 ~ 1）：0 = 作者握法，1 = 整根武器取世界线；通道 <c>worldWeight</c> 每帧覆盖
+        /// </summary>
+        public float WorldWeight { get; set; }
+        /// <summary>
+        /// 世界线的杆尾（世界）；通道 <c>worldButt</c> 每帧覆盖
+        /// </summary>
+        public Vector2 WorldButt { get; set; }
+        /// <summary>
+        /// 世界线的方向（世界弧度，杆尾 → 杆尖）；通道 <c>worldAngle</c> 每帧覆盖
+        /// </summary>
+        public float WorldAngle { get; set; }
+        /// <summary>
+        /// 世界线的长度（世界像素；≤ 0 取作者长度）；通道 <c>worldLength</c> 每帧覆盖
+        /// </summary>
+        public float WorldLength { get; set; }
+
+        /// <summary>
+        /// 用杆尾 → 杆尖两点写世界线（长度取两点距离）
+        /// </summary>
+        public void SetWorldLine(Vector2 butt, Vector2 tip) {
+            WorldButt = butt;
+            Vector2 d = tip - butt;
+            float len = d.Length();
+            if (len > 0.0001f) {
+                WorldAngle = MathF.Atan2(d.Y, d.X);
+            }
+            WorldLength = len;
+        }
+
+        /// <inheritdoc/>
+        public Vector2 ReactionOffset { get; set; }
+        /// <inheritdoc/>
+        public bool ReactionFollows => false;
+        /// <inheritdoc/>
+        public Vector2 ReactionBase => armNear is TwoBoneIKSolver ik ? ik.Shoulder : Rig.RootPosition;
+        /// <inheritdoc/>
+        public Vector2 ReactionEffector => NearGrip;
+
+        /// <summary>
         /// 本帧武器方向（世界单位向量）
         /// </summary>
         public Vector2 Dir { get; private set; } = Vector2.UnitX;
@@ -101,7 +144,7 @@ namespace InnoVault.Rigs2D.Solvers
 
         /// <inheritdoc/>
         protected internal override int ChannelProperty(string prop, out bool spatial) {
-            spatial = prop is "target" or "grip" or "farTarget";
+            spatial = prop is "target" or "grip" or "farTarget" or "worldButt";
             return prop switch {
                 "target" or "grip" => 0,
                 "angle" => 1,
@@ -110,6 +153,10 @@ namespace InnoVault.Rigs2D.Solvers
                 "extent" => 4,
                 "farHold" => 5,
                 "farTarget" => 6,
+                "worldWeight" => 7,
+                "worldButt" => 8,
+                "worldAngle" => 9,
+                "worldLength" => 10,
                 _ => -1,
             };
         }
@@ -124,6 +171,10 @@ namespace InnoVault.Rigs2D.Solvers
                 case 4: Extent = value.X; break;
                 case 5: FarHold = value.X; break;
                 case 6: FarTarget = value; break;
+                case 7: WorldWeight = value.X; break;
+                case 8: WorldButt = value; break;
+                case 9: WorldAngle = value.X; break;
+                case 10: WorldLength = value.X; break;
             }
         }
 
@@ -142,6 +193,7 @@ namespace InnoVault.Rigs2D.Solvers
             GripNearRatio = def.GetFloat("gripNear", 0.5f);
             GripFarRatio = def.GetFloat("gripFar", 0.3f);
             FarHold = def.GetFloat("farHold", 1f);
+            WorldWeight = def.GetFloat("worldWeight", 0f);
             hasFarTarget = false;
             armNearName = def.GetString("armNear", null);
             armFarName = def.GetString("armFar", null);
@@ -203,13 +255,23 @@ namespace InnoVault.Rigs2D.Solvers
 
         private void ComputeLine() {
             float s = Scale;
-            float ang = Rig.Mirrored ? MathHelper.Pi - Angle : Angle;
-            Vector2 dir = Rig2DMath.Dir(ang);
+            float ang = (Rig.Mirrored ? MathHelper.Pi - Angle : Angle) + Rig.FrameRotation;
             float len = length * s * MathHelper.Clamp(Extent, extentMin, extentMax);
-            Vector2 butt = Grip - dir * (len * GripNearRatio);
+            Vector2 grip = Grip + ReactionOffset;
+            float w = MathHelper.Clamp(WorldWeight, 0f, 1f);
+            if (w > 0f) {
+                //世界来源：以近手握点为插值点，角走最短弧、长度线性——拾起时武器从世界位姿滑进手里
+                float worldLen = WorldLength > 0f ? WorldLength : len;
+                Vector2 worldGrip = WorldButt + Rig2DMath.Dir(WorldAngle) * (worldLen * GripNearRatio);
+                ang += MathHelper.WrapAngle(WorldAngle - ang) * w;
+                len = MathHelper.Lerp(len, worldLen, w);
+                grip = Vector2.Lerp(grip, worldGrip, w);
+            }
+            Vector2 dir = Rig2DMath.Dir(ang);
+            Vector2 butt = grip - dir * (len * GripNearRatio);
             Dir = dir;
             Length = len;
-            NearGrip = Grip;
+            NearGrip = grip;
             Butt = butt;
             FarGrip = butt + dir * (len * GripFarRatio);
         }

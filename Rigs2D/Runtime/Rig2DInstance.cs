@@ -72,6 +72,24 @@ namespace InnoVault.Rigs2D.Runtime
         public bool HasAnchor => hasAnchor;
 
         /// <summary>
+        /// 角色系转角（弧度，屏幕顺时针为正；缺省 0 = 与旧行为逐位一致）：整副作者姿态绕锚点的刚性转角。
+        /// 锚点 / 根 / 骨骼空间里不随骨转的通道偏移、通道驱动的根朝向都叠上它，朝向系的角量（持械角、趾角、体态前倾、按角换帧）按它换算，
+        /// 于是被踹飞、翻滚、躺地时整个角色能转过去而脚目标、握点跟着转；世界空间的量（重力向的柔性链、世界参考方向）不受影响。
+        /// 消费方直接写根朝向时要自己把它加进去。整身刚体（<see cref="Physics.Rig2DBody"/>）每帧写它
+        /// </summary>
+        public float FrameRotation { get; set; }
+
+        /// <summary>
+        /// 骨架级受击反应层：一记冲量按力臂分到骨链上（加性弹簧），顿帧时攒着、放开时弹出来
+        /// </summary>
+        public Physics.Rig2DReactions Reactions { get; }
+
+        /// <summary>
+        /// 挂在这副骨架上的整身刚体（<see cref="Physics.Rig2DBody"/> 构造时登记；调试叠层据此画刚体）
+        /// </summary>
+        public Physics.Rig2DBody Body { get; internal set; }
+
+        /// <summary>
         /// 调试叠层用的显示变换（骨架空间 → 世界）：骨架在画布空间里求解、合成时才落到世界的消费方（锚点钉位 RT）挂上它，
         /// <c>/vaultdebug</c> 叠层就能把骨线画在屏幕上合成后的位置；<see langword="null"/> = 骨架空间即世界
         /// </summary>
@@ -168,6 +186,9 @@ namespace InnoVault.Rigs2D.Runtime
         private Vector2[] localOffset = [];
         private bool[] hasLocalOffset = [];
         private float[] localLength = [];
+        //受击反应层写的逐骨附加世界角（缺省全零，传播时加在局部角之后）与根的附加位移
+        internal float[] reactionRotation = [];
+        internal Vector2 reactionRootOffset;
         private int[] pieceOrder = [];
         private int[] ribbonOrder = [];
         private int[] walkStack = [];
@@ -196,6 +217,7 @@ namespace InnoVault.Rigs2D.Runtime
             Seed = seed;
             Animation = new Rig2DClipPlayer(this);
             Channels = new Rig2DChannels(this);
+            Reactions = new Physics.Rig2DReactions(this);
             BindDefinition(asset.Definition, asset.Version);
             Animator = new Rig2DAnimator(this);
         }
@@ -214,6 +236,7 @@ namespace InnoVault.Rigs2D.Runtime
             localOffset = new Vector2[n];
             hasLocalOffset = new bool[n];
             localLength = new float[n];
+            reactionRotation = new float[n];
             walkStack = new int[Math.Max(n, 1)];
             Array.Fill(localRotation, float.NaN);
             Array.Fill(localLength, float.NaN);
@@ -249,6 +272,7 @@ namespace InnoVault.Rigs2D.Runtime
             Channels.Rebuild(def);
             BuildChannelLinks();
             Animator?.Rebuild(def);
+            Reactions?.Rebuild();
         }
 
         private Rig2DSolver CreateSolver(Solver2DDef sd, int slot) {
@@ -302,6 +326,7 @@ namespace InnoVault.Rigs2D.Runtime
                 Channels.Rebuild(def);
                 BuildChannelLinks();
                 Animator?.Rebuild(def);
+                Reactions?.ApplyDefinition();
                 ApplyBinding();
                 return;
             }
@@ -388,7 +413,7 @@ namespace InnoVault.Rigs2D.Runtime
             Vector2 anchor;
             float parDir;
             if (d.ParentIndex < 0) {
-                anchor = RootPosition;
+                anchor = RootPosition + reactionRootOffset;
                 parDir = RootRotation;
             }
             else {
@@ -413,8 +438,8 @@ namespace InnoVault.Rigs2D.Runtime
             Bone2DDef d = Definition.Bones[bone];
             float parDir = d.ParentIndex < 0 ? RootRotation : Bones[d.ParentIndex].Dir;
             float rot = float.IsNaN(localRotation[bone]) ? d.Rotation : localRotation[bone];
-            //镜像只翻继承旋转的骨骼；世界绝对角骨骼保持原角
-            return d.InheritRotation ? parDir + rot * MirrorSign : rot;
+            //镜像只翻继承旋转的骨骼；世界绝对角骨骼保持原角。受击反应是世界角增量，不乘镜像符号
+            return (d.InheritRotation ? parDir + rot * MirrorSign : rot) + reactionRotation[bone];
         }
 
         /// <summary>
@@ -640,6 +665,8 @@ namespace InnoVault.Rigs2D.Runtime
             Animation.Apply();
             ApplyChannelBindings();
             RefreshSolverDriven();
+            //受击弹簧推进（顿帧 dt = 0 时只攒不走）并写出逐骨附加角与肢体目标偏移
+            Reactions.Advance(dt);
 
             //镜像切换：先让求解器清掉带极性的迟滞量，再按需整副硬重建
             bool mirrorSnap = false;
@@ -723,7 +750,8 @@ namespace InnoVault.Rigs2D.Runtime
                             if (fb.BoneIndex < 0) {
                                 continue;
                             }
-                            float d = Bones[fb.BoneIndex].Dir;
+                            //朝向系角量按角色系量：整身转过去时换帧不跟着乱跳
+                            float d = Bones[fb.BoneIndex].Dir - FrameRotation;
                             v = MathHelper.WrapAngle(mirrored ? MathHelper.Pi - d : d);
                             break;
                         }
@@ -907,6 +935,12 @@ namespace InnoVault.Rigs2D.Runtime
             }
             else {
                 d = new Vector2(local.X * MirrorSign, local.Y);
+                //不随骨转的偏移活在角色系里：角色整身转过去时跟着转
+                if (FrameRotation != 0f) {
+                    float cos = MathF.Cos(FrameRotation);
+                    float sin = MathF.Sin(FrameRotation);
+                    d = new Vector2(cos * d.X - sin * d.Y, sin * d.X + cos * d.Y);
+                }
             }
             return origin + (d * Scale + extra);
         }
@@ -943,7 +977,7 @@ namespace InnoVault.Rigs2D.Runtime
                                 RootPosition = ResolveSpatial(b, v, c, forRoot: true);
                             }
                             else if (b.PropCode == 1) {
-                                RootRotation = b.Mode == Channel2DMode.Add ? b.Offset.X + v.X * b.Scale : v.X * b.Scale;
+                                RootRotation = (b.Mode == Channel2DMode.Add ? b.Offset.X + v.X * b.Scale : v.X * b.Scale) + FrameRotation;
                             }
                             break;
                     }
@@ -1046,6 +1080,27 @@ namespace InnoVault.Rigs2D.Runtime
         }
 
         /// <summary>
+        /// 受击反应层给这根骨带来的世界角增量（自身 + 继承旋转的祖先链上的附加角之和）；没有反应时为 0。
+        /// 体态一类按世界角钳制的求解器用它把反应量剔出去，只钳作者姿态，反应照样叠在上面
+        /// </summary>
+        public float ReactionWorldAngle(int bone) {
+            if ((uint)bone >= (uint)reactionRotation.Length) {
+                return 0f;
+            }
+            float sum = 0f;
+            int b = bone;
+            while (b >= 0) {
+                sum += reactionRotation[b];
+                Bone2DDef d = Definition.Bones[b];
+                if (!d.InheritRotation) {
+                    break;
+                }
+                b = d.ParentIndex;
+            }
+            return sum;
+        }
+
+        /// <summary>
         /// 本轮求解里某骨是否已被排在前面的求解器解过。多个求解器串接同一段骨链（瞄准链 → 体态）时，
         /// 后者应从这份解续写，而不是按父骨骼重算静息把前者的结果冲掉
         /// </summary>
@@ -1107,7 +1162,7 @@ namespace InnoVault.Rigs2D.Runtime
             Vector2 anchor;
             float parDir;
             if (d.ParentIndex < 0) {
-                anchor = RootPosition;
+                anchor = RootPosition + reactionRootOffset;
                 parDir = RootRotation;
             }
             else {
@@ -1127,7 +1182,7 @@ namespace InnoVault.Rigs2D.Runtime
             me.Pos = new Vector2(
                 anchor.X + (cos * off.X - sin * offY) * Scale,
                 anchor.Y + (sin * off.X + cos * offY) * Scale);
-            me.Dir = d.InheritRotation ? parDir + rot * sign : rot;
+            me.Dir = (d.InheritRotation ? parDir + rot * sign : rot) + reactionRotation[b];
             me.Length = len * Scale;
         }
 

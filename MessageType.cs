@@ -51,5 +51,7 @@ namespace InnoVault
         PlayerNet_Snapshot,
         /// <summary>释放指定玩家基础网络数据兴趣</summary>
         PlayerNet_ReleaseInterest,
+        /// <summary>富受击事件（客户端->服务器校验后处理并转发；服务器->客户端表现）</summary>
+        HitEvent,
     }
 }

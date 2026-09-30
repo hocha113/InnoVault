@@ -1,4 +1,5 @@
 ﻿using InnoVault.Actors;
+using InnoVault.Combat;
 using InnoVault.GameSystem;
 using InnoVault.TileProcessors;
 using System.IO;
@@ -14,6 +15,9 @@ namespace InnoVault.VaultNetworks
             TileProcessorNetWork.HandlePacket(type, mod, reader, whoAmI);
             ActorNetWork.Handle(type, mod, reader, whoAmI);
             PlayerNetworkCore.HandlePacket(type, reader, whoAmI);
+            if (type == MessageType.HitEvent) {
+                HitEvents.Handle(reader, whoAmI);
+            }
         }
     }
 }

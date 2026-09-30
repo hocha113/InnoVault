@@ -33,10 +33,37 @@ namespace InnoVault.Rigs2D.Runtime
     }
 
     /// <summary>
+    /// 扫掠命中：插值线段在帧间的进度、命中那一刻的线段与接触
+    /// </summary>
+    public struct Rig2DSweepHit
+    {
+        /// <summary>
+        /// 接触（法线从扫掠体指向目标，点在两表面之间）
+        /// </summary>
+        public Rig2DContact Contact;
+        /// <summary>
+        /// 命中的目标下标
+        /// </summary>
+        public int TargetIndex;
+        /// <summary>
+        /// 帧间进度（0 = 上一帧，1 = 本帧）
+        /// </summary>
+        public float T;
+        /// <summary>
+        /// 命中那条插值线段的刃段起点
+        /// </summary>
+        public Vector2 Butt;
+        /// <summary>
+        /// 命中那条插值线段的尖端
+        /// </summary>
+        public Vector2 Tip;
+    }
+
+    /// <summary>
     /// 骨扫掠：刚体线段的帧间插值。巨物一记爆发里尖端一帧能扫过两三百像素，逐帧取点连线就是一圈多边形，判定也会从目标身边跳过去。
     /// 线段当刚体处理：在 <see cref="PivotFrac"/> 处取枢轴，枢轴位置走 Catmull-Rom，角度解缠后走单调三次插值（硬停处不回弹、过冲原样保留），
     /// 长度线性；帧间按尖端弧长补点（<see cref="DenseStep"/>）。刀光（<see cref="BuildDense(float, List{Vector2}, List{Vector2}, List{float})"/>）
-    /// 与扫掠判定（<see cref="SweepIntersects"/>）共用这一份插值
+    /// 与扫掠判定（<see cref="SweepIntersects(Rectangle, float, float, out float)"/> / <see cref="SweepContact"/>）共用这一份插值
     /// <br/>只读消费方推进来的线段，不碰实体；联机下两端由同输入算出同结果
     /// </summary>
     public sealed class Rig2DBoneSweep
@@ -178,6 +205,101 @@ namespace InnoVault.Rigs2D.Runtime
                 }
             }
             return false;
+        }
+
+        /// <summary>
+        /// 最近一帧扫过的区域是否碰到一个胶囊（目标的受击胶囊、对方的武器）：插值线段取 [<paramref name="fromFrac"/>, 1] 那一截、
+        /// 半径 <paramref name="radius"/>，按帧间进度从早到晚测，命中给出最早的进度
+        /// </summary>
+        public bool SweepIntersects(in Rig2DCapsule target, float radius, float fromFrac, out float hitT) {
+            hitT = 0f;
+            ReadOnlySpan<Rig2DCapsule> one = [target];
+            if (SweepContact(one, radius, fromFrac, out Rig2DSweepHit hit)) {
+                hitT = hit.T;
+                return true;
+            }
+            return false;
+        }
+
+        /// <summary>
+        /// 最近一帧扫过的区域与一组胶囊最早的一处接触：逐条插值线段（从上一帧到本帧）测全部目标，第一条碰上的线段里取最深的目标。
+        /// 飞踹的脚、巨斧的刃一帧能走几十上百像素，只测本帧线段会从目标身上跳过去
+        /// </summary>
+        /// <param name="targets">目标胶囊（世界）</param>
+        /// <param name="radius">扫掠线段的胶囊半径（世界像素）</param>
+        /// <param name="fromFrac">刃段起点（占线段长比例，0 = 尾端）</param>
+        /// <param name="hit">命中信息：接触法线从扫掠体指向目标</param>
+        public bool SweepContact(ReadOnlySpan<Rig2DCapsule> targets, float radius, float fromFrac, out Rig2DSweepHit hit) {
+            hit = default;
+            hit.TargetIndex = -1;
+            int n = history.Count;
+            if (n == 0 || targets.Length == 0) {
+                return false;
+            }
+            if (n == 1) {
+                Rig2DSweepLine only = history[0];
+                return TestLine(Vector2.Lerp(only.Butt, only.Tip, fromFrac), only.Tip, radius, targets, 1f, ref hit);
+            }
+            Prepare(history);
+            int k = n - 2;
+            int steps = Steps(history, k);
+            for (int j = 1; j <= steps; j++) {
+                float t = j / (float)steps;
+                Sample(k, t, n, out Vector2 pivot, out float ang, out float len);
+                Emit(pivot, ang, len, out Vector2 butt, out Vector2 tip);
+                if (TestLine(Vector2.Lerp(butt, tip, fromFrac), tip, radius, targets, t, ref hit)) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private static bool TestLine(Vector2 a, Vector2 b, float radius, ReadOnlySpan<Rig2DCapsule> targets, float t, ref Rig2DSweepHit hit) {
+            Rig2DCapsule self = new(a, b, radius);
+            float deepest = float.MinValue;
+            bool any = false;
+            for (int i = 0; i < targets.Length; i++) {
+                //法线约定：从扫掠体指向目标 = 以目标为 A、扫掠体为 B
+                if (Rig2DHit.CapsuleContact(in targets[i], in self, out Rig2DContact c) && c.Depth > deepest) {
+                    deepest = c.Depth;
+                    hit.Contact = c;
+                    hit.TargetIndex = i;
+                    hit.T = t;
+                    hit.Butt = a;
+                    hit.Tip = b;
+                    any = true;
+                }
+            }
+            return any;
+        }
+
+        //==================== 速度（出手 / 脱手） ====================
+
+        /// <summary>
+        /// 线段上 <paramref name="frac"/> 处（0 = 尾端）最近一帧的世界速度（像素 / 帧）；历史不足两帧为零。
+        /// 掷斧脱手、甩出物体时拿它当初速度
+        /// </summary>
+        public Vector2 PointVelocity(float frac) {
+            int n = history.Count;
+            if (n < 2) {
+                return Vector2.Zero;
+            }
+            Rig2DSweepLine a = history[n - 2];
+            Rig2DSweepLine b = history[n - 1];
+            return Vector2.Lerp(b.Butt, b.Tip, frac) - Vector2.Lerp(a.Butt, a.Tip, frac);
+        }
+
+        /// <summary>
+        /// 最近一帧线段的角速度（弧度 / 帧，最短弧）；历史不足两帧为零
+        /// </summary>
+        public float AngularVelocity {
+            get {
+                int n = history.Count;
+                if (n < 2) {
+                    return 0f;
+                }
+                return MathHelper.WrapAngle(Angle(history[n - 1]) - Angle(history[n - 2]));
+            }
         }
 
         private void Prepare(IReadOnlyList<Rig2DSweepLine> lines) {

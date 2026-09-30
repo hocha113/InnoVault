@@ -14,6 +14,11 @@ namespace InnoVault.Cinematics
         /// </summary>
         public virtual int Priority => 0;
 
+        /// <summary>
+        /// 演出结束后镜头混回下层（玩法镜头）用的帧数；0 = 硬切
+        /// </summary>
+        public virtual int BlendOutFrames => 36;
+
         /// <summary>该演出的时间轴</summary>
         public CutsceneTimeline Timeline {
             get {

@@ -66,6 +66,17 @@ namespace InnoVault.Rigs2D.Data
         public Dictionary<string, List<Hitbox2DDef>> Hitboxes { get; } = new(StringComparer.Ordinal);
 
         /// <summary>
+        /// 整身刚体参数袋（JSON <c>"body": { ... }</c>，可空）：<see cref="Physics.Rig2DBody"/> 构造时与每次热重载后读取，
+        /// 键名同其属性名的小驼峰（<c>mass</c> / <c>spinScale</c> / <c>friction</c> / <c>gravity: [x, y]</c> / <c>group</c> …）；取值方法同求解器条目
+        /// </summary>
+        public Solver2DDef BodyParams { get; set; }
+        /// <summary>
+        /// 受击反应层参数袋（JSON <c>"reactions": { ... }</c>，可空）：<see cref="Physics.Rig2DReactions"/> 绑定与热重载后读取，
+        /// 另有 <c>"bones": { 骨名: 增益 }</c> / <c>"solvers": { 求解器名: 增益 }</c>
+        /// </summary>
+        public Solver2DDef ReactionParams { get; set; }
+
+        /// <summary>
         /// 按组名取胶囊表；缺失返回 <see langword="null"/>
         /// </summary>
         public List<Hitbox2DDef> HitboxGroup(string name)
@@ -762,6 +773,8 @@ namespace InnoVault.Rigs2D.Data
                 }
                 c.Hitboxes[kv.Key] = list;
             }
+            c.BodyParams = BodyParams?.Clone();
+            c.ReactionParams = ReactionParams?.Clone();
             return c;
         }
 

@@ -30,6 +30,15 @@ namespace InnoVault.Cinematics
         /// <summary>当前演出总帧数</summary>
         public int Duration { get; internal set; }
 
+        /// <summary>当前这道等待门已经等了多少帧（不在门前为 0）</summary>
+        public int WaitTicks { get; internal set; }
+
+        /// <summary>最近一道等待门是否因超时放行（本次播放内）</summary>
+        public bool LastWaitTimedOut { get; internal set; }
+
+        /// <summary>是否由外部时钟驱动</summary>
+        public bool ExternalClock => Clip?.Timeline.Clock != null;
+
         /// <summary>当前播放进度，范围为 0 到 1</summary>
         public float Progress => Duration <= 0 ? 1f : MathHelper.Clamp(Tick / (float)Duration, 0f, 1f);
 
