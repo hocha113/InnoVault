@@ -29,6 +29,8 @@ Loadings: {
 	}
 }
 
+Scenarios.ScenarioText.MultiplayerUnsupported: 场景功能暂不支持多人模式。
+
 Items: {
 	TestItem: {
 		DisplayName: 测试物品

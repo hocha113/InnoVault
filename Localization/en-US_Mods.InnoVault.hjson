@@ -29,6 +29,8 @@ Loadings: {
 	}
 }
 
+Scenarios.ScenarioText.MultiplayerUnsupported: Scenarios are not supported in multiplayer yet.
+
 Items: {
 	TestItem: {
 		DisplayName: Test Item

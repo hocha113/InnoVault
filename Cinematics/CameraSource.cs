@@ -102,8 +102,10 @@ namespace InnoVault.Cinematics
             if (subjects.Count == 0) {
                 return;
             }
+            //玩家把缩放调到小于 1 时，上下限按比例缩，构图不会把画面硬拉回 1 以上
+            float scale = System.MathF.Min(VaultCamera.PlayerZoom, 1f);
             CameraState want = CameraFraming.Fit(System.Runtime.InteropServices.CollectionsMarshal.AsSpan(subjects), VaultCamera.ScreenSize,
-                Margin, MinZoom, MaxZoom, VaultCamera.ForcedMinimumZoom, Bias);
+                Margin, MinZoom * scale, MaxZoom * scale, VaultCamera.ForcedMinimumZoom, Bias);
             if (!seeded || Smoothing <= 0f) {
                 smoothed = want;
                 seeded = true;

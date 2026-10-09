@@ -54,8 +54,8 @@ namespace InnoVault.Cinematics
         }
         /// <summary>屏幕像素尺寸</summary>
         public static Vector2 ScreenSize => new(Main.screenWidth, Main.screenHeight);
-        /// <summary>玩家自己在设置里调的缩放（<c>Main.GameZoomTarget</c> 夹到 1~2，镜头栈的原始镜头用的就是它）。相对缩放的演出以它为基准</summary>
-        public static float PlayerZoom => MathHelper.Clamp(Main.GameZoomTarget, 1f, 2f);
+        /// <summary>玩家自己调的缩放（<c>Main.GameZoomTarget</c>，只夹掉不合理的极值，缩放类模组调出的小于 1 的缩放原样保留，镜头栈的原始镜头用的就是它）。相对缩放的演出以它为基准</summary>
+        public static float PlayerZoom => MathHelper.Clamp(Main.GameZoomTarget, 0.1f, 10f);
         /// <summary>原版强制最小缩放（超大分辨率下大于 1）</summary>
         public static float ForcedMinimumZoom => Main.ForcedMinimumZoom;
         /// <summary>某缩放下画面覆盖的世界尺寸</summary>
@@ -216,7 +216,11 @@ namespace InnoVault.Cinematics
                 any = true;
             }
             if (any) {
-                state.Zoom = MathHelper.Clamp(state.Zoom, MinZoom, MathF.Max(MaxZoom, MinZoom));
+                //上下限只约束演出自己加上去的部分：玩家（或缩放类模组）本来就把缩放调到范围外时，范围跟着放宽到玩家的值，
+                //否则演出一接管，小于 1 的缩放会被硬拉回 1，大于上限的会被硬压下来
+                float floor = MathF.Min(MinZoom, Base.Zoom);
+                float ceiling = MathF.Max(MathF.Max(MaxZoom, MinZoom), Base.Zoom);
+                state.Zoom = MathHelper.Clamp(state.Zoom, floor, ceiling);
             }
             Composed = state;
             LastComposed = state;

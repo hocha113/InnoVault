@@ -376,7 +376,9 @@ namespace InnoVault.Cinematics
             if (subjects.Count == 0) {
                 return;
             }
-            CameraState s = CameraFraming.Fit(CollectionsMarshal.AsSpan(subjects), VaultCamera.ScreenSize, margin, minZoom, maxZoom,
+            //玩家（或缩放类模组）把缩放调到小于 1 时，上下限按比例缩，构图才不会把画面硬拉回 1 以上
+            float scale = MathF.Min(VaultCamera.PlayerZoom, 1f);
+            CameraState s = CameraFraming.Fit(CollectionsMarshal.AsSpan(subjects), VaultCamera.ScreenSize, margin, minZoom * scale, maxZoom * scale,
                 VaultCamera.ForcedMinimumZoom, bias);
             context.SetCameraFocus(s.Center, lerpSpeed);
             context.SetCameraZoomAbsolute(s.Zoom, zoomLerpSpeed);
