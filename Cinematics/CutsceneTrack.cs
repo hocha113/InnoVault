@@ -30,6 +30,15 @@ namespace InnoVault.Cinematics
         public int EndTick => StartTick + Math.Max(Duration, 1);
 
         /// <summary>
+        /// 声明这条轨道在激活期间负责写镜头缩放（<see cref="CutsceneContext.SetCameraZoom"/>）。缺省 <see langword="false"/>
+        /// <br/>声明了的轨道激活时，引擎认为缩放由它掌管：这一帧里没有任何轨道写缩放（例如逐帧回调的条件没满足、构图轨没收到主体），
+        /// 缩放目标就回落到玩家自己的缩放（倍率 1），而不是粘着前一条轨道的终值。
+        /// 没有任何声明轨激活的帧（轨道之间的空档、最后一条缩放轨结束之后）保持上一次写入的倍率不动
+        /// <br/>自定义轨道只要会调用 <see cref="CutsceneContext.SetCameraZoom"/> 或 <see cref="CutsceneContext.SetCameraZoomAbsolute"/>，就应当重写成 <see langword="true"/>
+        /// </summary>
+        public virtual bool ControlsZoom => false;
+
+        /// <summary>
         /// 判断该轨道在指定时间是否处于激活状态
         /// </summary>
         public virtual bool IsActiveAt(int tick) {
@@ -157,7 +166,8 @@ namespace InnoVault.Cinematics
     }
 
     /// <summary>
-    /// 控制摄像机缩放倍率的轨道
+    /// 控制摄像机缩放倍率的轨道。<c>fromZoom</c> / <c>toZoom</c> 是相对玩家当前缩放的倍率：1 = 玩家自己的缩放，1.5 = 在玩家的基础上再推近一半，
+    /// 玩家把缩放调到多少，演出就跟着在这个基础上推拉，不会把画面强制锁成某个固定缩放
     /// </summary>
     public sealed class CameraZoomTrack : CutsceneTrack
     {
@@ -166,8 +176,11 @@ namespace InnoVault.Cinematics
         private readonly float lerpSpeed;
         private readonly CutsceneEase ease;
 
+        /// <inheritdoc/>
+        public override bool ControlsZoom => true;
+
         /// <summary>
-        /// 创建一条缩放轨道
+        /// 创建一条缩放轨道（倍率相对玩家当前缩放）
         /// </summary>
         public CameraZoomTrack(int startTick, int duration, float fromZoom, float toZoom, float lerpSpeed = 0.05f, CutsceneEase ease = CutsceneEase.QuadInOut)
             : base(startTick, duration) {
@@ -328,8 +341,12 @@ namespace InnoVault.Cinematics
         private readonly float zoomLerpSpeed;
         private readonly Vector2 bias;
 
+        /// <inheritdoc/>
+        public override bool ControlsZoom => true;
+
         /// <summary>
-        /// 创建一条构图轨道
+        /// 创建一条构图轨道。构图按主体算出的是屏幕上的实际缩放（要装下主体，玩家的缩放帮不上忙），所以写入的是绝对缩放，
+        /// <paramref name="minZoom"/> / <paramref name="maxZoom"/> 也是绝对值
         /// </summary>
         /// <param name="startTick">开始帧</param>
         /// <param name="duration">持续帧数</param>
@@ -362,7 +379,7 @@ namespace InnoVault.Cinematics
             CameraState s = CameraFraming.Fit(CollectionsMarshal.AsSpan(subjects), VaultCamera.ScreenSize, margin, minZoom, maxZoom,
                 VaultCamera.ForcedMinimumZoom, bias);
             context.SetCameraFocus(s.Center, lerpSpeed);
-            context.SetCameraZoom(s.Zoom, zoomLerpSpeed);
+            context.SetCameraZoomAbsolute(s.Zoom, zoomLerpSpeed);
         }
     }
 

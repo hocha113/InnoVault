@@ -54,6 +54,8 @@ namespace InnoVault.Cinematics
         }
         /// <summary>屏幕像素尺寸</summary>
         public static Vector2 ScreenSize => new(Main.screenWidth, Main.screenHeight);
+        /// <summary>玩家自己在设置里调的缩放（<c>Main.GameZoomTarget</c> 夹到 1~2，镜头栈的原始镜头用的就是它）。相对缩放的演出以它为基准</summary>
+        public static float PlayerZoom => MathHelper.Clamp(Main.GameZoomTarget, 1f, 2f);
         /// <summary>原版强制最小缩放（超大分辨率下大于 1）</summary>
         public static float ForcedMinimumZoom => Main.ForcedMinimumZoom;
         /// <summary>某缩放下画面覆盖的世界尺寸</summary>
@@ -188,7 +190,7 @@ namespace InnoVault.Cinematics
                 return;
             }
             Vector2 screen = ScreenSize;
-            CameraState state = new(Main.screenPosition + screen * 0.5f, MathHelper.Clamp(Main.GameZoomTarget, 1f, 2f));
+            CameraState state = new(Main.screenPosition + screen * 0.5f, PlayerZoom);
             Base = state;
             EnsureSorted();
             bool any = false;

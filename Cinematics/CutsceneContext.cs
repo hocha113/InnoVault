@@ -66,11 +66,23 @@ namespace InnoVault.Cinematics
         }
 
         /// <summary>
-        /// 设置本帧摄像机目标缩放
+        /// 设置本帧摄像机目标缩放，<paramref name="zoom"/> 是相对玩家当前缩放的倍率：1 = 玩家自己的缩放，1.5 = 在玩家的基础上再推近一半。
+        /// 玩家的缩放变了，目标跟着变，演出结束或轨道释放后画面回到玩家自己的缩放。
+        /// 写缩放的自定义轨道请重写 <see cref="CutsceneTrack.ControlsZoom"/> 为 <see langword="true"/>
         /// </summary>
         public void SetCameraZoom(float zoom, float lerpSpeed = 0.02f) {
-            camera.SetZoom(zoom, lerpSpeed);
+            camera.SetZoom(zoom, lerpSpeed, false);
         }
+
+        /// <summary>
+        /// 设置本帧摄像机目标缩放，<paramref name="zoom"/> 是屏幕上的实际缩放（与 <c>Main.GameZoomTarget</c> 同一单位），不随玩家的缩放变化。
+        /// 只用于必须精确控制可见范围的场合（按主体构图装下画面之类）
+        /// </summary>
+        public void SetCameraZoomAbsolute(float zoom, float lerpSpeed = 0.02f) {
+            camera.SetZoom(zoom, lerpSpeed, true);
+        }
+
+        internal void EndZoomFrame(bool zoomOwned) => camera.EndZoomFrame(zoomOwned);
 
         /// <summary>
         /// 请求本帧锁定指定输入

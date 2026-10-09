@@ -20,8 +20,12 @@ namespace InnoVault.Cinematics
         private CameraState smoothed;
         private Vector2 focusTarget;
         private bool hasFocus;
+        //缩放目标：相对模式下是玩家缩放的倍率（1 = 玩家自己的缩放），绝对模式下是屏幕实际缩放
         private float targetZoom = 1f;
+        private bool zoomAbsolute;
         private bool hasZoom;
+        //本帧是否有轨道写过缩放（每帧开头清零），用来发现"缩放轨在位但没写"的帧
+        private bool zoomWritten;
         private float zoomLerpSpeed = 0.02f;
         private float positionLerpSpeed = 0.03f;
         private int blendOutFrames = 36;
@@ -50,6 +54,18 @@ namespace InnoVault.Cinematics
         /// </summary>
         internal void PrepareFrame() {
             requestedInputLock = CutsceneInputLockFlags.None;
+            zoomWritten = false;
+        }
+
+        /// <summary>
+        /// 时间轴更新完后调用。有声明了 <see cref="CutsceneTrack.ControlsZoom"/> 的轨道在位、这一帧却没人写缩放时，
+        /// 目标回落到玩家自己的缩放（倍率 1），沿用上一次的追近速度平滑过去，不粘着前一条轨道的终值
+        /// </summary>
+        internal void EndZoomFrame(bool zoomOwned) {
+            if (zoomOwned && hasZoom && !zoomWritten) {
+                targetZoom = 1f;
+                zoomAbsolute = false;
+            }
         }
 
         /// <summary>
@@ -61,6 +77,7 @@ namespace InnoVault.Cinematics
             active = true;
             hasFocus = false;
             hasZoom = false;
+            zoomAbsolute = false;
             if (weight <= 0f) {
                 seeded = false;
             }
@@ -82,6 +99,8 @@ namespace InnoVault.Cinematics
             seeded = false;
             hasFocus = false;
             hasZoom = false;
+            zoomAbsolute = false;
+            zoomWritten = false;
             weight = 0f;
             requestedInputLock = CutsceneInputLockFlags.None;
         }
@@ -96,11 +115,13 @@ namespace InnoVault.Cinematics
         }
 
         /// <summary>
-        /// 设置摄像机目标缩放
+        /// 设置摄像机目标缩放：<paramref name="absolute"/> 为假时是相对玩家缩放的倍率，为真时是屏幕实际缩放
         /// </summary>
-        internal void SetZoom(float zoom, float lerpSpeed = 0.02f) {
+        internal void SetZoom(float zoom, float lerpSpeed, bool absolute) {
             targetZoom = Math.Max(0.1f, zoom);
+            zoomAbsolute = absolute;
             hasZoom = true;
+            zoomWritten = true;
             zoomLerpSpeed = MathHelper.Clamp(lerpSpeed, 0f, 1f);
         }
 
@@ -132,7 +153,8 @@ namespace InnoVault.Cinematics
                 return;
             }
             smoothed.Center = Vector2.Lerp(smoothed.Center, hasFocus ? focusTarget : below.Center, hasFocus ? positionLerpSpeed : FollowBelowLerp);
-            float zoomGoal = hasZoom ? targetZoom : below.Zoom;
+            //相对模式乘的是下层此刻的缩放（玩家自己的缩放），玩家中途调缩放，目标跟着走
+            float zoomGoal = !hasZoom ? below.Zoom : zoomAbsolute ? targetZoom : targetZoom * below.Zoom;
             smoothed.Zoom = MathHelper.Lerp(smoothed.Zoom, zoomGoal, hasZoom ? zoomLerpSpeed : FollowBelowLerp);
             if (Math.Abs(smoothed.Zoom - zoomGoal) <= ZoomSnapEpsilon) {
                 smoothed.Zoom = zoomGoal;

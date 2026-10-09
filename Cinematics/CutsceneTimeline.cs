@@ -81,9 +81,15 @@ namespace InnoVault.Cinematics
         }
 
         internal void Update(CutsceneContext context) {
+            bool zoomOwned = false;
             for (int i = 0; i < tracks.Count; i++) {
-                tracks[i].UpdateTrack(context);
+                CutsceneTrack track = tracks[i];
+                track.UpdateTrack(context);
+                if (track.ControlsZoom && track.IsActiveAt(context.Tick)) {
+                    zoomOwned = true;
+                }
             }
+            context.EndZoomFrame(zoomOwned);
         }
 
         //当前帧有没有没开的门（会顺带推进等待计数、处理超时）
