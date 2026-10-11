@@ -29,7 +29,15 @@ Loadings: {
 	}
 }
 
-Scenarios.ScenarioText.MultiplayerUnsupported: 场景功能暂不支持多人模式。
+Scenarios: {
+	ScenarioText: {
+		MultiplayerUnsupported: 场景功能暂不支持多人模式。
+		Saving: 正在保存世界
+		Generating: 正在生成场景
+		Entering: 正在进入场景
+		ReturningHome: 正在返回主世界
+	}
+}
 
 Items: {
 	TestItem: {

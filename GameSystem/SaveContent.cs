@@ -390,6 +390,23 @@ namespace InnoVault.GameSystem
             tag = null!;
             return false;
         }
+        //删除与 baseZipPath 同名的全部备份 zip（含时间戳前缀版本）
+        internal static void DeleteBackups(string baseZipPath) {
+            try {
+                string dir = Path.GetDirectoryName(baseZipPath);
+                if (string.IsNullOrEmpty(dir) || !Directory.Exists(dir)) {
+                    return;
+                }
+                Regex regex = BuildBackupRegex(Path.GetFileNameWithoutExtension(baseZipPath));
+                foreach (string file in Directory.EnumerateFiles(dir, "*.zip", SearchOption.TopDirectoryOnly).ToList()) {
+                    if (regex.IsMatch(Path.GetFileName(file))) {
+                        File.Delete(file);
+                    }
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"[DeleteBackups] Failed to delete backups of {baseZipPath}: {ex.Message}");
+            }
+        }
         /// <summary>
         /// 修剪同一世界（或TP数据）备份数量，按 LastWriteTime 升序删除最旧的，保留最新的指定数量
         /// 期望文件命名：yyyy-MM-dd-world_xxx.zip 或 world_xxx.zip（无时间戳残留）

@@ -29,7 +29,15 @@ Loadings: {
 	}
 }
 
-Scenarios.ScenarioText.MultiplayerUnsupported: Scenarios are not supported in multiplayer yet.
+Scenarios: {
+	ScenarioText: {
+		MultiplayerUnsupported: Scenarios are not supported in multiplayer yet.
+		Saving: Saving world
+		Generating: Generating scenario
+		Entering: Entering scenario
+		ReturningHome: Returning to the main world
+	}
+}
 
 Items: {
 	TestItem: {

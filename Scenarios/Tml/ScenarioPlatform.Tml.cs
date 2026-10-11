@@ -14,6 +14,10 @@ namespace InnoVault.Scenarios
             };
             ErrorSink = VaultMod.LoggerError;
             InfoSink = message => VaultMod.Instance?.Logger.Info(message);
+            StageBackend = new TmlStageBackend();
+            RestoreBackend = new TmlRestoreBackend();
+            ScenarioEnded = ScenarioEntities.CleanUp;
+            RevealMap = ScenarioMapPolicy.Reveal;
         }
     }
 }

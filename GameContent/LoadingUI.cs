@@ -156,7 +156,8 @@ namespace InnoVault.GameContent
     internal class WorldSaveUI : WorldLoadingUI
     {
         public override LayersModeEnum LayersMode => LayersModeEnum.Mod_MenuLoad;
-        public override bool DoActive => !VaultClientConfig.Instance.HideWorldLoadingScreen && VaultLoadingProgress.IsSaving;
+        public override bool DoActive => !VaultClientConfig.Instance.HideWorldLoadingScreen && VaultLoadingProgress.IsSaving
+            && !Scenarios.ScenarioLoadingUI.Covering;
         protected override float Fadeout => 0.04f;
         protected override (string, string) GetDynamicText() {
             //动态省略号

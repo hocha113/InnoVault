@@ -234,6 +234,27 @@ namespace InnoVault.Cinematics
             Main.screenPosition = state.Center - screen * 0.5f + shake;
             Main.screenPosition.X = (int)Main.screenPosition.X;
             Main.screenPosition.Y = (int)Main.screenPosition.Y;
+            ClampScreen();
+        }
+
+        //镜头位置的最终钳制入口：原版 DoDraw_UpdateCameraPosition 末尾的钳制经场景框架的 IL 接管改走这里，镜头栈也走这里。
+        //BoundsOverride 返回真表示已经按自己的规则钳制完，否则按原版钳制
+        internal static Func<bool> BoundsOverride { get; set; }
+
+        internal static void ClampScreen() {
+            Func<bool> boundsOverride = BoundsOverride;
+            if (boundsOverride != null) {
+                bool handled;
+                try {
+                    handled = boundsOverride();
+                } catch (Exception ex) {
+                    handled = false;
+                    VaultMod.LoggerError("[VaultCamera:BoundsOverride]", $"Bounds override threw: {ex.Message}");
+                }
+                if (handled) {
+                    return;
+                }
+            }
             ClampToWorld();
         }
 

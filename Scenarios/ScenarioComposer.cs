@@ -18,11 +18,11 @@ namespace InnoVault.Scenarios
         public VaultScenario Scenario { get; }
 
         /// <summary>
-        /// 给场景挂一个组件。一个组件对象只能挂到一个实例上；一个场景最多挂一个 <see cref="ScenarioWorld"/>
+        /// 给场景挂一个组件。一个组件对象只能挂到一个实例上；一个场景最多挂一个 <see cref="ScenarioStage"/> 与一个 <see cref="ScenarioArea"/>
         /// </summary>
         /// <param name="component">要挂载的组件</param>
         /// <exception cref="ArgumentNullException">组件为空</exception>
-        /// <exception cref="InvalidOperationException">Compose 已经结束，组件已挂到别的实例上，或重复挂载世界组件</exception>
+        /// <exception cref="InvalidOperationException">Compose 已经结束，组件已挂到别的实例上，或重复挂载舞台、区域组件</exception>
         public ScenarioComposer Add(ScenarioComponent component) {
             ArgumentNullException.ThrowIfNull(component);
             ThrowIfSealed();
@@ -31,7 +31,7 @@ namespace InnoVault.Scenarios
         }
 
         /// <summary>
-        /// 声明一个子场景：本场景激活后它随之激活，本场景停用前它先停用。子场景必须是不拥有世界的场景
+        /// 声明一个子场景：本场景激活后它随之激活，本场景停用前它先停用。子场景必须是不拥有舞台的场景
         /// </summary>
         /// <typeparam name="T">子场景类型</typeparam>
         /// <exception cref="InvalidOperationException">Compose 已经结束，子场景类型没有注册，或与本场景是同一类型</exception>

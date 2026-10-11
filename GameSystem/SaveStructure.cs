@@ -631,6 +631,14 @@ namespace InnoVault.GameSystem
         /// </summary>
         public IList<TagCompound> TileProcessors;
         /// <summary>
+        /// 告示牌数据（相对坐标与文字），见 <see cref="SaveStructure.SaveSignsByTag"/>；旧数据里没有时为空
+        /// </summary>
+        public IList<TagCompound> Signs;
+        /// <summary>
+        /// 物块实体数据（原版与模组），见 <see cref="SaveStructure.SaveTileEntitiesByTag"/>；旧数据里没有时为空
+        /// </summary>
+        public IList<TagCompound> TileEntities;
+        /// <summary>
         /// 构造函数
         /// 初始化一个包含物块、箱子和TP实体数据的结构
         /// </summary>
@@ -638,11 +646,26 @@ namespace InnoVault.GameSystem
         /// <param name="tiles">压缩后的物块数据</param>
         /// <param name="chests">箱子数据集合</param>
         /// <param name="tps">TP实体数据集合</param>
-        public RegionSaveData(Point16 size, byte[] tiles, IList<TagCompound> chests, IList<TagCompound> tps) {
+        public RegionSaveData(Point16 size, byte[] tiles, IList<TagCompound> chests, IList<TagCompound> tps)
+            : this(size, tiles, chests, tps, null, null) { }
+        /// <summary>
+        /// 构造函数
+        /// 初始化一个包含物块、箱子、TP实体、告示牌与物块实体数据的结构
+        /// </summary>
+        /// <param name="size">区域大小</param>
+        /// <param name="tiles">压缩后的物块数据</param>
+        /// <param name="chests">箱子数据集合</param>
+        /// <param name="tps">TP实体数据集合</param>
+        /// <param name="signs">告示牌数据集合，可为空</param>
+        /// <param name="tileEntities">物块实体数据集合，可为空</param>
+        public RegionSaveData(Point16 size, byte[] tiles, IList<TagCompound> chests, IList<TagCompound> tps,
+            IList<TagCompound> signs, IList<TagCompound> tileEntities) {
             Size = size;//区域大小
             Tiles = tiles;//物块数据
             Chests = chests;//箱子数据
             TileProcessors = tps;//TP数据
+            Signs = signs;
+            TileEntities = tileEntities;
         }
         /// <summary>
         /// 将保存的区域数据应用到世界<br/>
@@ -674,6 +697,13 @@ namespace InnoVault.GameSystem
                 var tpData = TPSaveData.FromTag(tpTag);
                 tpData.ApplyToWorld((short)(targetX + tpData.X), (short)(targetY + tpData.Y));
             }
+
+            if (Signs != null) {
+                SaveStructure.LoadSignsByTag(Signs, targetX, targetY);
+            }
+            if (TileEntities != null) {
+                SaveStructure.LoadTileEntitiesByTag(TileEntities, targetX, targetY);
+            }
         }
         /// <summary>
         /// 将当前数据结构序列化为TagCompound
@@ -681,12 +711,19 @@ namespace InnoVault.GameSystem
         /// </summary>
         /// <returns>序列化后的TagCompound对象</returns>
         public readonly TagCompound ToTag() {
-            return new TagCompound {
+            TagCompound tag = new TagCompound {
                 ["size"] = Size, //区域大小
                 ["tiles"] = Tiles, //物块数据
                 ["chests"] = Chests, //箱子数据
                 ["tps"] = TileProcessors //TP数据
             };
+            if (Signs != null) {
+                tag["signs"] = Signs;
+            }
+            if (TileEntities != null) {
+                tag["entities"] = TileEntities;
+            }
+            return tag;
         }
         /// <summary>
         /// 从TagCompound反序列化为RegionSaveData
@@ -698,7 +735,9 @@ namespace InnoVault.GameSystem
                 tag.GetPoint16("size"),//区域大小
                 tag.GetByteArray("tiles"),//物块数据
                 [.. tag.GetList<TagCompound>("chests")],//箱子数据
-                [.. tag.GetList<TagCompound>("tps")]//TP数据
+                [.. tag.GetList<TagCompound>("tps")],//TP数据
+                tag.ContainsKey("signs") ? [.. tag.GetList<TagCompound>("signs")] : null,
+                tag.ContainsKey("entities") ? [.. tag.GetList<TagCompound>("entities")] : null
             );
         }
     }
@@ -1030,6 +1069,157 @@ namespace InnoVault.GameSystem
         }
 
         /// <summary>
+        /// 保存指定区域内的所有告示牌（相对坐标与文字）
+        /// </summary>
+        /// <param name="startX">起始X坐标</param>
+        /// <param name="startY">起始Y坐标</param>
+        /// <param name="width">宽度，0 表示到世界右边界</param>
+        /// <param name="height">高度，0 表示到世界下边界</param>
+        public static IList<TagCompound> SaveSignsByTag(short startX = 0, short startY = 0, short width = 0, short height = 0) {
+            if (width == 0) {
+                width = (short)Main.maxTilesX;
+            }
+            if (height == 0) {
+                height = (short)Main.maxTilesY;
+            }
+            var signs = new List<TagCompound>();
+            foreach (Sign sign in Main.sign) {
+                if (sign != null && sign.x >= startX && sign.x < startX + width && sign.y >= startY && sign.y < startY + height) {
+                    signs.Add(new TagCompound {
+                        ["x"] = sign.x - startX,
+                        ["y"] = sign.y - startY,
+                        ["text"] = sign.text ?? string.Empty,
+                    });
+                }
+            }
+            return signs;
+        }
+
+        /// <summary>
+        /// 将告示牌数据放置到指定位置：同一位置已有告示牌时覆盖它的文字，否则占用一个空槽位（物块本身需要已经放好）
+        /// </summary>
+        /// <param name="signs">告示牌数据（相对坐标）</param>
+        /// <param name="targetX">放置的世界起点X</param>
+        /// <param name="targetY">放置的世界起点Y</param>
+        public static void LoadSignsByTag(IList<TagCompound> signs, short targetX = 0, short targetY = 0) {
+            foreach (TagCompound entry in signs) {
+                int x = targetX + entry.GetInt("x");
+                int y = targetY + entry.GetInt("y");
+                string text = entry.GetString("text");
+                int slot = -1;
+                for (int i = 0; i < Main.sign.Length; i++) {
+                    Sign sign = Main.sign[i];
+                    if (sign != null && sign.x == x && sign.y == y) {
+                        slot = i;
+                        break;
+                    }
+                    if (sign == null && slot == -1) {
+                        slot = i;
+                    }
+                }
+                if (slot == -1) {
+                    VaultMod.Instance?.Logger.Warn($"SaveStructure: the sign table is full; the sign at ({x}, {y}) was not placed");
+                    return;
+                }
+                Main.sign[slot] ??= new Sign();
+                Main.sign[slot].x = x;
+                Main.sign[slot].y = y;
+                Main.sign[slot].text = text;
+            }
+        }
+
+        /// <summary>
+        /// 保存指定区域内的所有物块实体：原版物块实体记原版存档同一种二进制格式加 tML 的附加数据，模组物块实体记模组名、类型名加 SaveData
+        /// </summary>
+        /// <param name="startX">起始X坐标</param>
+        /// <param name="startY">起始Y坐标</param>
+        /// <param name="width">宽度，0 表示到世界右边界</param>
+        /// <param name="height">高度，0 表示到世界下边界</param>
+        public static IList<TagCompound> SaveTileEntitiesByTag(short startX = 0, short startY = 0, short width = 0, short height = 0) {
+            if (width == 0) {
+                width = (short)Main.maxTilesX;
+            }
+            if (height == 0) {
+                height = (short)Main.maxTilesY;
+            }
+            var entities = new List<TagCompound>();
+            foreach (var pair in TileEntity.ByPosition) {
+                Point16 pos = pair.Key;
+                if (pos.X < startX || pos.X >= startX + width || pos.Y < startY || pos.Y >= startY + height) {
+                    continue;
+                }
+                TileEntity entity = pair.Value;
+                var entry = new TagCompound { ["x"] = pos.X - startX, ["y"] = pos.Y - startY };
+                if (entity is ModTileEntity modEntity) {
+                    entry["mod"] = modEntity.Mod.Name;
+                    entry["name"] = modEntity.Name;
+                }
+                else {
+                    using var stream = new MemoryStream();
+                    using (var writer = new BinaryWriter(stream, Encoding.UTF8, leaveOpen: true)) {
+                        TileEntity.Write(writer, entity);
+                    }
+                    entry["mod"] = "Terraria";
+                    entry["bin"] = stream.ToArray();
+                }
+                var data = new TagCompound();
+                try {
+                    entity.SaveData(data);
+                } catch (Exception ex) {
+                    VaultMod.LoggerError($"@SaveStructure.TileEntity.{entry.GetString("mod")}", $"SaveStructure: saving the tile entity at {pos} failed: {ex.Message}");
+                }
+                if (data.Count > 0) {
+                    entry["data"] = data;
+                }
+                entities.Add(entry);
+            }
+            return entities;
+        }
+
+        /// <summary>
+        /// 将物块实体数据放置到指定位置：同一位置已有物块实体时替换它（物块本身需要已经放好）。找不到的模组物块实体跳过并记日志
+        /// </summary>
+        /// <param name="entities">物块实体数据（相对坐标）</param>
+        /// <param name="targetX">放置的世界起点X</param>
+        /// <param name="targetY">放置的世界起点Y</param>
+        public static void LoadTileEntitiesByTag(IList<TagCompound> entities, short targetX = 0, short targetY = 0) {
+            foreach (TagCompound entry in entities) {
+                var pos = new Point16(targetX + entry.GetInt("x"), targetY + entry.GetInt("y"));
+                string mod = entry.GetString("mod");
+                string name = entry.GetString("name");
+                TileEntity entity;
+                try {
+                    if (mod == "Terraria") {
+                        using var stream = new MemoryStream(entry.GetByteArray("bin"));
+                        using var reader = new BinaryReader(stream, Encoding.UTF8);
+                        entity = TileEntity.Read(reader);
+                    }
+                    else if (ModContent.TryFind(mod, name, out ModTileEntity template)) {
+                        entity = ModTileEntity.ConstructFromBase(template);
+                        entity.type = (byte)template.Type;
+                    }
+                    else {
+                        VaultMod.Instance?.Logger.Warn($"SaveStructure: tile entity {mod}/{name} is not loaded; skipped");
+                        continue;
+                    }
+                    entity.Position = pos;
+                    if (entry.TryGet("data", out TagCompound data)) {
+                        entity.LoadData(data);
+                    }
+                } catch (Exception ex) {
+                    VaultMod.LoggerError($"@SaveStructure.LoadTileEntity.{mod}.{name}", $"SaveStructure: tile entity {mod}/{name} at {pos} failed to load: {ex.Message}");
+                    continue;
+                }
+                entity.ID = TileEntity.AssignNewID();
+                TileEntity.ByID[entity.ID] = entity;
+                if (TileEntity.ByPosition.TryGetValue(pos, out TileEntity other)) {
+                    TileEntity.ByID.Remove(other.ID);
+                }
+                TileEntity.ByPosition[pos] = entity;
+            }
+        }
+
+        /// <summary>
         /// 将给定的区域数据在指定的位置放置出来
         /// </summary>
         /// <param name="tag">TagCompound数据</param>
@@ -1064,7 +1254,9 @@ namespace InnoVault.GameSystem
             var tiles = TileSaveData.Serialize(SaveTiles(origin.X, origin.Y, width, height));//序列化物块数据
             var chests = SaveChestsByTag(origin.X, origin.Y, width, height);//序列化箱子数据
             var tps = SaveTileProcessor(origin.X, origin.Y, width, height);//序列化TP实体数据
-            RegionSaveData regionSaveData = new RegionSaveData(size, tiles, chests, tps);
+            var signs = SaveSignsByTag(origin.X, origin.Y, width, height);
+            var tileEntities = SaveTileEntitiesByTag(origin.X, origin.Y, width, height);
+            RegionSaveData regionSaveData = new RegionSaveData(size, tiles, chests, tps, signs, tileEntities);
             tag["region"] = regionSaveData.ToTag();
             return regionSaveData;//返回区域数据结构
         }

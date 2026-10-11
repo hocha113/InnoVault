@@ -13,28 +13,30 @@ namespace InnoVault.Scenarios
         NoSession,
         /// <summary>目标场景没有注册（类型未被加载，或传入了空值）</summary>
         NotRegistered,
-        /// <summary>正在进行世界切换，暂时不能处理新请求</summary>
+        /// <summary>正在换舞台（含幕布合上与拉开的过程），暂时不能处理新请求</summary>
         Busy,
-        /// <summary>目标场景的 Compose 声明不合法，详见 <see cref="ScenarioResult.Detail"/></summary>
+        /// <summary>目标场景的 Compose 声明不合法，或带舞台坐标的场景要挂到会话层，详见 <see cref="ScenarioResult.Detail"/></summary>
         InvalidComposition,
-        /// <summary>目标场景拥有世界，只能经 <see cref="ScenarioDirector.Travel(VaultScenario)"/> 进入</summary>
+        /// <summary>目标场景拥有舞台，只能经 <see cref="ScenarioDirector.Travel(VaultScenario, string, System.Action{VaultScenario})"/> 进入</summary>
         RequiresTravel,
-        /// <summary>世界切换的目标场景不拥有世界</summary>
-        RequiresWorld,
-        /// <summary>目标场景的世界声明不合法（例如尺寸越界），详见 <see cref="ScenarioResult.Detail"/></summary>
-        InvalidWorld,
-        /// <summary>已经身处目标世界场景中</summary>
+        /// <summary>换舞台的目标场景不拥有舞台</summary>
+        RequiresStage,
+        /// <summary>目标场景的舞台声明不合法（例如尺寸越界、锚点在舞台外），详见 <see cref="ScenarioResult.Detail"/></summary>
+        InvalidStage,
+        /// <summary>已经身处目标舞台场景中</summary>
         AlreadyThere,
         /// <summary>指定的父场景不是一个处于激活状态的实例</summary>
         InvalidParent,
         /// <summary>要停用的实例没有处于激活状态</summary>
         NotActive,
-        /// <summary>拥有世界的场景不能直接停用，应当经世界切换离开</summary>
-        CannotDeactivateWorld,
+        /// <summary>拥有舞台的场景不能直接停用，应当经换舞台离开</summary>
+        CannotDeactivateStage,
         /// <summary>被场景自身或某个 <see cref="GlobalScenario"/> 否决</summary>
         Vetoed,
-        /// <summary>世界切换的平台后端尚未提供（阶段 1 之前的状态）</summary>
-        WorldBackendUnavailable,
+        /// <summary>当前端没有安装换舞台的平台后端</summary>
+        StageBackendUnavailable,
+        /// <summary>平台后端此刻不能开始换舞台（例如玩家处于死亡状态），详见 <see cref="ScenarioResult.Detail"/></summary>
+        NotReady,
     }
 
     /// <summary>

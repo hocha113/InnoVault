@@ -27,6 +27,13 @@ namespace InnoVault.Scenarios
         /// <param name="scenario">场景实例</param>
         public virtual void OnStart(VaultScenario scenario) { }
 
+        /// <summary>
+        /// 玩家上次在这个舞台场景里保存退出，这次从菜单进入根世界后，是否换回去。
+        /// 返回空表示不表态；任意全局钩子表态后以最后一个表态为准，都不表态时看场景是否挂了 <see cref="Presets.ResumeOnRelog"/>
+        /// </summary>
+        /// <param name="scenario">刚组合好、尚未激活的场景实例，只用于查询，不会被激活</param>
+        public virtual bool? ResumeAfterRelog(VaultScenario scenario) => null;
+
         /// <summary>场景停用时调用，在场景自身的 OnDeactivate 之前</summary>
         /// <param name="scenario">被停用的场景实例</param>
         /// <param name="transition">引起这次停用的转场</param>

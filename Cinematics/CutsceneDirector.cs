@@ -53,6 +53,19 @@ namespace InnoVault.Cinematics
         }
 
         /// <summary>
+        /// 按类型对象播放一个已注册的演出（类型在运行时才知道时用，例如场景的演出挂点）
+        /// </summary>
+        /// <param name="clipType">演出类型，必须是已注册的 <see cref="CutsceneClip"/> 子类</param>
+        /// <param name="player">演出对象，缺省为本地玩家</param>
+        /// <param name="restartSameClip">同一演出正在播放时是否从头重播</param>
+        public static bool Play(Type clipType, Player player = null, bool restartSameClip = true) {
+            if (clipType == null || !CutsceneClip.TypeToInstance.TryGetValue(clipType, out CutsceneClip clip)) {
+                return false;
+            }
+            return PlayCore(clip, player, restartSameClip, null);
+        }
+
+        /// <summary>
         /// 按类型播放一个绑定演出主体的演出
         /// </summary>
         public static bool Play<TClip, TSubject>(TSubject subject, Player player = null, bool restartSameClip = true)

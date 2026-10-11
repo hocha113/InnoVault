@@ -25,19 +25,46 @@ namespace InnoVault.GameSystem
         /// <summary>
         /// 备份世界TP实体数据的路径，包含文件名，使用世界存档名字作为关键字
         /// </summary>
-        public static string BackupTPDataPath => Path.Combine(VaultSave.RootPath, "TPDatas", "Backups", $"tp_{WorldFullName}.zip");
+        public static string BackupTPDataPath => GetBackupTPDataPath(WorldFullName);
         /// <summary>
         /// 保存世界TP实体数据的路径，包含文件名，使用世界存档名字作为关键字
         /// </summary>
-        public static string SaveTPDataPath => Path.Combine(VaultSave.RootPath, "TPDatas", $"tp_{WorldFullName}.nbt");
+        public static string SaveTPDataPath => GetTPDataPath(WorldFullName);
         /// <summary>
         /// 备份世界数据的路径，包含文件名，使用世界存档名字作为关键字
         /// </summary>
-        public static string BackupPath => Path.Combine(VaultSave.RootPath, "WorldDatas", "Backups", $"world_{WorldFullName}.zip");
+        public static string BackupPath => GetBackupPath(WorldFullName);
         /// <summary>
         /// 保存世界数据的路径，包含文件名，使用世界存档名字作为关键字
         /// </summary>
-        public override string SavePath => Path.Combine(VaultSave.RootPath, "WorldDatas", $"world_{WorldFullName}.nbt");
+        public override string SavePath => GetSavePath(WorldFullName);
+
+        internal static string GetSavePath(string worldFullName) => Path.Combine(VaultSave.RootPath, "WorldDatas", $"world_{worldFullName}.nbt");
+        internal static string GetBackupPath(string worldFullName) => Path.Combine(VaultSave.RootPath, "WorldDatas", "Backups", $"world_{worldFullName}.zip");
+        internal static string GetTPDataPath(string worldFullName) => Path.Combine(VaultSave.RootPath, "TPDatas", $"tp_{worldFullName}.nbt");
+        internal static string GetBackupTPDataPath(string worldFullName) => Path.Combine(VaultSave.RootPath, "TPDatas", "Backups", $"tp_{worldFullName}.zip");
+
+        //删除某个世界文件名对应的全部 InnoVault 世界数据（主文件、.bak、备份 zip）并清掉缓存，
+        //用于会被重新生成的场景世界：否则新世界读档时会读回旧数据，或在主文件缺失时从备份 zip 复活旧数据
+        internal static void DeleteWorldData(string worldFullName) {
+            foreach (string path in new[] { GetSavePath(worldFullName), GetTPDataPath(worldFullName) }) {
+                TagCache.Invalidate(path);
+                TryDelete(path);
+                TryDelete(path + ".bak");
+            }
+            DeleteBackups(GetBackupPath(worldFullName));
+            DeleteBackups(GetBackupTPDataPath(worldFullName));
+        }
+
+        private static void TryDelete(string path) {
+            try {
+                if (File.Exists(path)) {
+                    File.Delete(path);
+                }
+            } catch (Exception ex) {
+                VaultMod.Instance.Logger.Warn($"[SaveWorld] Failed to delete {path}: {ex.Message}");
+            }
+        }
 
         /// <summary>
         /// 扫描 VaultSave 根目录下 WorldDatas / TPDatas（含其 Backups 子目录）中失去对应原版 .wld 世界文件的存档：
