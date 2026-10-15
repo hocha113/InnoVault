@@ -2,8 +2,10 @@
 using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Terraria;
 using Terraria.ModLoader;
+using Terraria.UI;
 using static InnoVault.GameSystem.MenuOverride;
 
 namespace InnoVault.GameSystem
@@ -18,12 +20,96 @@ namespace InnoVault.GameSystem
         public delegate void On_AddMenuButtons_Dlelgate(Main main, int selectedMenu, string[] buttonNames, float[] buttonScales, ref int offY, ref int spacing, ref int buttonIndex, ref int numButtons);
 #pragma warning restore CS1591 //缺少对公共可见类型或成员的 XML 注释
         private static readonly FixedTickTimer menuTickTimer = new();
+        /// <summary>激活过的菜单界面实例，用来区分首次激活</summary>
+        private static readonly ConditionalWeakTable<UIState, object> activatedMenuStates = new();
 
         void IVaultLoader.LoadData() {
             menuTickTimer.Reset();
             VaultHook.Add(typeof(Main).GetMethod("DrawMenu", BindingFlags.Instance | BindingFlags.NonPublic), OnDrawMenuHook);
             VaultHook.Add(typeof(MenuLoader).GetMethod("UpdateAndDrawModMenu", BindingFlags.Static | BindingFlags.NonPublic), OnUpdateAndDrawModMenuHook);
             VaultHook.Add(typeof(Main).Assembly.GetType("Terraria.ModLoader.UI.Interface").GetMethod("AddMenuButtons", BindingFlags.Static | BindingFlags.NonPublic), OnAddMenuButtonsHook);
+            VaultHook.Add(typeof(UserInterface).GetMethod(nameof(UserInterface.SetState), BindingFlags.Instance | BindingFlags.Public), OnUserInterfaceSetStateHook);
+            VaultHook.Add(typeof(UserInterface).GetMethod(nameof(UserInterface.Update), BindingFlags.Instance | BindingFlags.Public), OnUserInterfaceUpdateHook);
+            VaultHook.Add(typeof(UserInterface).GetMethod(nameof(UserInterface.Draw), BindingFlags.Instance | BindingFlags.Public), OnUserInterfaceDrawHook);
+        }
+
+        //UserInterface 的三个钩子对所有界面都会触发，只在菜单界面持有 UIState 时派发
+        private static void OnUserInterfaceSetStateHook(Action<UserInterface, UIState> orig, UserInterface self, UIState state) {
+            UIState previous = self.CurrentState;
+            orig.Invoke(self, state);
+            if (self != Main.MenuUI || state == null || state == previous || self.CurrentState != state) {
+                return;
+            }
+            bool firstActivation = !activatedMenuStates.TryGetValue(state, out _);
+            if (firstActivation) {
+                activatedMenuStates.Add(state, null);
+            }
+            bool any = false;
+            foreach (var inds in Instances.ToArray()) {
+                if (inds.ignoreBug > 0) {
+                    continue;
+                }
+                try {
+                    if (!inds.CanOverride()) {
+                        continue;
+                    }
+                    inds.OnMenuStateActivated(state, firstActivation);
+                    any = true;
+                } catch (Exception ex) {
+                    inds.ignoreBug = 600;
+                    inds.errorCount++;
+                    VaultMod.Instance.Logger.Error($"{inds} encountered an error {inds.errorCount} times in OnMenuStateActivated: {ex}");
+                }
+            }
+            if (any) {
+                state.Recalculate();
+            }
+        }
+
+        private static void OnUserInterfaceUpdateHook(Action<UserInterface, GameTime> orig, UserInterface self, GameTime time) {
+            orig.Invoke(self, time);
+            UIState state = self.CurrentState;
+            if (self != Main.MenuUI || state == null) {
+                return;
+            }
+            foreach (var inds in Instances.ToArray()) {
+                if (inds.ignoreBug > 0) {
+                    continue;
+                }
+                try {
+                    if (!inds.CanOverride()) {
+                        continue;
+                    }
+                    inds.PostUpdateMenuState(state);
+                } catch (Exception ex) {
+                    inds.ignoreBug = 600;
+                    inds.errorCount++;
+                    VaultMod.Instance.Logger.Error($"{inds} encountered an error {inds.errorCount} times in PostUpdateMenuState: {ex}");
+                }
+            }
+        }
+
+        private static void OnUserInterfaceDrawHook(Action<UserInterface, SpriteBatch, GameTime> orig, UserInterface self, SpriteBatch spriteBatch, GameTime time) {
+            orig.Invoke(self, spriteBatch, time);
+            UIState state = self.CurrentState;
+            if (self != Main.MenuUI || state == null) {
+                return;
+            }
+            foreach (var inds in Instances.ToArray()) {
+                if (inds.ignoreBug > 0) {
+                    continue;
+                }
+                try {
+                    if (!inds.CanOverride()) {
+                        continue;
+                    }
+                    inds.PostDrawMenuState(state, spriteBatch);
+                } catch (Exception ex) {
+                    inds.ignoreBug = 600;
+                    inds.errorCount++;
+                    VaultMod.Instance.Logger.Error($"{inds} encountered an error {inds.errorCount} times in PostDrawMenuState: {ex}");
+                }
+            }
         }
 
         //这个函数内部已经是处理好了画布状态的，所以不需要再去管理画布相关

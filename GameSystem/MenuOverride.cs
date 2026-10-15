@@ -1,7 +1,9 @@
 ﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework.Graphics;
 using System;
 using System.Collections.Generic;
 using Terraria;
+using Terraria.UI;
 
 namespace InnoVault.GameSystem
 {
@@ -94,6 +96,33 @@ namespace InnoVault.GameSystem
         /// <param name="buttonIndex"></param>
         /// <param name="numButtons"></param>
         public virtual void AddMenuButtons(Main main, int selectedMenu, string[] buttonNames, float[] buttonScales, ref int offY, ref int spacing, ref int buttonIndex, ref int numButtons) {
+
+        }
+        /// <summary>
+        /// 菜单界面 <see cref="Main.MenuUI"/> 切换到一个 UIState 之后调用，此时它已 Activate 并完成一次排版，
+        /// 原版的世界创建、角色创建、世界选择等页面都会经过这里，按 <c>state is UIWorldCreation</c> 这类判断分支<br/>
+        /// 同一个实例会被多次激活（例如从虚拟键盘返回世界创建页），<paramref name="firstActivation"/> 只在该实例第一次激活时为真，
+        /// 往页面里追加元素只应在首次激活时做。所有覆盖调用完毕后框架会再排版一次
+        /// </summary>
+        /// <param name="state">刚激活的界面</param>
+        /// <param name="firstActivation">是否为该实例的首次激活</param>
+        public virtual void OnMenuStateActivated(UIState state, bool firstActivation) {
+
+        }
+        /// <summary>
+        /// 菜单界面每次逻辑更新之后调用，只在 <see cref="Main.MenuUI"/> 持有界面时触发
+        /// </summary>
+        /// <param name="state">当前界面</param>
+        public virtual void PostUpdateMenuState(UIState state) {
+
+        }
+        /// <summary>
+        /// 菜单界面绘制之后调用，批次仍处于菜单 UI 的状态（UI 缩放矩阵），可以在页面之上叠画，
+        /// 也可以在原版每帧重建手柄导航之后修补导航点
+        /// </summary>
+        /// <param name="state">当前界面</param>
+        /// <param name="spriteBatch">菜单 UI 的批次</param>
+        public virtual void PostDrawMenuState(UIState state, SpriteBatch spriteBatch) {
 
         }
     }

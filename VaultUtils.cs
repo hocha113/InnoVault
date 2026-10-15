@@ -5372,6 +5372,39 @@ namespace InnoVault
                    state == MenuState.ModBrowser;
         }
 
+        /// <summary>
+        /// 在按像素纵向堆叠的界面里腾出一段高度，用于往原版页面（世界创建、角色创建等）中间插入新的一行<br/>
+        /// <paramref name="container"/> 的直接子元素中，<see cref="Terraria.UI.UIElement.VAlign"/> 为 0、<c>Top</c> 不含百分比且像素值不小于
+        /// <paramref name="y"/> 的整体下移 <paramref name="height"/>；贴底对齐的子元素（VAlign 不为 0）不动，它们随容器加高自然下移<br/>
+        /// 随后从 <paramref name="container"/> 起逐级向上，把高度为纯像素的元素加高 <paramref name="height"/>（含百分比的会随父级自动变高），
+        /// 到 <paramref name="stopAt"/>（不含）或根部的 <see cref="Terraria.UI.UIState"/> 为止<br/>
+        /// 不会重新排版，已经排过版的界面需要调用方随后调用 <c>Recalculate</c>
+        /// </summary>
+        /// <param name="container">子元素按 Top 像素纵向排布的容器</param>
+        /// <param name="y">插入位置，容器内坐标</param>
+        /// <param name="height">腾出的高度，可以为负（收起一段）</param>
+        /// <param name="stopAt">向上加高到此为止，不含它本身；为空时到根部 UIState 为止</param>
+        /// <returns>被下移的子元素个数</returns>
+        public static int InsertVerticalSpace(this Terraria.UI.UIElement container, float y, float height, Terraria.UI.UIElement stopAt = null) {
+            if (container == null || height == 0f) {
+                return 0;
+            }
+            int moved = 0;
+            foreach (Terraria.UI.UIElement child in container.Children) {
+                if (child.VAlign != 0f || child.Top.Percent != 0f || child.Top.Pixels < y) {
+                    continue;
+                }
+                child.Top.Pixels += height;
+                moved++;
+            }
+            for (Terraria.UI.UIElement element = container; element != null && element != stopAt && element is not Terraria.UI.UIState; element = element.Parent) {
+                if (element.Height.Percent == 0f) {
+                    element.Height.Pixels += height;
+                }
+            }
+            return moved;
+        }
+
         #endregion
 
         #region Text
