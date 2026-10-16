@@ -11,14 +11,14 @@ namespace InnoVault.Rigs2D.Runtime
     /// <br/>核心公式：<c>rotation = 骨骼世界轴向 − 贴图轴角 + 附加旋转</c>；镜像时轴角取 π − a、锚点 x 取 宽 − x、贴图水平翻转
     /// <br/>不做 End / Begin，不设 shader：加色层、洗色层、shader 层由消费方在本体前后自行处理，坐标系从 <see cref="Rig2DDrawContext"/> 取
     /// <br/>实例开了 <see cref="Rig2DInstance.Mirrored"/> 时每件沿骨轴镜像（与件自身 <see cref="Piece2DState.Mirror"/> 异或），附加旋转跟着变号
-    /// <br/>带状件（<see cref="Rig2DRibbonRenderer"/>）需要换批次，不在 <see cref="Draw(SpriteBatch, Rig2DInstance, in Rig2DDrawContext)"/> 里画；
-    /// 要件与带按层序交错，用 <see cref="DrawAll(SpriteBatch, Rig2DInstance, in Rig2DDrawContext)"/>
+    /// <br/>带状件（<see cref="Rig2DRibbonRenderer"/>）与网格件（<see cref="Rig2DMeshRenderer"/>）需要换批次，不在 <see cref="Draw(SpriteBatch, Rig2DInstance, in Rig2DDrawContext)"/> 里画；
+    /// 要三者按层序交错，用 <see cref="DrawAll(SpriteBatch, Rig2DInstance, in Rig2DDrawContext)"/>
     /// </summary>
     public static class Rig2DRenderer
     {
         /// <summary>
-        /// 件与带按 <c>SortKey</c> 合并排序一起画：连续的带成组交给 <see cref="Rig2DRibbonRenderer.DrawIndices"/>（每组切一轮批次），
-        /// 件在两组之间照常走当前批次。同键时件先于带。调用方必须处于一个已 <c>Begin</c> 的 Deferred 批次内
+        /// 件、带、网格按 <c>SortKey</c> 合并排序一起画：相邻的带状件与网格件连成一段共用一轮 Immediate 批次（混合态变了才重开），
+        /// 整图件在两段之间照常走当前批次。同键时件先于带、带先于网格。调用方必须处于一个已 <c>Begin</c> 的 Deferred 批次内
         /// </summary>
         public static void DrawAll(SpriteBatch sb, Rig2DInstance rig, in Rig2DDrawContext ctx) {
             if (rig == null || rig.Definition == null) {
@@ -34,36 +34,43 @@ namespace InnoVault.Rigs2D.Runtime
             if (rig == null || rig.Definition == null || bones == null || ctx.Alpha <= 0.001f) {
                 return;
             }
-            if (rig.Ribbons.Length == 0) {
+            if (rig.Ribbons.Length == 0 && rig.Meshes.Length == 0) {
                 Draw(sb, rig, bones, in ctx);
                 return;
             }
             ReadOnlySpan<int> pieces = rig.SortedPieces();
             ReadOnlySpan<int> ribbons = rig.SortedRibbons();
+            ReadOnlySpan<int> meshes = rig.SortedMeshes();
             int p = 0;
             int r = 0;
-            while (p < pieces.Length || r < ribbons.Length) {
-                bool ribbonFirst = r < ribbons.Length
-                    && (p >= pieces.Length || rig.Ribbons[ribbons[r]].SortKey < rig.Pieces[pieces[p]].SortKey);
-                if (ribbonFirst) {
-                    int start = r;
-                    while (r < ribbons.Length
-                        && (p >= pieces.Length || rig.Ribbons[ribbons[r]].SortKey < rig.Pieces[pieces[p]].SortKey)) {
-                        r++;
+            int m = 0;
+            Rig2DPrimitiveRun run = default;
+            while (p < pieces.Length || r < ribbons.Length || m < meshes.Length) {
+                float pk = p < pieces.Length ? rig.Pieces[pieces[p]].SortKey : float.PositiveInfinity;
+                float rk = r < ribbons.Length ? rig.Ribbons[ribbons[r]].SortKey : float.PositiveInfinity;
+                float mk = m < meshes.Length ? rig.Meshes[meshes[m]].SortKey : float.PositiveInfinity;
+                //同键：件 → 带 → 网格
+                if (p < pieces.Length && pk <= rk && pk <= mk) {
+                    int i = pieces[p++];
+                    ref Piece2DState st = ref rig.Pieces[i];
+                    if (!st.Visible || st.SortKey < ctx.LayerMin || st.SortKey > ctx.LayerMax) {
+                        continue;
                     }
-                    Rig2DRibbonRenderer.DrawIndices(sb, rig, bones, in ctx, ribbons.Slice(start, r - start));
-                    continue;
+                    if (!PieceBone(rig, i, bones, out Bone2D bone, out float bendMul)) {
+                        continue;
+                    }
+                    //整图件要回到调用方的 Deferred 批次
+                    run.End(sb, in ctx);
+                    DrawPiece(sb, rig, i, in bone, in ctx, bendMul);
                 }
-                int i = pieces[p++];
-                ref Piece2DState st = ref rig.Pieces[i];
-                if (!st.Visible || st.SortKey < ctx.LayerMin || st.SortKey > ctx.LayerMax) {
-                    continue;
+                else if (r < ribbons.Length && rk <= mk) {
+                    Rig2DRibbonRenderer.Submit(ref run, sb, rig, ribbons[r++], bones, in ctx);
                 }
-                if (!PieceBone(rig, i, bones, out Bone2D bone, out float bendMul)) {
-                    continue;
+                else {
+                    Rig2DMeshRenderer.Submit(ref run, sb, rig, meshes[m++], bones, in ctx);
                 }
-                DrawPiece(sb, rig, i, in bone, in ctx, bendMul);
             }
+            run.End(sb, in ctx);
         }
 
         /// <summary>
@@ -277,7 +284,7 @@ namespace InnoVault.Rigs2D.Runtime
         private static readonly List<Vector2> boundsPath = new(64);
 
         /// <summary>
-        /// 本帧可见件与带的实际外接框（件取贴图四角、带取中心线外扩半宽）；件带都没有时退回骨骼端点
+        /// 本帧可见件、带与网格的实际外接框（件取贴图四角、带取中心线外扩半宽、网格取变形后顶点）；三者都没有时退回骨骼端点
         /// </summary>
         public static bool MeasureBounds(Rig2DInstance rig, out Vector2 min, out Vector2 max) => MeasureBounds(rig, rig?.Bones, out min, out max);
 
@@ -320,6 +327,14 @@ namespace InnoVault.Rigs2D.Runtime
                     min = Vector2.Min(min, w);
                     max = Vector2.Max(max, w);
                 }
+                any = true;
+            }
+            for (int m = 0; m < rig.Meshes.Length; m++) {
+                if (!rig.Meshes[m].Visible || !Rig2DMeshRenderer.MeasureBounds(rig, m, bones, out Vector2 mMin, out Vector2 mMax)) {
+                    continue;
+                }
+                min = Vector2.Min(min, mMin);
+                max = Vector2.Max(max, mMax);
                 any = true;
             }
             for (int r = 0; r < rig.Ribbons.Length; r++) {

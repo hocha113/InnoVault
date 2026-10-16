@@ -65,6 +65,10 @@ namespace InnoVault.Rigs2D.Data
         /// 实例根：<c>position</c>（空间量）/ <c>rotation</c>
         /// </summary>
         Root,
+        /// <summary>
+        /// 网格件状态：<c>alpha</c> / <c>visible</c> / <c>layer</c>
+        /// </summary>
+        Mesh,
     }
 
     /// <summary>

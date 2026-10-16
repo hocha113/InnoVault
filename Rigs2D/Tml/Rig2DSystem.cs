@@ -212,6 +212,10 @@ namespace InnoVault.Rigs2D.Runtime
             if (!Main.dedServ) {
                 Main.OnPreDraw -= CaptureCanvases;
                 Rig2DCanvas.ReleaseAll();
+                //自持贴图不在 tML 资产缓存里，卸载时自己还显存
+                foreach (Watch w in watches) {
+                    w.Asset?.ReleaseTextures();
+                }
             }
             watches.Clear();
             stepped.Clear();

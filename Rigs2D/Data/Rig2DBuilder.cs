@@ -28,6 +28,7 @@ namespace InnoVault.Rigs2D.Data
         private Solver2DDef currentSolver;
         private Piece2DDef currentPiece;
         private Ribbon2DDef currentRibbon;
+        private Mesh2DDef currentMesh;
         private Channel2DDef currentChannel;
         private Pose2DDef currentPose;
 
@@ -305,6 +306,74 @@ namespace InnoVault.Rigs2D.Data
         }
 
         /// <summary>
+        /// 声明一张蒙皮网格件，之后的 <see cref="MeshUvRect"/> / <see cref="MeshUvs"/> / <see cref="MeshWeights"/> / <see cref="MeshLook"/> 都改它
+        /// </summary>
+        /// <param name="name">件名（缺省用宿主骨名）</param>
+        /// <param name="bone">宿主骨：顶点坐标的参考系，未分到影响骨的权重随它走</param>
+        /// <param name="texture">贴图路径（模组相对，无扩展名）</param>
+        /// <param name="vertices">顶点 x0, y0, x1, y1 …（宿主骨静息局部系，Scale 为 1 的像素）</param>
+        /// <param name="triangles">三角形下标，三个一组</param>
+        /// <param name="bones">影响骨（控制柄）；不给 = 刚性挂在宿主骨上</param>
+        public Rig2DBuilder Mesh(string name, string bone, string texture, float[] vertices, int[] triangles, params string[] bones) {
+            currentMesh = new Mesh2DDef {
+                Name = name,
+                Bone = bone,
+                Texture = texture,
+                Vertices = vertices ?? [],
+                Triangles = triangles ?? [],
+            };
+            currentMesh.Bones.AddRange(bones ?? []);
+            def.Meshes.Add(currentMesh);
+            return this;
+        }
+
+        /// <summary>
+        /// 最近一张网格件的贴图覆盖矩形（宿主骨局部系），顶点纹理坐标按它换算
+        /// </summary>
+        public Rig2DBuilder MeshUvRect(float x, float y, float width, float height) {
+            RequireMesh().UvRect = [x, y, width, height];
+            return this;
+        }
+
+        /// <summary>
+        /// 最近一张网格件的逐顶点纹理坐标 u0, v0, u1, v1 …
+        /// </summary>
+        public Rig2DBuilder MeshUvs(params float[] uvs) {
+            RequireMesh().Uvs = uvs ?? [];
+            return this;
+        }
+
+        /// <summary>
+        /// 最近一张网格件的显式权重（顶点数 × 影响骨数，按顶点逐行）；不调用则加载时自动求谐和权重
+        /// </summary>
+        public Rig2DBuilder MeshWeights(params float[] weights) {
+            RequireMesh().Weights = weights ?? [];
+            return this;
+        }
+
+        /// <summary>
+        /// 最近一张网格件自动权重的控制柄半径（像素）
+        /// </summary>
+        public Rig2DBuilder MeshHandleRadius(float radius) {
+            RequireMesh().HandleRadius = radius;
+            return this;
+        }
+
+        /// <summary>
+        /// 设置最近一张网格件的层序 / 着色 / 压暗 / 不透明度 / 加色 / 不受光照
+        /// </summary>
+        public Rig2DBuilder MeshLook(int layer = 0, Color? tint = null, float dark = 1f, float alpha = 1f, bool additive = false, bool unlit = false) {
+            Mesh2DDef m = RequireMesh();
+            m.Layer = layer;
+            m.Tint = tint ?? Color.White;
+            m.Dark = dark;
+            m.Alpha = alpha;
+            m.Additive = additive;
+            m.Unlit = unlit;
+            return this;
+        }
+
+        /// <summary>
         /// 声明一个求解器，之后的 <see cref="Param(string, float)"/> 系列都写进它
         /// </summary>
         /// <param name="type">类型名（注册表键）</param>
@@ -466,6 +535,19 @@ namespace InnoVault.Rigs2D.Data
         }
 
         /// <summary>
+        /// 把最近一个通道绑到网格件状态（<c>alpha</c> / <c>visible</c> / <c>layer</c>）
+        /// </summary>
+        public Rig2DBuilder BindMesh(string mesh, string prop, float scale = 1f) {
+            RequireChannel().Bind = new Channel2DBind {
+                Target = Channel2DTarget.Mesh,
+                Name = mesh,
+                Prop = prop,
+                Scale = scale,
+            };
+            return this;
+        }
+
+        /// <summary>
         /// 把最近一个通道绑到实例根（<c>position</c> 空间量 / <c>rotation</c>）
         /// </summary>
         public Rig2DBuilder BindRoot(string prop = "position", Channel2DSpace? space = null, Vector2 offset = default, float scale = 1f) {
@@ -577,6 +659,9 @@ namespace InnoVault.Rigs2D.Data
 
         private Ribbon2DDef RequireRibbon()
             => currentRibbon ?? throw new InvalidOperationException("Rig2DBuilder: call Ribbon(...) before ribbon modifiers");
+
+        private Mesh2DDef RequireMesh()
+            => currentMesh ?? throw new InvalidOperationException("Rig2DBuilder: call Mesh(...) before mesh modifiers");
 
         private Channel2DDef RequireChannel()
             => currentChannel ?? throw new InvalidOperationException("Rig2DBuilder: call Channel(...) before Bind*(...)");

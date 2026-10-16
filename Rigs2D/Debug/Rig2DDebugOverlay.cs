@@ -102,6 +102,21 @@ namespace InnoVault.Rigs2D.Debug
                 }
             }
 
+            //网格件：变形后的外接框（逐边画三角形太多，框足够看出整片跟没跟骨走）
+            for (int m = 0; m < rig.Meshes.Length; m++) {
+                if (!rig.Meshes[m].Visible || !Rig2DMeshRenderer.MeasureBounds(rig, m, rig.Bones, out Vector2 lo, out Vector2 hi)) {
+                    continue;
+                }
+                Vector2 a = toScreen(lo);
+                Vector2 b = toScreen(new Vector2(hi.X, lo.Y));
+                Vector2 c = toScreen(hi);
+                Vector2 d = toScreen(new Vector2(lo.X, hi.Y));
+                Rig2DDebugDraw.Line(sb, a, b, ribbonColor * 0.6f, 1f);
+                Rig2DDebugDraw.Line(sb, b, c, ribbonColor * 0.6f, 1f);
+                Rig2DDebugDraw.Line(sb, c, d, ribbonColor * 0.6f, 1f);
+                Rig2DDebugDraw.Line(sb, d, a, ribbonColor * 0.6f, 1f);
+            }
+
             for (int s = 0; s < rig.Solvers.Length; s++) {
                 Rig2DSolver solver = rig.Solvers[s];
                 if (solver == null || !solver.Enabled) {

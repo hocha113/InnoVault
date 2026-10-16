@@ -18,6 +18,7 @@ namespace InnoVault.Rigs2D.Runtime
             Bone,
             Piece,
             Ribbon,
+            Mesh,
             Solver,
             Channel,
             Pose,
@@ -153,6 +154,9 @@ namespace InnoVault.Rigs2D.Runtime
                 case Rig2DRibbonAttribute:
                     e.Kind = Kind.Ribbon;
                     break;
+                case Rig2DMeshAttribute:
+                    e.Kind = Kind.Mesh;
+                    break;
                 case Rig2DSolverAttribute:
                     e.Kind = Kind.Solver;
                     break;
@@ -282,6 +286,15 @@ namespace InnoVault.Rigs2D.Runtime
                     value = i;
                     if (i < 0) {
                         errors.Add($"{slot}: ribbon '{name}' not found");
+                        return false;
+                    }
+                    return true;
+                }
+                case Kind.Mesh: {
+                    int i = rig.Mesh(name);
+                    value = i;
+                    if (i < 0) {
+                        errors.Add($"{slot}: mesh '{name}' not found");
                         return false;
                     }
                     return true;

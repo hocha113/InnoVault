@@ -55,31 +55,68 @@ namespace InnoVault.Rigs2D.Animation
         }
 
         /// <summary>
+        /// 当前轨道越过末键之后的走法（保持 / 整段重复 / 来回往返）
+        /// </summary>
+        public Rig2DClipBuilder TrackLoop(Rig2DTrackLoop loop) {
+            Require().Loop = loop;
+            return this;
+        }
+
+        /// <summary>
+        /// 片段改用自由时钟（不按时长折回，各轨道按自己的走法循环），见 <see cref="Rig2DClip.FreeRun"/>
+        /// </summary>
+        public Rig2DClipBuilder FreeRun() {
+            clip.Loop = true;
+            clip.FreeRun = true;
+            return this;
+        }
+
+        /// <summary>
         /// 写一个局部旋转键（弧度）
         /// </summary>
-        public Rig2DClipBuilder Rotate(float time, float radians) {
-            Require().Rotation.Add(new Rig2DKey<float>(time, radians));
+        public Rig2DClipBuilder Rotate(float time, float radians) => Rotate(time, radians, Rig2DEase.Linear);
+
+        /// <summary>
+        /// 写一个局部旋转键（弧度）；<paramref name="ease"/> 是从上一键到本键那一段的缓动
+        /// </summary>
+        public Rig2DClipBuilder Rotate(float time, float radians, Rig2DEase ease) {
+            Require().Rotation.Add(new Rig2DKey<float>(time, radians, ease));
             return this;
         }
 
         /// <summary>
         /// 写一个局部旋转键（角度）
         /// </summary>
-        public Rig2DClipBuilder RotateDeg(float time, float degrees) => Rotate(time, MathHelper.ToRadians(degrees));
+        public Rig2DClipBuilder RotateDeg(float time, float degrees) => Rotate(time, MathHelper.ToRadians(degrees), Rig2DEase.Linear);
+
+        /// <summary>
+        /// 写一个局部旋转键（角度），带到达本键那一段的缓动
+        /// </summary>
+        public Rig2DClipBuilder RotateDeg(float time, float degrees, Rig2DEase ease) => Rotate(time, MathHelper.ToRadians(degrees), ease);
 
         /// <summary>
         /// 写一个局部偏移键（像素，Scale 为 1）
         /// </summary>
-        public Rig2DClipBuilder Offset(float time, Vector2 offset) {
-            Require().Offset.Add(new Rig2DKey<Vector2>(time, offset));
+        public Rig2DClipBuilder Offset(float time, Vector2 offset) => Offset(time, offset, Rig2DEase.Linear);
+
+        /// <summary>
+        /// 写一个局部偏移键（像素，Scale 为 1），带到达本键那一段的缓动
+        /// </summary>
+        public Rig2DClipBuilder Offset(float time, Vector2 offset, Rig2DEase ease) {
+            Require().Offset.Add(new Rig2DKey<Vector2>(time, offset, ease));
             return this;
         }
 
         /// <summary>
         /// 写一个骨长键（像素，Scale 为 1）
         /// </summary>
-        public Rig2DClipBuilder Length(float time, float length) {
-            Require().Length.Add(new Rig2DKey<float>(time, length));
+        public Rig2DClipBuilder Length(float time, float length) => Length(time, length, Rig2DEase.Linear);
+
+        /// <summary>
+        /// 写一个骨长键（像素，Scale 为 1），带到达本键那一段的缓动
+        /// </summary>
+        public Rig2DClipBuilder Length(float time, float length, Rig2DEase ease) {
+            Require().Length.Add(new Rig2DKey<float>(time, length, ease));
             return this;
         }
 

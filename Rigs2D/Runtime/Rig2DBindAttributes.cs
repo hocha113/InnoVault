@@ -62,6 +62,14 @@ namespace InnoVault.Rigs2D.Runtime
     }
 
     /// <summary>
+    /// 网格件下标绑定（件名或其宿主骨名）：成员为 <see cref="int"/>、<c>int[]</c> 或 <c>int[,]</c>
+    /// <br/><c>[Rig2DMesh("skirt", "hair")] readonly int[] cloth = new int[2];</c>
+    /// </summary>
+    public sealed class Rig2DMeshAttribute(params string[] names) : Rig2DBindAttribute(names)
+    {
+    }
+
+    /// <summary>
     /// 求解器引用绑定：成员为 <see cref="Solvers.Rig2DSolver"/> 的具体子类或其一维 / 二维数组；类型不符视为缺失
     /// <br/><c>[Rig2DSolver("armR", "armL")] TwoBoneIKSolver[] arms;</c>　<c>[Rig2DSolver] FootPlantGaitSolver gait;</c>
     /// </summary>

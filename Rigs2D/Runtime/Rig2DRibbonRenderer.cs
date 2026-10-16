@@ -55,45 +55,35 @@ namespace InnoVault.Rigs2D.Runtime
             if (sb == null || rig == null || rig.Definition == null || bones == null || ctx.Alpha <= 0.001f || indices.Length == 0) {
                 return;
             }
-            GraphicsDevice gd = sb.GraphicsDevice;
-            bool opened = false;
-            BlendState curBlend = null;
-            SamplerState curSampler = null;
+            Rig2DPrimitiveRun run = default;
             for (int k = 0; k < indices.Length; k++) {
-                int i = indices[k];
-                if (i < 0 || i >= rig.Ribbons.Length) {
-                    continue;
-                }
-                ref Ribbon2DState st = ref rig.Ribbons[i];
-                if (!st.Visible || st.SortKey < ctx.LayerMin || st.SortKey > ctx.LayerMax) {
-                    continue;
-                }
-                Ribbon2DDef def = rig.Definition.Ribbons[i];
-                Texture2D tex = ResolveTexture(rig, i, in st);
-                if (tex == null) {
-                    continue;
-                }
-                if (!BuildMesh(rig, def, in st, bones, in ctx, out int vertexCount, out int indexCount)) {
-                    continue;
-                }
-                BlendState blend = ctx.RibbonBlendOverride ?? (def.Additive ? BlendState.Additive : BlendState.AlphaBlend);
-                SamplerState sampler = def.Uv == Ribbon2DUv.Tile ? WrapOf(ctx.Sampler) : ctx.Sampler;
-                if (!opened || !ReferenceEquals(blend, curBlend) || !ReferenceEquals(sampler, curSampler)) {
-                    sb.End();
-                    sb.Begin(SpriteSortMode.Immediate, blend, sampler, DepthStencilState.None, ctx.Rasterizer, null, ctx.BatchMatrix);
-                    opened = true;
-                    curBlend = blend;
-                    curSampler = sampler;
-                }
-                gd.Textures[0] = tex;
-                gd.SamplerStates[0] = sampler;
-                gd.RasterizerState = CullNoneLike(ctx.Rasterizer);
-                gd.DrawUserIndexedPrimitives(PrimitiveType.TriangleList, vertexScratch, 0, vertexCount, indexScratch, 0, indexCount / 3);
+                Submit(ref run, sb, rig, indices[k], bones, in ctx);
             }
-            if (opened) {
-                sb.End();
-                sb.Begin(SpriteSortMode.Deferred, BlendState.AlphaBlend, ctx.Sampler, DepthStencilState.None, ctx.Rasterizer, null, ctx.BatchMatrix);
+            run.End(sb, in ctx);
+        }
+
+        /// <summary>
+        /// 把一条带状件交给批次段（不可见、层序越界、缺贴图或画不出条带时跳过）；<see cref="Rig2DRenderer.DrawAll(SpriteBatch, Rig2DInstance, in Rig2DDrawContext)"/> 合并相邻图元用
+        /// </summary>
+        internal static void Submit(ref Rig2DPrimitiveRun run, SpriteBatch sb, Rig2DInstance rig, int i, Bone2D[] bones, in Rig2DDrawContext ctx) {
+            if (i < 0 || i >= rig.Ribbons.Length) {
+                return;
             }
+            ref Ribbon2DState st = ref rig.Ribbons[i];
+            if (!st.Visible || st.SortKey < ctx.LayerMin || st.SortKey > ctx.LayerMax) {
+                return;
+            }
+            Ribbon2DDef def = rig.Definition.Ribbons[i];
+            Texture2D tex = ResolveTexture(rig, i, in st);
+            if (tex == null) {
+                return;
+            }
+            if (!BuildMesh(rig, def, in st, bones, in ctx, out int vertexCount, out int indexCount)) {
+                return;
+            }
+            BlendState blend = ctx.RibbonBlendOverride ?? (def.Additive ? BlendState.Additive : BlendState.AlphaBlend);
+            SamplerState sampler = def.Uv == Ribbon2DUv.Tile ? WrapOf(ctx.Sampler) : ctx.Sampler;
+            run.Submit(sb, in ctx, tex, blend, sampler, vertexScratch, vertexCount, indexScratch, indexCount);
         }
 
         /// <summary>
@@ -412,7 +402,7 @@ namespace InnoVault.Rigs2D.Runtime
         }
 
         //关剔除但沿用调用方光栅态的裁剪开关：Stage(..., scissor) 的条带不得画出舞台裁剪框
-        private static RasterizerState CullNoneLike(RasterizerState source) {
+        internal static RasterizerState CullNoneLike(RasterizerState source) {
             if (source == null || !source.ScissorTestEnable) {
                 return RasterizerState.CullNone;
             }

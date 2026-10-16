@@ -42,6 +42,10 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         public Asset<Texture2D>[] RibbonTextures { get; private set; } = [];
         /// <summary>
+        /// 各网格件的贴图，下标同 <see cref="Rig2DDefinition.Meshes"/>；服务器上、直接贴图与自持贴图模式下为空数组
+        /// </summary>
+        public Asset<Texture2D>[] MeshTextures { get; private set; } = [];
+        /// <summary>
         /// 定义版本号，热重载每次自增
         /// </summary>
         public int Version { get; private set; }
@@ -63,6 +67,9 @@ namespace InnoVault.Rigs2D.Runtime
         private Func<string, Texture2D> directResolver;
         private Texture2D[] directPieceTextures = [];
         private Texture2D[] directRibbonTextures = [];
+        private Texture2D[] directMeshTextures = [];
+        //贴图由直接解析器独占供给（建资产时就装好了解析器 / 自持贴图）：不再经宿主资产系统请求一份
+        private bool skipHostTextures;
 
         private Vault2DRig(string name, string sourcePath) {
             Name = name ?? string.Empty;
@@ -81,6 +88,7 @@ namespace InnoVault.Rigs2D.Runtime
         public static Vault2DRig FromJson(string json, string sourceHint = null, Func<string, Texture2D> textureResolver = null) {
             Vault2DRig rig = new(FileStem(sourceHint ?? string.Empty), sourceHint ?? string.Empty) {
                 directResolver = textureResolver,
+                skipHostTextures = textureResolver != null,
             };
             if (!rig.ApplyText(json) && string.IsNullOrEmpty(rig.LastError)) {
                 rig.LastError = "json parse failed";
@@ -90,7 +98,7 @@ namespace InnoVault.Rigs2D.Runtime
 
         /// <summary>
         /// 改用直接贴图：每件贴图路径交给 <paramref name="resolver"/> 解析成 <see cref="Texture2D"/>，优先于资产句柄；
-        /// 之后每次 <see cref="Replace"/>（热重载）自动重解析。传 <see langword="null"/> 取消
+        /// 按需解析（首次绘制时取，解析器返回空或贴图已释放时下次再取），每次 <see cref="Replace"/>（热重载）清空重取。传 <see langword="null"/> 取消
         /// </summary>
         public void UseDirectTextures(Func<string, Texture2D> resolver) {
             directResolver = resolver;
@@ -100,6 +108,7 @@ namespace InnoVault.Rigs2D.Runtime
             else {
                 directPieceTextures = [];
                 directRibbonTextures = [];
+                directMeshTextures = [];
             }
         }
 
@@ -112,8 +121,10 @@ namespace InnoVault.Rigs2D.Runtime
         /// 第 <paramref name="index"/> 件的设计贴图：直接贴图优先，否则取资产句柄的值；没有返回 <see langword="null"/>
         /// </summary>
         public Texture2D PieceTexture(int index) {
-            if (index >= 0 && index < directPieceTextures.Length && directPieceTextures[index] != null) {
-                return directPieceTextures[index];
+            Texture2D direct = directResolver != null && Definition != null && (uint)index < (uint)Definition.Pieces.Count
+                ? DirectTexture(directPieceTextures, index, Definition.Pieces[index].Texture) : null;
+            if (direct != null) {
+                return direct;
             }
             Asset<Texture2D>[] textures = PieceTextures;
             if (textures == null || index < 0 || index >= textures.Length) {
@@ -126,14 +137,45 @@ namespace InnoVault.Rigs2D.Runtime
         /// 第 <paramref name="index"/> 条带状件的设计贴图：直接贴图优先，否则取资产句柄的值
         /// </summary>
         public Texture2D RibbonTexture(int index) {
-            if (index >= 0 && index < directRibbonTextures.Length && directRibbonTextures[index] != null) {
-                return directRibbonTextures[index];
+            Texture2D direct = directResolver != null && Definition != null && (uint)index < (uint)Definition.Ribbons.Count
+                ? DirectTexture(directRibbonTextures, index, Definition.Ribbons[index].Texture) : null;
+            if (direct != null) {
+                return direct;
             }
             Asset<Texture2D>[] textures = RibbonTextures;
             if (textures == null || index < 0 || index >= textures.Length) {
                 return null;
             }
             return textures[index]?.Value;
+        }
+
+        /// <summary>
+        /// 第 <paramref name="index"/> 张网格件的设计贴图：直接贴图优先，否则取资产句柄的值
+        /// </summary>
+        public Texture2D MeshTexture(int index) {
+            Texture2D direct = directResolver != null && Definition != null && (uint)index < (uint)Definition.Meshes.Count
+                ? DirectTexture(directMeshTextures, index, Definition.Meshes[index].Texture) : null;
+            if (direct != null) {
+                return direct;
+            }
+            Asset<Texture2D>[] textures = MeshTextures;
+            if (textures == null || index < 0 || index >= textures.Length) {
+                return null;
+            }
+            return textures[index]?.Value;
+        }
+
+        //直接贴图按需取：槽位空着或贴图已被释放就再问一次解析器（自持贴图异步装载期间会连续几帧返回空）
+        private Texture2D DirectTexture(Texture2D[] cache, int index, string path) {
+            if ((uint)index >= (uint)cache.Length) {
+                return null;
+            }
+            Texture2D tex = cache[index];
+            if (tex == null || tex.IsDisposed) {
+                tex = directResolver(path);
+                cache[index] = tex;
+            }
+            return tex;
         }
 
         /// <summary>
@@ -161,7 +203,14 @@ namespace InnoVault.Rigs2D.Runtime
             if (!string.IsNullOrEmpty(def.Name)) {
                 Name = def.Name;
             }
-            ResolveHostTextures(def);
+            if (skipHostTextures) {
+                PieceTextures = [];
+                RibbonTextures = [];
+                MeshTextures = [];
+            }
+            else {
+                ResolveHostTextures(def);
+            }
             ResolveDirectTextures(def);
             Version++;
             LastError = string.Empty;
@@ -188,20 +237,17 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         partial void ResolveHostTextures(Rig2DDefinition def);
 
+        //只清空槽位，贴图在首次取用时再问解析器
         private void ResolveDirectTextures(Rig2DDefinition def) {
             if (directResolver == null) {
                 directPieceTextures = [];
                 directRibbonTextures = [];
+                directMeshTextures = [];
                 return;
             }
             directPieceTextures = new Texture2D[def.Pieces.Count];
-            for (int i = 0; i < directPieceTextures.Length; i++) {
-                directPieceTextures[i] = directResolver(def.Pieces[i].Texture);
-            }
             directRibbonTextures = new Texture2D[def.Ribbons.Count];
-            for (int i = 0; i < directRibbonTextures.Length; i++) {
-                directRibbonTextures[i] = directResolver(def.Ribbons[i].Texture);
-            }
+            directMeshTextures = new Texture2D[def.Meshes.Count];
         }
 
         private static string FileStem(string path) {

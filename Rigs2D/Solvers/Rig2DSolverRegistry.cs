@@ -86,6 +86,7 @@ namespace InnoVault.Rigs2D.Solvers
             factories["AimChain"] = () => new AimChainSolver();
             factories["Posture"] = () => new PostureSolver();
             factories["PawLeg"] = () => new PawLegSolver();
+            factories["SpringFollow"] = () => new SpringFollowSolver();
         }
     }
 }

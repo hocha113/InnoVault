@@ -22,7 +22,10 @@ namespace InnoVault.Rigs2D.Data
     ///   "ribbons": [ { "name", "bones": [ ... ], "texture", "width", "widthEnd", "widthProfile": [ ... ], "uv": "stretch|tile|bone", "uvStops", "tileLength",
     ///                 "includeTip", "smooth", "layer", "tint", "dark", "alpha", "additive", "visible", "unlit",
     ///                 "bias": 数 | [ ... ], "miter", "miterLimit", "jointBulge", "capStart", "capStartU", "capEnd", "capEndU" } ],
-    ///   "clips":   [ { "name", "duration", "loop", "tracks": [ { "bone", "interp": "linear|step", "rotation": [[t, v]], "offset": [[t, [x, y]]], "length": [[t, v]] } ] } ]
+    ///   "meshes":  [ { "name", "bone", "texture", "bones": [ ... ], "vertices": [x, y, ...], "triangles": [i, ...], "uvs": [u, v, ...] | "uvRect": [x, y, w, h],
+    ///                 "weights": [ ... ], "handleRadius", "layer", "tint", "dark", "alpha", "additive", "visible", "unlit" } ],
+    ///   "clips":   [ { "name", "duration", "loop": true|false|"free", "tracks": [ { "bone", "interp": "linear|step", "loop": "hold|cycle|pingpong",
+    ///                 "rotation": [[t, v]], "offset": [[t, [x, y]]], "length": [[t, v]] } ] } ]
     /// }
     /// </code>
     /// 模板层（读取前由 <see cref="Rig2DJsonTemplate"/> 展开）：根级 <c>"vars": { … }</c> 常量；任意数组里的
@@ -93,6 +96,13 @@ namespace InnoVault.Rigs2D.Data
                     foreach (JToken t in ribbons) {
                         if (t is JObject o) {
                             def.Ribbons.Add(ReadRibbon(o));
+                        }
+                    }
+                }
+                if (root["meshes"] is JArray meshes) {
+                    foreach (JToken t in meshes) {
+                        if (t is JObject o) {
+                            def.Meshes.Add(ReadMesh(o));
                         }
                     }
                 }
@@ -344,6 +354,46 @@ namespace InnoVault.Rigs2D.Data
             return r;
         }
 
+        private static Mesh2DDef ReadMesh(JObject o) {
+            Mesh2DDef m = new() {
+                Name = Str(o, "name", null),
+                Bone = Str(o, "bone", string.Empty),
+                Texture = Str(o, "texture", string.Empty),
+                Vertices = Floats(o["vertices"]) ?? [],
+                Uvs = Floats(o["uvs"]) ?? [],
+                UvRect = Floats(o["uvRect"]) ?? [],
+                Weights = Floats(o["weights"]) ?? [],
+                HandleRadius = Num(o, "handleRadius", 1f),
+                Layer = (int)Num(o, "layer", 0f),
+                Tint = ReadColor(o["tint"], Color.White),
+                Dark = Num(o, "dark", 1f),
+                Alpha = Num(o, "alpha", 1f),
+                Additive = Bool(o, "additive", false),
+                Visible = Bool(o, "visible", true),
+                Unlit = Bool(o, "unlit", false),
+            };
+            if (o["triangles"] is JArray tris) {
+                List<int> list = new(tris.Count);
+                foreach (JToken t in tris) {
+                    if (IsNum(t)) {
+                        list.Add((int)t);
+                    }
+                }
+                m.Triangles = list.ToArray();
+            }
+            if (o["bones"] is JArray arr) {
+                foreach (JToken t in arr) {
+                    if (t.Type == JTokenType.String) {
+                        m.Bones.Add((string)t);
+                    }
+                }
+            }
+            else if (o["bones"]?.Type == JTokenType.String) {
+                m.Bones.Add((string)o["bones"]);
+            }
+            return m;
+        }
+
         private static Channel2DDef ReadChannel(JObject o) {
             Channel2DDef c = new() {
                 Name = Str(o, "name", string.Empty),
@@ -399,6 +449,10 @@ namespace InnoVault.Rigs2D.Data
             else if (Str(o, "ribbon", null) is string ribbon) {
                 b.Target = Channel2DTarget.Ribbon;
                 b.Name = ribbon;
+            }
+            else if (Str(o, "mesh", null) is string mesh) {
+                b.Target = Channel2DTarget.Mesh;
+                b.Name = mesh;
             }
             else if (o["root"] != null) {
                 b.Target = Channel2DTarget.Root;
@@ -603,8 +657,11 @@ namespace InnoVault.Rigs2D.Data
             if (string.IsNullOrEmpty(name)) {
                 return null;
             }
+            //"loop": true / false / "free"（自由时钟：不按时长折回，各轨道按自己的 loop 走）
+            bool free = o["loop"]?.Type == JTokenType.String && string.Equals((string)o["loop"], "free", StringComparison.OrdinalIgnoreCase);
             Rig2DClip clip = new(name, Num(o, "duration", 60f)) {
-                Loop = Bool(o, "loop", true),
+                Loop = free || Bool(o, "loop", true),
+                FreeRun = free,
             };
             JArray tracks = o["tracks"] as JArray ?? [];
             foreach (JToken t in tracks) {
@@ -619,6 +676,7 @@ namespace InnoVault.Rigs2D.Data
                     ? Rig2DInterpolation.Step : Rig2DInterpolation.Linear;
                 Rig2DTrack track = clip.Track(bone);
                 track.Interpolation = interp;
+                track.Loop = ReadTrackLoop(to);
                 ReadFloatKeys(to["rotation"], track.Rotation, angle: true);
                 ReadFloatKeys(to["rotationDeg"], track.Rotation, angle: true, degrees: true);
                 ReadFloatKeys(to["length"], track.Length, angle: false);
@@ -641,6 +699,7 @@ namespace InnoVault.Rigs2D.Data
                         continue;
                     }
                     Rig2DChannelTrack track = clip.ChannelTrack(ch);
+                    track.Loop = ReadTrackLoop(co);
                     foreach (JToken k in keys) {
                         if (k is not JArray pair || pair.Count < 2 || !IsNum(pair[0])) {
                             continue;
@@ -659,6 +718,13 @@ namespace InnoVault.Rigs2D.Data
             }
             return clip;
         }
+
+        //轨道 "loop": "hold" | "cycle" | "pingpong"，缺省 hold
+        private static Rig2DTrackLoop ReadTrackLoop(JObject o) => Str(o, "loop", "hold").ToLowerInvariant() switch {
+            "cycle" => Rig2DTrackLoop.Cycle,
+            "pingpong" => Rig2DTrackLoop.PingPong,
+            _ => Rig2DTrackLoop.Hold,
+        };
 
         //键数组第三个元素是到达本键那一段的缓动文本（可省）
         private static Rig2DEase KeyEase(JArray pair) => pair.Count >= 3 && pair[2].Type == JTokenType.String
@@ -880,6 +946,14 @@ namespace InnoVault.Rigs2D.Data
                     ribbons.Add(o);
                 }
                 root["ribbons"] = ribbons;
+            }
+
+            if (def.Meshes.Count > 0) {
+                JArray meshes = [];
+                foreach (Mesh2DDef m in def.Meshes) {
+                    meshes.Add(MeshToJson(m));
+                }
+                root["meshes"] = meshes;
             }
 
             if (def.Clips.Count > 0) {
@@ -1310,6 +1384,7 @@ namespace InnoVault.Rigs2D.Data
                     case Channel2DTarget.Solver: bind["solver"] = b.Name; break;
                     case Channel2DTarget.Piece: bind["piece"] = b.Name; break;
                     case Channel2DTarget.Ribbon: bind["ribbon"] = b.Name; break;
+                    case Channel2DTarget.Mesh: bind["mesh"] = b.Name; break;
                     case Channel2DTarget.Root: bind["root"] = true; break;
                 }
                 bind["prop"] = b.Prop;
@@ -1338,17 +1413,68 @@ namespace InnoVault.Rigs2D.Data
         /// </summary>
         public static string ToJsonText(Rig2DDefinition def) => ToJson(def).ToString(Formatting.Indented);
 
+        private static JObject MeshToJson(Mesh2DDef m) {
+            JObject o = new();
+            if (!string.IsNullOrEmpty(m.Name)) {
+                o["name"] = m.Name;
+            }
+            o["bone"] = m.Bone;
+            o["texture"] = m.Texture;
+            if (m.Bones.Count > 0) {
+                o["bones"] = new JArray(m.Bones);
+            }
+            o["vertices"] = new JArray(m.Vertices ?? []);
+            o["triangles"] = new JArray(m.Triangles ?? []);
+            if (m.Uvs != null && m.Uvs.Length > 0) {
+                o["uvs"] = new JArray(m.Uvs);
+            }
+            if (m.UvRect != null && m.UvRect.Length > 0) {
+                o["uvRect"] = new JArray(m.UvRect);
+            }
+            if (m.Weights != null && m.Weights.Length > 0) {
+                o["weights"] = new JArray(m.Weights);
+            }
+            if (m.HandleRadius != 1f) {
+                o["handleRadius"] = m.HandleRadius;
+            }
+            if (m.Layer != 0) {
+                o["layer"] = m.Layer;
+            }
+            if (m.Tint != Color.White) {
+                o["tint"] = new JArray(m.Tint.R, m.Tint.G, m.Tint.B, m.Tint.A);
+            }
+            if (m.Dark != 1f) {
+                o["dark"] = m.Dark;
+            }
+            if (m.Alpha != 1f) {
+                o["alpha"] = m.Alpha;
+            }
+            if (m.Additive) {
+                o["additive"] = true;
+            }
+            if (!m.Visible) {
+                o["visible"] = false;
+            }
+            if (m.Unlit) {
+                o["unlit"] = true;
+            }
+            return o;
+        }
+
         private static JObject ClipToJson(Rig2DClip clip) {
             JObject o = new() {
                 ["name"] = clip.Name,
                 ["duration"] = clip.Duration,
-                ["loop"] = clip.Loop,
+                ["loop"] = clip.FreeRun ? "free" : clip.Loop,
             };
             JArray tracks = [];
             foreach (Rig2DTrack track in clip.Tracks) {
                 JObject t = new() { ["bone"] = track.BoneName };
                 if (track.Interpolation == Rig2DInterpolation.Step) {
                     t["interp"] = "step";
+                }
+                if (track.Loop != Rig2DTrackLoop.Hold) {
+                    t["loop"] = track.Loop.ToString().ToLowerInvariant();
                 }
                 if (track.Rotation.Count > 0) {
                     JArray arr = [];
@@ -1381,7 +1507,11 @@ namespace InnoVault.Rigs2D.Data
                     foreach (Rig2DKey<Vector2> k in track.Keys) {
                         keys.Add(KeyJson(k.Time, Vec(k.Value), k.Ease));
                     }
-                    chans.Add(new JObject { ["channel"] = track.ChannelName, ["keys"] = keys });
+                    JObject co = new() { ["channel"] = track.ChannelName, ["keys"] = keys };
+                    if (track.Loop != Rig2DTrackLoop.Hold) {
+                        co["loop"] = track.Loop.ToString().ToLowerInvariant();
+                    }
+                    chans.Add(co);
                 }
                 o["channels"] = chans;
             }

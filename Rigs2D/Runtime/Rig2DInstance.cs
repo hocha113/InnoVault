@@ -40,6 +40,10 @@ namespace InnoVault.Rigs2D.Runtime
         /// </summary>
         public Ribbon2DState[] Ribbons { get; private set; } = [];
         /// <summary>
+        /// 全部网格件的运行时状态，下标同 <see cref="Rig2DDefinition.Meshes"/>
+        /// </summary>
+        public Mesh2DState[] Meshes { get; private set; } = [];
+        /// <summary>
         /// 求解器实例，下标同 <see cref="Rig2DDefinition.Solvers"/>；创建失败的槽位为 <see langword="null"/>
         /// </summary>
         public Rig2DSolver[] Solvers { get; private set; } = [];
@@ -191,6 +195,7 @@ namespace InnoVault.Rigs2D.Runtime
         internal Vector2 reactionRootOffset;
         private int[] pieceOrder = [];
         private int[] ribbonOrder = [];
+        private int[] meshOrder = [];
         private int[] walkStack = [];
         private Vector2 lastRootPos;
         private bool hasLastRoot;
@@ -255,6 +260,14 @@ namespace InnoVault.Rigs2D.Runtime
             for (int i = 0; i < rc; i++) {
                 Ribbons[i] = Ribbon2DState.FromDef(def.Ribbons[i]);
                 ribbonOrder[i] = i;
+            }
+
+            int mc = def?.Meshes.Count ?? 0;
+            Meshes = new Mesh2DState[mc];
+            meshOrder = new int[mc];
+            for (int i = 0; i < mc; i++) {
+                Meshes[i] = Mesh2DState.FromDef(def.Meshes[i]);
+                meshOrder[i] = i;
             }
 
             int sc = def?.Solvers.Count ?? 0;
@@ -322,6 +335,9 @@ namespace InnoVault.Rigs2D.Runtime
                 }
                 for (int i = 0; i < Ribbons.Length; i++) {
                     Ribbons[i].SortKey = def.Ribbons[i].Layer;
+                }
+                for (int i = 0; i < Meshes.Length; i++) {
+                    Meshes[i].SortKey = def.Meshes[i].Layer;
                 }
                 Channels.Rebuild(def);
                 BuildChannelLinks();
@@ -524,6 +540,36 @@ namespace InnoVault.Rigs2D.Runtime
         public void ResetRibbonStates() {
             for (int i = 0; i < Ribbons.Length; i++) {
                 Ribbons[i] = Ribbon2DState.FromDef(Definition.Ribbons[i]);
+            }
+        }
+
+        /// <summary>
+        /// 按名查网格件索引（件名或其宿主骨名），缺失 <c>-1</c>
+        /// </summary>
+        public int Mesh(string name) => Definition?.MeshIndex(name) ?? -1;
+
+        /// <summary>
+        /// 取网格件状态引用
+        /// </summary>
+        public ref Mesh2DState MeshRef(int index) => ref Meshes[index];
+
+        /// <summary>
+        /// 按名取网格件状态引用；缺失时抛出（件名在开发期就该对上）
+        /// </summary>
+        public ref Mesh2DState MeshRef(string name) {
+            int i = Mesh(name);
+            if (i < 0) {
+                throw new ArgumentException($"Rig2D '{Name}' has no mesh '{name}'");
+            }
+            return ref Meshes[i];
+        }
+
+        /// <summary>
+        /// 把全部网格件状态重置为设计值
+        /// </summary>
+        public void ResetMeshStates() {
+            for (int i = 0; i < Meshes.Length; i++) {
+                Meshes[i] = Mesh2DState.FromDef(Definition.Meshes[i]);
             }
         }
 
@@ -972,6 +1018,9 @@ namespace InnoVault.Rigs2D.Runtime
                         case Channel2DTarget.Ribbon:
                             ApplyRibbonChannel(b, v);
                             break;
+                        case Channel2DTarget.Mesh:
+                            ApplyMeshChannel(b, v);
+                            break;
                         case Channel2DTarget.Root:
                             if (b.PropCode == 0) {
                                 RootPosition = ResolveSpatial(b, v, c, forRoot: true);
@@ -1056,6 +1105,26 @@ namespace InnoVault.Rigs2D.Runtime
                     st.UvOffset = x;
                     break;
                 case 4:
+                    st.SortKey = x;
+                    break;
+            }
+        }
+
+        private void ApplyMeshChannel(Channel2DBind b, Vector2 v) {
+            int m = b.TargetIndex;
+            if ((uint)m >= (uint)Meshes.Length) {
+                return;
+            }
+            ref Mesh2DState st = ref Meshes[m];
+            float x = v.X * b.Scale;
+            switch (b.PropCode) {
+                case 0:
+                    st.AlphaMul = x;
+                    break;
+                case 1:
+                    st.Visible = x >= 0.5f;
+                    break;
+                case 2:
                     st.SortKey = x;
                     break;
             }
@@ -1204,6 +1273,24 @@ namespace InnoVault.Rigs2D.Runtime
                 pieceOrder[j + 1] = cur;
             }
             return pieceOrder;
+        }
+
+        /// <summary>
+        /// 按 <see cref="Mesh2DState.SortKey"/> 升序排好的网格件索引
+        /// </summary>
+        public ReadOnlySpan<int> SortedMeshes() {
+            int n = meshOrder.Length;
+            for (int i = 1; i < n; i++) {
+                int cur = meshOrder[i];
+                float key = Meshes[cur].SortKey;
+                int j = i - 1;
+                while (j >= 0 && Meshes[meshOrder[j]].SortKey > key) {
+                    meshOrder[j + 1] = meshOrder[j];
+                    j--;
+                }
+                meshOrder[j + 1] = cur;
+            }
+            return meshOrder;
         }
 
         /// <summary>

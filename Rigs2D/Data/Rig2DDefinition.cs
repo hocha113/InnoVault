@@ -37,6 +37,10 @@ namespace InnoVault.Rigs2D.Data
         /// </summary>
         public List<Ribbon2DDef> Ribbons { get; } = [];
         /// <summary>
+        /// 蒙皮网格件定义表（可选）：一张贴图铺在三角网格上、顶点按权重随骨骼变形，与整图件共用层序键
+        /// </summary>
+        public List<Mesh2DDef> Meshes { get; } = [];
+        /// <summary>
         /// 关键帧片段表（可选），运行时由 <c>Rig2DClipPlayer</c> 播放
         /// </summary>
         public List<Animation.Rig2DClip> Clips { get; } = [];
@@ -91,6 +95,11 @@ namespace InnoVault.Rigs2D.Data
         /// </summary>
         public int[][] Children { get; private set; } = [];
         /// <summary>
+        /// 绑定姿态：定义静息值、根在原点不转、Scale 为 1、不镜像时各骨骼的位姿，由 <see cref="Resolve"/> 生成；
+        /// 网格件的顶点在这个空间里绑到骨骼上
+        /// </summary>
+        public Runtime.Bone2D[] BindPose { get; private set; } = [];
+        /// <summary>
         /// 是否已成功解析
         /// </summary>
         public bool Resolved { get; private set; }
@@ -99,6 +108,7 @@ namespace InnoVault.Rigs2D.Data
         private readonly Dictionary<string, int> pieceLookup = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> solverLookup = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> ribbonLookup = new(StringComparer.Ordinal);
+        private readonly Dictionary<string, int> meshLookup = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> channelLookup = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int> poseLookup = new(StringComparer.Ordinal);
         private readonly Dictionary<string, int[]> groupLookup = new(StringComparer.Ordinal);
@@ -213,6 +223,16 @@ namespace InnoVault.Rigs2D.Data
         }
 
         /// <summary>
+        /// 按名查网格件索引（件名或其宿主骨名），缺失返回 <c>-1</c>
+        /// </summary>
+        public int MeshIndex(string name) {
+            if (string.IsNullOrEmpty(name)) {
+                return -1;
+            }
+            return meshLookup.TryGetValue(name, out int i) ? i : -1;
+        }
+
+        /// <summary>
         /// 骨骼数量
         /// </summary>
         public int BoneCount => Bones.Count;
@@ -234,6 +254,7 @@ namespace InnoVault.Rigs2D.Data
             pieceLookup.Clear();
             solverLookup.Clear();
             ribbonLookup.Clear();
+            meshLookup.Clear();
             channelLookup.Clear();
             poseLookup.Clear();
             groupLookup.Clear();
@@ -293,6 +314,7 @@ namespace InnoVault.Rigs2D.Data
 
             EvaluationOrder = BuildEvaluationOrder(parents);
             Children = BuildChildren(parents);
+            BindPose = BuildBindPose();
 
             for (int i = 0; i < Pieces.Count; i++) {
                 Piece2DDef p = Pieces[i];
@@ -363,6 +385,32 @@ namespace InnoVault.Rigs2D.Data
                 }
             }
 
+            //前面已有错误时整份定义会被拒，网格只查名字、不再求权重
+            bool priorOk = sb == null;
+            for (int i = 0; i < Meshes.Count; i++) {
+                Mesh2DDef m = Meshes[i];
+                m.Index = i;
+                m.BoneIndex = BoneIndex(m.Bone);
+                if (m.BoneIndex < 0) {
+                    Fail($"mesh '{m.DisplayName}' bone '{m.Bone}' not found");
+                }
+                int[] idx = new int[m.Bones.Count];
+                for (int k = 0; k < idx.Length; k++) {
+                    idx[k] = BoneIndex(m.Bones[k]);
+                    if (idx[k] < 0) {
+                        Fail($"mesh '{m.DisplayName}' bone '{m.Bones[k]}' not found");
+                    }
+                }
+                m.BoneIndices = idx;
+                if (priorOk && m.BoneIndex >= 0 && Array.IndexOf(idx, -1) < 0) {
+                    Mesh2DSkin.Build(m, BindPose, Fail);
+                }
+                string key = m.DisplayName;
+                if (!string.IsNullOrEmpty(key)) {
+                    meshLookup.TryAdd(key, i);
+                }
+            }
+
             ResolveChannels(Fail);
             foreach (Piece2DDef p in Pieces) {
                 if (p.FrameBy is { Source: Piece2DFrameSource.Channel } fb) {
@@ -398,6 +446,7 @@ namespace InnoVault.Rigs2D.Data
         internal static readonly string[] BoneProps = ["rotation", "offset", "length"];
         internal static readonly string[] PieceProps = ["frame", "visible", "layer", "rotation", "alpha", "scale"];
         internal static readonly string[] RibbonProps = ["width", "alpha", "visible", "uvOffset", "layer"];
+        internal static readonly string[] MeshProps = ["alpha", "visible", "layer"];
         internal static readonly string[] RootProps = ["position", "rotation"];
 
         //通道：名字查表 + 绑定对象名转索引 + 属性名校验（求解器属性由求解器自己认，实例绑定时校验）
@@ -457,6 +506,16 @@ namespace InnoVault.Rigs2D.Data
                         b.PropCode = Array.IndexOf(RibbonProps, b.Prop);
                         if (b.PropCode < 0) {
                             fail($"channel '{c.Name}' ribbon prop '{b.Prop}' unknown (width / alpha / visible / uvOffset / layer)");
+                        }
+                        break;
+                    case Channel2DTarget.Mesh:
+                        b.TargetIndex = MeshIndex(b.Name);
+                        if (b.TargetIndex < 0) {
+                            fail($"channel '{c.Name}' mesh '{b.Name}' not found");
+                        }
+                        b.PropCode = Array.IndexOf(MeshProps, b.Prop);
+                        if (b.PropCode < 0) {
+                            fail($"channel '{c.Name}' mesh prop '{b.Prop}' unknown (alpha / visible / layer)");
                         }
                         break;
                     case Channel2DTarget.Root:
@@ -708,6 +767,31 @@ namespace InnoVault.Rigs2D.Data
             return order;
         }
 
+        //绑定姿态：父先子后，根在原点、朝向 0，只用定义值
+        private Runtime.Bone2D[] BuildBindPose() {
+            int n = Bones.Count;
+            Runtime.Bone2D[] pose = new Runtime.Bone2D[n];
+            bool[] done = new bool[n];
+            foreach (int b in EvaluationOrder) {
+                Bone2DDef d = Bones[b];
+                Vector2 anchor = Vector2.Zero;
+                float parDir = 0f;
+                int p = d.ParentIndex;
+                if (p >= 0 && p < n && done[p]) {
+                    ref Runtime.Bone2D par = ref pose[p];
+                    anchor = d.AtParentTip ? par.Tip : par.Pos;
+                    parDir = par.Dir;
+                }
+                float cos = MathF.Cos(parDir);
+                float sin = MathF.Sin(parDir);
+                Vector2 pos = anchor + new Vector2(cos * d.Offset.X - sin * d.Offset.Y, sin * d.Offset.X + cos * d.Offset.Y);
+                float dir = d.InheritRotation ? parDir + d.Rotation : d.Rotation;
+                pose[b] = new Runtime.Bone2D(pos, dir, d.Length);
+                done[b] = true;
+            }
+            return pose;
+        }
+
         private static int[][] BuildChildren(int[] parents) {
             int n = parents.Length;
             List<int>[] lists = new List<int>[n];
@@ -745,6 +829,9 @@ namespace InnoVault.Rigs2D.Data
             }
             foreach (Ribbon2DDef r in Ribbons) {
                 c.Ribbons.Add(r.Clone());
+            }
+            foreach (Mesh2DDef m in Meshes) {
+                c.Meshes.Add(m.Clone());
             }
             foreach (Animation.Rig2DClip clip in Clips) {
                 if (clip != null) {
@@ -793,8 +880,14 @@ namespace InnoVault.Rigs2D.Data
                     return false;
                 }
             }
-            if (other.Pieces.Count != Pieces.Count || other.Solvers.Count != Solvers.Count || other.Ribbons.Count != Ribbons.Count) {
+            if (other.Pieces.Count != Pieces.Count || other.Solvers.Count != Solvers.Count || other.Ribbons.Count != Ribbons.Count
+                || other.Meshes.Count != Meshes.Count) {
                 return false;
+            }
+            for (int i = 0; i < Meshes.Count; i++) {
+                if (!string.Equals(Meshes[i].DisplayName, other.Meshes[i].DisplayName, StringComparison.Ordinal)) {
+                    return false;
+                }
             }
             for (int i = 0; i < Solvers.Count; i++) {
                 if (!string.Equals(Solvers[i].Name, other.Solvers[i].Name, StringComparison.Ordinal)

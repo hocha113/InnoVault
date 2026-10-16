@@ -58,7 +58,7 @@ namespace InnoVault.Rigs2D.Animation
         /// <summary>
         /// 非循环片段是否已播到末尾
         /// </summary>
-        public bool Finished => current != null && !current.Loop && time >= current.Duration;
+        public bool Finished => current != null && !current.Loop && !current.FreeRun && time >= current.Duration;
         /// <summary>
         /// 当前片段的归一化进度 0..1
         /// </summary>

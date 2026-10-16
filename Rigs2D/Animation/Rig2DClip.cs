@@ -21,6 +21,25 @@ namespace InnoVault.Rigs2D.Animation
     }
 
     /// <summary>
+    /// 轨道越过末键之后的走法（首键之前一律保持首键值）
+    /// </summary>
+    public enum Rig2DTrackLoop
+    {
+        /// <summary>
+        /// 保持末键值（缺省）
+        /// </summary>
+        Hold,
+        /// <summary>
+        /// 首键到末键整段重复
+        /// </summary>
+        Cycle,
+        /// <summary>
+        /// 首末键之间来回往返：倒放时同一段缓动反着走
+        /// </summary>
+        PingPong,
+    }
+
+    /// <summary>
     /// 一个关键帧：时间（帧）、值，以及到达本键那一段的缓动（缺省线性）
     /// </summary>
     public readonly struct Rig2DKey<T>
@@ -76,6 +95,11 @@ namespace InnoVault.Rigs2D.Animation
         /// </summary>
         public Rig2DInterpolation Interpolation { get; set; } = Rig2DInterpolation.Linear;
         /// <summary>
+        /// 越过末键之后的走法；三条通道各按自己的首末键时间折算。
+        /// 每条轨道周期不同、不必共用片段时长时，配合 <see cref="Rig2DClip.FreeRun"/> 让片段时钟不折回
+        /// </summary>
+        public Rig2DTrackLoop Loop { get; set; } = Rig2DTrackLoop.Hold;
+        /// <summary>
         /// 局部旋转关键帧（弧度）
         /// </summary>
         public List<Rig2DKey<float>> Rotation { get; } = [];
@@ -96,7 +120,7 @@ namespace InnoVault.Rigs2D.Animation
         /// 深拷贝轨道（关键帧逐个复制；不含已解析的骨骼索引）
         /// </summary>
         public Rig2DTrack Clone() {
-            Rig2DTrack c = new(BoneName) { Interpolation = Interpolation };
+            Rig2DTrack c = new(BoneName) { Interpolation = Interpolation, Loop = Loop };
             c.Rotation.AddRange(Rotation);
             c.Offset.AddRange(Offset);
             c.Length.AddRange(Length);
@@ -115,12 +139,12 @@ namespace InnoVault.Rigs2D.Animation
         /// <summary>
         /// 采样旋转通道；无关键帧返回 <see langword="false"/>
         /// </summary>
-        public bool SampleRotation(float time, out float value) => SampleAngle(Rotation, time, Interpolation, out value);
+        public bool SampleRotation(float time, out float value) => SampleAngle(Rotation, time, Interpolation, Loop, out value);
 
         /// <summary>
         /// 采样骨长通道；无关键帧返回 <see langword="false"/>
         /// </summary>
-        public bool SampleLength(float time, out float value) => SampleFloat(Length, time, Interpolation, out value);
+        public bool SampleLength(float time, out float value) => SampleFloat(Length, time, Interpolation, Loop, out value);
 
         /// <summary>
         /// 采样偏移通道；无关键帧返回 <see langword="false"/>
@@ -131,18 +155,18 @@ namespace InnoVault.Rigs2D.Animation
                 value = Vector2.Zero;
                 return false;
             }
-            Locate(keys.Count, i => keys[i].Time, time, out int a, out int b, out float t);
+            Locate(keys.Count, i => keys[i].Time, LoopTime(time, keys[0].Time, keys[^1].Time, Loop), out int a, out int b, out float t);
             t = EaseSegment(keys[b].Ease, t, a, b);
             value = Interpolation == Rig2DInterpolation.Step ? keys[a].Value : Vector2.Lerp(keys[a].Value, keys[b].Value, t);
             return true;
         }
 
-        private static bool SampleFloat(List<Rig2DKey<float>> keys, float time, Rig2DInterpolation interp, out float value) {
+        private static bool SampleFloat(List<Rig2DKey<float>> keys, float time, Rig2DInterpolation interp, Rig2DTrackLoop loop, out float value) {
             if (keys.Count == 0) {
                 value = 0f;
                 return false;
             }
-            Locate(keys.Count, i => keys[i].Time, time, out int a, out int b, out float t);
+            Locate(keys.Count, i => keys[i].Time, LoopTime(time, keys[0].Time, keys[^1].Time, loop), out int a, out int b, out float t);
             t = EaseSegment(keys[b].Ease, t, a, b);
             value = interp == Rig2DInterpolation.Step ? keys[a].Value : MathHelper.Lerp(keys[a].Value, keys[b].Value, t);
             return true;
@@ -152,12 +176,12 @@ namespace InnoVault.Rigs2D.Animation
         internal static float EaseSegment(Rig2DEase ease, float t, int a, int b)
             => a == b || ease.Kind == Rig2DEaseKind.Linear ? t : ease.Evaluate(t);
 
-        private static bool SampleAngle(List<Rig2DKey<float>> keys, float time, Rig2DInterpolation interp, out float value) {
+        private static bool SampleAngle(List<Rig2DKey<float>> keys, float time, Rig2DInterpolation interp, Rig2DTrackLoop loop, out float value) {
             if (keys.Count == 0) {
                 value = 0f;
                 return false;
             }
-            Locate(keys.Count, i => keys[i].Time, time, out int a, out int b, out float t);
+            Locate(keys.Count, i => keys[i].Time, LoopTime(time, keys[0].Time, keys[^1].Time, loop), out int a, out int b, out float t);
             t = EaseSegment(keys[b].Ease, t, a, b);
             if (interp == Rig2DInterpolation.Step) {
                 value = keys[a].Value;
@@ -167,6 +191,22 @@ namespace InnoVault.Rigs2D.Animation
                 value = from + MathHelper.WrapAngle(keys[b].Value - from) * t;
             }
             return true;
+        }
+
+        /// <summary>
+        /// 按越末键走法把时间折进首末键区间：首键之前原样返回（由定位钳成首键值），<see cref="Rig2DTrackLoop.Hold"/> 原样返回
+        /// </summary>
+        public static float LoopTime(float time, float first, float last, Rig2DTrackLoop loop) {
+            float span = last - first;
+            if (loop == Rig2DTrackLoop.Hold || span <= 0.0001f || time <= last) {
+                return time;
+            }
+            float local = time - first;
+            if (loop == Rig2DTrackLoop.Cycle) {
+                return first + local % span;
+            }
+            float p = local % (span * 2f);
+            return first + (p <= span ? p : span * 2f - p);
         }
 
         //二分定位包围 time 的两帧；越界钳到端点
@@ -217,6 +257,10 @@ namespace InnoVault.Rigs2D.Animation
         /// 关键帧
         /// </summary>
         public List<Rig2DKey<Vector2>> Keys { get; } = [];
+        /// <summary>
+        /// 越过末键之后的走法（同 <see cref="Rig2DTrack.Loop"/>）
+        /// </summary>
+        public Rig2DTrackLoop Loop { get; set; } = Rig2DTrackLoop.Hold;
 
         internal Rig2DChannelTrack(string channelName) {
             ChannelName = channelName ?? string.Empty;
@@ -226,7 +270,7 @@ namespace InnoVault.Rigs2D.Animation
         /// 深拷贝
         /// </summary>
         public Rig2DChannelTrack Clone() {
-            Rig2DChannelTrack c = new(ChannelName);
+            Rig2DChannelTrack c = new(ChannelName) { Loop = Loop };
             c.Keys.AddRange(Keys);
             return c;
         }
@@ -239,6 +283,7 @@ namespace InnoVault.Rigs2D.Animation
                 value = Vector2.Zero;
                 return false;
             }
+            time = Rig2DTrack.LoopTime(time, Keys[0].Time, Keys[^1].Time, Loop);
             Rig2DTrack.Locate(Keys.Count, i => Keys[i].Time, time, out int a, out int b, out float t);
             t = Rig2DTrack.EaseSegment(Keys[b].Ease, t, a, b);
             value = channel != null ? Rig2DPose.LerpValue(channel, Keys[a].Value, Keys[b].Value, t) : Vector2.Lerp(Keys[a].Value, Keys[b].Value, t);
@@ -265,6 +310,11 @@ namespace InnoVault.Rigs2D.Animation
         /// 是否循环
         /// </summary>
         public bool Loop { get; set; } = true;
+        /// <summary>
+        /// 自由时钟：片段时间既不按 <see cref="Duration"/> 取模也不钳制，一直往前走，各轨道按自己的 <see cref="Rig2DTrack.Loop"/> 折返；
+        /// 用于每条轨道周期各不相同、整体永不严格重复的常驻待机（JSON <c>"loop": "free"</c>）。为真时 <see cref="Loop"/> 也视为真
+        /// </summary>
+        public bool FreeRun { get; set; }
         /// <summary>
         /// 轨道表
         /// </summary>
@@ -328,7 +378,7 @@ namespace InnoVault.Rigs2D.Animation
         /// 深拷贝片段（轨道与关键帧全部复制；未解析，需要调用方再 <see cref="Resolve"/>）
         /// </summary>
         public Rig2DClip Clone() {
-            Rig2DClip c = new(Name, Duration) { Loop = Loop };
+            Rig2DClip c = new(Name, Duration) { Loop = Loop, FreeRun = FreeRun };
             for (int i = 0; i < Tracks.Count; i++) {
                 c.Tracks.Add(Tracks[i].Clone());
             }
@@ -356,9 +406,12 @@ namespace InnoVault.Rigs2D.Animation
         }
 
         /// <summary>
-        /// 把时间折进片段范围：循环取模，非循环钳制
+        /// 把时间折进片段范围：循环取模，非循环钳制，自由时钟只钳掉负值
         /// </summary>
         public float WrapTime(float time) {
+            if (FreeRun) {
+                return Math.Max(time, 0f);
+            }
             if (Duration <= 0f) {
                 return 0f;
             }
