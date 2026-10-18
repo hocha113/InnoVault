@@ -296,6 +296,22 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 弹性缓出函数<br/>
+        /// 末段围绕终点衰减振荡后落定，常用于带弹性的弹出与归位<br/>
+        /// 输入会被限制在 [0, 1]，两端精确返回 0 与 1
+        /// </summary>
+        public static float EaseOutElastic(float t) {
+            if (t <= 0f) {
+                return 0f;
+            }
+            if (t >= 1f) {
+                return 1f;
+            }
+            const float c4 = TwoPi / 3f;
+            return (float)(Math.Pow(2, -10 * t) * Math.Sin((t * 10 - 0.75) * c4) + 1);
+        }
+
+        /// <summary>
         /// 两点间简略取值
         /// </summary>
         /// <param name="vr1"></param>
@@ -867,7 +883,7 @@ namespace InnoVault
         public static Mod FindModByType(Type type, Mod[] mods) {
             foreach (var mod in mods) {
                 if (!VaultMod.ModTypeSetCache.TryGetValue(mod.Code, out var typeSet)) {
-                    typeSet = [.. AssemblyManager.GetLoadableTypes(mod.Code)];
+                    typeSet = [.. mod.GetCodeTypes()];
                     VaultMod.ModTypeSetCache[mod.Code] = typeSet;
                 }
 
@@ -914,6 +930,52 @@ namespace InnoVault
             }
 
             return VaultMod.AnyModCodeType;
+        }
+
+        /// <summary>
+        /// 获取指定模组程序集中的全部可加载类型，同一个程序集只会枚举一次<br/>
+        /// 返回的集合是共享缓存，不要修改；缓存会在加载完成与卸载时释放，之后再次调用会重建
+        /// </summary>
+        /// <param name="mod">目标模组，没有代码程序集时得到空集合</param>
+        public static IReadOnlyList<Type> GetCodeTypes(this Mod mod) {
+            Assembly code = mod?.Code;
+            if (code == null) {
+                return [];
+            }
+
+            if (!VaultMod.ModTypeArrayCache.TryGetValue(code, out Type[] types)) {
+                types = AssemblyManager.GetLoadableTypes(code);
+                VaultMod.ModTypeArrayCache[code] = types;
+            }
+            return types;
+        }
+
+        /// <summary>
+        /// 在指定模组中按类型名查找类型，常用于不引用对方程序集时的反射对接<br/>
+        /// 只含简名（如 <c>"ThoriumPlayer"</c>）时走缓存的简名索引，简名重复时取程序集内最先出现的那个；
+        /// 含 <c>.</c> 时按全名（命名空间加类型名，嵌套类型用 <c>+</c>）精确查找
+        /// </summary>
+        /// <param name="mod">目标模组</param>
+        /// <param name="typeName">类型简名或全名</param>
+        /// <returns>找到的类型，模组为空、没有代码程序集或没有该类型时返回 <see langword="null"/></returns>
+        public static Type FindTypeByName(this Mod mod, string typeName) {
+            Assembly code = mod?.Code;
+            if (code == null || string.IsNullOrEmpty(typeName)) {
+                return null;
+            }
+
+            if (typeName.Contains('.')) {
+                return code.GetType(typeName, false);
+            }
+
+            if (!VaultMod.ModTypeNameCache.TryGetValue(code, out var byName)) {
+                byName = new Dictionary<string, Type>(StringComparer.Ordinal);
+                foreach (Type type in mod.GetCodeTypes()) {
+                    byName.TryAdd(type.Name, type);
+                }
+                VaultMod.ModTypeNameCache[code] = byName;
+            }
+            return byName.GetValueOrDefault(typeName);
         }
 
         /// <summary>
@@ -1882,6 +1944,41 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 判断是否为物品自带的编号描述行（<c>Tooltip0</c>、<c>Tooltip1</c>…）<br/>
+        /// tML 按本地化文本的行序生成这些行且行数没有上限，只匹配前几行会让超长描述的尾行残留，
+        /// 与替换后的新文本叠加成重复内容
+        /// </summary>
+        public static bool IsItemTooltipBody(this TooltipLine line)
+            => line.Name.StartsWith("Tooltip", StringComparison.Ordinal)
+            && int.TryParse(line.Name.AsSpan("Tooltip".Length), out _);
+
+        [UnsafeAccessor(UnsafeAccessorKind.Constructor)]
+        private static extern TooltipLine NewTooltipLine(string mod, string name, string text);
+
+        /// <summary>
+        /// 复制一行提示，保留原来的所属模组名、文本、颜色、修饰词标记与隐藏状态<br/>
+        /// 原版行的所属名是 <c>"Terraria"</c>，它不在已加载模组里，用公开构造函数只能把它改成某个模组的行，
+        /// 因此这里通过内部构造函数原样保留；内部的 OneDropLogo 标记不复制
+        /// </summary>
+        public static TooltipLine Clone(this TooltipLine line) {
+            TooltipLine clone;
+            try {
+                clone = NewTooltipLine(line.Mod, line.Name, line.Text);
+            } catch (MissingMethodException) {
+                //内部构造函数在 tML 更新后消失时退回公开构造函数，所属名找不到则记在 InnoVault 名下
+                Mod owner = ModLoader.TryGetMod(line.Mod, out Mod found) ? found : VaultMod.Instance;
+                clone = new TooltipLine(owner, line.Name, line.Text);
+            }
+            clone.OverrideColor = line.OverrideColor;
+            clone.IsModifier = line.IsModifier;
+            clone.IsModifierBad = line.IsModifierBad;
+            if (!line.Visible) {
+                clone.Hide();
+            }
+            return clone;
+        }
+
+        /// <summary>
         /// 检查索引是否在数组范围内
         /// </summary>
         public static bool IsValidIndex(this int index, Array array) => index >= 0 && index < array.Length;
@@ -2214,6 +2311,31 @@ namespace InnoVault
         }
 
         /// <summary>
+        /// 向掉落表添加一条固定分母的普通掉落规则，等价于 <see cref="ItemDropRule.Common"/> 加 <see cref="ILoot.Add"/>
+        /// </summary>
+        /// <param name="loot">目标掉落表</param>
+        /// <param name="itemID">掉落的物品类型</param>
+        /// <param name="chanceDenominator">掉率分母，1 即必掉，4 即四分之一</param>
+        /// <param name="minQuantity">最小数量</param>
+        /// <param name="maxQuantity">最大数量</param>
+        /// <returns>被添加的规则，可继续挂接 <c>OnSuccess</c></returns>
+        public static IItemDropRule AddCommon(this ILoot loot, int itemID, int chanceDenominator = 1, int minQuantity = 1, int maxQuantity = 1)
+            => loot.Add(ItemDropRule.Common(itemID, chanceDenominator, minQuantity, maxQuantity));
+
+        /// <summary>
+        /// 给领头条件规则挂一条固定分母的普通掉落规则，条件成立时才会尝试掉落
+        /// </summary>
+        /// <param name="mainRule">领头条件规则，如 <c>new LeadingConditionRule(new Conditions.NotExpert())</c></param>
+        /// <param name="itemID">掉落的物品类型</param>
+        /// <param name="chanceDenominator">掉率分母，1 即必掉，4 即四分之一</param>
+        /// <param name="minQuantity">最小数量</param>
+        /// <param name="maxQuantity">最大数量</param>
+        /// <param name="hideLootReport">为 <see langword="true"/> 时不在掉落一览里显示这条规则</param>
+        /// <returns>被添加的规则，可继续挂接 <c>OnSuccess</c></returns>
+        public static IItemDropRule AddCommon(this LeadingConditionRule mainRule, int itemID, int chanceDenominator = 1, int minQuantity = 1, int maxQuantity = 1, bool hideLootReport = false)
+            => mainRule.OnSuccess(ItemDropRule.Common(itemID, chanceDenominator, minQuantity, maxQuantity), hideLootReport);
+
+        /// <summary>
         /// 尝试获取指定 <see cref="Item"/> 类型的全部 <see cref="ItemOverride"/> 映射
         /// </summary>
         /// <param name="item">要查询的物品实例</param>
@@ -2288,6 +2410,9 @@ namespace InnoVault
         /// </returns>
         public static bool TryGetOverride(this NPC npc, out Dictionary<Type, NPCOverride> values) {
             values = null;
+            if (npc is null) {
+                return false;
+            }
             if (npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
                 values = globalInstance.NPCOverrides;
             }
@@ -2306,7 +2431,7 @@ namespace InnoVault
         /// </returns>
         public static bool TryGetOverride<T>(this NPC npc, out T value) where T : NPCOverride {
             value = null;
-            if (!npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
+            if (npc is null || !npc.TryGetGlobalNPC(out NPCRebuildLoader globalInstance)) {
                 return false;
             }
             if (globalInstance.NPCOverrides is null) {
@@ -2326,7 +2451,7 @@ namespace InnoVault
         /// <param name="proj">目标弹幕实例</param>
         /// <returns>对应类型的 Override 实例，如果不存在则返回 <see langword="null"/></returns>
         public static T GetOverride<T>(this Projectile proj) where T : ProjOverride
-            => proj.GetGlobalProjectile<ProjRebuildLoader>().ProjOverrides[typeof(T)] as T;
+            => proj.TryGetOverride(out T value) ? value : null;
 
         /// <summary>
         /// 尝试从弹幕中获取所有已附加的 <see cref="ProjOverride"/> 实例集合
@@ -2336,7 +2461,7 @@ namespace InnoVault
         /// <returns>若成功获取到映射表，返回 <see langword="true"/>；否则返回 <see langword="false"/></returns>
         public static bool TryGetOverride(this Projectile proj, out Dictionary<Type, ProjOverride> values) {
             values = null;
-            if (Main.gameMenu) {
+            if (Main.gameMenu || proj is null) {
                 return false;
             }
             if (proj.TryGetGlobalProjectile(out ProjRebuildLoader globalInstance)) {
@@ -2357,7 +2482,10 @@ namespace InnoVault
             if (Main.gameMenu) {
                 return false;
             }
-            if (!proj.TryGetGlobalProjectile(out ProjRebuildLoader globalInstance)) {
+            if (proj is null || !proj.TryGetGlobalProjectile(out ProjRebuildLoader globalInstance)) {
+                return false;
+            }
+            if (globalInstance.ProjOverrides is null) {
                 return false;
             }
             if (!globalInstance.ProjOverrides.TryGetValue(typeof(T), out var value2)) {
@@ -2741,6 +2869,126 @@ namespace InnoVault
                 //没有相同类型物品，直接添加
                 itemList.Add(itemToAdd);
             }
+        }
+
+        /// <summary>
+        /// 统计物品列表中指定类型的物品总数量（累加堆叠）
+        /// </summary>
+        /// <param name="items">物品列表，如 <see cref="Player.inventory"/></param>
+        /// <param name="itemType">要统计的物品类型</param>
+        public static int CountItems(this IList<Item> items, int itemType) {
+            int num = 0;
+            for (int i = 0; i < items.Count; i++) {
+                Item item = items[i];
+                if (item.Alives() && item.type == itemType) {
+                    num += item.stack;
+                }
+            }
+            return num;
+        }
+
+        /// <summary>
+        /// 统计物品列表中属于任一指定类型的物品总数量（累加堆叠）<br/>
+        /// 类型集合用集合表达式传入即可，不产生堆分配，如 <c>items.CountItems([ItemID.IronOre, ItemID.LeadOre])</c>
+        /// </summary>
+        /// <param name="items">物品列表</param>
+        /// <param name="itemTypes">要统计的物品类型集合</param>
+        public static int CountItems(this IList<Item> items, ReadOnlySpan<int> itemTypes) {
+            int num = 0;
+            for (int i = 0; i < items.Count; i++) {
+                Item item = items[i];
+                if (item.Alives() && itemTypes.Contains(item.type)) {
+                    num += item.stack;
+                }
+            }
+            return num;
+        }
+
+        /// <summary>
+        /// 统计玩家背包中指定类型的物品总数量，可选一并统计四个银行（猪猪银行、保险箱、护卫熔炉、虚空保险箱）<br/>
+        /// 背包部分统计整个 <see cref="Player.inventory"/> 数组，含钱币栏、弹药栏与鼠标物品
+        /// </summary>
+        /// <param name="player">目标玩家</param>
+        /// <param name="itemType">要统计的物品类型</param>
+        /// <param name="includeBanks">是否包含四个银行，默认只统计背包</param>
+        public static int CountItems(this Player player, int itemType, bool includeBanks = false) {
+            int num = player.inventory.CountItems(itemType);
+            if (includeBanks) {
+                num += player.bank.item.CountItems(itemType);
+                num += player.bank2.item.CountItems(itemType);
+                num += player.bank3.item.CountItems(itemType);
+                num += player.bank4.item.CountItems(itemType);
+            }
+            return num;
+        }
+
+        /// <summary>
+        /// 统计玩家背包中属于任一指定类型的物品总数量，可选一并统计四个银行<br/>
+        /// 类型集合用集合表达式传入，如 <c>player.CountItems([ItemID.IronOre, ItemID.LeadOre], true)</c>
+        /// </summary>
+        /// <param name="player">目标玩家</param>
+        /// <param name="itemTypes">要统计的物品类型集合</param>
+        /// <param name="includeBanks">是否包含四个银行，默认只统计背包</param>
+        public static int CountItems(this Player player, ReadOnlySpan<int> itemTypes, bool includeBanks = false) {
+            int num = player.inventory.CountItems(itemTypes);
+            if (includeBanks) {
+                num += player.bank.item.CountItems(itemTypes);
+                num += player.bank2.item.CountItems(itemTypes);
+                num += player.bank3.item.CountItems(itemTypes);
+                num += player.bank4.item.CountItems(itemTypes);
+            }
+            return num;
+        }
+
+        /// <summary>
+        /// 送东西给玩家：优先塞进背包，塞不下的那份才落地。仅对本地玩家生效<br/>
+        /// 别用 <see cref="Player.QuickSpawnItem(IEntitySource, int, int)"/> 代替：它造的是掉落物。
+        /// 单人下 <c>Item.NewItem</c> 会立刻把掉落物预定给本人，看着像直接给；
+        /// 多人客户端没有这一步，实际只是请求服务端造个普通掉落物，归属由服务端按“最近的可拾取者”重算，
+        /// 于是拾取范围更大的队友、水火、掉落物槽位回收都可能把这份东西吃掉
+        /// </summary>
+        /// <param name="player">接收玩家，必须是本地玩家</param>
+        /// <param name="source">物品来源</param>
+        /// <param name="itemType">物品类型</param>
+        /// <param name="stack">总数量，超过单堆上限时自动拆堆，小于等于 0 按 1 处理</param>
+        /// <returns>有任何一份落到地上则为 <see langword="true"/></returns>
+        public static bool GiveItem(this Player player, IEntitySource source, int itemType, int stack = 1) {
+            if (itemType <= ItemID.None || player == null || !player.active || player.whoAmI != Main.myPlayer) {
+                return false;
+            }
+
+            bool dropped = false;
+            int remaining = stack <= 0 ? 1 : stack;
+            while (remaining > 0) {
+                Item gift = new(itemType);
+                gift.stack = Math.Min(remaining, Math.Max(1, gift.maxStack));
+                remaining -= gift.stack;
+                dropped |= player.GiveItem(source, gift);
+            }
+            return dropped;
+        }
+
+        /// <summary>
+        /// 送一件已配好数据的物品，语义同 <see cref="GiveItem(Player, IEntitySource, int, int)"/><br/>
+        /// <paramref name="gift"/> 会被直接放进背包，调用方不要再复用
+        /// </summary>
+        /// <param name="player">接收玩家，必须是本地玩家</param>
+        /// <param name="source">物品来源</param>
+        /// <param name="gift">要送出的物品</param>
+        /// <returns>有任何一份落到地上则为 <see langword="true"/></returns>
+        public static bool GiveItem(this Player player, IEntitySource source, Item gift) {
+            if (player == null || !player.active || player.whoAmI != Main.myPlayer || gift == null || gift.IsAir) {
+                return false;
+            }
+
+            gift.position = player.Center;
+            Item overflow = player.GetItem(player.whoAmI, gift, GetItemSettings.NPCEntityToPlayerInventorySettings);
+            if (overflow.IsAir || overflow.stack <= 0) {
+                return false;
+            }
+
+            player.QuickSpawnItem(source, overflow, overflow.stack);
+            return true;
         }
 
         /// <summary>
@@ -4556,6 +4804,36 @@ namespace InnoVault
         #endregion
 
         #region Draw
+        /// <summary>
+        /// 按完整资源路径请求贴图，路径为空或资源不存在时回落到 <see cref="VaultAsset.placeholder3"/>，
+        /// 不抛异常也不写日志，可以放心在绘制里每帧调用
+        /// </summary>
+        /// <param name="fullPath">带模组名前缀的资源路径，如 <c>"InnoVault/Assets/Foo"</c></param>
+        /// <param name="immediateLoad">为 <see langword="true"/> 时同步加载，否则异步加载</param>
+        public static Asset<Texture2D> RequestTexture(string fullPath, bool immediateLoad = false) {
+            if (string.IsNullOrEmpty(fullPath) || !ModContent.HasAsset(fullPath)) {
+                return VaultAsset.placeholder3;
+            }
+            return ModContent.Request<Texture2D>(fullPath, immediateLoad ? AssetRequestMode.ImmediateLoad : AssetRequestMode.AsyncLoad);
+        }
+
+        /// <summary>
+        /// 释放显存资源并保证在主线程执行<br/>
+        /// FNA3D 只接受主线程销毁 GPU 对象，而 <see cref="ModSystem.ClearWorld"/>、<see cref="ModSystem.OnWorldUnload"/>
+        /// 与模组卸载都可能跑在别的线程上，在那些路径里直接 <c>Dispose</c> 会抛 <see cref="ThreadStateException"/> 打断流程<br/>
+        /// 当前不在主线程时，释放推迟到下一帧的主线程队列；资源为空或已释放则什么也不做
+        /// </summary>
+        public static void SafeDispose(this GraphicsResource resource) {
+            if (resource == null || resource.IsDisposed) {
+                return;
+            }
+            if (Program.IsMainThread) {
+                resource.Dispose();
+                return;
+            }
+            Main.QueueMainThreadAction(resource.Dispose);
+        }
+
         /// <summary>
         /// 获取一个值，该值指示UI空间的染色效果当前是否已激活
         /// </summary>

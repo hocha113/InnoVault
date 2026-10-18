@@ -28,6 +28,14 @@ namespace InnoVault
         /// </summary>
         internal static readonly Dictionary<Assembly, HashSet<Type>> ModTypeSetCache = new();
         /// <summary>
+        /// 单个模组程序集的可加载类型数组缓存，服务于 <see cref="VaultUtils.GetCodeTypes(Mod)"/>
+        /// </summary>
+        internal static readonly Dictionary<Assembly, Type[]> ModTypeArrayCache = new();
+        /// <summary>
+        /// 单个模组程序集的类型简名索引缓存，服务于 <see cref="VaultUtils.FindTypeByName(Mod, string)"/>
+        /// </summary>
+        internal static readonly Dictionary<Assembly, Dictionary<string, Type>> ModTypeNameCache = new();
+        /// <summary>
         /// 用于模组总程序集查找的性能优化，在加载完成后会立即释放
         /// </summary>
         internal static Type[] AnyModCodeType = null;
@@ -63,6 +71,8 @@ namespace InnoVault
             }
             //完成加载后就释放，防止在游戏周期中占用不必要的内存
             ModTypeSetCache?.Clear();
+            ModTypeArrayCache?.Clear();
+            ModTypeNameCache?.Clear();
             AnyModCodeType = null;
         }
 
@@ -76,6 +86,8 @@ namespace InnoVault
             VaultLoad.UnLoadAsset();
             TagCache.Clear();
             ModTypeSetCache?.Clear();
+            ModTypeArrayCache?.Clear();
+            ModTypeNameCache?.Clear();
             AnyModCodeType = null;
             lastErrorByKey?.Clear();
         }

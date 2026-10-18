@@ -336,7 +336,7 @@ namespace InnoVault.RenderHandles
             }
 
             for (int i = 0; i < ScreenTargets.Length; i++) {
-                ScreenTargets[i]?.Dispose();
+                ScreenTargets[i]?.SafeDispose();
                 ScreenTargets[i] = new RenderTarget2D(Main.instance.GraphicsDevice, Main.screenWidth, Main.screenHeight);
             }
         }
@@ -350,7 +350,7 @@ namespace InnoVault.RenderHandles
             }
 
             foreach (var rt in ScreenTargets) {
-                rt?.Dispose();
+                rt?.SafeDispose();
             }
             ScreenTargets = null;
         }

@@ -118,6 +118,9 @@ namespace InnoVault.GameSystem
                 return;
             }
 
+            //TryGetOverride / GetOverride 都从这里取字典，漏赋值会让它们恒为空
+            globalInstance.ProjOverrides = inds;
+
             //遍历所有克隆出的实例
             foreach (var overrideInstance in inds.Values) {
                 //为实例设置弹幕上下文并初始化
