@@ -12,12 +12,16 @@ namespace InnoVault.Scenarios
                 NetmodeID.Server => ScenarioNetRole.Server,
                 _ => ScenarioNetRole.SinglePlayer,
             };
+            LocalPlayerSource = static () => Main.dedServ ? -1 : Main.myPlayer;
+            TileSpaceResizable = static () => ScenarioTileSpace.Available;
             ErrorSink = VaultMod.LoggerError;
             InfoSink = message => VaultMod.Instance?.Logger.Info(message);
             StageBackend = new TmlStageBackend();
             RestoreBackend = new TmlRestoreBackend();
+            Net = new TmlScenarioNetHost();
             ScenarioEnded = ScenarioEntities.CleanUp;
             RevealMap = ScenarioMapPolicy.Reveal;
+            RegionChanged = ScenarioRegionSync.Resend;
         }
     }
 }

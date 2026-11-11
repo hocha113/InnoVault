@@ -22,7 +22,9 @@ namespace InnoVault.Scenarios
         private List<Actor> _ownedActors;
 
         /// <summary>
-        /// 生成来源：用它生成的 NPC 与弹幕自动归这个场景所有；归属实体再生成的子弹幕、子 NPC（来源为 <c>EntitySource_Parent</c>）也一并归属
+        /// 生成来源：用它生成的 NPC 与弹幕自动归这个场景所有；归属实体再生成的子弹幕、子 NPC（来源为 <c>EntitySource_Parent</c>）也一并归属<br/>
+        /// 多人模式下 NPC 在服务器上生成（先判断 <see cref="IsAuthority"/>），它的归属随 NPC 的同步发给客户端，<see cref="Owns(NPC)"/> 在每一端都能用；
+        /// 弹幕的归属只记在生成它的那一端，不同步。场景停用时 NPC 与 Actor 由服务器清除，弹幕由生成它的那一端清除
         /// </summary>
         public IEntitySource SpawnSource => _spawnSource ??= new ScenarioEntitySource(this);
 

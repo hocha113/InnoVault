@@ -31,11 +31,13 @@ Loadings: {
 
 Scenarios: {
 	ScenarioText: {
-		MultiplayerUnsupported: Scenarios are not supported in multiplayer yet.
+		MultiplayerUnsupported: Scenarios are unavailable in multiplayer on this endpoint.
 		Saving: Saving world
 		Generating: Generating scenario
 		Entering: Entering scenario
 		ReturningHome: Returning to the main world
+		WaitingForPlayers: Waiting for other players
+		StageChanged: The server moved to another scenario while you were joining. Please join again.
 	}
 }
 

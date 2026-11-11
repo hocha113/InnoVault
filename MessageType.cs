@@ -53,5 +53,7 @@ namespace InnoVault
         PlayerNet_ReleaseInterest,
         /// <summary>富受击事件（客户端->服务器校验后处理并转发；服务器->客户端表现）</summary>
         HitEvent,
+        /// <summary>场景框架的全部消息，后跟一个字节的场景消息编号（请求、场景树同步、换舞台握手）</summary>
+        Scenario,
     }
 }

@@ -95,6 +95,7 @@ namespace InnoVault.Scenarios
             new SpawnPlacementTakeover(),
             new MapSettingsTakeover(),
             new TileDataTakeover(),
+            new TileSpaceTakeover(),
         ];
 
         internal static IReadOnlyList<ScenarioTakeover> All => _all;

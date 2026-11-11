@@ -23,14 +23,25 @@ namespace InnoVault.Scenarios
     /// </summary>
     public class ScenarioStage : ScenarioComponent
     {
-        /// <summary>舞台宽度上限（物块），受 <c>Main.tile</c> 启动时的固定分配限制</summary>
-        public const int MaxWidth = 8400;
-        /// <summary>舞台高度上限（物块），受 <c>Main.tile</c> 启动时的固定分配限制</summary>
-        public const int MaxHeight = 2400;
+        /// <summary>原版启动时固定分配的物块空间能装下的宽度（物块）。不超过它与 <see cref="NativeHeight"/> 的舞台不需要重塑物块空间</summary>
+        public const int NativeWidth = 8400;
+        /// <summary>原版启动时固定分配的物块空间能装下的高度（物块）</summary>
+        public const int NativeHeight = 2400;
+        /// <summary>舞台宽度上限（物块）</summary>
+        public const int MaxWidth = 16000;
+        /// <summary>舞台高度上限（物块）</summary>
+        public const int MaxHeight = 16000;
+        /// <summary>
+        /// 舞台总格数上限（宽乘高），等于原版大世界的格数：超出原版尺寸的舞台只改变宽高比，不比原版多占内存
+        /// </summary>
+        public const int MaxArea = NativeWidth * NativeHeight;
 
-        /// <summary>声明一块指定尺寸的舞台</summary>
+        /// <summary>
+        /// 声明一块指定尺寸的舞台。宽或高超过 <see cref="NativeWidth"/> × <see cref="NativeHeight"/> 时，进入这块舞台的每一端都会按它的尺寸重新分配物块空间，
+        /// 离开后换回原版的分配；重新分配会造成一次明显的卡顿，由加载画面盖住
+        /// </summary>
         /// <param name="width">宽度（物块），不超过 <see cref="MaxWidth"/></param>
-        /// <param name="height">高度（物块），不超过 <see cref="MaxHeight"/></param>
+        /// <param name="height">高度（物块），不超过 <see cref="MaxHeight"/>；宽乘高不超过 <see cref="MaxArea"/></param>
         public ScenarioStage(int width, int height) {
             Width = width;
             Height = height;
@@ -41,6 +52,9 @@ namespace InnoVault.Scenarios
 
         /// <summary>高度（物块）</summary>
         public int Height { get; }
+
+        /// <summary>这块舞台是否超出了原版固定分配的物块空间（需要重塑物块空间才能装下）</summary>
+        public bool ExceedsNativeSpace => Width > NativeWidth || Height > NativeHeight;
 
         /// <summary>保存方式，默认长期保存</summary>
         public StagePersistence Persistence { get; init; } = StagePersistence.Persistent;
@@ -80,6 +94,12 @@ namespace InnoVault.Scenarios
             }
             if (Width <= 0 || Height <= 0 || Width > MaxWidth || Height > MaxHeight) {
                 return $"stage size {Width}x{Height} is outside 1..{MaxWidth} x 1..{MaxHeight}";
+            }
+            if ((long)Width * Height > MaxArea) {
+                return $"stage size {Width}x{Height} has more than {MaxArea} tiles";
+            }
+            if (ExceedsNativeSpace && !ScenarioPlatform.CanResizeTileSpace) {
+                return $"stage size {Width}x{Height} needs a resized tile space (more than {NativeWidth}x{NativeHeight}), which is unavailable on this endpoint";
             }
             if (SurfaceLevel is int surface && (surface <= 0 || surface >= Height)) {
                 return $"SurfaceLevel {surface} is outside 1..{Height - 1}";

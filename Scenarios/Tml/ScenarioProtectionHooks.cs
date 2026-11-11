@@ -17,7 +17,9 @@ namespace InnoVault.Scenarios
         Wiring,
     }
 
-    //物块保护的判定：任意一个处于激活中的保护组件覆盖这一格、打开了对应开关、且没有放行，就拦下
+    //物块保护的判定：任意一个处于激活中的保护组件覆盖这一格、打开了对应开关、且没有放行，就拦下。
+    //多人下每一端都先拦自己本地的改动，服务器再把关一次：客户端发来的改动算在发包的玩家头上，被拦下的那一格回发给它；
+    //客户端收到服务器转发的改动时照做，不再判定
     internal static class ScenarioProtectionRules
     {
         internal static bool Blocks(ProtectionKind kind, Player player, int i, int j) {
@@ -25,17 +27,35 @@ namespace InnoVault.Scenarios
                 return false;
             }
             ScenarioProtection[] protections = ScenarioRuntime.Protections;
+            if (protections.Length == 0) {
+                return false;
+            }
+            int sender = -1;
+            if (ScenarioNetContext.InPacket) {
+                if (Main.netMode == NetmodeID.MultiplayerClient) {
+                    return false;
+                }
+                if (Main.netMode == NetmodeID.Server) {
+                    sender = ScenarioNetContext.Sender;
+                    player = sender >= 0 && sender < Main.maxPlayers ? Main.player[sender] : null;
+                }
+            }
             for (int k = 0; k < protections.Length; k++) {
                 ScenarioProtection protection = protections[k];
                 if (!Enabled(protection, kind) || !protection.Covers(i, j)) {
                     continue;
                 }
+                bool allowed;
                 try {
-                    if (!protection.CanModify(player, i, j)) {
-                        return true;
-                    }
+                    allowed = protection.CanModify(player, i, j);
                 } catch (Exception ex) {
                     ScenarioPlatform.Error($"Scenario.CanModify.{protection.Scenario?.Key}", $"[Scenarios] {protection.Scenario?.Key} CanModify threw: {ex}");
+                    allowed = false;
+                }
+                if (!allowed) {
+                    if (sender >= 0) {
+                        ScenarioProtectionSync.Queue(sender, i, j);
+                    }
                     return true;
                 }
             }
@@ -57,6 +77,35 @@ namespace InnoVault.Scenarios
         internal static Player ActingPlayer() {
             Player player = Main.LocalPlayer;
             return player != null && player.active && player.itemAnimation > 0 ? player : null;
+        }
+    }
+
+    //服务器拦下了客户端发来的改动：那个客户端本地已经改了（它的场景树镜像没拦住，或者它根本没按规矩来），把这一格的真实状态发回去。
+    //物块钩子里不直接发包，攒到这一帧的网络包处理完之后一起发
+    internal static class ScenarioProtectionSync
+    {
+        private const int MaxPending = 512;
+
+        private static readonly HashSet<(int Client, int X, int Y)> _pending = [];
+
+        internal static void Queue(int client, int x, int y) {
+            if (_pending.Count < MaxPending) {
+                _pending.Add((client, x, y));
+            }
+        }
+
+        internal static void Flush() {
+            if (_pending.Count == 0) {
+                return;
+            }
+            if (Main.netMode == NetmodeID.Server) {
+                foreach (var (client, x, y) in _pending) {
+                    if (Netplay.Clients[client] is RemoteClient remote && remote.IsConnected() && WorldGen.InWorld(x, y)) {
+                        NetMessage.SendTileSquare(client, x, y);
+                    }
+                }
+            }
+            _pending.Clear();
         }
     }
 

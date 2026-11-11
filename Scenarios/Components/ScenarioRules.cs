@@ -13,7 +13,10 @@ namespace InnoVault.Scenarios
         Vanilla,
         /// <summary>落到锚点（<see cref="ScenarioRules.RecallAnchor"/> / <see cref="ScenarioRules.RespawnAnchor"/>，缺省 <see cref="ScenarioAnchors.Entry"/>）；找不到时按原版处理</summary>
         Anchor,
-        /// <summary>离开场景舞台，返回主世界</summary>
+        /// <summary>
+        /// 离开场景舞台，返回主世界。多人模式下这是那个玩家发给服务器的一次换舞台请求，放行后所有玩家一起回主世界；
+        /// 一个人倒下要不要带走所有人，在被离开的那块舞台的 <see cref="VaultScenario.AuthorizeRequest"/> 里决定（请求的 <see cref="ScenarioRequest.From"/> 就是它）
+        /// </summary>
         ReturnHome,
     }
 
@@ -22,7 +25,10 @@ namespace InnoVault.Scenarios
     /// 可以挂在拥有舞台的场景上，也可以挂在区域场景或不占空间的场景上（例如一场遭遇战期间关闭自然刷怪）。
     /// 场景挂了 <see cref="ScenarioArea"/> 时，只在本地玩家进入区域后生效<br/>
     /// 多个生效中的场景都挂了它时逐属性叠加（<see cref="ScenarioComponent.LayerPriority"/>）：每个属性取最上层已设置（不为空）的值，
-    /// 虚方法从下到上依次调用。属性在运行期间修改即时生效；主世界里没有任何场景挂它时，所有行为与原版一致
+    /// 虚方法从下到上依次调用。属性在运行期间修改即时生效；主世界里没有任何场景挂它时，所有行为与原版一致<br/>
+    /// 多人模式下分两类：刷怪、重力、区域判定、回城与复活落点按玩家分别取值，区域场景里的只作用于身在区域里的玩家；
+    /// 时间、物块更新、天气、事件、城镇 NPC 是整块舞台共享的状态，由服务器决定，而服务器只听不带区域的场景。
+    /// 运行期间改属性不会自动同步：在每一端用同样的条件改，或者把依据写进场景的同步成员（<see cref="VaultScenario.NetUpdate"/>）
     /// </summary>
     public class ScenarioRules : ScenarioComponent
     {

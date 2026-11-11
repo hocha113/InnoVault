@@ -40,19 +40,22 @@ namespace InnoVault.Scenarios
     internal static class ScenarioZoneRules
     {
         //海洋判定：规则指定为准；各层都没设置时，场景舞台宽度不足两倍海滩宽度（地表全判海滩）就取消
-        internal static bool OceanSuppressed() {
-            bool? setting = ScenarioRuntime.Rules.Pick(static r => r.NoOceanZone);
+        internal static bool OceanSuppressed() => OceanSuppressed(ScenarioRuntime.Rules);
+
+        private static bool OceanSuppressed(ScenarioLayers<ScenarioRules> rules) {
+            bool? setting = rules.Pick(static r => r.NoOceanZone);
             return setting ?? (ScenarioRuntime.InScenarioStage && Main.maxTilesX < 2 * WorldGen.beachDistance);
         }
 
         internal static bool OceanDepths(int x, int y) => !OceanSuppressed() && WorldGen.oceanDepths(x, y);
 
+        //UpdateBiomes 在每一端为每个玩家执行，按这个玩家所在的层取值
         internal static void Apply(Player player) {
-            ScenarioLayers<ScenarioRules> rules = ScenarioRuntime.Rules;
+            ScenarioLayers<ScenarioRules> rules = ScenarioRuntime.RulesFor(player.whoAmI);
             if (!rules.Any && !ScenarioRuntime.InScenarioStage) {
                 return;
             }
-            if (OceanSuppressed()) {
+            if (OceanSuppressed(rules)) {
                 player.ZoneBeach = false;
             }
             if (!rules.Any) {

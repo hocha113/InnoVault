@@ -15,7 +15,9 @@ namespace InnoVault.Scenarios
         internal static bool UserMapEnabled => _userMapEnabled;
 
         internal static void Update() {
-            bool noMap = ScenarioDirector.InSession && ScenarioRuntime.Map.Pick(static m => m.NoMap) == true;
+            //超出原版尺寸的舞台里地图渲染目标没能重建时，地图也关掉：原版会按格子坐标去取不存在的渲染目标
+            bool noMap = ScenarioTileSpace.MapUnavailable
+                || (ScenarioDirector.InSession && ScenarioRuntime.Map.Pick(static m => m.NoMap) == true);
             if (noMap) {
                 if (!_applied) {
                     _userMapEnabled = Main.mapEnabled;

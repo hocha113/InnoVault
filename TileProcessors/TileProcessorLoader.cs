@@ -52,18 +52,37 @@ namespace InnoVault.TileProcessors
         /// 安全起见，应当使用for配合倒序遍历，或者使用.ToList克隆该集合的快照副本进行访问
         /// </summary>
         public static List<TileProcessor> TP_InWorld { get; private set; } = [];
+        //Point16没有实现IEquatable<Point16>，默认比较器每次判等都要把它装箱，下面三个字典的键都含有它，所以各自配一个不装箱的比较器
+        private sealed class IDAndPointComparer : IEqualityComparer<(int, Point16)>
+        {
+            public static readonly IDAndPointComparer Instance = new();
+            public bool Equals((int, Point16) x, (int, Point16) y) => x.Item1 == y.Item1 && x.Item2 == y.Item2;
+            public int GetHashCode((int, Point16) obj) => HashCode.Combine(obj.Item1, obj.Item2.GetHashCode());
+        }
+        private sealed class NameAndPointComparer : IEqualityComparer<(string, Point16)>
+        {
+            public static readonly NameAndPointComparer Instance = new();
+            public bool Equals((string, Point16) x, (string, Point16) y) => x.Item2 == y.Item2 && x.Item1 == y.Item1;
+            public int GetHashCode((string, Point16) obj) => HashCode.Combine(obj.Item1, obj.Item2.GetHashCode());
+        }
+        private sealed class PointComparer : IEqualityComparer<Point16>
+        {
+            public static readonly PointComparer Instance = new();
+            public bool Equals(Point16 x, Point16 y) => x == y;
+            public int GetHashCode(Point16 obj) => obj.GetHashCode();
+        }
         /// <summary>
         /// 当使用<see cref="AddInWorld(int, Point16, Item)"/>函数时更新这个字典，用于快速查询对应的TP实体以节省性能
         /// </summary>
-        public static Dictionary<(int, Point16), TileProcessor> TP_IDAndPoint_To_Instance { get; private set; } = [];
+        public static Dictionary<(int, Point16), TileProcessor> TP_IDAndPoint_To_Instance { get; private set; } = new(IDAndPointComparer.Instance);
         /// <summary>
         /// 当使用<see cref="AddInWorld(int, Point16, Item)"/>函数时更新这个字典，用于快速查询对应的TP实体以节省性能
         /// </summary>
-        public static Dictionary<(string, Point16), TileProcessor> TP_NameAndPoint_To_Instance { get; private set; } = [];
+        public static Dictionary<(string, Point16), TileProcessor> TP_NameAndPoint_To_Instance { get; private set; } = new(NameAndPointComparer.Instance);
         /// <summary>
         /// 当使用<see cref="AddInWorld(int, Point16, Item)"/>函数时更新这个字典，用于快速查询对应的TP实体以节省性能
         /// </summary>
-        public static Dictionary<Point16, TileProcessor> TP_Point_To_Instance { get; private set; } = [];
+        public static Dictionary<Point16, TileProcessor> TP_Point_To_Instance { get; private set; } = new(PointComparer.Instance);
         /// <summary>
         /// 将TP实体的类型映射到其对应的ID的字典
         /// </summary>
@@ -327,21 +346,21 @@ namespace InnoVault.TileProcessors
             }
 
             if (TP_IDAndPoint_To_Instance == null) {
-                TP_IDAndPoint_To_Instance = [];
+                TP_IDAndPoint_To_Instance = new(IDAndPointComparer.Instance);
             }
             else {
                 TP_IDAndPoint_To_Instance.Clear();
             }
 
             if (TP_NameAndPoint_To_Instance == null) {
-                TP_NameAndPoint_To_Instance = [];
+                TP_NameAndPoint_To_Instance = new(NameAndPointComparer.Instance);
             }
             else {
                 TP_NameAndPoint_To_Instance.Clear();
             }
 
             if (TP_Point_To_Instance == null) {
-                TP_Point_To_Instance = [];
+                TP_Point_To_Instance = new(PointComparer.Instance);
             }
             else {
                 TP_Point_To_Instance.Clear();
@@ -656,7 +675,7 @@ namespace InnoVault.TileProcessors
         /// </summary>
         /// <returns></returns>
         public static Dictionary<(string, Point16), TileProcessor> GetTileProcessorDictionaryByNameAndPosition() {
-            Dictionary<(string, Point16), TileProcessor> tpDictionary = [];
+            Dictionary<(string, Point16), TileProcessor> tpDictionary = new(NameAndPointComparer.Instance);
             foreach (TileProcessor tp in TP_InWorld) {
                 if (tp == null) {
                     continue;

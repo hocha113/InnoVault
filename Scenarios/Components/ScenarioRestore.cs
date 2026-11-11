@@ -9,7 +9,9 @@ namespace InnoVault.Scenarios
     /// 原版与模组的物块实体、TP<br/>
     /// 激活时同时写一份还原日志：改建期间保存退出、自动存档或强退，都可能把临时改建写进存档，下次读入这块舞台时（玩家出生之前）
     /// 先按日志还原。日志里模组物块与墙按名字记录；读回时找不到的类型那几格置空，并记日志<br/>
-    /// 挂了它的场景不能放在会话层。停用时舞台已经存过盘（绕过暂停菜单的保存退出）的情况下不在内存里写回，留给下次读档补还原
+    /// 挂了它的场景不能放在会话层。停用时舞台已经存过盘（绕过暂停菜单的保存退出）的情况下不在内存里写回，留给下次读档补还原<br/>
+    /// 多人模式下记录、放置结构与写回都只在服务器上执行，日志也只在服务器上；服务器改写之后把这片范围所在的区块重新发给客户端。
+    /// 场景自己在范围里直接改写物块之后，要自己调用 <see cref="ScenarioDirector.SyncRegion"/>
     /// </summary>
     public class ScenarioRestore : ScenarioComponent
     {
@@ -38,6 +40,10 @@ namespace InnoVault.Scenarios
 
         /// <inheritdoc/>
         protected override void OnActivate(ScenarioTransition transition) {
+            //多人下记录与写回都由服务器执行，客户端经区块同步看到结果
+            if (!IsAuthority) {
+                return;
+            }
             if (ScenarioPlatform.RestoreBackend == null) {
                 ScenarioPlatform.Error($"Scenario.Restore.{Scenario?.Key}", $"[Scenarios] {Scenario?.Key}: no restore backend on this endpoint; the area will not be restored");
                 return;
@@ -47,7 +53,13 @@ namespace InnoVault.Scenarios
 
         /// <inheritdoc/>
         protected override void OnDeactivate(ScenarioTransition transition) {
-            ScenarioPlatform.RestoreBackend?.Restore(this, transition);
+            if (IsAuthority) {
+                ScenarioPlatform.RestoreBackend?.Restore(this, transition);
+            }
+            else {
+                //服务器先写回并重发区块，再发场景结束的消息：到这里时本端的物块已经是写回之后的样子
+                ScenarioPlatform.RestoreBackend?.Settle(this);
+            }
         }
 
         /// <inheritdoc/>

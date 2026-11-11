@@ -1,6 +1,7 @@
 ﻿using InnoVault.Actors;
 using InnoVault.Combat;
 using InnoVault.GameSystem;
+using InnoVault.Scenarios;
 using InnoVault.TileProcessors;
 using System.IO;
 using Terraria.ModLoader;
@@ -11,6 +12,10 @@ namespace InnoVault.VaultNetworks
     {
         public static void HandlePacket(BinaryReader reader, Mod mod, int whoAmI) {
             MessageType type = (MessageType)reader.ReadByte();
+            if (type == MessageType.Scenario) {
+                TmlScenarioNetHost.Handle(reader, whoAmI);
+                return;
+            }
             NPCOverrideNetWork.HandlePacket(type, reader, whoAmI);
             TileProcessorNetWork.HandlePacket(type, mod, reader, whoAmI);
             ActorNetWork.Handle(type, mod, reader, whoAmI);

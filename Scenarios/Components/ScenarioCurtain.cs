@@ -29,6 +29,12 @@ namespace InnoVault.Scenarios
         public bool Enabled => CloseFrames > 0 || OpenFrames > 0;
 
         /// <summary>
+        /// 多人模式下本地玩家已经就绪、盖着幕布等其他玩家时，是否在幕布中央画一行“等待其他玩家”（<see cref="ScenarioText.WaitingForPlayers"/>），缺省为真。
+        /// 自己在 <see cref="Draw"/> 里画等待提示的幕布把它关掉
+        /// </summary>
+        public bool ShowWaitingText { get; init; } = true;
+
+        /// <summary>
         /// 绘制幕布，SpriteBatch 已按 UI 缩放矩阵开启。缺省按 <paramref name="coverage"/> 铺一层半透明的 <see cref="Color"/>
         /// </summary>
         /// <param name="spriteBatch">已开启的 SpriteBatch</param>

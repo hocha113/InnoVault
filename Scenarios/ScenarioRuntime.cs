@@ -55,13 +55,21 @@ namespace InnoVault.Scenarios
     //各项整体替换，读档线程上读到的始终是完整的一份
     internal static class ScenarioRuntime
     {
+        //没有玩家视角：只有不带区域的场景参与
+        private const int NoPlayer = -1;
+
+        private static IReadOnlyList<VaultScenario> _active = [];
+        //其他玩家视角下的规则层，用到时才合成，重建时作废
+        private static ScenarioLayers<ScenarioRules>[] _rulesByPlayer = new ScenarioLayers<ScenarioRules>[256];
+
         //当前舞台场景，会话之外与换舞台途中为空
         internal static VaultScenario Stage { get; private set; }
 
         //当前舞台是不是一块场景舞台（而不是根世界）
         internal static bool InScenarioStage => Stage != null && Stage is not RootScenario;
 
-        //跟随玩家的组件：场景没有区域，或本地玩家在区域里时参与
+        //跟随玩家的组件，本地视角：场景没有区域，或本地玩家在区域里时参与。
+        //专用服务器上没有本地玩家，这里只剩不带区域的场景：时间、天气、事件这类整块舞台共享的状态在服务器上只听它们的
         internal static ScenarioLayers<ScenarioRules> Rules { get; private set; } = ScenarioLayers<ScenarioRules>.Empty;
 
         internal static ScenarioLayers<ScenarioCamera> Camera { get; private set; } = ScenarioLayers<ScenarioCamera>.Empty;
@@ -76,12 +84,27 @@ namespace InnoVault.Scenarios
         //所有处于激活中的场景的区域（无论玩家在不在里面），区域进出判定与边界约束用
         internal static ScenarioArea[] Areas { get; private set; } = [];
 
+        //某个玩家视角下的规则层：逐玩家计算的规则（刷怪、重力、区域判定）在服务器上、以及在客户端上推算其他玩家时用
+        internal static ScenarioLayers<ScenarioRules> RulesFor(int player) {
+            if (player == ScenarioPlatform.LocalPlayerIndex || Areas.Length == 0) {
+                return Rules;
+            }
+            ScenarioLayers<ScenarioRules>[] cache = _rulesByPlayer;
+            if ((uint)player >= (uint)cache.Length) {
+                return Rules;
+            }
+            return cache[player] ??= Collect<ScenarioRules>(_active, player);
+        }
+
         internal static void Rebuild(VaultScenario stage, IReadOnlyList<VaultScenario> active) {
+            int local = ScenarioPlatform.LocalPlayerIndex;
             Stage = stage;
-            Rules = Collect<ScenarioRules>(active);
-            Camera = Collect<ScenarioCamera>(active);
-            Environment = Collect<ScenarioEnvironment>(active);
-            Map = Collect<ScenarioMap>(active);
+            _active = active;
+            _rulesByPlayer = new ScenarioLayers<ScenarioRules>[256];
+            Rules = Collect<ScenarioRules>(active, local);
+            Camera = Collect<ScenarioCamera>(active, local);
+            Environment = Collect<ScenarioEnvironment>(active, local);
+            Map = Collect<ScenarioMap>(active, local);
             Protections = CollectAll<ScenarioProtection>(active);
             List<ScenarioArea> areas = [];
             for (int i = 0; i < active.Count; i++) {
@@ -95,6 +118,8 @@ namespace InnoVault.Scenarios
 
         internal static void Clear() {
             Stage = null;
+            _active = [];
+            _rulesByPlayer = new ScenarioLayers<ScenarioRules>[256];
             Rules = ScenarioLayers<ScenarioRules>.Empty;
             Camera = ScenarioLayers<ScenarioCamera>.Empty;
             Environment = ScenarioLayers<ScenarioEnvironment>.Empty;
@@ -103,12 +128,16 @@ namespace InnoVault.Scenarios
             Areas = [];
         }
 
-        private static ScenarioLayers<T> Collect<T>(IReadOnlyList<VaultScenario> active) where T : ScenarioComponent {
+        //player 为 NoPlayer（专用服务器的本地视角）时只收不带区域的场景
+        private static ScenarioLayers<T> Collect<T>(IReadOnlyList<VaultScenario> active, int player) where T : ScenarioComponent {
             List<(T Component, int Order)> found = null;
             int order = 0;
             for (int i = 0; i < active.Count; i++) {
                 VaultScenario scenario = active[i];
-                if (scenario.Status != ScenarioStatus.Active || scenario.Area is { Engaged: false }) {
+                if (scenario.Status != ScenarioStatus.Active) {
+                    continue;
+                }
+                if (scenario.Area is ScenarioArea area && (player == NoPlayer || !area.IsEngaged(player))) {
                     continue;
                 }
                 IReadOnlyList<ScenarioComponent> components = scenario.Components;

@@ -1362,11 +1362,8 @@ namespace InnoVault
                 float extraDistance = (npc.width / 2f) + (npc.height / 2f);
                 float actualDistance = Vector2.Distance(origin, npc.Center);
 
-                //检查瓦片阻挡
-                bool canHit = ignoreTiles || Collision.CanHit(origin, 1, 1, npc.Center, 1, 1);
-
-                //更新最近目标
-                if (actualDistance < distance + extraDistance && canHit) {
+                //更新最近目标，瓦片阻挡的射线检测要沿途逐格取物块，只对已经在范围内的目标做
+                if (actualDistance < distance + extraDistance && (ignoreTiles || Collision.CanHit(origin, 1, 1, npc.Center, 1, 1))) {
                     if (bossPriority && (npc.boss || npc.type == NPCID.WallofFleshEye)) {
                         bossFound = true;
                     }

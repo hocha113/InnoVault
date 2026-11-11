@@ -51,8 +51,9 @@ namespace InnoVault.Scenarios
             ("downedOldOnesArmyT3", () => DD2Event.DownedInvasionT3, v => DD2Event.DownedInvasionT3 = v),
         ];
 
+        //原版进度是世界状态：多人下由服务器抓取与写入，客户端经原版的世界信息包拿到结果
         public override void OnDeactivate(VaultScenario scenario, ScenarioTransition transition) {
-            if (transition.Kind != ScenarioTransitionKind.Travel || !ReferenceEquals(scenario, transition.From)) {
+            if (!ScenarioDirector.IsAuthority || transition.Kind != ScenarioTransitionKind.Travel || !ReferenceEquals(scenario, transition.From)) {
                 return;
             }
             if (transition.To?.GetComponent<InheritVanillaProgress>() != null) {
@@ -64,7 +65,7 @@ namespace InnoVault.Scenarios
         }
 
         public override void OnActivate(VaultScenario scenario, ScenarioTransition transition) {
-            if (transition.Kind != ScenarioTransitionKind.Travel || !ReferenceEquals(scenario, transition.To)) {
+            if (!ScenarioDirector.IsAuthority || transition.Kind != ScenarioTransitionKind.Travel || !ReferenceEquals(scenario, transition.To)) {
                 return;
             }
             if (scenario.GetComponent<InheritVanillaProgress>() != null && transition.Payload.TryGet(InheritKey, out TagCompound inherited)) {

@@ -68,7 +68,8 @@ namespace InnoVault.Scenarios
 
         private static void Hook(On_Player.orig_Spawn orig, Player self, PlayerSpawnContext context) {
             orig(self, context);
-            if (self.whoAmI != Main.myPlayer || Main.netMode != NetmodeID.SinglePlayer) {
+            //落点由出生的那个玩家自己的客户端决定，服务器与其他客户端收它的位置同步
+            if (Main.dedServ || self.whoAmI != Main.myPlayer) {
                 return;
             }
             ScenarioLayers<ScenarioRules> rules = ScenarioRuntime.Rules;
@@ -93,14 +94,17 @@ namespace InnoVault.Scenarios
                 case ScenarioSpawnBehavior.Anchor:
                     if (ScenarioDirector.TryFindAnchor(anchor ?? ScenarioAnchors.Entry, out Point tile)) {
                         ScenarioPlacement.PlaceAtTile(self, tile);
+                        if (Main.netMode == NetmodeID.MultiplayerClient) {
+                            NetMessage.SendData(MessageID.PlayerControls, -1, -1, null, self.whoAmI);
+                        }
                     }
                     break;
                 case ScenarioSpawnBehavior.ReturnHome:
                     if (ScenarioRuntime.InScenarioStage) {
-                        //Spawn 可能在一帧更新的中途被调用，推到本帧结束后再发起切换
+                        //Spawn 可能在一帧更新的中途被调用，推到本帧结束后再发起切换。多人下这是发给服务器的请求，换的是所有人的舞台
                         Main.QueueMainThreadAction(static () => {
                             ScenarioResult result = ScenarioDirector.ReturnHome();
-                            if (!result.Accepted) {
+                            if (!result.Accepted && !result.Pending) {
                                 ScenarioPlatform.Info($"[Scenarios] Returning home after spawn was rejected: {result}");
                             }
                         });

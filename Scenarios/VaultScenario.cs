@@ -12,7 +12,10 @@ namespace InnoVault.Scenarios
     /// 也可以不占空间，只是叠加在当前舞台上的一段玩法<br/>
     /// tML 加载出的那个对象是<b>场景模板</b>，只用于查询与创建实例，永远不会被激活；
     /// 每次激活都会新建一个<b>场景实例</b>，所以写在字段里的状态天然只属于这一次激活<br/>
-    /// 进入、离开与查询都经 <see cref="ScenarioDirector"/>
+    /// 进入、离开与查询都经 <see cref="ScenarioDirector"/><br/>
+    /// 多人模式下场景树由服务器裁决，每个客户端上有一份同样的实例，所有钩子在每一端都会执行：只该发生一次的事先判断 <see cref="IsAuthority"/>。
+    /// 要让其他端也拿到的激活参数写在标了 <see cref="SyncVarAttribute"/> 的成员里（它们在 Compose 之前套用），其余运行状态经
+    /// <see cref="SendExtraData"/> 与 <see cref="NetUpdate"/> 同步
     /// </summary>
     public abstract partial class VaultScenario : VaultType<VaultScenario>
     {
@@ -92,12 +95,18 @@ namespace InnoVault.Scenarios
 
         /// <summary>
         /// 激活时调用，组件的 OnActivate 已经执行。经换舞台进入的舞台场景此时舞台已读入、玩家尚未出生，运行在读档线程上，
-        /// 只做数据与世界状态的工作；换舞台的数据包在这里读取。会话开始时的根场景例外：它在玩家出生之后、主线程上激活
+        /// 只做数据与世界状态的工作；换舞台的数据包在这里读取。会话开始时的根场景例外：它在玩家出生之后、主线程上激活<br/>
+        /// 多人模式下每一端各调用一次：服务器在读完舞台之后（主线程，此时玩家都还在路上），客户端在出生于这块舞台并收到服务器的场景树之后（主线程）。
+        /// 数据包不经网络传输，每一端读到的是这一端自己的停用钩子写下的内容；世界状态由服务器改，客户端经原版的同步拿到
         /// </summary>
         /// <param name="transition">引起这次激活的转场</param>
         protected virtual void OnActivate(ScenarioTransition transition) { }
 
-        /// <summary>进入激活状态后、第一次更新之前调用，主线程，玩家已经在世界里；演出与 UI 从这里开始</summary>
+        /// <summary>
+        /// 进入激活状态后、第一次更新之前调用，主线程，玩家已经在世界里；演出与 UI 从这里开始<br/>
+        /// 多人模式下换舞台之后要等所有玩家到齐（或等待超时）、幕布开始拉开时才调用，生成首领这类开场动作放在这里就不会抢在玩家到场之前。
+        /// 中途加入服务器的客户端在收到场景树之后调用，它的 <see cref="ActiveTicks"/> 从 0 开始，不与服务器对齐
+        /// </summary>
         protected virtual void OnStart() { }
 
         /// <summary>激活期间每个游戏帧调用，在组件的 Update 之后，主线程</summary>
@@ -105,7 +114,8 @@ namespace InnoVault.Scenarios
 
         /// <summary>
         /// 停用时调用，子场景已经先行停用，组件的 OnDeactivate 随后执行。舞台场景此时舞台仍在、尚未保存；
-        /// 换舞台的数据包在这里写入
+        /// 换舞台的数据包在这里写入<br/>
+        /// 多人模式下每一端各调用一次，服务器先于客户端。客户端掉线时它的实例也会收到一次会话结束的停用，那时 <see cref="IsAuthority"/> 仍为假
         /// </summary>
         /// <param name="transition">引起这次停用的转场</param>
         protected virtual void OnDeactivate(ScenarioTransition transition) { }

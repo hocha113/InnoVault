@@ -44,6 +44,13 @@ namespace InnoVault
             RegisterSyncType((w, v) => { w.WriteVector2(v); }, r => r.ReadVector2());
             RegisterSyncType((w, v) => { w.WritePoint16(v); }, r => r.ReadPoint16());
             RegisterSyncType((w, v) => { w.WritePoint(v); }, r => r.ReadPoint());
+            RegisterSyncType<Rectangle>((w, v) => { w.Write(v.X); w.Write(v.Y); w.Write(v.Width); w.Write(v.Height); }, r => {
+                int x = r.ReadInt32();
+                int y = r.ReadInt32();
+                int width = r.ReadInt32();
+                int height = r.ReadInt32();
+                return new Rectangle(x, y, width, height);
+            });
             RegisterSyncType((w, v) => ItemIO.Send(v, w, true), r => ItemIO.Receive(r, true));
         }
 

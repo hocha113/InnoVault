@@ -122,9 +122,9 @@ namespace InnoVault.Scenarios
 
     internal sealed class ScenarioRulePlayer : ModPlayer
     {
-        //PreUpdateMovement 在原版重力与高空低重力系数之后、移动之前
+        //PreUpdateMovement 在原版重力与高空低重力系数之后、移动之前。每一端都会更新所有玩家，按这个玩家自己所在的层取值，其他端的推算才与它本机一致
         public override void PreUpdateMovement() {
-            if (ScenarioRuntime.Rules.Pick(static r => r.Gravity) is float gravity) {
+            if (ScenarioRuntime.RulesFor(Player.whoAmI).Pick(static r => r.Gravity) is float gravity) {
                 Player.gravity = Terraria.Player.defaultGravity * gravity;
             }
         }
@@ -133,7 +133,12 @@ namespace InnoVault.Scenarios
     internal sealed class ScenarioRuleNPC : GlobalNPC
     {
         public override void EditSpawnRate(Player player, ref int spawnRate, ref int maxSpawns) {
-            ScenarioLayers<ScenarioRules> rules = ScenarioRuntime.Rules;
+            //服务器换舞台期间（含等客户端到齐的那一段）不自然刷怪：已经到场的玩家还盖着幕布
+            if (Main.dedServ && ScenarioDirector.IsTraveling) {
+                maxSpawns = 0;
+            }
+            //原版按玩家逐个计算刷怪，按这个玩家所在的层取值
+            ScenarioLayers<ScenarioRules> rules = ScenarioRuntime.RulesFor(player.whoAmI);
             if (!rules.Any) {
                 return;
             }
@@ -150,7 +155,7 @@ namespace InnoVault.Scenarios
         }
 
         public override void EditSpawnPool(IDictionary<int, float> pool, NPCSpawnInfo spawnInfo) {
-            ScenarioLayers<ScenarioRules> rules = ScenarioRuntime.Rules;
+            ScenarioLayers<ScenarioRules> rules = spawnInfo.Player != null ? ScenarioRuntime.RulesFor(spawnInfo.Player.whoAmI) : ScenarioRuntime.Rules;
             for (int i = 0; i < rules.Count; i++) {
                 try {
                     rules[i].EditSpawnPool(pool, spawnInfo);

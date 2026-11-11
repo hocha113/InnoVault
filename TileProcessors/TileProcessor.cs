@@ -261,14 +261,22 @@ namespace InnoVault.TileProcessors
         /// 加载内容
         /// </summary>
         public sealed override void VaultSetup() {
-            //这里的添加会稍微复杂些
-            //如果没有获取到值，说明键刚被创建，这里就执行值序列的创建与初始化，并添加进第一个值
-            if (!TargetTile_To_TPInstance.TryGetValue(TargetTileID, out List<TileProcessor> tps)) {
-                tps = [];
-                TargetTile_To_TPInstance[TargetTileID] = tps;
+            int targetTileID = TargetTileID;
+            //只有正数才是可登记的目标物块：0既是泥土也是物块类型查找失败的返回值，负数表示不由系统自动放置
+            //它们一旦进表，0就会混进TargetTileTypes，世界扫描与左上角查询会把每一格泥土和空气都当成目标处理
+            if (targetTileID > 0) {
+                //这里的添加会稍微复杂些
+                //如果没有获取到值，说明键刚被创建，这里就执行值序列的创建与初始化，并添加进第一个值
+                if (!TargetTile_To_TPInstance.TryGetValue(targetTileID, out List<TileProcessor> tps)) {
+                    tps = [];
+                    TargetTile_To_TPInstance[targetTileID] = tps;
+                }
+                //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
+                tps.Add(this);
             }
-            //如果成功获取到了值，那么说明已经有了重复的键被创建在列表中，这里就执行一次值扩容
-            tps.Add(this);
+            else if (targetTileID == 0) {
+                VaultMod.Instance.Logger.Warn(FullName + ": TargetTileID is 0 (dirt, or a failed tile type lookup), so it will never be placed automatically");
+            }
 
             try {
                 SetStaticDefaults();

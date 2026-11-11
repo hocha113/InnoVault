@@ -187,6 +187,15 @@ namespace InnoVault.TileProcessors
                 return;
             }
 
+            //没有TP以该物块为目标时，本地添加与转发都不会产生任何效果，在计入限流之前丢弃
+            if (!TargetTileTypes.Contains(tileType)) {
+                if (VaultUtils.isServer) {
+                    VaultMod.LoggerError($"@Handler_PlaceInWorld-{whoAmI}", $"[TP-Net] Dropped a PlaceInWorld packet from client {whoAmI}: " +
+                        $"tile type {tileType} is not targeted by any TileProcessor.");
+                }
+                return;
+            }
+
             //服务端按玩家进行每秒放置限流，缓解恶意刷包
             if (VaultUtils.isServer && whoAmI >= 0 && _placeCountThisSecond != null && whoAmI < _placeCountThisSecond.Length) {
                 if (_placeCountThisSecond[whoAmI] >= MaxPlacementsPerSecond) {
@@ -923,7 +932,8 @@ namespace InnoVault.TileProcessors
                     newTP = UnknowTP.Place(position, [], "unknown", "unknown");
                 }
                 else {
-                    newTP = AddInWorld(template.TargetTileID, position, null);
+                    //服务端下发的是确切的TP类型，按它自身的ID新建；TargetTileID不为正的TP没有登记在目标物块表里，经AddInWorld是建不出来的
+                    newTP = NewTPInWorld(tpID, position, null);
                 }
 
                 if (newTP != null && newTP.FullName == loadenName) {

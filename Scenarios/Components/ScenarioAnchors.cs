@@ -2,6 +2,7 @@ using Microsoft.Xna.Framework;
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 
 namespace InnoVault.Scenarios
 {
@@ -16,6 +17,9 @@ namespace InnoVault.Scenarios
     {
         /// <summary>缺省入口锚点的名字</summary>
         public const string Entry = "Entry";
+
+        //一个组件随网络状态发送的锚点数上限
+        private const int MaxSyncedAnchors = 512;
 
         private readonly Dictionary<string, Point> _points = new(StringComparer.OrdinalIgnoreCase);
 
@@ -54,6 +58,38 @@ namespace InnoVault.Scenarios
         public bool Contains(string name) => name != null && _points.ContainsKey(name);
 
         internal Dictionary<string, Point> Snapshot() => new(_points, StringComparer.OrdinalIgnoreCase);
+
+        //生成期间写下、或从舞台元数据读回的锚点只存在于服务器，整张表随实例状态发给客户端
+        /// <inheritdoc/>
+        protected override void NetSend(BinaryWriter writer) {
+            writer.Write((ushort)Math.Min(_points.Count, MaxSyncedAnchors));
+            int written = 0;
+            foreach (var pair in _points) {
+                if (written++ >= MaxSyncedAnchors) {
+                    break;
+                }
+                writer.Write(pair.Key);
+                writer.Write(pair.Value.X);
+                writer.Write(pair.Value.Y);
+            }
+        }
+
+        /// <inheritdoc/>
+        protected override void NetReceive(BinaryReader reader) {
+            int count = reader.ReadUInt16();
+            if (count > MaxSyncedAnchors) {
+                throw new InvalidDataException($"{count} anchors in one scenario state");
+            }
+            _points.Clear();
+            for (int i = 0; i < count; i++) {
+                string name = reader.ReadString();
+                int x = reader.ReadInt32();
+                int y = reader.ReadInt32();
+                if (name.Length > 0) {
+                    _points[name] = new Point(x, y);
+                }
+            }
+        }
 
         /// <inheritdoc/>
         public IEnumerator<KeyValuePair<string, Point>> GetEnumerator() => _points.GetEnumerator();

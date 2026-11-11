@@ -44,10 +44,14 @@ namespace InnoVault.Scenarios
             }
             if (restore.Structure is RegionSaveData structure) {
                 Point origin = restore.StructureOrigin ?? rect.Location;
+                Rectangle placed = new(origin.X, origin.Y, structure.Size.X, structure.Size.Y);
                 using (ScenarioProtection.Bypass()) {
                     SaveStructure.LoadRegion(structure, new Point16(origin.X, origin.Y), clampToWorldBounds: false);
-                    ScenarioRestoreSnapshot.RefreshEdges(new Rectangle(origin.X, origin.Y, structure.Size.X, structure.Size.Y));
+                    ScenarioRestoreSnapshot.RefreshEdges(placed);
                 }
+                //边缘取帧会动到外侧一圈邻格
+                placed.Inflate(1, 1);
+                ScenarioRegionSync.Resend(placed);
             }
         }
 
@@ -68,6 +72,22 @@ namespace InnoVault.Scenarios
             }
             ScenarioRestoreJournal.MarkRestored(restore.JournalPath);
             restore.JournalPath = null;
+            //整块舞台正在被离开（换舞台、会话结束）时客户端马上就要卸载这个世界，不必再发
+            if (!transition.ChangesStage) {
+                Rectangle written = new(snapshot.GetInt("x"), snapshot.GetInt("y"), snapshot.GetInt("w"), snapshot.GetInt("h"));
+                written.Inflate(1, 1);
+                ScenarioRegionSync.Resend(written);
+            }
+        }
+
+        public void Settle(ScenarioRestore restore) {
+            if (Main.gameMenu || Main.dedServ) {
+                return;
+            }
+            Rectangle rect = ClipToWorld(restore.ResolveBounds());
+            if (rect.Width > 0 && rect.Height > 0) {
+                ScenarioRestoreSnapshot.Settle(rect);
+            }
         }
 
         //读档线程：各模组 LoadWorldData 之后、舞台场景激活之前。按记录的逆序写回，最早的那份（真正的原貌）最后落地
@@ -231,9 +251,14 @@ namespace InnoVault.Scenarios
                 RefreshEdges(rect);
             }
             if (!Main.gameMenu && !Main.dedServ) {
-                RefreshMap(rect);
-                Unstick(Main.LocalPlayer, rect);
+                Settle(rect);
             }
+        }
+
+        //这片范围的物块整块换过之后，有画面的一端善后：刷新地图，把被埋住的本地玩家挪出来
+        internal static void Settle(Rectangle rect) {
+            RefreshMap(rect);
+            Unstick(Main.LocalPlayer, rect);
         }
 
         //重新取帧：区域边缘一圈连同外侧邻格（它们曾经按改建后的样子取过帧），以及有液体的边缘格重新进入液体结算

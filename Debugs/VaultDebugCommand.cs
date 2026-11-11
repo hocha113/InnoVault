@@ -53,11 +53,11 @@ namespace InnoVault.Debugs
                     }
                     break;
                 case "status":
-                    caller.Reply($"session={ScenarioDirector.InSession} traveling={ScenarioDirector.IsTraveling} phase={ScenarioDirector.TravelPhase} availability={ScenarioDirector.Availability}", Color.LightGray);
-                    caller.Reply($"stage={ScenarioDirector.Stage?.Key ?? "-"} root={ScenarioDirector.Root?.Key ?? "-"}", Color.LightGray);
+                    caller.Reply($"session={ScenarioDirector.InSession} authority={ScenarioDirector.IsAuthority} traveling={ScenarioDirector.IsTraveling} phase={ScenarioDirector.TravelPhase} availability={ScenarioDirector.Availability}", Color.LightGray);
+                    caller.Reply($"stage={ScenarioDirector.Stage?.Key ?? "-"} root={ScenarioDirector.Root?.Key ?? "-"} world={Main.maxTilesX}x{Main.maxTilesY}", Color.LightGray);
                     foreach (VaultScenario active in ScenarioDirector.Active) {
-                        string area = active.Area == null ? string.Empty : $" area={active.Area.Bounds} engaged={active.Area.Engaged}";
-                        caller.Reply($"  {active.Key} [{active.Status}] parent={active.Parent?.Key ?? "-"} ticks={active.ActiveTicks}{area}", Color.LightGray);
+                        string area = active.Area == null ? string.Empty : $" area={active.Area.Bounds} engaged={active.Area.Engaged} anyEngaged={active.Area.AnyEngaged}";
+                        caller.Reply($"  {active.Key} #{active.NetId} [{active.Status}] parent={active.Parent?.Key ?? "-"} ticks={active.ActiveTicks}{area}", Color.LightGray);
                     }
                     break;
                 case "travel":
@@ -140,12 +140,30 @@ namespace InnoVault.Debugs
             return template;
         }
 
+        private static bool _echoingRejections;
+
         private static void Report(CommandCaller caller, ScenarioResult result) {
+            if (result.Pending) {
+                //多人客户端：请求已经发给服务器，结果随场景树的同步到达；被拒绝时由下面订阅的事件回显
+                EchoRejections();
+                caller.Reply(result.ToString(), Color.LightGray);
+                return;
+            }
             if (!result.Accepted && result.Reason == ScenarioRejectReason.MultiplayerUnsupported) {
                 caller.Reply(ScenarioText.MultiplayerUnsupported.Value, Color.Orange);
                 return;
             }
             caller.Reply(result.ToString(), result.Accepted ? Color.LightGreen : Color.Orange);
+        }
+
+        //导演层在模组卸载时清空订阅者，这里的静态标记随程序集一起重置
+        private static void EchoRejections() {
+            if (_echoingRejections) {
+                return;
+            }
+            _echoingRejections = true;
+            ScenarioDirector.RequestRejected += static (kind, template, result)
+                => Main.NewText($"[vaultdebug] {kind} {template?.Key ?? "?"}: {result}", Color.Orange);
         }
     }
 }

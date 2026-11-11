@@ -18,6 +18,15 @@ namespace InnoVault.Scenarios
         /// <param name="transition">将要发生的转场</param>
         public virtual bool CanActivate(VaultScenario scenario, ScenarioTransition transition) => true;
 
+        /// <summary>
+        /// 多人模式下服务器收到客户端发来的请求时调用，在场景自身的 <see cref="VaultScenario.AuthorizeRequest"/> 之后；
+        /// 任意一个全局钩子返回 <see langword="false"/> 都会以 <see cref="ScenarioRejectReason.Unauthorized"/> 拒绝这次请求。
+        /// 发起权限、投票与确认这类门阀从这里接入，见 <see cref="ScenarioRequest"/>
+        /// </summary>
+        /// <param name="scenario">请求涉及的场景实例，与 <see cref="ScenarioRequest.Instance"/> 相同</param>
+        /// <param name="request">客户端的请求</param>
+        public virtual bool AuthorizeRequest(VaultScenario scenario, ScenarioRequest request) => true;
+
         /// <summary>场景激活时调用，在场景自身的 OnActivate 之后</summary>
         /// <param name="scenario">被激活的场景实例</param>
         /// <param name="transition">引起这次激活的转场</param>

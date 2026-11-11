@@ -34,8 +34,8 @@ namespace InnoVault.Scenarios
             }
         }
 
-        //为真时 InnoVault 自己的存盘加载画面让位
-        internal static bool Covering => Main.gameMenu && Current != null;
+        //为真时 InnoVault 自己的存盘加载画面让位。多人客户端迟迟等不到新舞台时不再盖，露出原版连接状态页上的取消按钮
+        internal static bool Covering => Main.gameMenu && !TmlStageBackend.RejoinStalled && Current != null;
 
         public override LayersModeEnum LayersMode => LayersModeEnum.Mod_MenuLoad;
 
@@ -109,6 +109,13 @@ namespace InnoVault.Scenarios
                 curtain.Draw(spriteBatch, coverage);
             } catch (Exception ex) {
                 ScenarioPlatform.Error($"Scenario.Curtain.{curtain.Scenario?.Key}", $"[Scenarios] {curtain.GetType().Name}.Draw threw: {ex}");
+            }
+            //多人下自己已经就绪、盖着幕布等其他玩家时，告诉玩家在等什么
+            if (coverage >= 1f && curtain.ShowWaitingText && ScenarioDirector.WaitingForPlayers) {
+                string text = ScenarioText.WaitingForPlayers.Value;
+                Vector2 size = FontAssets.DeathText.Value.MeasureString(text) * 0.5f;
+                Utils.DrawBorderStringFourWay(spriteBatch, FontAssets.DeathText.Value, text,
+                    (Main.screenWidth - size.X) / 2f, Main.screenHeight / 2f - size.Y, Color.White, Color.Black, Vector2.Zero, 0.5f);
             }
         }
     }

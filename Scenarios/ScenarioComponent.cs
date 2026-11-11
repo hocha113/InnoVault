@@ -1,3 +1,5 @@
+using System.IO;
+
 namespace InnoVault.Scenarios
 {
     /// <summary>
@@ -42,11 +44,27 @@ namespace InnoVault.Scenarios
         /// <param name="transition">引起这次停用的转场</param>
         protected virtual void OnDeactivate(ScenarioTransition transition) { }
 
+        /// <summary>当前端是否对场景树有裁决权（单人或服务器），见 <see cref="VaultScenario.IsAuthority"/></summary>
+        protected static bool IsAuthority => ScenarioPlatform.IsAuthority;
+
+        /// <summary>
+        /// 写入这个组件需要让客户端知道、又不能由 Compose 算出来的状态（例如生成期间写下的锚点），与 <see cref="NetReceive"/> 成对重写。
+        /// 调用时机与 <see cref="VaultScenario.SendExtraData"/> 相同，各组件按挂载顺序依次写入
+        /// </summary>
+        /// <param name="writer">读写必须对称：写了多少，<see cref="NetReceive"/> 就读多少</param>
+        protected virtual void NetSend(BinaryWriter writer) { }
+
+        /// <summary>读取 <see cref="NetSend"/> 写入的状态，在客户端调用</summary>
+        /// <param name="reader">按 <see cref="NetSend"/> 的顺序读取</param>
+        protected virtual void NetReceive(BinaryReader reader) { }
+
         internal void Attach(VaultScenario scenario) {
             Scenario = scenario;
             OnAttach();
         }
 
+        internal void InvokeNetSend(BinaryWriter writer) => NetSend(writer);
+        internal void InvokeNetReceive(BinaryReader reader) => NetReceive(reader);
         internal string InvokeValidate() => Validate();
         internal void InvokeActivate(ScenarioTransition transition) => OnActivate(transition);
         internal void InvokeStart() => OnStart();

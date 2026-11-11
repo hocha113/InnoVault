@@ -31,11 +31,13 @@ Loadings: {
 
 Scenarios: {
 	ScenarioText: {
-		MultiplayerUnsupported: 场景功能暂不支持多人模式。
+		MultiplayerUnsupported: 当前端的场景功能在多人模式下不可用。
 		Saving: 正在保存世界
 		Generating: 正在生成场景
 		Entering: 正在进入场景
 		ReturningHome: 正在返回主世界
+		WaitingForPlayers: 正在等待其他玩家
+		StageChanged: 你进入服务器的过程中，服务器切换到了另一个场景，请重新加入。
 	}
 }
 
