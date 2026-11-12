@@ -30,7 +30,7 @@ namespace InnoVault.Scenarios
                 //栈：赋值语句之后栈为空，压入 this 交给覆盖调用消费
                 cursor.Emit(OpCodes.Ldarg_0);
                 cursor.EmitDelegate(static (Player player) => ScenarioZoneRules.Apply(player));
-                Succeed();
+                Succeed(il);
             } catch (Exception ex) {
                 Fail(ex.Message, il);
             }

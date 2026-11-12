@@ -54,9 +54,24 @@ namespace InnoVault.Scenarios
 
         /// <summary>
         /// 转场数据包。换舞台时，离开的一方在 OnDeactivate 里写，进入的一方在 OnActivate 里读；
-        /// 其他种类的转场里它只是本次转场参与者之间共享的暂存区。框架自己不往里写任何数据
+        /// 其他种类的转场里它只是本次转场参与者之间共享的暂存区<br/>
+        /// 多人模式下以裁决端的内容为准：服务器写下的键随抵达快照发给每个跟过来的客户端，客户端上新舞台场景激活时读到的同名键就是服务器的值，
+        /// 客户端自己写的其余键保留（下发的内容合计不超过 60000 字节，超出时整个不发并记错）。
+        /// 以 <c>InnoVault:</c> 开头的键由框架自己使用，只在裁决端有效，不下发
         /// </summary>
         public TagCompound Payload { get; } = [];
+
+        //把数据包内容抄到另一个转场上（转场对象中途被替换时用），目标上已有的同名键保留
+        internal void CopyPayloadTo(ScenarioTransition other) {
+            if (other == null || ReferenceEquals(other, this)) {
+                return;
+            }
+            foreach (var pair in Payload) {
+                if (!other.Payload.ContainsKey(pair.Key)) {
+                    other.Payload[pair.Key] = pair.Value;
+                }
+            }
+        }
 
         /// <summary>这次转场是否伴随舞台变化（会话开始、会话结束、换舞台）</summary>
         public bool ChangesStage => Kind is ScenarioTransitionKind.SessionStart

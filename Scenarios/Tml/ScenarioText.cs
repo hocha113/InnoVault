@@ -34,6 +34,12 @@ namespace InnoVault.Scenarios
         /// <summary>多人模式下正在进服的玩家赶上服务器换舞台、被请出去重新加入时看到的文字</summary>
         public static LocalizedText StageChanged { get; private set; }
 
+        /// <summary>暂停菜单旁返回主世界按钮上的文字（<see cref="Presets.PauseMenuReturn"/>）</summary>
+        public static LocalizedText ReturnHome { get; private set; }
+
+        /// <summary>暂停菜单旁返回按钮的目的地不是主世界、又没有指定文字时用的文字（<see cref="Presets.PauseMenuReturn"/>）</summary>
+        public static LocalizedText Return { get; private set; }
+
         /// <inheritdoc/>
         protected override void Register() { }
 
@@ -49,6 +55,8 @@ namespace InnoVault.Scenarios
             ReturningHome = this.GetLocalization(nameof(ReturningHome), () => "Returning to the main world");
             WaitingForPlayers = this.GetLocalization(nameof(WaitingForPlayers), () => "Waiting for other players");
             StageChanged = this.GetLocalization(nameof(StageChanged), () => "The server moved to another scenario while you were joining. Please join again.");
+            ReturnHome = this.GetLocalization(nameof(ReturnHome), () => "Return to the main world");
+            Return = this.GetLocalization(nameof(Return), () => "Return");
         }
     }
 }

@@ -18,6 +18,18 @@ namespace InnoVault.Scenarios
         /// <summary>缺省入口锚点的名字</summary>
         public const string Entry = "Entry";
 
+        /// <summary>
+        /// 内置落点名：出生点。用作换舞台的落点时，玩家留在原版出生流程放的位置上（床位，没有时是世界出生点），不必挂锚点组件；
+        /// 目的地另有同名锚点时以那个锚点为准
+        /// </summary>
+        public const string Spawn = "Spawn";
+
+        /// <summary>
+        /// 内置落点名：上次离开的位置。用作换舞台的落点时，每个玩家回到自己在这次会话里上一次离开那块舞台时所在的位置，没有记录时按缺省落点；
+        /// 回主世界不指定落点时用的就是它。目的地另有同名锚点时以那个锚点为准
+        /// </summary>
+        public const string Departure = "Departure";
+
         //一个组件随网络状态发送的锚点数上限
         private const int MaxSyncedAnchors = 512;
 

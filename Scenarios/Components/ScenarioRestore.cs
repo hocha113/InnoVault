@@ -36,7 +36,7 @@ namespace InnoVault.Scenarios
         internal string JournalPath { get; set; }
 
         /// <summary>实际的还原范围（物块坐标）</summary>
-        public Rectangle ResolveBounds() => Bounds ?? Scenario?.Area?.Bounds ?? Rectangle.Empty;
+        public Rectangle ResolveBounds() => Bounds ?? ScopeArea?.Bounds ?? Rectangle.Empty;
 
         /// <inheritdoc/>
         protected override void OnActivate(ScenarioTransition transition) {

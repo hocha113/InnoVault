@@ -38,6 +38,8 @@ Scenarios: {
 		ReturningHome: 正在返回主世界
 		WaitingForPlayers: 正在等待其他玩家
 		StageChanged: 你进入服务器的过程中，服务器切换到了另一个场景，请重新加入。
+		ReturnHome: 返回主世界
+		Return: 返回
 	}
 }
 

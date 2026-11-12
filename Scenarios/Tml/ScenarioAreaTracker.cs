@@ -59,8 +59,16 @@ namespace InnoVault.Scenarios
                     } catch (Exception ex) {
                         ScenarioPlatform.Error($"Scenario.{scenario?.Key}.OnPlayerEnter", $"[Scenarios] {scenario?.Key} OnPlayerEnter threw: {ex}");
                     }
-                    if (index == local && scenario?.GetComponent<ScenarioCinematics>()?.AreaEnterClip is Type clip) {
-                        CutsceneDirector.Play(clip, player);
+                    if (index == local && scenario != null) {
+                        //进入演出挂在哪片区域的作用范围里，就在进入哪片区域时播
+                        IReadOnlyList<ScenarioNode> nodes = scenario.AllNodes;
+                        for (int k = 0; k < nodes.Count; k++) {
+                            if (nodes[k] is ScenarioCinematics { AreaEnterClip: Type clip } cinematics && cinematics.EnabledInTree
+                                && ReferenceEquals(cinematics.ScopeArea, area)) {
+                                CutsceneDirector.Play(clip, player);
+                                break;
+                            }
+                        }
                     }
                     continue;
                 }
@@ -79,6 +87,14 @@ namespace InnoVault.Scenarios
                 }
             }
             _events.Clear();
+        }
+
+        //一片区域在运行期间被停用，导演层已经把还在里面的玩家标成离开：补上离开回调。只通知，不套用“离开即停用”
+        internal static void NotifyReleased(ScenarioArea area, int index) {
+            if ((uint)index >= (uint)Main.maxPlayers || Main.player[index] is not Player player) {
+                return;
+            }
+            area.InvokePlayerExit(player);
         }
     }
 

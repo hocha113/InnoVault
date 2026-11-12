@@ -1,4 +1,5 @@
 using InnoVault.GameSystem;
+using System.IO;
 using Terraria;
 using Terraria.IO;
 using Terraria.Localization;
@@ -20,8 +21,12 @@ namespace InnoVault.Scenarios
                 Netplay.OnDisconnect += OnDisconnected;
                 Main.OnTickForThirdPartySoftwareOnly += OnClientTick;
             }
-            ScenarioTakeovers.Load();
         }
+
+        //接管放在加载流程的最后一步安装，不放在 Load 里。同一个方法上的 IL 钩子按挂入的先后依次改写方法体，其他模组大多在自己的 Load 里挂，
+        //写法往往认定锚点前后还是原版的指令：我们排到最后，它们看到的就是原版，不会因为这边先动过而找错位置或加载失败；
+        //这边的改写按"前面可能已经有人动过"来写，找不到锚点时只关掉那一项
+        public override void PostSetupRecipes() => ScenarioTakeovers.Load();
 
         public override void Unload() {
             WorldGen.Hooks.OnWorldLoad -= ScenarioDirector.NotifyEnteredStage;
@@ -52,7 +57,7 @@ namespace InnoVault.Scenarios
         }
 
         //先按还原日志补还原上次没来得及写回的区域，再激活新舞台场景：场景的还原区记录到的是原貌
-        private static void OnStageFileLoaded() {
+        internal static void OnStageFileLoaded() {
             TmlRestoreBackend.RecoverJournals();
             ScenarioDirector.NotifyStageLoaded();
         }
@@ -81,6 +86,8 @@ namespace InnoVault.Scenarios
             if (Main.gameMenu) {
                 return;
             }
+            //没有地狱层的舞台：世界底边留在声明的高度上（激活时写过一次，这里防备别处按物块空间重算了它）
+            TmlStageBackend.ApplyStageBounds(ScenarioRuntime.Stage?.Stage);
             ScenarioAreaTracker.Update();
             ScenarioDirector.Tick();
             if (!Main.dedServ) {
@@ -101,6 +108,14 @@ namespace InnoVault.Scenarios
         public override void SaveWorldData(TagCompound tag) => TmlRestoreBackend.OnStageSaved();
 
         public override void LoadWorldData(TagCompound tag) { }
+
+        //舞台场景的 Key 随世界数据下发：客户端进服与每次换舞台都会重新收一遍世界数据，出生之前就知道自己进的是哪块舞台，
+        //不必等场景树快照（那要到出生之后才到）
+        public override void NetSend(BinaryWriter writer)
+            => writer.Write(ScenarioDirector.LoadedStage?.Template?.Key ?? string.Empty);
+
+        public override void NetReceive(BinaryReader reader)
+            => ScenarioDirector.ServerStageKey = reader.ReadString();
 
         //保存退出的存盘之后（存盘线程）到这里；绕过暂停菜单直接 SaveAndQuit 的路径也只走到这里，那时舞台已经存过盘。
         //换舞台自己也会派发 OnWorldUnload，那时会话仍在继续

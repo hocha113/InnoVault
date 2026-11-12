@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using Terraria;
 using Terraria.GameContent.Events;
 using Terraria.Graphics.Effects;
+using Terraria.ID;
 using Terraria.ModLoader;
 
 namespace InnoVault.Scenarios
@@ -93,12 +94,14 @@ namespace InnoVault.Scenarios
         public override void PostUpdateEverything() {
             if (!Main.dedServ) {
                 SyncSky(ScenarioRuntime.Environment.PickRef(static e => e.Sky));
+                ScenarioDrawRules.Refresh();
             }
         }
 
         public override void OnWorldUnload() {
             if (!Main.dedServ) {
                 SyncSky(null);
+                ScenarioDrawRules.Reset();
             }
         }
 
@@ -126,6 +129,50 @@ namespace InnoVault.Scenarios
         public override void PreUpdateMovement() {
             if (ScenarioRuntime.RulesFor(Player.whoAmI).Pick(static r => r.Gravity) is float gravity) {
                 Player.gravity = Terraria.Player.defaultGravity * gravity;
+            }
+        }
+
+        //单人：复活落点规则是“回主世界”或“换到另一块舞台”时，复活倒计时走完就直接换舞台，角色到了那边再复活，不在原地先站起来一次。
+        //这个钩子在原版递减倒计时之前执行：换舞台开始后把倒计时停住，角色保持倒下直到被带走；发起不了时不拦，原版照常复活，落点规则在复活之后再试一次。
+        //多人下换舞台要经服务器裁决，仍然是原地复活之后由落点规则发请求
+        public override void UpdateDead() {
+            if (Main.netMode != NetmodeID.SinglePlayer || Player.whoAmI != Main.myPlayer || Player.respawnTimer > 2
+                || Player.difficulty == PlayerDifficultyID.Hardcore || !ScenarioDirector.InSession) {
+                return;
+            }
+            ScenarioLayers<ScenarioRules> rules = ScenarioRuntime.Rules;
+            if (!rules.Any) {
+                return;
+            }
+            Type destination = null;
+            switch (rules.Pick(static r => r.RespawnBehavior) ?? ScenarioSpawnBehavior.Vanilla) {
+                case ScenarioSpawnBehavior.ReturnHome:
+                    if (!ScenarioRuntime.InScenarioStage) {
+                        return;
+                    }
+                    break;
+                case ScenarioSpawnBehavior.Travel:
+                    destination = rules.PickRef(static r => r.RespawnDestination);
+                    if (destination == null) {
+                        return;
+                    }
+                    break;
+                default:
+                    return;
+            }
+            if (!ScenarioDirector.IsTraveling && !ScenarioPlacement.StartTravel(destination, rules.PickRef(static r => r.RespawnAnchor)).Accepted) {
+                return;
+            }
+            Player.respawnTimer = 2;
+        }
+    }
+
+    //掉落物的重力：按掉落物所在的位置取规则的重力倍数（NPC 的在 NPCGravity 接管里）
+    internal sealed class ScenarioRuleItem : GlobalItem
+    {
+        public override void Update(Item item, ref float gravity, ref float maxFallSpeed) {
+            if (ScenarioWorldRules.GravityAt(item.Center) is float scale) {
+                gravity *= scale;
             }
         }
     }

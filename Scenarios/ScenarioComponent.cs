@@ -1,74 +1,13 @@
-using System.IO;
-
 namespace InnoVault.Scenarios
 {
     /// <summary>
-    /// 场景组件基类。在 <see cref="VaultScenario"/> 的 Compose 里经 <see cref="ScenarioComposer.Add"/> 挂到场景实例上，
+    /// 场景组件：承载一项具体能力的场景节点（规则、镜头、环境、区域、舞台等）。框架自带的能力都是组件，
+    /// 自己的能力也从它继承；树形结构、开关、作用范围与生命周期钩子都在 <see cref="ScenarioNode"/> 上<br/>
+    /// 在 <see cref="VaultScenario"/> 的 Compose 里经 <see cref="ScenarioComposer.Add(ScenarioComponent)"/> 挂到场景实例上，
     /// 随实例创建、激活、停用，一个组件对象只属于一个实例<br/>
     /// 激活时组件先于场景执行，停用时组件在场景之后、按挂载的逆序执行
     /// </summary>
-    public abstract class ScenarioComponent
+    public abstract class ScenarioComponent : ScenarioNode
     {
-        /// <summary>组件所属的场景实例，挂载后才有值</summary>
-        public VaultScenario Scenario { get; private set; }
-
-        /// <summary>
-        /// 多个处于激活中的场景挂了同类组件时的叠加层级：越大越靠上，同级按激活顺序，后激活的在上。
-        /// 每个属性取最上层已设置的值，没设置的看下一层
-        /// </summary>
-        public int LayerPriority { get; set; }
-
-        //带舞台坐标的组件（区域、锚点、还原区）只在声明它们的舞台里有意义，挂了它们的场景不能放在会话层
-        internal virtual bool BindsToStage => false;
-
-        /// <summary>挂到场景实例上时调用，此时场景仍在 Compose 中，尚未激活</summary>
-        protected virtual void OnAttach() { }
-
-        /// <summary>
-        /// Compose 结束后调用，检查这个组件的声明是否完整；返回空表示合法，否则请求以
-        /// <see cref="ScenarioRejectReason.InvalidComposition"/> 被拒绝，返回值作为说明
-        /// </summary>
-        protected virtual string Validate() => null;
-
-        /// <summary>所属场景激活时调用，时机与线程见 <see cref="VaultScenario"/> 的 OnActivate</summary>
-        /// <param name="transition">引起这次激活的转场</param>
-        protected virtual void OnActivate(ScenarioTransition transition) { }
-
-        /// <summary>所属场景进入激活状态后、第一次更新之前调用，主线程</summary>
-        protected virtual void OnStart() { }
-
-        /// <summary>所属场景激活期间每个游戏帧调用，先于场景自身的 Update，主线程</summary>
-        protected virtual void Update() { }
-
-        /// <summary>所属场景停用时调用，时机与线程见 <see cref="VaultScenario"/> 的 OnDeactivate</summary>
-        /// <param name="transition">引起这次停用的转场</param>
-        protected virtual void OnDeactivate(ScenarioTransition transition) { }
-
-        /// <summary>当前端是否对场景树有裁决权（单人或服务器），见 <see cref="VaultScenario.IsAuthority"/></summary>
-        protected static bool IsAuthority => ScenarioPlatform.IsAuthority;
-
-        /// <summary>
-        /// 写入这个组件需要让客户端知道、又不能由 Compose 算出来的状态（例如生成期间写下的锚点），与 <see cref="NetReceive"/> 成对重写。
-        /// 调用时机与 <see cref="VaultScenario.SendExtraData"/> 相同，各组件按挂载顺序依次写入
-        /// </summary>
-        /// <param name="writer">读写必须对称：写了多少，<see cref="NetReceive"/> 就读多少</param>
-        protected virtual void NetSend(BinaryWriter writer) { }
-
-        /// <summary>读取 <see cref="NetSend"/> 写入的状态，在客户端调用</summary>
-        /// <param name="reader">按 <see cref="NetSend"/> 的顺序读取</param>
-        protected virtual void NetReceive(BinaryReader reader) { }
-
-        internal void Attach(VaultScenario scenario) {
-            Scenario = scenario;
-            OnAttach();
-        }
-
-        internal void InvokeNetSend(BinaryWriter writer) => NetSend(writer);
-        internal void InvokeNetReceive(BinaryReader reader) => NetReceive(reader);
-        internal string InvokeValidate() => Validate();
-        internal void InvokeActivate(ScenarioTransition transition) => OnActivate(transition);
-        internal void InvokeStart() => OnStart();
-        internal void InvokeUpdate() => Update();
-        internal void InvokeDeactivate(ScenarioTransition transition) => OnDeactivate(transition);
     }
 }

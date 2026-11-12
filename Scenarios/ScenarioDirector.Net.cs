@@ -3,6 +3,7 @@ using Microsoft.Xna.Framework;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using Terraria.ModLoader.IO;
 
 namespace InnoVault.Scenarios
 {
@@ -40,6 +41,8 @@ namespace InnoVault.Scenarios
         TravelArrived,
         //服务器 → 客户端：拉开幕布
         TravelOpen,
+        //服务器 → 随换舞台抵达的客户端：这次转场的数据包，紧跟其后的快照激活新舞台场景时读到的就是裁决端写下的内容
+        TravelPayload,
     }
 
     public static partial class ScenarioDirector
@@ -56,6 +59,10 @@ namespace InnoVault.Scenarios
         private const int MaxBlobLength = 30000;
         private const int MaxKeyLength = 256;
         private const int MaxDetailLength = 512;
+        //转场数据包下发给客户端时的上限：独占一个包，连包头放得进 65535 字节
+        private const int MaxPayloadLength = 60000;
+        //框架自己写进数据包的键都带这个前缀，只在裁决端使用，不下发
+        internal const string ReservedPayloadPrefix = "InnoVault:";
 
         private const byte SnapshotPendingTravel = 1;
         private const byte SnapshotWaitForOpen = 2;
@@ -89,6 +96,8 @@ namespace InnoVault.Scenarios
         private static bool _openReceived;
         private static bool _arrivedSent;
         private static int _stallFrames;
+        //客户端：服务器发来的转场数据包，等随后的快照激活新舞台场景之前并进这一端的转场
+        private static byte[] _incomingPayload;
 
         /// <summary>
         /// 当前端是否对场景树有裁决权：单人与服务器为真，多人客户端为假。只该发生一次的玩法逻辑（生成 NPC、改写物块）放在它为真的一端
@@ -210,6 +219,7 @@ namespace InnoVault.Scenarios
             _openReceived = false;
             _arrivedSent = false;
             _stallFrames = 0;
+            _incomingPayload = null;
         }
 
         private static void PruneDisconnected(HashSet<int> clients) {
@@ -290,6 +300,49 @@ namespace InnoVault.Scenarios
             return text;
         }
 
+        //数据包里下发给客户端的部分：框架自己的键只在裁决端用，不发。写不出来或超限时整个不发，客户端读到的就只有它自己写的内容
+        private static byte[] CapturePayload(ScenarioTransition transition) {
+            try {
+                TagCompound shared = null;
+                foreach (KeyValuePair<string, object> pair in transition.Payload) {
+                    if (!pair.Key.StartsWith(ReservedPayloadPrefix, StringComparison.Ordinal)) {
+                        (shared ??= [])[pair.Key] = pair.Value;
+                    }
+                }
+                if (shared == null) {
+                    return [];
+                }
+                byte[] blob = Capture(writer => TagIO.Write(shared, writer));
+                if (blob.Length > MaxPayloadLength) {
+                    ScenarioPlatform.Error("Scenario.Net.PayloadTooLarge",
+                        $"[Scenarios] The travel payload is {blob.Length} bytes (limit {MaxPayloadLength}); it was not sent to clients");
+                    return [];
+                }
+                return blob;
+            } catch (Exception ex) {
+                ScenarioPlatform.Error("Scenario.Net.PayloadWrite", $"[Scenarios] Writing the travel payload for clients threw: {ex}");
+                return [];
+            }
+        }
+
+        //（客户端）把服务器发来的数据包并进这一端的转场：同名的键以服务器为准，这一端自己写的其余键保留
+        private static void MergeIncomingPayload(ScenarioTransition transition) {
+            byte[] blob = _incomingPayload;
+            _incomingPayload = null;
+            if (blob == null || blob.Length == 0 || transition == null) {
+                return;
+            }
+            try {
+                using MemoryStream stream = new(blob, writable: false);
+                using BinaryReader reader = new(stream);
+                foreach (KeyValuePair<string, object> pair in TagIO.Read(reader)) {
+                    transition.Payload[pair.Key] = pair.Value;
+                }
+            } catch (Exception ex) {
+                ScenarioPlatform.Error("Scenario.Net.PayloadRead", $"[Scenarios] Reading the travel payload from the server threw: {ex}");
+            }
+        }
+
         private static Action<VaultScenario> ArgumentSetup(byte[] arguments) {
             if (arguments == null || arguments.Length == 0) {
                 return null;
@@ -334,7 +387,10 @@ namespace InnoVault.Scenarios
                 using MemoryStream stream = new(state, writable: false);
                 using BinaryReader reader = new(stream);
                 instance.ReadArguments(reader);
-                instance.ReadNetState(reader);
+                //服务器改了节点开关：这一端跟着套用（重建合成快照、通知节点）。尚未激活的实例只记下开关，激活时作为初始状态
+                if (instance.ReadNetState(reader) && instance.Status == ScenarioStatus.Active) {
+                    ApplyNodeSwitches(instance);
+                }
             } catch (Exception ex) {
                 ScenarioPlatform.Error($"Scenario.Net.Read.{instance.Key}", $"[Scenarios] Reading the network state of {instance.Key} threw: {ex}");
             }
@@ -460,6 +516,17 @@ namespace InnoVault.Scenarios
             Point landing = default;
             bool hasLanding = traveler && _lastTravel != null
                 && ScenarioPlatform.StageBackend != null && ScenarioPlatform.StageBackend.TryResolveLanding(_lastTravel, out landing);
+
+            //随换舞台抵达的客户端先拿到这次转场的数据包：紧跟着的快照会激活新舞台场景，那时钩子读到的就是裁决端写下的内容
+            if (traveler && _lastTravel != null) {
+                byte[] payload = CapturePayload(_lastTravel);
+                if (payload.Length > 0) {
+                    net.SendToClient(client, ScenarioNetOp.TravelPayload, writer => {
+                        writer.Write(payload.Length);
+                        writer.Write(payload);
+                    });
+                }
+            }
 
             byte flags = 0;
             if (pending) {
@@ -912,13 +979,18 @@ namespace InnoVault.Scenarios
                     ScenarioTransition transition;
                     if (IsTraveling) {
                         if (!ReferenceEquals(_travel?.To, arriving)) {
-                            //服务器改了目的地（目标舞台读不进来，退回了主世界），或者这一端没赶上离场通知
-                            _travel = new ScenarioTransition(ScenarioTransitionKind.Travel, _travel?.From, arriving, _travel?.Anchor);
+                            //服务器改了目的地（目标舞台读不进来，退回了主世界），或者这一端没赶上离场通知：
+                            //换一个转场对象，这一端的停用钩子已经写下的数据包内容接着带过去
+                            ScenarioTransition previous = _travel;
+                            _travel = new ScenarioTransition(ScenarioTransitionKind.Travel, previous?.From, arriving, previous?.Anchor);
+                            previous?.CopyPayloadTo(_travel);
                         }
                         transition = _travel;
+                        MergeIncomingPayload(transition);
                     }
                     else {
                         transition = new ScenarioTransition(ScenarioTransitionKind.SessionStart, null, arriving);
+                        _incomingPayload = null;
                     }
                     Stage = arriving;
                     Root = arriving as RootScenario;
@@ -979,13 +1051,14 @@ namespace InnoVault.Scenarios
             _stallFrames = 0;
             _readySent = false;
             TravelPhase = ScenarioTravelPhase.Departing;
-            ScenarioCinematics cinematics = transition.From?.GetComponent<ScenarioCinematics>();
+            ScenarioCinematics cinematics = transition.From?.FindEnabled<ScenarioCinematics>();
             _departureClip = cinematics?.DepartureClip;
             _departureTimeout = cinematics?.DepartureTimeout ?? ScenarioCinematics.DefaultDepartureTimeout;
             _waitingForClip = !late && _departureClip != null && CutsceneDirector.Play(_departureClip);
             if (late) {
                 _curtainCoverage = 1f;
             }
+            RaiseTravelBegan(transition);
         }
 
         private static void MirrorTravelCancel(int travelId) {
@@ -1012,6 +1085,7 @@ namespace InnoVault.Scenarios
                 _travel = new ScenarioTransition(ScenarioTransitionKind.Travel, Stage, null);
                 _travelId = travelId;
                 _curtain = null;
+                RaiseTravelBegan(_travel);
             }
             _waitingForClip = false;
             _curtainCoverage = 1f;
@@ -1034,9 +1108,7 @@ namespace InnoVault.Scenarios
             if (!InSession) {
                 return;
             }
-            IsTraveling = false;
-            _travel = null;
-            TravelPhase = ScenarioTravelPhase.None;
+            DropTravel();
             EndSession(stageAlreadySaved: true);
         }
 
@@ -1268,6 +1340,20 @@ namespace InnoVault.Scenarios
                     int travelId = reader.ReadInt32();
                     if (client) {
                         MirrorTravelOpen(travelId);
+                    }
+                    break;
+                }
+                case ScenarioNetOp.TravelPayload: {
+                    int length = reader.ReadInt32();
+                    if (length < 0 || length > MaxPayloadLength) {
+                        throw new InvalidDataException($"travel payload of {length} bytes exceeds the limit");
+                    }
+                    byte[] payload = reader.ReadBytes(length);
+                    if (payload.Length != length) {
+                        throw new EndOfStreamException("travel payload is truncated");
+                    }
+                    if (client) {
+                        _incomingPayload = payload;
                     }
                     break;
                 }

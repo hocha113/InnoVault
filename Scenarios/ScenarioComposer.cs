@@ -3,7 +3,7 @@ using System;
 namespace InnoVault.Scenarios
 {
     /// <summary>
-    /// 场景组合构建器，只在 Compose 期间有效：给场景实例挂组件、声明随它一起激活的子场景<br/>
+    /// 场景组合构建器，只在 Compose 期间有效：给场景实例挂节点（可以带着已经挂好的子节点）、声明随它一起激活的子场景<br/>
     /// Compose 每次激活都会对新实例重新执行一遍，所以这里只做声明，不要产生副作用
     /// </summary>
     public sealed class ScenarioComposer
@@ -18,15 +18,26 @@ namespace InnoVault.Scenarios
         public VaultScenario Scenario { get; }
 
         /// <summary>
-        /// 给场景挂一个组件。一个组件对象只能挂到一个实例上；一个场景最多挂一个 <see cref="ScenarioStage"/> 与一个 <see cref="ScenarioArea"/>
+        /// 给场景挂一个组件。一个组件对象只能挂到一个实例上；一个场景最多挂一个 <see cref="ScenarioStage"/>
         /// </summary>
         /// <param name="component">要挂载的组件</param>
         /// <exception cref="ArgumentNullException">组件为空</exception>
-        /// <exception cref="InvalidOperationException">Compose 已经结束，组件已挂到别的实例上，或重复挂载舞台、区域组件</exception>
-        public ScenarioComposer Add(ScenarioComponent component) {
-            ArgumentNullException.ThrowIfNull(component);
+        /// <exception cref="InvalidOperationException">Compose 已经结束，组件已挂到别的实例上，或重复挂载舞台组件</exception>
+        public ScenarioComposer Add(ScenarioComponent component) => Add((ScenarioNode)component);
+
+        /// <summary>
+        /// 给场景挂一个节点，连同它下面已经挂好的子节点（<see cref="ScenarioNode.AddChild"/> / <see cref="ScenarioNodeExtensions.With"/>）。
+        /// 一个节点对象只能挂到一个实例上；一个场景最多挂一个 <see cref="ScenarioStage"/>，而且必须直接挂在场景上<br/>
+        /// 第一个直接挂在场景上的 <see cref="ScenarioArea"/> 是场景的主区域，没有挂在别的区域下面的节点都以它为作用范围；
+        /// 其余区域只管自己下面的子节点
+        /// </summary>
+        /// <param name="node">要挂载的节点</param>
+        /// <exception cref="ArgumentNullException">节点为空</exception>
+        /// <exception cref="InvalidOperationException">Compose 已经结束，节点已挂在别处，或重复挂载舞台组件</exception>
+        public ScenarioComposer Add(ScenarioNode node) {
+            ArgumentNullException.ThrowIfNull(node);
             ThrowIfSealed();
-            Scenario.AttachComponent(component);
+            Scenario.AttachComponent(node);
             return this;
         }
 
@@ -43,11 +54,14 @@ namespace InnoVault.Scenarios
             return this;
         }
 
-        internal void Seal() => _sealed = true;
+        internal void Seal() {
+            _sealed = true;
+            Scenario.FinishCompose();
+        }
 
         private void ThrowIfSealed() {
             if (_sealed) {
-                throw new InvalidOperationException($"{Scenario.Key} has finished composing; components and children can only be declared inside Compose");
+                throw new InvalidOperationException($"{Scenario.Key} has finished composing; nodes and children can only be declared inside Compose");
             }
         }
     }

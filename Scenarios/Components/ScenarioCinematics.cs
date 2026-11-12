@@ -28,7 +28,7 @@ namespace InnoVault.Scenarios
 
         /// <inheritdoc/>
         protected override void OnStart() {
-            if (ArrivalClip != null) {
+            if (ArrivalClip != null && EnabledInTree) {
                 CutsceneDirector.Play(ArrivalClip);
             }
         }

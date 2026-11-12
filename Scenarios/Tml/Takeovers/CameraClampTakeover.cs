@@ -41,7 +41,7 @@ namespace InnoVault.Scenarios
                 cursor.MoveAfterLabels();
                 cursor.EmitDelegate(static () => VaultCamera.ClampScreen());
                 cursor.Remove();
-                Succeed();
+                Succeed(il);
             } catch (Exception ex) {
                 Fail(ex.Message, il);
             }
@@ -158,7 +158,7 @@ namespace InnoVault.Scenarios
                 }
                 return _room ?? rooms[0];
             }
-            Rectangle bounds = layer.ResolveArea() ?? new Rectangle(0, 0, Main.maxTilesX, Main.maxTilesY);
+            Rectangle bounds = layer.ResolveArea() ?? TmlStageBackend.ContentBounds;
             if (layer.RoomSize is not Point size) {
                 return bounds;
             }

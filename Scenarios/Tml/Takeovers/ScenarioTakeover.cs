@@ -62,10 +62,16 @@ namespace InnoVault.Scenarios
 
         protected abstract void Uninstall();
 
+        //调试用（/vaultdebug scenario takeovers dump）：为真时改写成功也转储 IL，用来核对与其他模组的改写叠加之后的最终指令
+        internal static bool DumpApplied { get; set; }
+
         //IL 回调可能被 MonoMod 重跑（同一方法上有新的 IL 钩子挂入时），状态以最近一次为准
-        protected void Succeed() {
+        protected void Succeed(ILContext il = null) {
             State = ScenarioTakeoverState.Applied;
             Failure = null;
+            if (il != null && DumpApplied) {
+                Dump(il);
+            }
         }
 
         protected void Fail(string reason, ILContext il = null) {
@@ -73,11 +79,16 @@ namespace InnoVault.Scenarios
             Failure = reason;
             VaultMod.Instance?.Logger.Warn($"[Scenarios] Takeover {Name} is disabled: {reason}. Checked against: {Source}");
             if (il != null) {
-                try {
-                    MonoModHooks.DumpIL(VaultMod.Instance, il);
-                } catch (Exception ex) {
-                    VaultMod.Instance?.Logger.Warn($"[Scenarios] Dumping IL for {Name} failed: {ex.Message}");
-                }
+                Dump(il);
+            }
+        }
+
+        //转储到日志目录的 ILDumps/InnoVault 下
+        private void Dump(ILContext il) {
+            try {
+                MonoModHooks.DumpIL(VaultMod.Instance, il);
+            } catch (Exception ex) {
+                VaultMod.Instance?.Logger.Warn($"[Scenarios] Dumping IL for {Name} failed: {ex.Message}");
             }
         }
     }
@@ -90,6 +101,13 @@ namespace InnoVault.Scenarios
             new OceanQueryTakeover(),
             new DrawBlackTakeover(),
             new UnderworldBackdropTakeover(),
+            new UnderworldBackgroundTakeover(),
+            new UnderworldLightTakeover(),
+            new UnderworldEvaporationTakeover(),
+            new LiquidFreezeTakeover(),
+            new WiringFreezeTakeover(),
+            new TileEntityFreezeTakeover(),
+            new NPCGravityTakeover(),
             new TownNPCTakeover(),
             new WorldEventTakeover(),
             new SpawnPlacementTakeover(),
@@ -98,9 +116,16 @@ namespace InnoVault.Scenarios
             new TileSpaceTakeover(),
         ];
 
+        private static bool _loaded;
+
         internal static IReadOnlyList<ScenarioTakeover> All => _all;
 
+        //在加载流程的最后一步调用（见 ScenarioSystem.PostSetupRecipes）
         internal static void Load() {
+            if (_loaded) {
+                return;
+            }
+            _loaded = true;
             foreach (ScenarioTakeover takeover in _all) {
                 takeover.Load();
             }
@@ -108,7 +133,27 @@ namespace InnoVault.Scenarios
             VaultMod.Instance?.Logger.Info($"[Scenarios] Takeovers: {summary}");
         }
 
+        //调试用：全部卸下重装一遍，重装期间每一项 IL 改写都转储最终指令。返回安装过没有
+        internal static bool ReinstallWithDump() {
+            if (!_loaded) {
+                return false;
+            }
+            Unload();
+            ScenarioTakeover.DumpApplied = true;
+            try {
+                Load();
+            } finally {
+                ScenarioTakeover.DumpApplied = false;
+            }
+            return true;
+        }
+
+        //加载中途失败时可能还没安装过
         internal static void Unload() {
+            if (!_loaded) {
+                return;
+            }
+            _loaded = false;
             foreach (ScenarioTakeover takeover in _all) {
                 takeover.Unload();
             }

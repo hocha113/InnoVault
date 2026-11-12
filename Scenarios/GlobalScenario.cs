@@ -1,13 +1,16 @@
+using System.Collections.Generic;
+using Terraria.WorldBuilding;
+
 namespace InnoVault.Scenarios
 {
     /// <summary>
-    /// 作用于所有场景的全局钩子，其他模组借它参与任意场景：给场景挂组件、否决激活、在转场数据包里携带自己的数据<br/>
-    /// 激活时全局钩子在组件与场景之后执行，停用时在它们之前执行
+    /// 作用于所有场景的全局钩子，其他模组借它参与任意场景：给场景挂节点、否决激活、往舞台的生成里加步骤、在转场数据包里携带自己的数据<br/>
+    /// 激活时的顺序：<see cref="PreActivate"/> → 各节点 → 场景 → <see cref="OnActivate"/>；停用时 <see cref="OnDeactivate"/> 最先执行
     /// </summary>
     public abstract class GlobalScenario : VaultType<GlobalScenario>
     {
         /// <summary>
-        /// 在场景自身的 Compose 之后调用，可以给场景追加组件或子场景。与 Compose 一样只做声明，不要产生副作用
+        /// 在场景自身的 Compose 之后调用，可以给场景追加节点或子场景。与 Compose 一样只做声明，不要产生副作用
         /// </summary>
         /// <param name="scenario">正在组合的场景实例</param>
         /// <param name="composer">组合构建器</param>
@@ -26,6 +29,30 @@ namespace InnoVault.Scenarios
         /// <param name="scenario">请求涉及的场景实例，与 <see cref="ScenarioRequest.Instance"/> 相同</param>
         /// <param name="request">客户端的请求</param>
         public virtual bool AuthorizeRequest(VaultScenario scenario, ScenarioRequest request) => true;
+
+        /// <summary>
+        /// 一块舞台的生成步骤收集完之后调用，可以追加、插入或移除步骤：其他模组借此往指定的舞台里加自己的内容。
+        /// 只在裁决端、只在需要生成时调用
+        /// </summary>
+        /// <param name="scenario">即将生成舞台的场景实例（尚未激活）</param>
+        /// <param name="passes">按执行顺序排列的生成步骤，可以直接改写这个列表</param>
+        public virtual void ModifyPasses(VaultScenario scenario, List<GenPass> passes) { }
+
+        /// <summary>
+        /// 一块舞台即将生成时调用：世界已经清空并按舞台的尺寸定好，生成步骤尚未执行。只在裁决端、只在需要生成时调用，
+        /// 单人运行在生成线程上。生成步骤要读的世界状态（例如随转场带来的特殊种子旗标）在这里写入
+        /// </summary>
+        /// <param name="scenario">即将生成舞台的场景实例（尚未激活）</param>
+        /// <param name="transition">这次换舞台，数据包已经由离开的一方写好</param>
+        public virtual void PreGenerate(VaultScenario scenario, ScenarioTransition transition) { }
+
+        /// <summary>
+        /// 场景激活时最先调用，早于各节点与场景自身的 OnActivate。随转场带来的状态（继承的进度、数据包里的世界旗标）在这里写进世界，
+        /// 场景自己的 OnActivate 读到的就已经是带过来之后的值。时机与线程同 <see cref="OnActivate"/>
+        /// </summary>
+        /// <param name="scenario">正在激活的场景实例</param>
+        /// <param name="transition">引起这次激活的转场</param>
+        public virtual void PreActivate(VaultScenario scenario, ScenarioTransition transition) { }
 
         /// <summary>场景激活时调用，在场景自身的 OnActivate 之后</summary>
         /// <param name="scenario">被激活的场景实例</param>

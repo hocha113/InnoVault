@@ -17,7 +17,7 @@ namespace InnoVault.Scenarios
 
         /// <inheritdoc/>
         protected override void OnStart() {
-            if (RevealMap) {
+            if (RevealMap && EnabledInTree) {
                 ScenarioPlatform.RevealMap?.Invoke(this);
             }
         }

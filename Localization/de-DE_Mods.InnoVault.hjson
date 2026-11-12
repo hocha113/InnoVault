@@ -38,6 +38,8 @@ Scenarios: {
 		// ReturningHome: Returning to the main world
 		// WaitingForPlayers: Waiting for other players
 		// StageChanged: The server moved to another scenario while you were joining. Please join again.
+		// ReturnHome: Return to the main world
+		// Return: Return
 	}
 }
 

@@ -13,6 +13,7 @@ namespace InnoVault.RenderHandles
     /// <br/>该API的使用介绍:<see href="https://innovault.wiki/cn/content/render-handle/"/>
     /// <para>
     /// 世界内各阶段的真实触发顺序（对照 tML 1.4.4 的 <c>Main.DoDraw</c>）：<br/>
+    /// 0. <see cref="DrawSky"/>：背景阶段，每一片深度切片在所有活动的 <c>CustomSky</c> 之后各触发一次，SpriteBatch 活跃<br/>
     /// 1. <see cref="DrawBeforeTiles"/>：墙壁与黑底之后，SpriteBatch 活跃<br/>
     /// 2. <see cref="DrawBeforePlayers"/> / <see cref="DrawAfterPlayers"/> 第一轮：<see cref="PlayerDrawPass.BehindNPCs"/>，
     /// 只包含 <c>isLockedToATile</c> 的玩家<br/>
@@ -102,6 +103,8 @@ namespace InnoVault.RenderHandles
         internal int registerOrder;
         //RequireScreenCapture 默认值的缓存：0 未计算，1 否，2 是。存在实例上而不是静态字典，避免持有已卸载模组的 Type
         private byte captureStageOverrideState;
+        //是否重写了 DrawSky 的缓存，取值同上
+        private byte skyStageOverrideState;
         #endregion
 
         /// <summary>
@@ -138,6 +141,17 @@ namespace InnoVault.RenderHandles
             MethodInfo method = GetType().GetMethod(stageName, BindingFlags.Public | BindingFlags.Instance, null
                 , [typeof(SpriteBatch), typeof(GraphicsDevice), typeof(RenderTarget2D)], null);
             return method != null && method.DeclaringType != typeof(RenderHandle);
+        }
+
+        //本类型是否重写了天空阶段，结果按实例缓存。天空阶段每帧触发十几次，只分发给重写了它的实例
+        internal bool OverridesSkyStage() {
+            if (skyStageOverrideState == 0) {
+                MethodInfo method = GetType().GetMethod(nameof(DrawSky), BindingFlags.Public | BindingFlags.Instance, null
+                    , [typeof(SpriteBatch), typeof(SkySlice).MakeByRefType()], null);
+                bool overridden = method != null && method.DeclaringType != typeof(RenderHandle);
+                skyStageOverrideState = overridden ? (byte)2 : (byte)1;
+            }
+            return skyStageOverrideState == 2;
         }
 
         /// <summary>
@@ -204,6 +218,25 @@ namespace InnoVault.RenderHandles
         /// <param name="screenSwap">一个主动给予和自动维护的中间屏幕对象，作用类似于 <see cref="Main.screenTargetSwap"/>，
         /// 如果需要实际修改画面，请使用 <see cref="Main.screenTarget"/></param>
         public virtual void PostEndCaptureDraw(SpriteBatch spriteBatch, GraphicsDevice graphicsDevice, RenderTarget2D screenSwap) {
+
+        }
+        #endregion
+
+        #region 天空阶段
+        /// <summary>
+        /// 天空绘制阶段：原版按深度由远到近分片画背景，每一片在所有活动的 <c>CustomSky</c> 画完之后分发到这里，
+        /// 所以画在这里的东西压在原版与其他模组的天空之上；各片的含义见 <see cref="SkySlice"/><br/>
+        /// 只分发给重写了本方法的实例，主菜单里不分发；<see cref="RenderHandleLoader.SkyStageAvailable"/> 为
+        /// <see langword="false"/> 时整个阶段不触发，依赖它的效果需要自备退路<br/>
+        /// 调用时 SpriteBatch 处于活跃状态，是原版背景那一段的批次，并且 <see cref="Main.screenPosition"/> /
+        /// <see cref="Main.screenWidth"/> / <see cref="Main.screenHeight"/> 已被原版按背景缩放改过，真实值取
+        /// <see cref="SkySlice.RealScreenPosition"/> / <see cref="SkySlice.RealScreenSize"/><br/>
+        /// 需要换渲染状态时用 <see cref="SkySlice.BeginBatch"/> 开自己的批次，返回前必须用 <see cref="SkySlice.RestoreBatch"/>
+        /// 还原，否则后面的背景层会画错
+        /// </summary>
+        /// <param name="spriteBatch">绘制画布，等价于 <see cref="Main.spriteBatch"/></param>
+        /// <param name="slice">当前这一片深度切片</param>
+        public virtual void DrawSky(SpriteBatch spriteBatch, in SkySlice slice) {
 
         }
         #endregion

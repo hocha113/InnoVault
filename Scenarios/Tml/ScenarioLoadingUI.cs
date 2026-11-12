@@ -25,12 +25,12 @@ namespace InnoVault.Scenarios
                     return null;
                 }
                 ScenarioTransition travel = ScenarioDirector.CurrentTravel;
-                ScenarioLoadingScreen screen = travel?.To?.GetComponent<ScenarioLoadingScreen>() ?? travel?.From?.GetComponent<ScenarioLoadingScreen>();
+                ScenarioLoadingScreen screen = travel?.To?.FindEnabled<ScenarioLoadingScreen>() ?? travel?.From?.FindEnabled<ScenarioLoadingScreen>();
                 if (screen != null) {
                     return screen;
                 }
                 ScenarioCurtain curtain = ScenarioDirector.ActiveCurtain;
-                return curtain == null || curtain.Enabled ? _default : null;
+                return curtain == null || curtain.HasFrames ? _default : null;
             }
         }
 

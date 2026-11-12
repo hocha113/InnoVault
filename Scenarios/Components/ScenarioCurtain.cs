@@ -25,8 +25,11 @@ namespace InnoVault.Scenarios
         /// <summary>幕布颜色</summary>
         public Color Color { get; init; } = Color.Black;
 
-        /// <summary>幕布是否开启（合上或拉开至少一边有帧数）</summary>
-        public bool Enabled => CloseFrames > 0 || OpenFrames > 0;
+        /// <summary>
+        /// 幕布是否有合上或拉开的过程（至少一边的帧数大于 0）。两边都是 0 时幕布不出现，加载期间显示原版加载文字。
+        /// 节点自身的开关是 <see cref="ScenarioNode.Enabled"/>：停用的幕布节点等于没挂，换舞台时用缺省幕布
+        /// </summary>
+        public bool HasFrames => CloseFrames > 0 || OpenFrames > 0;
 
         /// <summary>
         /// 多人模式下本地玩家已经就绪、盖着幕布等其他玩家时，是否在幕布中央画一行“等待其他玩家”（<see cref="ScenarioText.WaitingForPlayers"/>），缺省为真。

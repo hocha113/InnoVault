@@ -54,21 +54,54 @@ namespace InnoVault.Scenarios
 
         internal void ReadArguments(BinaryReader reader) => SyncVarManager.Receive(this, reader);
 
-        //组合完成之后的状态：场景的附加数据，然后按挂载顺序是各组件的网络状态
+        //组合完成之后的状态：场景的附加数据，各节点的启用标志，然后按节点树的先序是各节点的网络状态
         internal void WriteNetState(BinaryWriter writer) {
             SendExtraData(writer);
-            IReadOnlyList<ScenarioComponent> components = Components;
-            for (int i = 0; i < components.Count; i++) {
-                components[i].InvokeNetSend(writer);
+            IReadOnlyList<ScenarioNode> nodes = AllNodes;
+            //先写节点数：客户端据此核对两端组合出来的是不是同一棵树，对不上时只丢开关、不读错位
+            writer.Write((ushort)nodes.Count);
+            byte bits = 0;
+            int used = 0;
+            for (int i = 0; i < nodes.Count; i++) {
+                if (nodes[i].Enabled) {
+                    bits |= (byte)(1 << used);
+                }
+                if (++used == 8) {
+                    writer.Write(bits);
+                    bits = 0;
+                    used = 0;
+                }
+            }
+            if (used > 0) {
+                writer.Write(bits);
+            }
+            for (int i = 0; i < nodes.Count; i++) {
+                nodes[i].InvokeNetSend(writer);
             }
         }
 
-        internal void ReadNetState(BinaryReader reader) {
+        //返回是否有节点的启用标志被改动（调用方据此重建合成快照）
+        internal bool ReadNetState(BinaryReader reader) {
             ReceiveExtraData(reader);
-            IReadOnlyList<ScenarioComponent> components = Components;
-            for (int i = 0; i < components.Count; i++) {
-                components[i].InvokeNetReceive(reader);
+            IReadOnlyList<ScenarioNode> nodes = AllNodes;
+            int count = reader.ReadUInt16();
+            byte[] flags = reader.ReadBytes((count + 7) / 8);
+            bool changed = false;
+            if (count == nodes.Count && flags.Length == (count + 7) / 8) {
+                for (int i = 0; i < count; i++) {
+                    if (nodes[i].SetEnabledSilently((flags[i >> 3] & (1 << (i & 7))) != 0)) {
+                        changed = true;
+                    }
+                }
             }
+            else {
+                ScenarioPlatform.Error($"Scenario.Net.Tree.{Key}",
+                    $"[Scenarios] {Key} has {nodes.Count} nodes on this endpoint but {count} on the server; Compose must build the same tree on every endpoint. Node switches were not applied");
+            }
+            for (int i = 0; i < nodes.Count; i++) {
+                nodes[i].InvokeNetReceive(reader);
+            }
+            return changed;
         }
     }
 }

@@ -42,13 +42,13 @@ namespace InnoVault.Scenarios
             _applied = false;
         }
 
-        //揭开场景区域外接框（没有区域时整块舞台）内的地图
+        //揭开节点作用范围的外接框（没有作用范围时整块舞台）内的地图
         internal static void Reveal(ScenarioMap map) {
             if (Main.dedServ || Main.Map == null) {
                 return;
             }
-            Rectangle rect = map.Scenario?.Area?.Bounds ?? new Rectangle(0, 0, Main.maxTilesX, Main.maxTilesY);
-            rect = Rectangle.Intersect(rect, new Rectangle(0, 0, Main.maxTilesX, Main.maxTilesY));
+            Rectangle stage = TmlStageBackend.ContentBounds;
+            Rectangle rect = Rectangle.Intersect(map.ScopeArea?.Bounds ?? stage, stage);
             for (int x = rect.Left; x < rect.Right; x++) {
                 for (int y = rect.Top; y < rect.Bottom; y++) {
                     Main.Map.Update(x, y, 255);

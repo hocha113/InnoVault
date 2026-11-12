@@ -56,7 +56,7 @@ namespace InnoVault.Scenarios
                 }
                 _failed.Remove(method);
                 if (_failed.Count == 0) {
-                    Succeed();
+                    Succeed(il);
                 }
             } catch (Exception ex) {
                 _failed.Add(method);

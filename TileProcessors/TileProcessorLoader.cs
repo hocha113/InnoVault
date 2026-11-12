@@ -378,6 +378,9 @@ namespace InnoVault.TileProcessors
         public static void LoadWorldTileProcessor() {
             InitializeWorldTP();
 
+            //进入的世界没有派发过世界数据的读取时（没存过本模组数据的世界、别的模组在内存里生成的世界）在这里补上，下面的等待才不会空等到超时
+            VaultSave.EnsureWorldLoadDispatched();
+
             VaultLoadingProgress.BeginLocalLoad();
 
             Task.Run(async () => {

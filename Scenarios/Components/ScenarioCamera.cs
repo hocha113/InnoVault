@@ -26,7 +26,7 @@ namespace InnoVault.Scenarios
     /// 场景舞台里没有任何场景设置钳制范围时按 <see cref="ScenarioCameraBounds.CenterWhenSmaller"/> 处理；主世界里没有时按原版。
     /// 钳制范围变化时（进出区域、换房间、改设置）镜头在 <see cref="BoundsBlendFrames"/> 帧内平滑过渡<br/>
     /// 场景挂了 <see cref="ScenarioArea"/> 时，钳制与缩放只在本地玩家进入区域后生效，<see cref="Source"/> 也只在那时接管（镜头体积）<br/>
-    /// 多个生效中的场景都挂了它时逐属性叠加（<see cref="ScenarioComponent.LayerPriority"/>）：钳制范围连同它的区域、房间取自设置了
+    /// 多个生效中的场景都挂了它时逐属性叠加（<see cref="ScenarioNode.LayerPriority"/>）：钳制范围连同它的区域、房间取自设置了
     /// <see cref="Bounds"/> 的最上层；各自的 <see cref="Source"/> 都会推入镜头栈，按镜头栈规则合成
     /// </summary>
     public class ScenarioCamera : ScenarioComponent
@@ -67,15 +67,15 @@ namespace InnoVault.Scenarios
 
         internal bool SetsZoom => Zoom.HasValue || MinZoom.HasValue || MaxZoom.HasValue;
 
-        //Area 模式的区域：显式设置、场景区域外接框，都没有时为空（按整块舞台）
-        internal Rectangle? ResolveArea() => Area ?? Scenario?.Area?.Bounds;
+        //Area 模式的区域：显式设置、作用范围（所在的区域节点或场景主区域）的外接框，都没有时为空（按整块舞台）
+        internal Rectangle? ResolveArea() => Area ?? ScopeArea?.Bounds;
 
         /// <inheritdoc/>
         protected override void OnStart() {
             if (Source == null) {
                 return;
             }
-            _registered = Scenario?.Area is ScenarioArea area ? new AreaGatedCameraSource(Source, area) : Source;
+            _registered = new NodeGatedCameraSource(Source, this);
             VaultCamera.Register(_registered);
         }
 
@@ -99,8 +99,8 @@ namespace InnoVault.Scenarios
         }
     }
 
-    //镜头体积：区域场景的镜头源只在本地玩家进入区域后接管，混入混出沿用内层来源自己的帧数
-    internal sealed class AreaGatedCameraSource(CameraSource inner, ScenarioArea area) : CameraSource
+    //镜头体积：镜头节点的镜头源只在节点启用、本地玩家身在它的作用范围里时接管，混入混出沿用内层来源自己的帧数
+    internal sealed class NodeGatedCameraSource(CameraSource inner, ScenarioCamera node) : CameraSource
     {
         public override int Priority => inner.Priority;
 
@@ -108,9 +108,14 @@ namespace InnoVault.Scenarios
 
         public override int BlendOutFrames => inner.BlendOutFrames;
 
-        public override bool Active => area.Engaged && inner.Active;
+        public override bool Active => node.EnabledInTree && (node.ScopeArea is not ScenarioArea area || (area.EnabledInTree && area.Engaged)) && inner.Active;
 
-        public override void Update(in CameraState below) => inner.Update(below);
+        public override void Update(in CameraState below) {
+            //镜头栈把混合权重记在登记进去的这一层上，抄给内层：持有内层来源的代码读它的 Weight 才有值
+            inner.weight = weight;
+            inner.lastBelow = lastBelow;
+            inner.Update(below);
+        }
 
         public override bool Evaluate(in CameraState below, out CameraState shot) => inner.Evaluate(below, out shot);
 

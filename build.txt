@@ -2,5 +2,5 @@ displayName = InnoVault
 author = HoCha113
 homepage = https://innovault.wiki
 buildIgnore = .git\*, Doc\*, .editorconfig, .gitignore, *.ps1
-version = 1.9.103
+version = 1.9.104
 includeSource = true

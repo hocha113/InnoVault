@@ -1,8 +1,10 @@
 ﻿using InnoVault.GameSystem;
 using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
+using MonoMod.RuntimeDetour;
 using System;
 using System.Collections.Generic;
+using System.Reflection;
 using Terraria;
 using Terraria.Graphics;
 using Terraria.Graphics.Effects;
@@ -86,6 +88,32 @@ namespace InnoVault.RenderHandles
         private const string StageOldEndEntityDraw = "OldEndEntityDraw";
         private const string StageEndEntityDraw = "EndEntityDraw";
         private const string StageDrawAfterEntities = "DrawAfterEntities";
+        private const string StageDrawSky = "DrawSky";
+
+        /// <summary>
+        /// 天空阶段（<see cref="RenderHandle.DrawSky"/>）此刻是否可用：钩子安装成功，并且没有被 <see cref="DisableSkyStage"/> 关掉<br/>
+        /// 为 <see langword="false"/> 时该阶段不会触发，依赖它的效果应改走自己的退路（例如注册一个 <c>CustomSky</c>，在它的 Draw 里用
+        /// <see cref="SkySlice"/> 的构造函数得到同一套量再转发）
+        /// </summary>
+        public static bool SkyStageAvailable => skyStageHook != null && !DisableSkyStage;
+
+        /// <summary>
+        /// 手动关闭天空阶段，默认 <see langword="false"/>。排查问题或对照退路的画面时使用，卸载时复位
+        /// </summary>
+        public static bool DisableSkyStage { get; set; }
+
+        /// <summary>
+        /// 当前是否正处于原版地狱背景的绘制过程中（<c>Main.DrawUnderworldBackground</c> 之内）<br/>
+        /// 天空阶段据此给 <see cref="SkySlice.Underworld"/> 赋值；标记钩子安装失败时恒为 <see langword="false"/>
+        /// </summary>
+        public static bool InUnderworldBackground { get; private set; }
+
+        //天空阶段的两处钩子。按反射取目标方法安装，目标不存在或挂载失败时只关掉这一项
+        private static Hook skyStageHook;
+        private static Hook underworldMarkHook;
+        //重写了 DrawSky 的实例，次序与 Instances 一致；Instances 的数量变化时重建
+        private static readonly List<RenderHandle> skyStageInstances = [];
+        private static int skyStageSourceCount = -1;
         #endregion
 
         #region 加载与卸载
@@ -101,6 +129,7 @@ namespace InnoVault.RenderHandles
             On_Main.DrawPlayers_AfterProjectiles += DrawPlayersAfterProjectilesHook;
             On_LegacyPlayerRenderer.DrawPlayers += DrawPlayersHook;
             On_Main.DrawInfernoRings += DrawInfernoRingsHook;
+            InstallSkyStage();
         }
 
         void IVaultLoader.SetupData() {
@@ -135,6 +164,7 @@ namespace InnoVault.RenderHandles
             On_Main.DrawPlayers_AfterProjectiles -= DrawPlayersAfterProjectilesHook;
             On_LegacyPlayerRenderer.DrawPlayers -= DrawPlayersHook;
             On_Main.DrawInfernoRings -= DrawInfernoRingsHook;
+            UninstallSkyStage();
 
             //Filters.Scene 跨模组重载存活，订阅必须成对撤销，否则会留下指向已卸载程序集的委托
             anyInstanceRequiresCapture = false;
@@ -361,6 +391,167 @@ namespace InnoVault.RenderHandles
                 , static render => render.EndEntityDraw(Main.spriteBatch, Main.instance, Main.instance.GraphicsDevice, ScreenSwap));
             DrawBatch(StageDrawAfterEntities, false
                 , static render => render.DrawAfterEntities(Main.spriteBatch, Main.instance.GraphicsDevice, ScreenSwap));
+        }
+        #endregion
+
+        #region 天空阶段
+        //对照的 tML 源码位置，升级 tML 后核对：
+        //Terraria.Graphics.Effects/SkyManager.cs DrawDepthRange(SpriteBatch, float, float)，DrawToDepth / DrawRemainingDepth / Draw 都经过它；
+        //Terraria/Main.cs DrawUnderworldBackground(bool flat)，地狱背景的五层远景与它自己的一套深度切片都在这个方法里
+        //用反射取目标而不用 On_ 事件：目标方法在某个 tML 版本里改名或换签名时，只有天空阶段失效并记一条警告，其余钩子与模组加载不受影响
+        private static void InstallSkyStage() {
+            if (Main.dedServ) {
+                return;
+            }
+
+            try {
+                MethodInfo drawDepthRange = typeof(SkyManager).GetMethod("DrawDepthRange", BindingFlags.Public | BindingFlags.Instance
+                    , null, [typeof(SpriteBatch), typeof(float), typeof(float)], null);
+                if (drawDepthRange == null) {
+                    VaultMod.Instance?.Logger.Warn("[RenderHandleLoader] Sky stage is disabled: SkyManager.DrawDepthRange(SpriteBatch, float, float) not found");
+                }
+                else {
+                    skyStageHook = VaultHook.Add(drawDepthRange, SkyDepthRangeHook);
+                }
+            } catch (Exception ex) {
+                skyStageHook = null;
+                VaultMod.Instance?.Logger.Warn($"[RenderHandleLoader] Sky stage is disabled: {ex.GetType().Name}: {ex.Message}");
+            }
+
+            try {
+                MethodInfo drawUnderworld = typeof(Main).GetMethod("DrawUnderworldBackground", BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance
+                    , null, [typeof(bool)], null);
+                if (drawUnderworld == null) {
+                    VaultMod.Instance?.Logger.Warn("[RenderHandleLoader] Sky stage underworld mark is disabled: Main.DrawUnderworldBackground(bool) not found");
+                }
+                else {
+                    underworldMarkHook = VaultHook.Add(drawUnderworld, UnderworldBackgroundHook);
+                }
+            } catch (Exception ex) {
+                underworldMarkHook = null;
+                VaultMod.Instance?.Logger.Warn($"[RenderHandleLoader] Sky stage underworld mark is disabled: {ex.GetType().Name}: {ex.Message}");
+            }
+        }
+
+        private static void UninstallSkyStage() {
+            UndoHook(ref skyStageHook);
+            UndoHook(ref underworldMarkHook);
+            DisableSkyStage = false;
+            InUnderworldBackground = false;
+            skyStageInstances.Clear();
+            skyStageSourceCount = -1;
+        }
+
+        //VaultHook 卸载时也会统一撤钩，两边的卸载顺序不定，这里容忍已经被释放的钩子
+        private static void UndoHook(ref Hook hook) {
+            try {
+                if (hook != null && hook.IsApplied) {
+                    hook.Undo();
+                }
+            } catch (ObjectDisposedException) {
+                //已经被 VaultHook 释放，无事可做
+            } catch (Exception ex) {
+                VaultMod.Instance?.Logger.Warn($"[RenderHandleLoader] Sky stage hook failed to uninstall: {ex.Message}");
+            }
+            hook = null;
+        }
+
+        private static void UnderworldBackgroundHook(Action<Main, bool> orig, Main self, bool flat) {
+            bool previous = InUnderworldBackground;
+            InUnderworldBackground = true;
+            try {
+                orig(self, flat);
+            } finally {
+                InUnderworldBackground = previous;
+            }
+        }
+
+        private static void SkyDepthRangeHook(Action<SkyManager, SpriteBatch, float, float> orig, SkyManager self
+            , SpriteBatch spriteBatch, float minDepth, float maxDepth) {
+            //先让原版画完这一片里所有活动的 CustomSky，天空阶段排在它们之后
+            orig(self, spriteBatch, minDepth, maxDepth);
+
+            //主菜单的背景不分发，与其余阶段一致；只认原版那一个 SkyManager
+            if (DisableSkyStage || Main.gameMenu || !ReferenceEquals(self, SkyManager.Instance)) {
+                return;
+            }
+
+            DispatchSky(spriteBatch, minDepth, maxDepth);
+        }
+
+        private static List<RenderHandle> GetSkyStageInstances() {
+            List<RenderHandle> all = RenderHandle.Instances;
+            if (skyStageSourceCount == all.Count) {
+                return skyStageInstances;
+            }
+
+            skyStageSourceCount = all.Count;
+            skyStageInstances.Clear();
+            foreach (RenderHandle render in all) {
+                try {
+                    if (render.OverridesSkyStage()) {
+                        skyStageInstances.Add(render);
+                    }
+                } catch (Exception ex) {
+                    VaultMod.LoggerError($"[RenderHandleLoader:{render}SkyStageProbe]", $"Sky stage override check threw: {ex.Message}");
+                }
+            }
+            return skyStageInstances;
+        }
+
+        //按 Weight 顺序把一片深度切片分发给重写了 DrawSky 的实例，错误隔离与其余阶段同一口径
+        private static void DispatchSky(SpriteBatch spriteBatch, float minDepth, float maxDepth) {
+            List<RenderHandle> instances = GetSkyStageInstances();
+            if (instances.Count == 0) {
+                return;
+            }
+
+            GraphicsDevice graphicsDevice = Main.instance.GraphicsDevice;
+            //切片与进入这一片时的 RT 绑定只在真的有实例要画时取一次
+            RenderTargetBinding[] bindings = null;
+            SkySlice slice = default;
+
+            for (int i = 0; i < instances.Count; i++) {
+                RenderHandle render = instances[i];
+                if (render.ignoreBug > 0) {
+                    continue;
+                }
+
+                try {
+                    if (!render.Active) {
+                        continue;
+                    }
+
+                    if (bindings == null) {
+                        bindings = graphicsDevice.GetRenderTargets();
+                        slice = new SkySlice(spriteBatch, minDepth, maxDepth, InUnderworldBackground);
+                    }
+                    render.DrawSky(spriteBatch, in slice);
+
+                    //本阶段的契约是返回时批次与进入时一致。没还原就交还给原版的话，下一层背景一画就会抛异常，在这里拦下来记到这个实例头上
+                    if (SpriteBatchState.Available && slice.EntryBegun && !spriteBatch.IsBegun()) {
+                        throw new InvalidOperationException("DrawSky returned with the SpriteBatch ended, call SkySlice.RestoreBatch before returning");
+                    }
+                } catch (Exception ex) {
+                    ReportStageFailure(render, StageDrawSky, ex);
+                    RecoverSkyState(graphicsDevice, bindings, spriteBatch, in slice);
+                }
+            }
+        }
+
+        //实例抛异常后把设备拉回天空阶段的契约：RT 绑定还原到进入这一片时的状态，批次按进入时的快照重开
+        //bindings 为空说明异常出在构造切片之前（Active 本身抛了），设备状态没有被动过
+        private static void RecoverSkyState(GraphicsDevice graphicsDevice, RenderTargetBinding[] bindings, SpriteBatch spriteBatch, in SkySlice slice) {
+            if (bindings == null) {
+                return;
+            }
+
+            try {
+                RestoreBindings(graphicsDevice, bindings);
+                slice.RestoreBatch(spriteBatch);
+            } catch (Exception ex) {
+                VaultMod.LoggerError("[RenderHandleLoader:RecoverSky]", $"Failed to recover sky stage state: {ex.Message}");
+            }
         }
         #endregion
 

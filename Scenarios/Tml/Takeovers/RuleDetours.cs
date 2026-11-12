@@ -1,4 +1,5 @@
 using Microsoft.Xna.Framework;
+using System;
 using Terraria;
 using Terraria.ID;
 
@@ -72,20 +73,27 @@ namespace InnoVault.Scenarios
             if (Main.dedServ || self.whoAmI != Main.myPlayer) {
                 return;
             }
+            //换舞台抵达时的那一次复活是换舞台的一部分，落点由换舞台决定，不套用复活落点规则
+            if (ScenarioPlacement.ArrivalRevive) {
+                return;
+            }
             ScenarioLayers<ScenarioRules> rules = ScenarioRuntime.Rules;
             if (!rules.Any) {
                 return;
             }
             ScenarioSpawnBehavior behavior;
             string anchor;
+            Type destination;
             switch (context) {
                 case PlayerSpawnContext.RecallFromItem:
                     behavior = rules.Pick(static r => r.RecallBehavior) ?? ScenarioSpawnBehavior.Vanilla;
                     anchor = rules.PickRef(static r => r.RecallAnchor);
+                    destination = rules.PickRef(static r => r.RecallDestination);
                     break;
                 case PlayerSpawnContext.ReviveFromDeath:
                     behavior = rules.Pick(static r => r.RespawnBehavior) ?? ScenarioSpawnBehavior.Vanilla;
                     anchor = rules.PickRef(static r => r.RespawnAnchor);
+                    destination = rules.PickRef(static r => r.RespawnDestination);
                     break;
                 default:
                     return;
@@ -101,13 +109,12 @@ namespace InnoVault.Scenarios
                     break;
                 case ScenarioSpawnBehavior.ReturnHome:
                     if (ScenarioRuntime.InScenarioStage) {
-                        //Spawn 可能在一帧更新的中途被调用，推到本帧结束后再发起切换。多人下这是发给服务器的请求，换的是所有人的舞台
-                        Main.QueueMainThreadAction(static () => {
-                            ScenarioResult result = ScenarioDirector.ReturnHome();
-                            if (!result.Accepted && !result.Pending) {
-                                ScenarioPlatform.Info($"[Scenarios] Returning home after spawn was rejected: {result}");
-                            }
-                        });
+                        ScenarioPlacement.QueueTravel(null, anchor);
+                    }
+                    break;
+                case ScenarioSpawnBehavior.Travel:
+                    if (destination != null) {
+                        ScenarioPlacement.QueueTravel(destination, anchor);
                     }
                     break;
             }
@@ -116,6 +123,23 @@ namespace InnoVault.Scenarios
 
     internal static class ScenarioPlacement
     {
+        //换舞台抵达时后端正在让倒下的玩家复活：这一次 Spawn 不套用复活落点规则。只在主线程读写
+        internal static bool ArrivalRevive { get; set; }
+
+        //规则要求的换舞台：destination 为空是回主世界，否则换到那个场景类型的舞台；anchor 是目的地里的落点锚点
+        internal static ScenarioResult StartTravel(Type destination, string anchor)
+            => destination == null ? ScenarioDirector.ReturnHome(anchor) : ScenarioDirector.Travel(VaultScenario.FindTemplate(destination), anchor);
+
+        //Spawn 可能在一帧更新的中途被调用，推到本帧结束后再发起切换。多人下这是发给服务器的请求，换的是所有人的舞台
+        internal static void QueueTravel(Type destination, string anchor) {
+            Main.QueueMainThreadAction(() => {
+                ScenarioResult result = StartTravel(destination, anchor);
+                if (!result.Accepted && !result.Pending) {
+                    ScenarioPlatform.Info($"[Scenarios] The travel required by the spawn rule was rejected: {result}");
+                }
+            });
+        }
+
         //玩家站在 tile 这一格上方
         internal static void PlaceAtTile(Player player, Point tile)
             => PlaceAt(player, new Vector2(tile.X * 16 + 8 - player.width / 2f, tile.Y * 16 - player.height));

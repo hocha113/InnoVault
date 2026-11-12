@@ -22,6 +22,16 @@ namespace InnoVault.Scenarios
             ScenarioEnded = ScenarioEntities.CleanUp;
             RevealMap = ScenarioMapPolicy.Reveal;
             RegionChanged = ScenarioRegionSync.Resend;
+            AreaReleased = ScenarioAreaTracker.NotifyReleased;
+            //专用服务器上导演层只在主线程上运行，当场执行；客户端与单人排进原版的主线程动作队列（菜单期间也会清空）
+            MainThreadSink = static action => {
+                if (Main.dedServ) {
+                    action();
+                }
+                else {
+                    Main.QueueMainThreadAction(action);
+                }
+            };
         }
     }
 }

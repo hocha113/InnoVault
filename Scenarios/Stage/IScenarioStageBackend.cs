@@ -16,11 +16,19 @@ namespace InnoVault.Scenarios
         //客户端：在后台线程卸载本地的旧舞台，然后在原连接上重新等待服务器的世界信息，卸载完成时调用 ScenarioDirector.NotifyLeftStage
         void Begin(ScenarioTransition transition);
 
-        //（单人）换舞台途中玩家出生进入新舞台后在主线程调用，用于放置玩家
+        //（单人）换舞台途中玩家出生进入新舞台后在主线程调用，用于放置玩家（倒下期间被带过来的按舞台的声明先复活）
         void OnPlayerEntered(ScenarioTransition transition);
+
+        //一个舞台场景开始激活时在每一端调用，早于所有激活钩子：补上只有宿主知道的事实（实际种子），
+        //并按舞台的声明摆正世界边界（没有地狱层的舞台把世界底边留在声明的高度上）
+        void OnStageActivated(ScenarioStage stage);
 
         //会话开始时调用（单人与客户端：从菜单进入世界；服务器：开服读完世界），用于记下根世界的身份
         void OnSessionStarted();
+
+        //这次会话开始时，内存里的世界不是根世界，而是根世界名下一块舞台的文件：换舞台之外的途径把它当成普通世界读了进来
+        //（别的模组在舞台里换走了世界，事后又把它当作原来的世界读回）。这时后端已经按真正的根世界记下身份，导演层随即发起一次回根世界的转场
+        bool StartedOnStrandedStage { get; }
 
         //保存退出、会话即将结束时调用；stage 是当时的舞台场景
         void OnSessionEnding(VaultScenario stage);

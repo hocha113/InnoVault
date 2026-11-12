@@ -66,7 +66,7 @@ namespace InnoVault.Scenarios
             if (Bounds is Rectangle bounds) {
                 return bounds.Contains(i, j);
             }
-            return Scenario?.Area?.Contains(i, j) ?? true;
+            return ScopeArea?.Contains(i, j) ?? true;
         }
 
         /// <summary>

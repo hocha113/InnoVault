@@ -41,33 +41,70 @@ namespace InnoVault.Scenarios
                 //栈：ldarg.1 之后栈顶是 force，换成"force 或场景要求整幅涂黑"
                 clamp.Index++;
                 clamp.EmitDelegate(static (bool force) => ScenarioDrawRules.SkipRowClamp(force));
-                Succeed();
+                Succeed(il);
             } catch (Exception ex) {
                 Fail(ex.Message, il);
             }
         }
     }
 
+    //绘制规则的取值。地狱层的四项视觉（涂黑阈值、背景黑底、背景画、环境光）各自按"单独设置 → 总开关 HideUnderworld → 自动规则"的顺序取值
     internal static class ScenarioDrawRules
     {
+        //每个游戏帧在主线程算一次的结果：光照扫描逐格调用、还可能在别的线程上，不能在那里遍历各层
+        private static volatile bool _hideUnderworldLight;
+        private static volatile bool _hideUnderworldBackground;
+
         //整幅涂黑：环境组件指定为准；各层都没设置时，场景舞台的 worldSurface 低于舞台一半高度就开启（天空会从死窗透出）
         internal static bool FullRangeBlackout() {
             bool? setting = ScenarioRuntime.Environment.Pick(static e => e.FullRangeBlackout);
-            return setting ?? (ScenarioRuntime.InScenarioStage && Main.worldSurface > Main.maxTilesY / 2);
+            return setting ?? (ScenarioRuntime.InScenarioStage && Main.worldSurface > StageRows() / 2);
         }
+
+        //舞台内容占用的行数：没有地狱层的舞台不算垫在下面的行
+        private static int StageRows()
+            => ScenarioRuntime.Stage?.Stage is { BindsRootWorld: false } stage ? Math.Min(stage.Height, Main.maxTilesY) : Main.maxTilesY;
 
         internal static bool SkipRowClamp(bool force) => force || FullRangeBlackout();
 
         internal static int HellRow(int row) {
-            bool? setting = ScenarioRuntime.Environment.Pick(static e => e.NoUnderworldBlackThreshold);
+            ScenarioLayers<ScenarioEnvironment> environment = ScenarioRuntime.Environment;
+            bool? setting = environment.Pick(static e => e.NoUnderworldBlackThreshold) ?? environment.Pick(static e => e.HideUnderworld);
             return (setting ?? FullRangeBlackout()) ? int.MaxValue : row;
         }
 
         //取消时推到舞台底部以下：原版随后还会按 worldSurface 对齐、再减几行，推远一些保证屏幕底边永远够不着
-        internal static int UnderworldBackdropRow(int row) {
-            bool? setting = ScenarioRuntime.Environment.Pick(static e => e.NoUnderworldBackdrop);
-            bool cancel = setting ?? (ScenarioRuntime.InScenarioStage && row < Main.worldSurface + 100);
-            return cancel ? Main.maxTilesY + 600 : row;
+        internal static int UnderworldBackdropRow(int row) => BackdropCancelled(row) ? Main.maxTilesY + 600 : row;
+
+        //row 是原版算出的地狱背景起始行（maxTilesY - 330）
+        private static bool BackdropCancelled(int row) {
+            ScenarioLayers<ScenarioEnvironment> environment = ScenarioRuntime.Environment;
+            bool? setting = environment.Pick(static e => e.NoUnderworldBackdrop) ?? environment.Pick(static e => e.HideUnderworld);
+            return setting ?? (ScenarioRuntime.InScenarioStage && row < Main.worldSurface + 100);
+        }
+
+        //地狱环境光此刻是否取消
+        internal static bool HideUnderworldLight => _hideUnderworldLight;
+
+        internal static bool HideUnderworldBackground => _hideUnderworldBackground;
+
+        //每个游戏帧在主线程调用（只在客户端）：背景画与环境光没有单独设置、也没有总开关时，跟着背景黑底的结果走
+        internal static void Refresh() {
+            ScenarioLayers<ScenarioEnvironment> environment = ScenarioRuntime.Environment;
+            if (!environment.Any && !ScenarioRuntime.InScenarioStage) {
+                _hideUnderworldLight = false;
+                _hideUnderworldBackground = false;
+                return;
+            }
+            bool? master = environment.Pick(static e => e.HideUnderworld);
+            bool backdrop = BackdropCancelled(Main.maxTilesY - 330);
+            _hideUnderworldLight = environment.Pick(static e => e.NoUnderworldLight) ?? master ?? backdrop;
+            _hideUnderworldBackground = environment.Pick(static e => e.NoUnderworldBackground) ?? master ?? backdrop;
+        }
+
+        internal static void Reset() {
+            _hideUnderworldLight = false;
+            _hideUnderworldBackground = false;
         }
     }
 }

@@ -27,6 +27,9 @@ namespace InnoVault.Scenarios
         private static ScenarioTransition _travel;
         //会话开始后按恢复策略要回到的舞台场景，在第一次更新时发起切换
         private static VaultScenario _pendingResume;
+        //会话开始在一块被读回来的舞台文件上时，回根世界的转场还能再试几帧；为零表示不需要或已经发起
+        private const int HomeRecoveryAttempts = 600;
+        private static int _homeRecoveryAttempts;
         //离场与入场阶段已经过的帧数
         private static int _phaseFrames;
         private static Type _departureClip;
@@ -69,8 +72,52 @@ namespace InnoVault.Scenarios
         /// </summary>
         public static ScenarioRejectReason Availability => CheckAvailability();
 
-        //幕布遮盖程度（0 完全拉开，1 完全合上），由宿主的幕布绘制读取
-        internal static float CurtainCoverage => _curtainCoverage;
+        /// <summary>
+        /// 此刻内存里这块舞台属于哪个舞台场景，读档线程与世界卸载钩子里也能问：平时就是 <see cref="Stage"/>；换舞台途中，旧舞台存盘之前是离开的那一个，
+        /// 之后是要进的那一个；多人客户端还没拿到服务器的场景树时（出生之前、刚出生）是世界数据里带来的那个场景的<b>模板</b>。
+        /// 主菜单里为空。用 <c>is</c> 判断类型，或者用 <see cref="IsStageLoaded{T}"/>
+        /// </summary>
+        public static VaultScenario LoadedStage {
+            get {
+                VaultScenario stage = Stage;
+                if (stage != null) {
+                    return stage;
+                }
+                ScenarioTransition travel = _travel;
+                if (travel != null) {
+                    VaultScenario side = TravelPhase is ScenarioTravelPhase.Departing or ScenarioTravelPhase.Saving ? travel.From : travel.To;
+                    if (side != null) {
+                        return side;
+                    }
+                }
+                string key = ServerStageKey;
+                return ScenarioPlatform.IsClient && !string.IsNullOrEmpty(key) ? VaultScenario.FindTemplate(key) : null;
+            }
+        }
+
+        /// <summary>此刻内存里的舞台是否属于 <typeparamref name="T"/>（见 <see cref="LoadedStage"/>）</summary>
+        public static bool IsStageLoaded<T>() where T : VaultScenario => LoadedStage is T;
+
+        /// <summary>
+        /// 幕布的遮盖程度：0 完全拉开，1 完全合上。抵达后的落地演出可以等它开始下降（多人模式下玩家出生后还要盖着幕布等其他人到齐）
+        /// </summary>
+        public static float CurtainCoverage => _curtainCoverage;
+
+        /// <summary>
+        /// 换舞台开始（幕布开始合上、离场演出开始播放）时在每一端各触发一次，主线程；离场的配音、界面收起从这里接。
+        /// 订阅者在模组卸载时会被统一清空
+        /// </summary>
+        public static event Action<ScenarioTransition> TravelBegan;
+
+        /// <summary>
+        /// 换舞台结束时在每一端各触发一次，主线程：幕布完全拉开时第二个参数为真；离场期间被取消、中途掉线或整个会话被迫结束时为假。
+        /// 每次 <see cref="TravelBegan"/> 之后都恰有一次结束事件，成对的状态（收起的界面、暂停的输入）在这里收回；目标舞台进不去而改道回主世界时，结束事件带的是改道后的那次转场。
+        /// 订阅者在模组卸载时会被统一清空
+        /// </summary>
+        public static event Action<ScenarioTransition, bool> TravelEnded;
+
+        //（客户端）服务器当前舞台场景的 Key，随世界数据下发：出生之前就知道自己进的是哪块舞台，不必等场景树快照
+        internal static string ServerStageKey { get; set; }
 
         //这次换舞台用的幕布组件，为空时用缺省值
         internal static ScenarioCurtain ActiveCurtain => _curtain;
@@ -130,14 +177,36 @@ namespace InnoVault.Scenarios
                 if (scenario.Status != ScenarioStatus.Active) {
                     continue;
                 }
-                foreach (ScenarioComponent component in scenario.Components) {
-                    if (component is ScenarioAnchors anchors && anchors.TryGet(name, out tile)) {
+                IReadOnlyList<ScenarioNode> nodes = scenario.AllNodes;
+                for (int k = 0; k < nodes.Count; k++) {
+                    if (nodes[k] is ScenarioAnchors anchors && anchors.EnabledInTree && anchors.TryGet(name, out tile)) {
                         return true;
                     }
                 }
             }
             tile = default;
             return false;
+        }
+
+        /// <summary>
+        /// 取场景树里所有处于激活中的场景上、启用着的指定类型节点（场景按激活顺序，场景内按节点树先序），返回新建的列表。
+        /// 给跨场景的系统用，例如一个 HUD 要找出此刻所有的目标节点
+        /// </summary>
+        /// <typeparam name="T">节点类型</typeparam>
+        public static List<T> GetNodes<T>() where T : ScenarioNode {
+            List<T> results = [];
+            foreach (VaultScenario scenario in _active) {
+                if (scenario.Status != ScenarioStatus.Active) {
+                    continue;
+                }
+                IReadOnlyList<ScenarioNode> nodes = scenario.AllNodes;
+                for (int k = 0; k < nodes.Count; k++) {
+                    if (nodes[k] is T match && match.EnabledInTree) {
+                        results.Add(match);
+                    }
+                }
+            }
+            return results;
         }
 
         /// <summary>激活一个不拥有舞台的场景</summary>
@@ -238,7 +307,10 @@ namespace InnoVault.Scenarios
         }
 
         /// <summary>回到主世界，即换舞台到根场景</summary>
-        /// <param name="anchor">主世界里的落点锚点名（经 <see cref="GlobalScenario.Compose"/> 挂到根场景上的锚点）；为空时落回离开前的位置</param>
+        /// <param name="anchor">
+        /// 主世界里的落点：经 <see cref="GlobalScenario.Compose"/> 挂到根场景上的锚点名，或者内置的 <see cref="ScenarioAnchors.Spawn"/> / <see cref="ScenarioAnchors.Departure"/>。
+        /// 为空时用被离开的那块舞台声明的出口锚点（<see cref="ScenarioStage.ExitAnchor"/>），那也没有时落回离开主世界之前的位置
+        /// </param>
         public static ScenarioResult ReturnHome(string anchor = null) => Travel(VaultScenario.FindTemplate(typeof(RootScenario)), anchor);
 
         //gate 在实例组合完成、结构校验通过之后调用，返回非空表示拒绝；服务器处理客户端请求时用它接入裁决钩子
@@ -298,9 +370,10 @@ namespace InnoVault.Scenarios
             _curtain = ResolveCurtain(transition);
             _phaseFrames = 0;
             TravelPhase = ScenarioTravelPhase.Departing;
-            ScenarioCinematics cinematics = transition.From?.GetComponent<ScenarioCinematics>();
+            ScenarioCinematics cinematics = transition.From?.FindEnabled<ScenarioCinematics>();
             _departureClip = cinematics?.DepartureClip;
             _departureTimeout = cinematics?.DepartureTimeout ?? ScenarioCinematics.DefaultDepartureTimeout;
+            RaiseTravelBegan(transition);
             if (ScenarioPlatform.IsServer) {
                 //服务器不播演出也没有幕布：通知所有客户端离场，等它们合上幕布
                 BeginServerDeparture(transition);
@@ -321,9 +394,7 @@ namespace InnoVault.Scenarios
             //上一个会话没有正常结束、而宿主的网络身份已经变了（客户端掉线后直接进了别的世界）：先结束它，再按现在的身份开始
             if (InSession && ScenarioPlatform.SessionRole is ScenarioNetRole latched && latched != ScenarioPlatform.HostNetRole) {
                 ScenarioPlatform.Error("Scenario.StaleSession", "[Scenarios] Entered a world while a session from another network role was still open; ending it now");
-                IsTraveling = false;
-                _travel = null;
-                TravelPhase = ScenarioTravelPhase.None;
+                DropTravel();
                 EndSession(stageAlreadySaved: true);
             }
             if (ScenarioPlatform.IsClient) {
@@ -361,6 +432,25 @@ namespace InnoVault.Scenarios
             ActivateTree(arriving, null, false, _travel);
         }
 
+        //后端即将生成一块舞台（世界已清空并定好尺寸，生成步骤尚未执行）：派发全局钩子，只在裁决端
+        internal static void NotifyStageGenerating(ScenarioTransition transition) {
+            VaultScenario scenario = transition?.To;
+            if (scenario == null) {
+                return;
+            }
+            foreach (GlobalScenario global in GlobalScenario.Instances) {
+                Guard(scenario, $"{global.GetType().Name}.PreGenerate", () => global.PreGenerate(scenario, transition));
+            }
+        }
+
+        //后端收集一块舞台的生成步骤：场景自己的，然后由全局钩子增删
+        internal static void CollectStagePasses(VaultScenario scenario, List<Terraria.WorldBuilding.GenPass> passes) {
+            scenario.Stage.CollectPasses(passes);
+            foreach (GlobalScenario global in GlobalScenario.Instances) {
+                Guard(scenario, $"{global.GetType().Name}.ModifyPasses", () => global.ModifyPasses(scenario, passes));
+            }
+        }
+
         //目标舞台无法生成或读取时由后端调用：把这次切换的目标改为一个新的根场景实例，数据包原样保留
         internal static ScenarioTransition RedirectTravelHome(ScenarioTransition failed) {
             if (Stage != null) {
@@ -383,10 +473,21 @@ namespace InnoVault.Scenarios
 
         //连根世界都进不去时由后端调用：结束这次切换与整个会话
         internal static void AbortTravel() {
+            DropTravel();
+            EndSession();
+        }
+
+        //换舞台没有走完就被整个丢弃（连主世界都进不去、掉线、会话异常结束）：结束事件照样派发一次，订阅者那边与开始事件成对的状态才收得回来。
+        //后端可能在后台线程上走到这里，事件交给主线程派发
+        private static void DropTravel() {
+            ScenarioTransition dropped = _travel;
+            bool traveling = IsTraveling;
             IsTraveling = false;
             _travel = null;
             TravelPhase = ScenarioTravelPhase.None;
-            EndSession();
+            if (traveling && dropped != null) {
+                ScenarioPlatform.OnMainThread(() => RaiseTravelEnded(dropped, completed: false));
+            }
         }
 
         //区域进出改变了参与合成的组件时由宿主调用
@@ -416,6 +517,32 @@ namespace InnoVault.Scenarios
             Stage = root;
             ActivateTree(root, null, false, new ScenarioTransition(ScenarioTransitionKind.SessionStart, null, root));
             _pendingResume = ResolveResume(backend?.ConsumeQuitLocation());
+            //内存里其实是一块舞台的文件（见 IScenarioStageBackend.StartedOnStrandedStage）：第一次更新时回根世界，在那之前幕布合着
+            _homeRecoveryAttempts = backend?.StartedOnStrandedStage == true ? HomeRecoveryAttempts : 0;
+            if (_homeRecoveryAttempts > 0) {
+                _curtainCoverage = 1f;
+            }
+        }
+
+        //按模板临时组合出一个实例，只为读它声明的舞台（不激活，不进任何列表）；模板不带舞台或组合失败时为空
+        internal static ScenarioStage ProbeStage(VaultScenario template)
+            => template != null && TryCreate(template, null, out VaultScenario probe, out _) ? probe.Stage : null;
+
+        //会话开始在一块被读回来的舞台文件上：发起一次回根世界的转场，落在出生点。此刻的舞台场景名义上已经是根场景，所以绕过"已经在那里"的判断；
+        //后端暂时不能开始时下一帧再试，试够次数就放弃，留在这块世界里（保存退出后再进的就是根世界）
+        private static void RecoverHome() {
+            VaultScenario home = VaultScenario.FindTemplate(typeof(RootScenario));
+            ScenarioResult result = home == null
+                ? Reject(ScenarioRejectReason.NotReady, "the root scenario is not registered")
+                : TravelCore(home, ScenarioAnchors.Spawn, null, null);
+            if (result.Accepted) {
+                _homeRecoveryAttempts = 0;
+                return;
+            }
+            if (--_homeRecoveryAttempts <= 0) {
+                _curtainCoverage = 0f;
+                ScenarioPlatform.Error("Scenario.StrandedStage.GaveUp", $"[Scenarios] Returning to the root world from a stage file loaded outside a stage travel was rejected: {result}");
+            }
         }
 
         //上次在某个舞台场景里保存退出时，询问它的恢复策略：全局钩子优先，其次看场景是否挂了 ResumeOnRelog
@@ -486,6 +613,12 @@ namespace InnoVault.Scenarios
             else if (_curtainCoverage > 0f) {
                 _curtainCoverage = Math.Max(0f, _curtainCoverage - 1f / ScenarioCurtain.DefaultFrames);
             }
+            if (!IsTraveling && _homeRecoveryAttempts > 0) {
+                RecoverHome();
+                if (InBackendTravel || _homeRecoveryAttempts > 0) {
+                    return;
+                }
+            }
             if (!IsTraveling && _pendingResume != null) {
                 VaultScenario resume = _pendingResume;
                 _pendingResume = null;
@@ -528,6 +661,9 @@ namespace InnoVault.Scenarios
             _multiplayerNoticeLogged = false;
             _endingSession = false;
             RequestRejected = null;
+            TravelBegan = null;
+            TravelEnded = null;
+            ServerStageKey = null;
         }
 
         private static void ClearState() {
@@ -538,6 +674,7 @@ namespace InnoVault.Scenarios
             IsTraveling = false;
             _travel = null;
             _pendingResume = null;
+            _homeRecoveryAttempts = 0;
             _sessionActive = false;
             _phaseFrames = 0;
             _departureClip = null;
@@ -609,6 +746,11 @@ namespace InnoVault.Scenarios
             Stage = null;
             Root = null;
             _waitingForClip = false;
+            //目标场景先看一眼即将离开的舞台：旧舞台仍在、尚未停用也未存盘
+            VaultScenario arriving = transition?.To;
+            if (arriving != null && arriving.Status == ScenarioStatus.Pending) {
+                Guard(arriving, "OnApproach", () => arriving.InvokeApproach(transition));
+            }
             if (departing != null) {
                 DeactivateTree(departing, transition);
             }
@@ -629,25 +771,54 @@ namespace InnoVault.Scenarios
         //离场期间取消：目标实例从未激活，直接丢弃；幕布在之后的帧里拉开
         private static void CancelTravel(string reason) {
             ScenarioPlatform.Info($"[Scenarios] Travel to {_travel?.To?.Key} was cancelled before leaving: {reason}");
+            ScenarioTransition cancelled = _travel;
             IsTraveling = false;
             _travel = null;
             TravelPhase = ScenarioTravelPhase.None;
             _waitingForClip = false;
             _phaseFrames = 0;
+            RaiseTravelEnded(cancelled, completed: false);
         }
 
         private static void FinishTravel() {
+            ScenarioTransition finished = _travel;
             IsTraveling = false;
             _travel = null;
             TravelPhase = ScenarioTravelPhase.None;
             _phaseFrames = 0;
             _curtainCoverage = 0f;
+            RaiseTravelEnded(finished, completed: true);
+        }
+
+        //事件的订阅者出错只记录，不打断换舞台
+        private static void RaiseTravelBegan(ScenarioTransition transition) {
+            Action<ScenarioTransition> handlers = TravelBegan;
+            if (handlers == null || transition == null) {
+                return;
+            }
+            try {
+                handlers(transition);
+            } catch (Exception ex) {
+                ScenarioPlatform.Error("Scenario.TravelBegan", $"[Scenarios] A TravelBegan handler threw: {ex}");
+            }
+        }
+
+        private static void RaiseTravelEnded(ScenarioTransition transition, bool completed) {
+            Action<ScenarioTransition, bool> handlers = TravelEnded;
+            if (handlers == null || transition == null) {
+                return;
+            }
+            try {
+                handlers(transition, completed);
+            } catch (Exception ex) {
+                ScenarioPlatform.Error("Scenario.TravelEnded", $"[Scenarios] A TravelEnded handler threw: {ex}");
+            }
         }
 
         //进入场景用目标场景的幕布，返回主世界用离开的那个场景的
         private static ScenarioCurtain ResolveCurtain(ScenarioTransition transition) {
             VaultScenario owner = transition.To is RootScenario ? transition.From : transition.To;
-            return owner?.GetComponent<ScenarioCurtain>();
+            return owner?.FindEnabled<ScenarioCurtain>();
         }
 
         private static bool IsOnSessionLayer(VaultScenario scenario) {
@@ -746,8 +917,16 @@ namespace InnoVault.Scenarios
             _active.Add(instance);
             RegisterNetId(instance);
 
-            foreach (ScenarioComponent component in instance.Components) {
-                Guard(instance, $"{component.GetType().Name}.OnActivate", () => component.InvokeActivate(transition));
+            //舞台场景：宿主先补上实际种子、摆正世界边界，激活钩子看到的就是完整的舞台
+            if (instance.Stage is ScenarioStage ownedStage) {
+                Guard(instance, "StageBackend.OnStageActivated", () => ScenarioPlatform.StageBackend?.OnStageActivated(ownedStage));
+            }
+            //全局钩子先做铺垫（把随转场带来的状态写进世界），节点与场景自己的 OnActivate 读到的已经是带过来之后的值
+            foreach (GlobalScenario global in GlobalScenario.Instances) {
+                Guard(instance, $"{global.GetType().Name}.PreActivate", () => global.PreActivate(instance, transition));
+            }
+            foreach (ScenarioNode node in instance.AllNodes) {
+                Guard(instance, $"{node.GetType().Name}.OnActivate", () => node.InvokeActivate(transition));
             }
             Guard(instance, "OnActivate", () => instance.InvokeActivate(transition));
             foreach (GlobalScenario global in GlobalScenario.Instances) {
@@ -757,6 +936,8 @@ namespace InnoVault.Scenarios
             if (instance.Status != ScenarioStatus.Activating) {
                 return;
             }
+            //激活钩子里写好的节点开关是初始状态，不算变化：从这里起的改动才通知节点
+            instance.SyncNodeBaseline();
             instance.Status = ScenarioStatus.Active;
             instance.StartPending = true;
             ScenarioRuntime.Rebuild(Stage, _active);
@@ -818,10 +999,11 @@ namespace InnoVault.Scenarios
                 Guard(instance, $"{global.GetType().Name}.OnDeactivate", () => global.OnDeactivate(instance, transition));
             }
             Guard(instance, "OnDeactivate", () => instance.InvokeDeactivate(transition));
-            IReadOnlyList<ScenarioComponent> components = instance.Components;
-            for (int i = components.Count - 1; i >= 0; i--) {
-                ScenarioComponent component = components[i];
-                Guard(instance, $"{component.GetType().Name}.OnDeactivate", () => component.InvokeDeactivate(transition));
+            //节点树的逆先序：子节点先于父节点
+            IReadOnlyList<ScenarioNode> nodes = instance.AllNodes;
+            for (int i = nodes.Count - 1; i >= 0; i--) {
+                ScenarioNode node = nodes[i];
+                Guard(instance, $"{node.GetType().Name}.OnDeactivate", () => node.InvokeDeactivate(transition));
             }
             if (ScenarioPlatform.ScenarioEnded != null) {
                 Guard(instance, "ScenarioEnded", () => ScenarioPlatform.ScenarioEnded(instance));
@@ -833,14 +1015,14 @@ namespace InnoVault.Scenarios
             UnregisterNetId(instance);
             instance.StartPending = false;
             instance.NetUpdate = false;
-            instance.Area?.ClearEngaged();
+            instance.ClearAreaEngagement();
             instance.Status = ScenarioStatus.Ended;
             ScenarioRuntime.Rebuild(Stage, _active);
         }
 
         private static void RunStart(VaultScenario scenario) {
-            foreach (ScenarioComponent component in scenario.Components) {
-                Guard(scenario, $"{component.GetType().Name}.OnStart", component.InvokeStart);
+            foreach (ScenarioNode node in scenario.AllNodes) {
+                Guard(scenario, $"{node.GetType().Name}.OnStart", node.InvokeStart);
             }
             Guard(scenario, "OnStart", scenario.InvokeStart);
             foreach (GlobalScenario global in GlobalScenario.Instances) {
@@ -848,14 +1030,59 @@ namespace InnoVault.Scenarios
             }
         }
 
-        //每帧路径，不经 Guard 以免逐组件分配委托与字符串
+        //一个处于激活中的场景在这一端改了节点开关：套用变化，服务器上排一次同步
+        internal static void NodeToggled(VaultScenario scenario) {
+            ApplyNodeSwitches(scenario);
+            if (ScenarioPlatform.IsServer && scenario.NetId != 0) {
+                scenario.NetUpdate = true;
+            }
+        }
+
+        //节点开关变了（这一端自己改的，或者服务器同步来的）：停用的区域放走里面的玩家，重建合成快照，
+        //再按节点树的先序通知启停状态变了的节点（被开关的节点，以及跟着它变的整棵子树）
+        private static void ApplyNodeSwitches(VaultScenario scenario) {
+            IReadOnlyList<ScenarioNode> nodes = scenario.AllNodes;
+            List<ScenarioNode> changed = null;
+            List<(ScenarioArea Area, int Player)> released = null;
+            for (int i = 0; i < nodes.Count; i++) {
+                ScenarioNode node = nodes[i];
+                if (!node.SyncAnnouncedState()) {
+                    continue;
+                }
+                (changed ??= []).Add(node);
+                if (node is ScenarioArea area && !area.EnabledInTree) {
+                    for (int player = 0; player < ScenarioArea.MaxPlayers; player++) {
+                        if (area.IsEngaged(player)) {
+                            area.SetEngaged(player, false);
+                            (released ??= []).Add((area, player));
+                        }
+                    }
+                }
+            }
+            ScenarioRuntime.Rebuild(Stage, _active);
+            if (released != null && ScenarioPlatform.AreaReleased != null) {
+                foreach ((ScenarioArea area, int player) in released) {
+                    Guard(scenario, $"{area.GetType().Name}.OnPlayerExit", () => ScenarioPlatform.AreaReleased(area, player));
+                }
+            }
+            if (changed != null) {
+                foreach (ScenarioNode node in changed) {
+                    Guard(scenario, $"{node.GetType().Name}.OnEnabledChanged", node.InvokeEnabledChanged);
+                }
+            }
+        }
+
+        //每帧路径，不经 Guard 以免逐节点分配委托与字符串。停用的节点（连同它的子树）不更新
         private static void RunUpdate(VaultScenario scenario) {
-            IReadOnlyList<ScenarioComponent> components = scenario.Components;
-            for (int i = 0; i < components.Count; i++) {
+            IReadOnlyList<ScenarioNode> nodes = scenario.AllNodes;
+            for (int i = 0; i < nodes.Count; i++) {
+                if (!nodes[i].EnabledInTree) {
+                    continue;
+                }
                 try {
-                    components[i].InvokeUpdate();
+                    nodes[i].InvokeUpdate();
                 } catch (Exception ex) {
-                    ScenarioPlatform.Error($"Scenario.{scenario.Key}.{components[i].GetType().Name}.Update", $"[Scenarios] {scenario.Key} {components[i].GetType().Name}.Update threw: {ex}");
+                    ScenarioPlatform.Error($"Scenario.{scenario.Key}.{nodes[i].GetType().Name}.Update", $"[Scenarios] {scenario.Key} {nodes[i].GetType().Name}.Update threw: {ex}");
                 }
             }
             try {

@@ -34,6 +34,21 @@ namespace InnoVault.Scenarios
         //权威端整块改写了一片物块（物块坐标）之后调用：服务器把这片范围重新发给客户端；缺省什么都不做
         internal static Action<Rectangle> RegionChanged { get; set; }
 
+        //一片区域在运行期间被停用、还在里面的某个玩家（索引）被标成离开之后调用，宿主补上区域的离开回调；缺省什么都不做
+        internal static Action<ScenarioArea, int> AreaReleased { get; set; }
+
+        //把一个动作交给主线程（换舞台后端可能在后台线程上回调导演层）；缺省当场执行
+        internal static Action<Action> MainThreadSink { get; set; }
+
+        internal static void OnMainThread(Action action) {
+            if (MainThreadSink != null) {
+                MainThreadSink(action);
+            }
+            else {
+                action();
+            }
+        }
+
         static ScenarioPlatform() {
             InstallHost();
         }

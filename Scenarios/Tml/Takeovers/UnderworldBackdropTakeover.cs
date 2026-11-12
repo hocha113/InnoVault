@@ -21,16 +21,25 @@ namespace InnoVault.Scenarios
 
         protected override void Uninstall() => IL_Main.DrawBackground -= Manipulate;
 
+        //从读 maxTilesY 到减法最多隔这么多条指令：原版是紧挨着的三条，余量留给排在前面的模组插进来的指令
+        private const int AnchorGap = 12;
+
         private void Manipulate(ILContext il) {
             try {
                 ILCursor cursor = new(il);
-                if (_maxTilesY == null || !cursor.TryGotoNext(MoveType.After, i => i.MatchLdsfld(_maxTilesY), i => i.MatchLdcI4(330), i => i.MatchSub())) {
+                //两段锚点分开找：排在前面的模组可能已经在读 maxTilesY 与常数之间插了自己的分支，只要求常数与减法还紧挨着
+                if (_maxTilesY == null || !cursor.TryGotoNext(MoveType.After, i => i.MatchLdsfld(_maxTilesY))) {
+                    Fail("read of maxTilesY not found", il);
+                    return;
+                }
+                int read = cursor.Index;
+                if (!cursor.TryGotoNext(MoveType.After, i => i.MatchLdcI4(330), i => i.MatchSub()) || cursor.Index - read > AnchorGap) {
                     Fail("'maxTilesY - 330' not found", il);
                     return;
                 }
                 //栈：sub 之后栈顶是一个 int（地狱背景起始行），换成场景给的行号
                 cursor.EmitDelegate(static (int row) => ScenarioDrawRules.UnderworldBackdropRow(row));
-                Succeed();
+                Succeed(il);
             } catch (Exception ex) {
                 Fail(ex.Message, il);
             }

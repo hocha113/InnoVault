@@ -10,6 +10,8 @@ namespace InnoVault.Scenarios
     /// 场景基类，InnoVault 场景框架的根概念。游戏由一个个场景组合而成：场景可以拥有一整块舞台
     /// （挂一个 <see cref="ScenarioStage"/> 组件），可以只作用于当前舞台里的一片区域（挂一个 <see cref="ScenarioArea"/>），
     /// 也可以不占空间，只是叠加在当前舞台上的一段玩法<br/>
+    /// 一个场景实例是一棵<b>节点树</b>：Compose 里挂上的节点（<see cref="ScenarioNode"/>）可以再带子节点，挂在区域下面的节点只在那片区域里生效；
+    /// 子场景是挂在它下面的另一棵树。所有处于激活中的场景合起来就是场景树，由 <see cref="ScenarioDirector"/> 管理<br/>
     /// tML 加载出的那个对象是<b>场景模板</b>，只用于查询与创建实例，永远不会被激活；
     /// 每次激活都会新建一个<b>场景实例</b>，所以写在字段里的状态天然只属于这一次激活<br/>
     /// 进入、离开与查询都经 <see cref="ScenarioDirector"/><br/>
@@ -24,7 +26,11 @@ namespace InnoVault.Scenarios
         //实例由工厂新建，不经过 tML 的注册流程，Mod 需要从模板补上（其 setter 为 internal）
         private static readonly PropertyInfo _modProperty = typeof(ModType).GetProperty(nameof(Mod));
 
-        private readonly List<ScenarioComponent> _components = [];
+        //直接挂在场景上的节点；整棵节点树按先序摊平在 _flat 里，生命周期派发与网络状态都按它的顺序
+        private readonly List<ScenarioNode> _roots = [];
+        private List<ScenarioNode> _flat = [];
+        private List<ScenarioComponent> _flatComponents = [];
+        private bool _flatDirty;
         private readonly List<VaultScenario> _children = [];
         private readonly List<VaultScenario> _childTemplates = [];
 
@@ -55,8 +61,27 @@ namespace InnoVault.Scenarios
         /// <summary>当前处于激活中的子场景实例</summary>
         public IReadOnlyList<VaultScenario> Children => _children;
 
-        /// <summary>Compose 时挂上的组件，按挂载顺序排列</summary>
-        public IReadOnlyList<ScenarioComponent> Components => _components;
+        /// <summary>直接挂在场景上的节点，按挂载顺序排列；它们各自的子节点在 <see cref="ScenarioNode.Children"/> 里</summary>
+        public IReadOnlyList<ScenarioNode> Nodes => _roots;
+
+        /// <summary>Compose 时挂上的全部组件（含挂在其他节点下面的），按节点树的先序排列</summary>
+        public IReadOnlyList<ScenarioComponent> Components {
+            get {
+                EnsureFlat();
+                return _flatComponents;
+            }
+        }
+
+        //整棵节点树，先序排列（父节点在子节点之前）
+        internal IReadOnlyList<ScenarioNode> AllNodes {
+            get {
+                EnsureFlat();
+                return _flat;
+            }
+        }
+
+        //Compose 已经结束，节点树的形状不再变化
+        internal bool Composed { get; private set; }
 
         /// <summary>这个实例的舞台组件，不拥有舞台时为空；模板上始终为空</summary>
         public ScenarioStage Stage { get; private set; }
@@ -64,7 +89,10 @@ namespace InnoVault.Scenarios
         /// <summary>这个实例是否拥有舞台</summary>
         public bool OwnsStage => Stage != null;
 
-        /// <summary>这个实例的区域组件，没有时为空；模板上始终为空</summary>
+        /// <summary>
+        /// 这个实例的主区域：第一个直接挂在场景上、又不是局部区域（<see cref="ScenarioArea.Local"/>）的 <see cref="ScenarioArea"/>，没有时为空；模板上始终为空。
+        /// 没有挂在别的区域下面的节点都以它为作用范围（<see cref="ScenarioNode.ScopeArea"/>）
+        /// </summary>
         public ScenarioArea Area { get; private set; }
 
         /// <summary>进入激活状态后经过的游戏帧数</summary>
@@ -94,6 +122,14 @@ namespace InnoVault.Scenarios
         protected virtual bool CanActivate(ScenarioTransition transition) => true;
 
         /// <summary>
+        /// 作为换舞台的目标：旧舞台即将停用、尚未存盘时调用，此刻旧舞台还完整地在内存里（每一端各一次，主线程）。
+        /// 要趁旧舞台还在时做的准备放在这里，例如按主世界的进度定下这次进入的档位、给主世界里的入口收尾；
+        /// 之后依次是旧舞台的停用、舞台切换、本场景的 OnActivate。多人客户端没赶上离场通知时不调用
+        /// </summary>
+        /// <param name="transition">这次换舞台，<see cref="ScenarioTransition.From"/> 是即将离开的舞台场景</param>
+        protected virtual void OnApproach(ScenarioTransition transition) { }
+
+        /// <summary>
         /// 激活时调用，组件的 OnActivate 已经执行。经换舞台进入的舞台场景此时舞台已读入、玩家尚未出生，运行在读档线程上，
         /// 只做数据与世界状态的工作；换舞台的数据包在这里读取。会话开始时的根场景例外：它在玩家出生之后、主线程上激活<br/>
         /// 多人模式下每一端各调用一次：服务器在读完舞台之后（主线程，此时玩家都还在路上），客户端在出生于这块舞台并收到服务器的场景树之后（主线程）。
@@ -120,14 +156,68 @@ namespace InnoVault.Scenarios
         /// <param name="transition">引起这次停用的转场</param>
         protected virtual void OnDeactivate(ScenarioTransition transition) { }
 
-        /// <summary>按类型取第一个挂载的组件，没有时返回空</summary>
-        public T GetComponent<T>() where T : ScenarioComponent {
-            foreach (ScenarioComponent component in _components) {
-                if (component is T match) {
+        /// <summary>按类型取第一个挂载的组件（节点树先序，含挂在其他节点下面的），没有时返回空</summary>
+        public T GetComponent<T>() where T : ScenarioComponent => FindNode<T>();
+
+        /// <summary>按类型（与名字）在整棵节点树里找第一个节点（先序），没有时返回空</summary>
+        /// <param name="name">节点名（<see cref="ScenarioNode.Name"/>），为空时只按类型</param>
+        public T FindNode<T>(string name = null) where T : ScenarioNode {
+            IReadOnlyList<ScenarioNode> nodes = AllNodes;
+            for (int i = 0; i < nodes.Count; i++) {
+                if (nodes[i] is T match && (name == null || match.Name == name)) {
                     return match;
                 }
             }
             return null;
+        }
+
+        /// <summary>按路径取节点：各级节点名用 <c>/</c> 连接，从直接挂在场景上的节点开始；找不到或类型不符时返回空</summary>
+        /// <param name="path">路径，例如 <c>BossRoom/Rules</c></param>
+        public T GetNode<T>(string path) where T : ScenarioNode => ScenarioNode.Resolve(_roots, path) as T;
+
+        /// <summary>取整棵节点树里所有指定类型的节点（先序），返回新建的列表</summary>
+        public List<T> GetNodes<T>() where T : ScenarioNode {
+            List<T> results = [];
+            IReadOnlyList<ScenarioNode> nodes = AllNodes;
+            for (int i = 0; i < nodes.Count; i++) {
+                if (nodes[i] is T match) {
+                    results.Add(match);
+                }
+            }
+            return results;
+        }
+
+        /// <summary>取某个分组里的所有节点（先序），返回新建的列表</summary>
+        /// <param name="group">分组名（<see cref="ScenarioNode.Groups"/>）</param>
+        public List<ScenarioNode> GetNodesInGroup(string group) {
+            List<ScenarioNode> results = [];
+            IReadOnlyList<ScenarioNode> nodes = AllNodes;
+            for (int i = 0; i < nodes.Count; i++) {
+                if (nodes[i].IsInGroup(group)) {
+                    results.Add(nodes[i]);
+                }
+            }
+            return results;
+        }
+
+        /// <summary>
+        /// 成批开关某个分组里的节点（<see cref="ScenarioNode.Enabled"/>），返回状态发生变化的节点数。适合按阶段切换一组规则、区域与镜头；
+        /// 多人模式下在裁决端调用，结果随场景的网络状态同步
+        /// </summary>
+        /// <param name="group">分组名</param>
+        /// <param name="enabled">要设成的状态</param>
+        public int SetGroupEnabled(string group, bool enabled) {
+            int changed = 0;
+            IReadOnlyList<ScenarioNode> nodes = AllNodes;
+            for (int i = 0; i < nodes.Count; i++) {
+                if (nodes[i].IsInGroup(group) && nodes[i].SetEnabledSilently(enabled)) {
+                    changed++;
+                }
+            }
+            if (changed > 0) {
+                NotifyNodeToggled();
+            }
+            return changed;
         }
 
         /// <summary>按类型取第一个挂载的组件</summary>
@@ -184,36 +274,68 @@ namespace InnoVault.Scenarios
 
         internal void InvokeCompose(ScenarioComposer composer) => Compose(composer);
         internal bool InvokeCanActivate(ScenarioTransition transition) => CanActivate(transition);
+        internal void InvokeApproach(ScenarioTransition transition) => OnApproach(transition);
         internal void InvokeActivate(ScenarioTransition transition) => OnActivate(transition);
         internal void InvokeStart() => OnStart();
         internal void InvokeUpdate() => Update();
         internal void InvokeDeactivate(ScenarioTransition transition) => OnDeactivate(transition);
 
-        internal void AttachComponent(ScenarioComponent component) {
-            if (component.Scenario != null) {
-                throw new InvalidOperationException($"{component.GetType().Name} is already attached to {component.Scenario.Key}");
+        //把一个节点（连同它已经挂好的子树）直接挂到场景上
+        internal void AttachComponent(ScenarioNode node) {
+            if (node.Scenario != null || node.Parent != null) {
+                throw new InvalidOperationException($"{node.GetType().Name} is already attached to {node.Scenario?.Key ?? node.Parent.GetType().Name}");
             }
-            if (component is ScenarioStage stage) {
+            _roots.Add(node);
+            AttachSubtree(node);
+        }
+
+        //登记一棵子树：先节点自己，再按顺序是它的子节点
+        internal void AttachSubtree(ScenarioNode node) {
+            if (node.Scenario != null) {
+                throw new InvalidOperationException($"{node.GetType().Name} is already attached to {node.Scenario.Key}");
+            }
+            if (node is ScenarioStage stage) {
                 if (Stage != null) {
                     throw new InvalidOperationException($"{Key} declares more than one ScenarioStage");
                 }
+                if (node.Parent != null) {
+                    throw new InvalidOperationException($"{Key}: ScenarioStage must be attached directly to the scenario");
+                }
                 Stage = stage;
             }
-            if (component is ScenarioArea area) {
-                if (Area != null) {
-                    throw new InvalidOperationException($"{Key} declares more than one ScenarioArea");
-                }
+            //主区域是第一个直接挂在场景上、又没有声明为局部的区域，其余区域只管自己的子节点
+            if (node is ScenarioArea { Local: false } area && node.Parent == null && Area == null) {
                 Area = area;
             }
-            _components.Add(component);
-            component.Attach(this);
+            _flatDirty = true;
+            node.Attach(this);
+            IReadOnlyList<ScenarioNode> children = node.Children;
+            for (int i = 0; i < children.Count; i++) {
+                AttachSubtree(children[i]);
+            }
+        }
+
+        internal void FinishCompose() {
+            EnsureFlat();
+            Composed = true;
+        }
+
+        //按类型取第一个启用着的节点：幕布、加载画面、演出挂点这类“取一个来用”的节点，停用的等于没挂
+        internal T FindEnabled<T>() where T : ScenarioNode {
+            IReadOnlyList<ScenarioNode> nodes = AllNodes;
+            for (int i = 0; i < nodes.Count; i++) {
+                if (nodes[i] is T match && match.EnabledInTree) {
+                    return match;
+                }
+            }
+            return null;
         }
 
         internal string ValidateComposition() {
-            foreach (ScenarioComponent component in _components) {
-                string error = component.InvokeValidate();
+            foreach (ScenarioNode node in AllNodes) {
+                string error = node.InvokeValidate();
                 if (error != null) {
-                    return $"{component.GetType().Name}: {error}";
+                    return $"{node.GetType().Name}: {error}";
                 }
             }
             return null;
@@ -221,12 +343,61 @@ namespace InnoVault.Scenarios
 
         internal bool HasStageBoundComponents {
             get {
-                foreach (ScenarioComponent component in _components) {
-                    if (component.BindsToStage) {
+                foreach (ScenarioNode node in AllNodes) {
+                    if (node.BindsToStage) {
                         return true;
                     }
                 }
                 return false;
+            }
+        }
+
+        //节点的开关变了：处于激活中时让导演层重建合成快照，并在裁决端排一次网络同步
+        internal void NotifyNodeToggled() {
+            if (Status == ScenarioStatus.Active) {
+                ScenarioDirector.NodeToggled(this);
+            }
+        }
+
+        //所有区域节点清空参与状态（场景停用时）
+        internal void ClearAreaEngagement() {
+            foreach (ScenarioNode node in AllNodes) {
+                if (node is ScenarioArea area) {
+                    area.ClearEngaged();
+                }
+            }
+        }
+
+        //场景进入激活状态时调用：各节点此刻的启停记为基线，激活前写好的开关不算变化
+        internal void SyncNodeBaseline() {
+            foreach (ScenarioNode node in AllNodes) {
+                node.SyncAnnouncedState();
+            }
+        }
+
+        private void EnsureFlat() {
+            if (!_flatDirty) {
+                return;
+            }
+            List<ScenarioNode> flat = [];
+            List<ScenarioComponent> components = [];
+            foreach (ScenarioNode root in _roots) {
+                Flatten(root, flat, components);
+            }
+            //整体替换：别的线程读到的始终是完整的一份
+            _flat = flat;
+            _flatComponents = components;
+            _flatDirty = false;
+        }
+
+        private static void Flatten(ScenarioNode node, List<ScenarioNode> flat, List<ScenarioComponent> components) {
+            flat.Add(node);
+            if (node is ScenarioComponent component) {
+                components.Add(component);
+            }
+            IReadOnlyList<ScenarioNode> children = node.Children;
+            for (int i = 0; i < children.Count; i++) {
+                Flatten(children[i], flat, components);
             }
         }
 

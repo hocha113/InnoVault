@@ -61,8 +61,12 @@ namespace InnoVault.GameSystem
                 VaultLoadingProgress.WorldDataLoaded = true;
             }
         }
+        //当前世界的存档数据读取有没有发起过。tML 只在世界存档里存有本模组的数据时才派发 LoadWorldData：
+        //从没带着本模组存过盘的世界、别的模组在内存里生成后直接进入的世界都不会派发，见 EnsureWorldLoadDispatched
+        private static volatile bool _worldLoadDispatched;
         /// <inheritdoc/>
         public override void OnWorldUnload() {
+            _worldLoadDispatched = false;
             VaultLoadingProgress.WorldDataLoaded = false;
             VaultLoadingProgress.ResetSession();
             //世界卸载前等待挂起的保存任务完成，避免后台写盘被打断导致存档不完整
@@ -90,16 +94,35 @@ namespace InnoVault.GameSystem
         /// <inheritdoc/>
         public override void LoadWorldData(TagCompound tag) {
             tag.TryGet("root:worldData", out string _);
-            Task.Run(() => {
-                VaultLoadingProgress.WorldDataLoaded = false;
-                //若存在尚未落盘的后台保存（例如世界刚生成完毕、玩家紧接着进入该世界），先等待其完成，
-                //避免读取到缺失或写到一半的NBT文件
-                WaitForPendingSave();
-                DoLoadWorld();
-                LoadWorldEvent?.Invoke();
-                VaultLoadingProgress.WorldDataLoaded = true;
+            _worldLoadDispatched = true;
+            Task.Run(LoadWorldInBackground);
+        }
+        /// <summary>
+        /// 当前世界不是从存档读出来的（场景舞台生成后直接进入）时调用：这样的世界没有模组存档，tML 不会派发 <see cref="LoadWorldData"/>，
+        /// 这里照同样的步骤走一遍，等待世界数据就绪的各处（TP 加载、<see cref="LoadWorldEvent"/> 的订阅者）才不会空等
+        /// </summary>
+        internal static void LoadWithoutWorldFile() {
+            _worldLoadDispatched = true;
+            Task.Run(LoadWorldInBackground);
+        }
+        /// <summary>
+        /// 进入世界时（世界已经读完或生成完）调用：到这时还没有人发起过世界数据的读取，就在这里发起。
+        /// 客户端不读世界存档，就绪标记在 <see cref="OnWorldLoad"/> 里已经置好
+        /// </summary>
+        internal static void EnsureWorldLoadDispatched() {
+            if (_worldLoadDispatched || VaultUtils.isClient) {
+                return;
             }
-            );
+            LoadWithoutWorldFile();
+        }
+        private static void LoadWorldInBackground() {
+            VaultLoadingProgress.WorldDataLoaded = false;
+            //若存在尚未落盘的后台保存（例如世界刚生成完毕、玩家紧接着进入该世界），先等待其完成，
+            //避免读取到缺失或写到一半的NBT文件
+            WaitForPendingSave();
+            DoLoadWorld();
+            LoadWorldEvent?.Invoke();
+            VaultLoadingProgress.WorldDataLoaded = true;
         }
         /// <inheritdoc/>
         public override void Unload() {
